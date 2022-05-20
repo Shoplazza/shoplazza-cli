@@ -1,0 +1,719 @@
+{% use 'slide.css' %}
+{% assign text = section.settings.text %}
+{% assign text_color=section.settings.text_color %}
+{% comment %} 高度转换 {% endcomment %}
+{% if section.settings.img_height == "large" %}
+  {% assign mobile_height = "460px" %}
+  {% assign pc_height = "600px" %}
+{% elsif section.settings.img_height == "medium" %}
+  {% assign mobile_height = "325px" %}
+  {% assign pc_height = "450px" %}
+{% elsif section.settings.img_height == "small" %}
+  {% assign mobile_height = "200px" %}
+  {% assign pc_height = "300px" %}
+{% elsif section.settings.img_height == "x-small" %}
+  {% assign mobile_height = "150px" %}
+  {% assign pc_height = "200px" %}
+{% elsif section.settings.img_height == "normal" %}
+  {% assign mobile_height = "normal" %}
+  {% assign pc_height = "normal" %}
+{% else %}
+  {% comment %} 默认值兼容旧数据 {% endcomment %}
+  {% assign mobile_height = "325px" %}
+  {% assign pc_height = "450px" %}
+{% endif %}
+{% if section.settings.img_height != "normal" %}
+  {% assign type = "static" %}
+{% else %}
+  {% assign type = "cover" %}
+{% endif %}
+
+{% if type == "cover" %}
+  {% assign pc_height = "100%" %}
+  {% assign mobile_height = "100%" %}
+{% endif %}
+
+{% assign full_width = section.settings.is_full_width %}
+
+<div id="slider{{section.id}}" class="style_{{section.settings.style}} {% if full_width != true and full_width != nil %}container{% else %}slide__bottom-margin{% endif %}">
+  {% if full_width != true and full_width != nil %}<div class="d-block row mb-padding slide__bottom-margin">{% endif %}
+  {% if section.blocks.size == 0 %}
+    {% assign blocks = '1,2,3' | split: ',' %}
+  {% else %}
+    {% assign blocks =  section.blocks %}
+  {% endif %}
+
+  {% for block in blocks %}
+    {% assign url = block.settings.url.url %}
+    {% assign title = block.settings.title %}
+    {% assign sub_title = block.settings.sub_title %}
+    {% assign link_type = block.settings.url.type %}
+    {% assign text_size = section.settings.text_size %}
+    {% assign alignment = block.settings.alignment %}
+    {% assign button_label = block.settings.button_label %}
+    {% assign button_link = block.settings.button_link.url %}
+    {% assign button_link_type = block.settings.button_link.type %}
+    {% assign button_text_color = block.settings.button_text_color %}
+    {% assign button_bg_color = block.settings.button_bg_color %}
+    {% assign text_color = block.settings.text_color %}
+    {% assign text_position = block.settings.text_position %}
+    {% assign opacity = block.settings.opacity %}
+    {% assign image_src = block.settings.src %}
+    {% assign mobile_image_src = block.settings.mobile_src | default: block.settings.src %}
+    {% assign defaultImg = 'oss/operation/bbb5b6c710007fbaa2ad1adc6800ee6c.png' %}
+
+    {% if section.blocks.size == 0 %}
+      {% assign alignment = "center" %}
+      {% assign opacity = 25 %}
+      {% assign title = "Image Slide" %}
+      {% assign sub_title = "Tell your brand's story through images" %}
+      {% assign url = "" %}
+      {% assign button_link = "" %}
+      {% assign button_label = "" %}
+      {% assign text_position = nil %}
+      {% assign image_src = blank %}
+    {% endif %}
+
+    {% if image_src == blank %}
+      {% assign image_src = defaultImg %}
+    {% endif %}
+    {% if mobile_image_src == blank %}
+      {% assign mobile_image_src = defaultImg %}
+    {% endif %}
+    <div {% if type == "cover" %}style="height: 100%;"{% endif %} class="hero hero--{{block.id}} {% if url %}url-cursor{% endif %}">
+      <a
+        {% if url %}href="{{url}}"{% endif %}
+        {% if link_type == "web" %}target="_blank"{% endif %}
+        class="slide__img-wrapper slide__img-wrapper-{{forloop.index0}} position-relative d-flex m-auto w-100 justify-content-center"
+      >
+        <img
+          class="slide__img h-100 {% unless forloop.index0 == 0 %}lazy-{% endunless %}lazyload position-absolute {% if height == '100%' %} slide__img_auto {% endif %}"
+          src="{{shop.default_img}}"
+          data-srcs="{{mobile_image_src | img_url: '{width}x' }},{{image_src | img_url: '{width}x' }}"
+          
+          data-sizes="auto"
+          style="object-position: center {{alignment}};"
+          alt="{{images[image_src].alt | escape}}"
+        />
+        {% comment %} 灰色萌层以及文案 {% endcomment %}
+        {% if title or sub_title or button_link %}
+          <div class="hero__inner w-100 m-auto" style="background: rgba(0, 0, 0, {{ opacity | divided_by: 100.0 }})"></div>
+        {% endif %}
+      </a>
+      {% if title or sub_title or button_link %}
+        <div class="banner_content flex_{%if text_position != blank%}{{text_position}}{%else%}center{%endif%}">
+          <div class="page-width gap_{{text_size}}">
+            <div
+              {%if url%}
+                {% if link_type == 'web' %}
+                  onclick="window.open('{{ url }}')"
+                {% else %}
+                  onclick="location.href = '{{ url }}';"
+                {% endif %}
+              {%endif%}
+            >
+            {% if title != blank %}
+              <h2 class="mega-title mega-title-{{text_size}}" {%if text_color!=blank%}style="color:{{text_color}};"{%endif%}>{{ title | escape }}</h2>
+            {% endif %}
+            {% if sub_title != blank %}
+              <div class="mega-subtitle mega-subtitle-{{text_size}}" {%if text_color!=blank%}style="color:{{text_color}};"{%endif%}>{{ sub_title }}</div>
+            {% endif %}
+            </div>
+            {% if button_link != blank and button_label != blank %}
+              <a
+                {% if button_link_type == 'web' %}
+                  target="_blank"
+                {% endif %}
+                href="{{button_link}}"
+                class="hero-btn btn"
+                style="
+                  {%if button_text_color!=blank%}color:{{button_text_color}};{%endif%}
+                  {%if button_bg_color!=blank%}background-color:{{button_bg_color}};{%endif%}
+                  cursor:pointer;"
+              >
+                {{ button_label | escape }}
+              </a>
+
+            {% endif %}
+          </div>
+        </div>
+      {%endif%}
+    </div>
+  {% endfor %}
+  {% if full_width != true and full_width != nil %}</div>{% endif %}
+</div>
+<style>
+  {%if section.settings.img_height == "x-small"%}
+    [data-section-id='{{section.id}}'] .btn-primary{
+      display:none;
+    }
+  {%endif%}
+  [data-section-id='{{section.id}}'] .hero .mega-title{
+    {% assign titleFont = settings.skin_title_font_family %}
+    font-family: {{titleFont.family}},{{titleFont.fallback_families}};
+    font-style: {{titleFont.style}};
+    font-weight: {{titleFont.weight}};
+  }
+  {% if section.settings.img_height == "x-small" %}
+    [data-section-id='{{section.id}}'] .sep-loaded-slider__bullets{
+      display:none;
+    }
+  {%endif%}
+  .slide__bottom-margin {
+    margin-bottom: {% if section.settings.show_bottom_margin %}2.5rem{% else %}0{% endif %} !important;
+  }
+  [data-section-id='{{section.id}}'] .hero .mega-subtitle,.hero .mega-title {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  [data-section-id='{{section.id}}'] .hero .hero-btn:hover {
+    background: #fff;
+    color:#000;
+  }
+  [data-section-id='{{section.id}}'] .btn-primary{
+    color: #000;
+    background-color: #fff;
+    border-color: #fff;
+    max-width: 20rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  [data-section-id='{{section.id}}'] .gap_small .hero-btn {
+    margin-top: 30px;
+  }
+  [data-section-id='{{section.id}}'] .gap_medium .hero-btn {
+    margin-top: 40px;
+  }
+  [data-section-id='{{section.id}}'] .gap_large .hero-btn {
+    margin-top: 50px;
+  }
+  [data-section-id='{{section.id}}'] .hero .page-width{
+    padding-bottom:30px;
+    padding-top:30px;
+    display: inline-block;
+  }
+  [data-section-id='{{section.id}}'] .banner_content{
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    -webkit-transform:translate(-50%,-50%);
+    color: #fff;
+    z-index: 10;
+    box-sizing: border-box;
+    width: 100%;
+  }
+  {% for block in blocks %}
+    {% assign image_src = block.settings.src | default: defaultImg %}
+    {% assign mobile_image_src = block.settings.mobile_src | default: block.settings.src %}
+    {% unless forloop.index0 == 0 %}
+      .hero--{{block.id}}{
+        display: none;
+      }
+    {% endunless %}
+    [data-section-id='{{section.id}}'] .slide__img-wrapper-{{forloop.index0}}{
+      padding-bottom:
+      {% if type == 'cover' %}
+        {{ images[image_src].height | image_padding_bottom : images[image_src].width, origin:'unlimit' }};
+      {% else %}
+        {{ pc_height }}
+      {% endif %};
+    }
+    @media (max-width:768px){
+      [data-section-id='{{section.id}}'] .slide__img-wrapper-{{forloop.index0}}{
+        padding-bottom:
+        {% if type == 'cover' %}
+          {{ images[mobile_image_src].height | image_padding_bottom : images[mobile_image_src].width, origin:'unlimit' }};
+        {% else %}
+          {{ mobile_height }}
+        {% endif %};
+      }
+    }
+  {% endfor %}
+  @media (max-width:768px){
+    [data-section-id='{{section.id}}'] .banner_content{
+      padding:0 15px;
+    }
+    [data-section-id='{{section.id}}'] .hero .page-width{
+      max-width:100%;
+    }
+    {%if section.settings.img_height == "x-small" or section.settings.img_height == "small" %}
+      [data-section-id='{{section.id}}'] .hero .mega-subtitle,[data-section-id='{{section.id}}'] .hero .mega-title {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        display: block;
+      }
+      [data-section-id='{{section.id}}'] .hero .page-width{
+        margin-bottom:30px;
+      }
+    {%endif%}
+    [data-section-id='{{section.id}}'] .hero-btn {
+      margin-top: 1rem !important;
+    }
+  }
+  [data-section-id='{{section.id}}'] .banner_content.flex_center {
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    -webkit-transform:translate(-50%,-50%);
+    text-align:center;
+  }
+  [data-section-id='{{section.id}}'] .banner_content.flex_center_left {
+    left:0;
+    top:50%;
+    transform:translate(0,-50%);
+    -webkit-transform:translate(0,-50%);
+    text-align:left;
+  }
+  [data-section-id='{{section.id}}'] .banner_content.flex_center_right {
+    left:auto;
+    right:0;
+    top:50%;
+    transform:translate(0,-50%);
+    -webkit-transform:translate(0,-50%);
+    text-align:right;
+  }
+  [data-section-id='{{section.id}}'] .banner_content.flex_bottom_left {
+    left:0;
+    top:auto;
+    bottom:0;
+    transform:translate(0,0);
+    -webkit-transform:translate(0,0);
+    text-align:left;
+  }
+  [data-section-id='{{section.id}}'] .banner_content.flex_bottom_center {
+    left:50%;
+    top:auto;
+    bottom:0;
+    transform:translate(-50%,0);
+    -webkit-transform:translate(-50%,0);
+    text-align:center;
+  }
+  [data-section-id='{{section.id}}'] .banner_content.flex_bottom_right {
+    left:auto;
+    top:auto;
+    right:0;
+    bottom:0;
+    transform:translate(0,0);
+    -webkit-transform:translate(0,0);
+    text-align:right;
+  }
+</style>
+
+{% javascript %}
+$(function(){
+  var $slider = $("{% if full_width != true and full_width != nil %}#slider{{section.id}} .row{% else %}#slider{{section.id}}{% endif %}");
+  $slider.hasClass('slick-initialized') && $slider.slick('destroy');
+  $slider.slick({
+    slidesToShow: 1,
+    slidesToScroll: 1,
+    arrows: false,
+    dots: true,
+    infinite: true,
+    adaptiveHeight: true,
+    touchThreshold: 10,
+    speed: 300,
+    autoplaySpeed:{{ section.settings.delay }},
+    autoplay:{% if section.settings.is_auto_play %}true{%else%}false{%endif%},
+    rtl: document.documentElement.getAttribute("dir") == "rtl"
+  }).on("beforeChange",function (event, slick){
+    $(slick.$slider).find(".lazy-lazyload").removeClass("lazy-lazyload").addClass("lazyload");
+  });
+});
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "slide",
+  "max_blocks": 10,
+  "settings": [
+    {
+      "type": "header",
+      "content": {
+        "zh-CN": "轮播规则",
+        "en-US": "Settings"
+      }
+    },
+    {
+      "type": "checkbox",
+      "label": {
+        "en-US": "Auto-change slides",
+        "zh-CN": "自动轮播"
+      },
+      "id": "is_auto_play",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "delay",
+      "label": {
+        "zh-CN": "轮播时间",
+        "en-US": "Change slides every"
+      },
+      "default": "5000",
+      "options": [
+        {
+          "value": "2000",
+          "label": {
+            "en-US": "2s",
+            "zh-CN": "2秒"
+          }
+        },
+        {
+          "value": "3000",
+          "label": {
+            "en-US": "3s",
+            "zh-CN": "3秒"
+          }
+        },
+        {
+          "value": "5000",
+          "label": {
+            "en-US": "5s",
+            "zh-CN": "5秒"
+          }
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "label": {
+        "zh-CN": "图片高度",
+        "en-US": "Image height"
+      },
+      "id": "img_height",
+      "default": "medium",
+      "options": [
+        {
+          "value": "normal",
+          "label": {
+            "zh-CN": "自适应",
+            "en-US": "Full"
+          }
+        },
+        {
+          "value": "large",
+          "label": {
+            "en-US": "Large(PC: 600px, Phone: 460px)",
+            "zh-CN": "大（PC：600px，移动：460px ）"
+          }
+        },
+        {
+          "value": "medium",
+          "label": {
+            "zh-CN": "中（PC：450px，移动：325px ）",
+            "en-US": "Medium(PC: 450px, Phone: 325px)"
+          }
+        },
+        {
+          "value": "small",
+          "label": {
+            "en-US": "Small(PC: 300px, Phone: 200px)",
+            "zh-CN": "小（PC：300px，移动：200px ）"
+          }
+        },
+        {
+          "value": "x-small",
+          "label": {
+            "en-US": "Ultra-small(PC: 200px, Phone: 150px)",
+            "zh-CN": "超小（PC：200px，移动：150px ）"
+          }
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "label": {
+        "en-US": "Text size",
+        "zh-CN": "文字大小"
+      },
+      "id": "text_size",
+      "default": "medium",
+      "options": [
+        {
+          "value": "large",
+          "label": {
+            "zh-CN": "大",
+            "en-US": "Large"
+          }
+        },
+        {
+          "value": "medium",
+          "label": {
+            "zh-CN": "中",
+            "en-US": "Medium"
+          }
+        },
+        {
+          "value": "small",
+          "label": {
+            "zh-CN": "小",
+            "en-US": "Small"
+          }
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "label": {
+        "zh-CN": "宽度铺满屏幕",
+        "en-US": "Full page width"
+      },
+      "id": "is_full_width",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "label": {
+        "en-US": "Show below space",
+        "zh-CN": "显示下间距"
+      },
+      "id": "show_bottom_margin",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": {
+        "en-US": "Content fill",
+        "zh-CN": "内容填充"
+      }
+    }
+  ],
+  "blocks": [
+    {
+      "type": "banner",
+      "name": {
+        "zh-CN": "图片",
+        "en-US": "Image"
+      },
+      "settings": [
+        {
+          "type": "image_picker",
+          "label": {
+            "en-US": "Desktop image",
+            "zh-CN": "PC端图片"
+          },
+          "id": "src",
+          "info": {
+            "zh-CN": "如果您选择自适应，建议尺寸（宽*高）：1920*667px",
+            "en-US": "Recommended resolution (width * height): 1920*667px if you choose responsive layout"
+          }
+        },
+        {
+          "type": "image_picker",
+          "id": "mobile_src",
+          "label": {
+            "en-US": "Mobile image",
+            "zh-CN": "移动端图片"
+          },
+          "info": {
+            "zh-CN": "如果您选择自适应，建议尺寸（宽*高）：750*918px",
+            "en-US": "Recommended resolution (width * height): 750*918px if you choose responsive layout"
+          }
+        },
+        {
+          "type": "text",
+          "id": "button_label",
+          "label": {
+            "zh-CN": "按钮文字",
+            "en-US": "Button text"
+          },
+          "default": "Learn More"
+        },
+        {
+          "type": "url",
+          "id": "button_link",
+          "label": {
+            "en-US": "Button link",
+            "zh-CN": "按钮链接"
+          }
+        },
+        {
+          "type": "color",
+          "id": "button_bg_color",
+          "label": {
+            "en-US": "Button background color",
+            "zh-CN": "按钮背景颜色"
+          },
+          "default": "#FFFFFF"
+        },
+        {
+          "type": "color",
+          "id": "button_text_color",
+          "label": {
+            "en-US": "Button text color",
+            "zh-CN": "按钮文字颜色"
+          },
+          "default": "#000000"
+        },
+        {
+          "type": "range",
+          "id": "opacity",
+          "step": 1,
+          "max": 100,
+          "min": 0,
+          "label": {
+            "en-US": "Opacity",
+            "zh-CN": "蒙层不透明度"
+          },
+          "default": 25,
+          "unit": "%"
+        },
+        {
+          "type": "select",
+          "id": "alignment",
+          "label": {
+            "zh-CN": "图片截取位置",
+            "en-US": "Crop"
+          },
+          "default": "center",
+          "options": [
+            {
+              "value": "top",
+              "label": {
+                "en-US": "Top",
+                "zh-CN": "上"
+              }
+            },
+            {
+              "value": "center",
+              "label": {
+                "en-US": "Center",
+                "zh-CN": "中"
+              }
+            },
+            {
+              "value": "bottom",
+              "label": {
+                "en-US": "Bottom",
+                "zh-CN": "下"
+              }
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "id": "text_position",
+          "label": {
+            "en-US": "Text and button position",
+            "zh-CN": "文字&按钮位置"
+          },
+          "default": "center",
+          "options": [
+            {
+              "label": {
+                "en-US": "Center left",
+                "zh-CN": "中左"
+              },
+              "value": "center_left"
+            },
+            {
+              "label": {
+                "en-US": "Center",
+                "zh-CN": "中间"
+              },
+              "value": "center"
+            },
+            {
+              "label": {
+                "en-US": "Center right",
+                "zh-CN": "中右"
+              },
+              "value": "center_right"
+            }
+          ]
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": {
+            "zh-CN": "标题&副标题颜色",
+            "en-US": "Heading and subheading color"
+          },
+          "default": "#FFFFFF"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          },
+          "default": "Image Slide",
+          "placeholder": {
+            "zh-CN": "输入标题",
+            "en-US": "Input heading"
+          }
+        },
+        {
+          "type": "text",
+          "id": "sub_title",
+          "label": {
+            "en-US": "Subheading",
+            "zh-CN": "副标题"
+          },
+          "default": "Tell your brand's story through  images",
+          "placeholder": {
+            "en-US": "Input subheading",
+            "zh-CN": "输入副标题"
+          }
+        },
+        {
+          "type": "url",
+          "id": "url",
+          "label": {
+            "zh-CN": "两图共用链接",
+            "en-US": "Image link"
+          },
+          "is_image_link": true
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "slide",
+      "cname": {
+        "en-US": "Slideshow",
+        "zh-CN": "轮播图"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "banner",
+          "name": {
+            "zh-CN": "banner广告图",
+            "en-US": "Banner Ads placement"
+          },
+          "max_blocks": 10,
+          "settings": {
+            "src": "",
+            "mobile_src": "",
+            "url": "",
+            "opacity": 25,
+            "alignment": "center",
+            "title": "Image Slide",
+            "sub_title": "Tell your brand's story through  images",
+            "button_label": "Learn More",
+            "button_bg_color": "#FFFFFF",
+            "button_text_color": "#000000",
+            "text_color": "#FFFFFF"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

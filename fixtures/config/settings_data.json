@@ -1,0 +1,107 @@
+{
+  "current": {
+    "general_layout_width": 1080,
+    "general_layout_spacing": 40,
+    "skin_bg": "#FFFFFF",
+    "skin_title_color": "#000000",
+    "skin_text_color": "#999999",
+    "skin_price_color": "#9B3C44",
+    "skin_compare_at_price_color": "#999999",
+    "skin_primary_btn_bg_color": "#212121",
+    "skin_primary_btn_text_color": "#FFFFFF",
+    "skin_primary_btn_border_color": "#212121",
+    "skin_secondary_btn_bg_color": "#FFFFFF",
+    "skin_secondary_btn_text_color": "#212121",
+    "skin_title_font_family": "work_sans_n7",
+    "skin_text_font_family": "work_sans_n4",
+    "skin_btn_font_family": "work_sans_n4",
+    "skin_product_header_font_family": "work_sans_n4",
+    "skin_title_font_size": 34,
+    "skin_product_header_font_size": 13,
+    "skin_price_font_size": 15,
+    "skin_compare_at_price_font_size": 15,
+    "is_compare_at_price_show": true,
+    "is_discount_show": true,
+    "label_style": "triangle",
+    "label_background_color": "#9B3C44",
+    "label_color": "#FFFFFF",
+    "vendor_enable": false,
+    "product_save_amount": false,
+    "is_sales_show": false,
+    "is_brief_show": true,
+    "is_quantity_box_show": true,
+    "is_select_default_variants": true,
+    "variant_type": "button",
+    "is_stock_show": true,
+    "is_add_to_cart_show": true,
+    "is_payment_btn_show": true,
+    "is_quick_view_btn_show": true,
+    "add_to_cart_process": "to_toast",
+    "quick_view_btn_text": "Quick View",
+    "product_grid_image_size": "100%",
+    "is_cart_recommended_products_show": true,
+    "cart_recommended_products_number": 4,
+    "facebook_url": "https://www.facebook.com",
+    "instagram_url": "https://instagram.com",
+    "twitter_url": "https://twitter.com",
+    "pinterest_url": "https://pinterest.com",
+    "youtube_url": "https://youtube.com",
+    "sections": {
+      "header": {
+        "type": "header",
+        "settings": {
+          "is_announce_show": true,
+          "is_announce_show_only_on_home": false,
+          "announce_title": "We Offer Free Shipping Worldwide.",
+          "announce_src": "",
+          "shop_logo": "",
+          "alignment": "center",
+          "cart_style": "cart",
+          "is_currency_show": true,
+          "is_account_show": true,
+          "is_search_show": true,
+          "is_header_fixed": true,
+          "menu_id": {
+            "id": "header",
+            "type": "menu",
+            "title": {
+              "en-US": "Main menu",
+              "zh-CN": "顶部导航菜单"
+            }
+          },
+          "announce_color": "#FFFFFF",
+          "announce_bg_color": "#7796A8",
+          "menu_color": "#3D4246",
+          "menu_bg_color": "#FFFFFF",
+          "logo_color": "#000000",
+          "logo_icon_color": "#3D4246",
+          "logo_bg_color": "#FFFFFF"
+        },
+        "blocks": []
+      },
+      "footer": {
+        "type": "footer",
+        "settings": { "special_desc": "", "footer_bg_color": "#222F3E", "footer_text_color": "#A6ABB1", "footer_title_color": "#FFFFFF", "footer_payment_icon": true },
+        "blocks": [
+          { "type": "social", "settings": { "instagram_url": true, "facebook_url": true, "twitter_url": true } },
+          {
+            "type": "menu",
+            "settings": {
+              "title": "SUPPORT",
+              "menu": {
+                "id": "footer",
+                "type": "menu",
+                "title": {
+                  "en-US": "Footer menu",
+                  "zh-CN": "页尾菜单"
+                }
+              }
+            }
+          },
+          { "type": "info", "settings": { "logo_src": "", "richtext": "<p><span>Use this text to share information about your brand with your customers.</span></p>" } }
+        ]
+      }
+    }
+  },
+  "presets": []
+}

@@ -1,0 +1,290 @@
+{
+  "general": {
+    "404": {
+      "title": "Oups!",
+      "tips": "Désolé, la page que vous recherchez est introuvable.",
+      "continue_shopping": "Continuez l'achat",
+      "subtext_html": "Cette page n'est pas disponible. <a href=\"/\">Retourner au magasinage</a>"
+    },
+    "product": {
+      "quick_view": "Vue rapide",
+      "sold_out": "Épuisé",
+      "quick_shop": "Boutique rapide",
+      "view_more_products": "Voir plus de produits",
+      "buy": "ACHETER"
+    },
+    "newsletter_form": {
+      "email_address_empty_warning": "Veuillez entrer votre adresse e-mail.",
+      "email_address_invalid_warning": "Veuillez entrer une adresse e-mail valide.",
+      "email_placeholder": "E-mail",
+      "newsletter_email": "Inscrivez-vous à notre infolettre",
+      "newsletter_confirmation": "Merci de vous être inscrit",
+      "submit": "S'inscrire"
+    },
+    "footer": {
+      "email_address_empty_warning": "Veuillez entrer votre adresse e-mail.",
+      "email_address_invalid_warning": "Veuillez entrer une adresse e-mail valide.",
+      "confirmation": "Merci pour votre abonnement! Nous vous enverrons un message par e-mail.",
+      "email_placeholder": "E-mail",
+      "submit": "Abonnez-vous",
+      "follow_us": "Suivez-nous",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "twitter": "Twitter",
+      "sign_up": "S'inscrire"
+    },
+    "view": {
+      "view_all": "Tout"
+    },
+    "accessibility": {
+      "skip_to_content": "Passer au contenu",
+      "close_modal": "Fermer (Esc)",
+      "close": "Fermer",
+      "learn_more": "Apprendre plus"
+    },
+    "meta": {
+      "tags": "Mots clés \"{{ tags }}\"",
+      "page": "Page {{ page }}"
+    },
+    "pagination": {
+      "previous": "Précédent",
+      "next": "Suivant"
+    },
+    "social": {
+      "share_on_facebook": "Partager",
+      "share_on_twitter": "Tweeter",
+      "share_on_pinterest": "Épingler",
+      "alt_text": {
+        "share_on_facebook": "Partager sur Facebook",
+        "share_on_twitter": "Tweeter sur Twitter",
+        "share_on_pinterest": "Épingler sur Pinterest"
+      }
+    },
+    "search": {
+      "no_results_html": "Votre recherche pour \"{{ terms }}\" n'a pas généré de résultats.",
+      "results_for_html": "Votre recherche pour \"{{ terms }}\" a généré les résultats suivants:",
+      "title": "Rechercher",
+      "placeholder": "Rechercher dans la boutique",
+      "submit": "Recherche",
+      "result_count": {
+        "one": "{{ count }} résultat",
+        "other": "{{ count }} résultats"
+      }
+    },
+    "drawers": {
+      "navigation": "Navigation",
+      "close_menu": "Fermer le menu",
+      "expand_submenu": "Ouvrir le menu",
+      "collapse_submenu": "Replier le menu"
+    },
+    "not_found": {
+      "title": "404 | Page non trouvée",
+      "tips": "La page que vous recherchez est introuvable.",
+      "continue_shopping": "Continuer vos achats"
+    },
+    "blog": {
+      "read_more": "Lire la suite"
+    }
+  },
+  "navigation": {
+    "general": {
+      "login": "Connectez-vous",
+      "register": "Inscrivez-vous",
+      "my_account": "Mon compte",
+      "my_orders": "Mes commandes",
+      "address_book": "Carnet d'adresses",
+      "log_out": "Déconnectez-vous",
+      "search_placeholder": "Rechercher ...",
+      "search_product": "Recherche de produits",
+      "account": "Compte",
+      "bag": "Sac"
+    }
+  },
+  "product": {
+    "product_detail": {
+      "sold": "{{ count }} ventes",
+      "off": "<span>{{ count }}%</span> OFF",
+      "qty": "Quantité",
+      "product_description": "Description du produit",
+      "add_to_cart": "Ajoutez au panier",
+      "sold_out": "Épuisé",
+      "buy_now": "Achetez maintenant",
+      "added_to_cart_successfully": "Ajoutez au panier avec succès",
+      "view_product_detail": "Voir les détails du produit",
+      "in_stock": "{{ count }} Stock",
+      "related_product": "Produit recommandé",
+      "add_to_cart_tips": "Mise au caddie!",
+      "view_cart": "Vérifiez le caddie ",
+      "proceed_to_checkout": "Réglez",
+      "review": "commentaire",
+      "select_variant": "sélectionner",
+      "save_html": "Épargnez <span class='money'>{{ saved_amount }}</span>",
+      "add_to_bag": "Ajouter au panier",
+      "switch_variant": "Mise à jour",
+      "added_to_bag_successfully": "Ajouté avec succès",
+      "variant_switch_successfully": "Mis à jour avec succés",
+      "customers_review": "Avis clients",
+      "marketing_delivery_days": "Recevez-le entre {{ from }} jours et {{ to }} jours",
+      "recently_viewed": "vu récemment",
+      "recommend_title": "Tu pourrais aussi aimer",
+      "not_like_these": "Je n'aime pas ça？",
+      "please_select": "Veuillez choisir",
+      "marketing_inventory": "Il ne reste plus que {{ count }} en stock",
+      "marketing_live_view": "{{ count }} personnes consultent ce contenu en ce moment",
+      "marketing_delivery": "Récupérez-le entre {{ from }} - {{ to }}",
+      "marketing_added_to_cart": "D'autres personnes le veulent. Plus de {{ count }} personnes l'ont dans leurs sacs en ce moment.",
+      "share_the_love": "Partager l'amour",
+      "sku": "Sku",
+      "weight": "Poids",
+      "barcode": "Code à barre"
+    }
+  },
+  "collection": {
+    "collection_detail": {
+      "sales_descending": "Ventes totales, de haut en bas",
+      "products": "{{ count }} Produits",
+      "recommend": "Recommandé",
+      "low_to_high": "Prix, de bas en haut",
+      "high_to_low": "Prix, de haut en bas",
+      "best_selling": "Meilleur vendeur",
+      "newest": "Nouvelle arrivée",
+      "coming_soon": "Plus de nouveaux produits à venir, veuillez visiter plus tard",
+      "continue_shopping": "Continuez l'achat",
+      "sort_by": "Trier par",
+      "items_per_page": "{{ count }} Produits par page",
+      "prev": "Page précédente",
+      "next": "Page suivante",
+      "filter_by": "Filtrer par",
+      "confirm": "Confirmer",
+      "clear_all": "Nettoyer tout",
+      "product": "{{ count }} Produit",
+      "refine_by": "Filtre",
+      "no_result": "Il n'y a pas encore de produits.",
+      "search_end": "Vous avez atteint la fin de la liste",
+      "remove_all": "Enlever tout",
+      "apply": "Appliquer",
+      "add_to_cart_count_descending": "Achats supplémentaires, de haut en bas",
+      "views_descending": "Pages vues, de haut en bas"
+    }
+  },
+  "search": {
+    "title": "Résultats de la recherche",
+    "search_button": "Recherche",
+    "results_tips": "<span class='dj_skin_product_text search__key'>“{{ key }}”</span>Trouvez<span class='search__count'>{{ count }}</span>résultats",
+    "input_to_search": "Entrez un mot-clé pour rechercher...",
+    "search_end": "Vous avez atteint la fin de la liste",
+    "items": "{{ count }} Produits",
+    "item": "{{ count }} Produit",
+    "no_results": "Il n'y a pas encore de produits.",
+    "search_products": "Recherche de produits"
+  },
+  "sections": {
+    "map": {
+      "get_directions": "Obtenir des directions",
+      "address_error": "Vous ne trouvez pas cette adresse",
+      "address_no_results": "Aucun résultat pour cette adresse",
+      "address_query_limit_html": "Vous avez dépassé la limite de Google utilisation de l'API. Envisager la mise à niveau à un <a href=\"https://developers.google.com/maps/premium/usage-limits\">régime spécial</a>.",
+      "auth_error_html": "Il y avait un problème authentifier votre compte Google Maps . Créer et activer <a href=\"https://developers.google.com/maps/documentation/javascript/get-api-key\">l'API JavaScript</a> et <a href=\"https://developers.google.com/maps/documentation/geocoding/get-api-key\">l'API de géocodage</a> les autorisations de application."
+    }
+  },
+  "collections": {
+    "general": {
+      "catalog_title": "Catalogue",
+      "all_of_collection": "Tout",
+      "view_all_products_html": "Voir tous les<br>{{ count }} produits",
+      "see_more": "Afficher plus",
+      "see_less": "Voir moins",
+      "no_matches": "Aucun produit ne correspond à votre recherche."
+    },
+    "sorting": {
+      "title": "Appliquer",
+      "featured": "En vedette",
+      "price_ascending": "Prix: faible à élevé",
+      "price_descending": "Prix: élevé à faible",
+      "newest": "Nouvelle arrivée"
+    },
+    "filters": {
+      "title_tags": "Filtrer",
+      "all_tags": "Tous les produits"
+    }
+  },
+  "home_page": {
+    "onboarding": {
+      "product_title": "Titre du produit",
+      "product_description": "Cette partie est utilisée pour la fiche du produit. Parlez aux clients de l'allure, du ressenti et du style de votre produit. Ajoutez des détails sur la couleur, les matériaux utilisés, le dimensionnement, et où il a été fabriqué.",
+      "collection_title": "Titre de la collection",
+      "no_content": "Cette section ne contient actuellement aucun contenu. Ajoutez-en en utilisant la barre latérale."
+    }
+  },
+  "layout": {
+    "footer": {
+      "social_platform": "{{ name }} sur {{ platform }}"
+    }
+  },
+  "products": {
+    "general": {
+      "save_html": "Épargnez <span class='money'>{{ saved_amount }}</span>",
+      "collection_return": "Retour à {{ collection }}",
+      "next_product": "Suivant: {{ title }}",
+      "sale_price": "Prix réduit",
+      "regular_price": "Prix régulier",
+      "from_text_html": "À partir de {{ price }}",
+      "related_products": "Produits connexes",
+      "new": "Nouveau",
+      "best_seller": "Best-seller",
+      "sale": "Vente",
+      "from": "De"
+    },
+    "product": {
+      "stock_label": "{{ count }} en stock",
+      "sold_out": "Épuisé",
+      "unavailable": "Non disponible",
+      "quantity": "Quantité",
+      "add_to_cart": "Ajouter au panier",
+      "preorder": "Pré-commander",
+      "buy_now": "Achetez maintenant",
+      "added_to_cart_successfully": "Ajoutez au panier avec succès"
+    }
+  },
+  "date_formats": {
+    "month_day_year": "%b %d, %Y"
+  },
+  "bag": {
+    "general": {
+      "empty": "Votre panier est vide",
+      "shopping_cart": "Panier",
+      "item": "Article",
+      "price": "Prix",
+      "qty": "Quantité",
+      "remove": "Retirer",
+      "total": "Total",
+      "edit": "Éditer",
+      "your_bag": "Votre sac",
+      "discount": "Remise",
+      "check_out": "Régler",
+      "shipping_taxes": "Expédition et taxes calculées à la caisse. Les commandes seront traitées dans <b> {{ currency }} </b>",
+      "subtotal": "Total",
+      "continue_shopping": "Continuer vos achats",
+      "sold_out": "Épuisé",
+      "removed_tip": "Certains articles ont été supprimés, veuillez commander à nouveau",
+      "withdraw_tip": "Certains articles sont épuisés, veuillez commander à nouveau",
+      "sold_out_tip": "Certains articles ne sont pas en stock, veuillez commander à nouveau",
+      "related_product": "Produit connexe",
+      "updated_tip": "Certaines informations sur les articles ont été mises à jour, veuillez commander à nouveau",
+      "enjoy_free_shopping": "Dépensez {{ amount }} de plus et bénéficiez de la livraison gratuite!",
+      "enable_free_shopping": "Vous avez droit à la livraison gratuite!",
+      "order_summary": "Récapitulatif de la commande",
+      "view_bag": "Voir le sac"
+    },
+    "errors": {
+      "removed": "Votre panier a été mis à jour, il sera actualisé.",
+      "sold_out": "Certains articles ont été épuisés, veuillez commander à nouveau",
+      "not_in_stock": "Certains articles ne sont pas en stock, veuillez commander à nouveau",
+      "reorder": "Certaines informations sur les articles ont été mises à jour, veuillez commander à nouveau",
+      "unknown": "Erreur inconnue"
+    }
+  },
+  "reviews": {
+    "submit_review": "Poster le commentaire"
+  }
+}

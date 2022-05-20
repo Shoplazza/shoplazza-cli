@@ -1,0 +1,8 @@
+{% assign image_url = img | default: defaultImg %}
+<a class="{{class}} common__img-wrapper_lazy {% if link.url %}common__mask{% endif %} {% if shop.env == 1 and img == '' %}common__img-desc{% endif %}"
+  data-title="{{dataTitle}}"
+  {% unless link.type != 'web' or link.url contains shop.domain %}target="_blank"{% endunless %}
+  {% if link.url %}data-track="viewImage" data-track-url="{{ link.url }}" href="{{ link.url }}"{% endif %}
+  style="padding-bottom: {{images[image_url].height | image_padding_bottom : images[image_url].width, 'unlimit'}};">
+  {% include 'lazyimg', src: image_url, style: 'width: 100%;'%}
+</a>

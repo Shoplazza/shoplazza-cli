@@ -1,0 +1,47 @@
+<div class="{% if section.settings.page_width %}tw-container{% endif %}">
+  {%- for block in section.blocks -%}
+    {% render block %}
+  {%- endfor -%}
+</div>
+
+{% schema %}
+{
+  "name": "apps",
+  "max_blocks": 16,
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "page_width",
+      "label": {
+        "en-US": "Make section margins the same as theme",
+        "zh-CN": "使分区页边距与模板相同"
+      },
+      "default": false
+    }
+  ],
+  "blocks": [
+    {
+      "type": "@app"
+    }
+  ],
+  "presets": [
+    {
+      "name": "apps",
+      "cname": {
+        "en-US": "Apps",
+        "zh-CN": "应用"
+      },
+      "category": {
+        "en-US": "Apps",
+        "zh-CN": "应用"
+      },
+      "ccategory": {
+        "en-US": "Apps",
+        "zh-CN": "应用"
+      },
+      "display": true,
+      "blocks": []
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,212 @@
+{
+  "general": {
+    "404": {
+      "title": "Oops!",
+      "tips": "Siamo spiacenti, la pagina che stai cercando non può essere trovata.",
+      "continue_shopping": "Continua a fare acquisti",
+      "subtext_html": "<p>La pagina che stai cercando non esiste.</p><p><a href=\"/\">Continua a fare acquisti</a></p>"
+    },
+    "product": {
+      "quick_view": "Visualizzazione rapida",
+      "sold_out": "Esaurito",
+      "buy": "ACQUISTARE"
+    },
+    "newsletter_form": {
+      "email_address_empty_warning": "Inserisci il tuo indirizzo email.",
+      "email_address_invalid_warning": "Inserisci un indirizzo email valido.",
+      "email_placeholder": "Indirizzo email",
+      "newsletter_email": "Inserisci il tuo indirizzo email.",
+      "newsletter_confirmation": "Grazie per esserti iscritto! Invieremo notizie al tuo indirizzo email.",
+      "submit": "Iscriviti"
+    },
+    "footer": {
+      "email_address_empty_warning": "Inserisci il tuo indirizzo email.",
+      "email_address_invalid_warning": "Inserisci un indirizzo email valido.",
+      "confirmation": "Grazie per esserti iscritto! Invieremo notizie al tuo indirizzo email.",
+      "email_placeholder": "Indirizzo email",
+      "submit": "Iscriviti",
+      "follow_us": "SEGUICI",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "twitter": "Twitter"
+    },
+    "view": {
+      "view_all": "Visualizza tutti"
+    },
+    "accessibility": {
+      "skip_to_content": "Vai al contenuto",
+      "close_modal": "Chiudi(esc)",
+      "close": "Chiudi",
+      "learn_more": "Per saperne di più"
+    },
+    "meta": {
+      "tags": "Contrassegnato come \"{{ tags }}\"",
+      "page": "Pagina {{ page }}"
+    },
+    "pagination": {
+      "previous": "PREC.",
+      "next": "SUCC."
+    },
+    "social": {
+      "share_on_facebook": "Share",
+      "share_on_twitter": "Tweet",
+      "share_on_pinterest": "Pin it",
+      "alt_text": {
+        "share_on_facebook": "Share on Facebook",
+        "share_on_twitter": "Tweet on Twitter",
+        "share_on_pinterest": "Pin on Pinterest"
+      }
+    },
+    "search": {
+      "no_results_html": "Nessun risultato per la tua ricerca di <span class='dj_skin_product_text search__key'>\"{{ terms }}\"</span>",
+      "results_for_html": "I risultati di ricerca per \"{{ terms }}\" sono i seguenti:",
+      "title": "Ricerca",
+      "placeholder": "Cerca nel nostro store",
+      "submit": "Ricerca",
+      "result_count": {
+        "one": "{{ count }} risultati",
+        "other": "{{ count }} risultati"
+      }
+    },
+    "drawers": {
+      "navigation": "Navigazione del sito",
+      "close_menu": "Chiudi il menù",
+      "expand_submenu": "Espandi il sottomenù",
+      "collapse_submenu": "Comprimi il sottomenù"
+    }
+  },
+  "navigation": {
+    "general": {
+      "login": "Login",
+      "register": "Registrati",
+      "my_account": "Il mio account",
+      "my_orders": "I miei ordini",
+      "address_book": "Rubrica",
+      "log_out": "Logout",
+      "search_placeholder": "Cerca…"
+    }
+  },
+  "product": {
+    "product_detail": {
+      "sold": "{{ count }} venduti",
+      "off": "<span>{{ count }}%</span> di sconto",
+      "qty": "Quantità",
+      "product_description": "Descrizione del prodotto",
+      "add_to_cart": "Aggiungi al carrello",
+      "sold_out": "Esauriti",
+      "buy_now": "Acquista ora",
+      "added_to_cart_successfully": "Aggiunto al carrello",
+      "view_product_detail": "Visualizza dettagli del prodotto",
+      "in_stock": "{{ count }} in magazzino",
+      "related_product": "Prodotti correlati",
+      "select_variant": "Scegliere l’articolo",
+      "save_html": "Risparmi <span class='money'>{{ saved_amount }}</span>",
+      "add_to_cart_tips": "È stato aggiunto al carrello!",
+      "view_cart": "Visualizza il carrello",
+      "proceed_to_checkout": "Procedi al checkout",
+      "review": "commento",
+      "not_like_these": "Non ti piacciono?",
+      "please_select": "si prega di scegliere",
+      "sku": "Sku",
+      "weight": "Peso",
+      "barcode": "Codice a barre"
+    }
+  },
+  "collection": {
+    "collection_detail": {
+      "sales_descending": "Vendite totali, dal più alto al più basso",
+      "products": "{{ count }} prodotti",
+      "recommend": "In evidenza",
+      "low_to_high": "Prezzo, da basso ad alto",
+      "high_to_low": "Prezzo, da alto a basso",
+      "best_selling": "I pi첫 venduti",
+      "newest": "Nuovi arrivi",
+      "coming_soon": "Molti nuovi prodotti arriveranno presto! Si prega di visitare pi첫 tardi.",
+      "continue_shopping": "Continua a fare acquisti",
+      "sort_by": "Ordina per",
+      "items_per_page": "{{ count }} articoli per pagina",
+      "prev": "PREC.",
+      "next": "SUCC.",
+      "filter_by": "Filtra per",
+      "confirm": "Conferma",
+      "clear_all": "Cancella tutto",
+      "no_result": "Nessun risultato per la tua ricerca di",
+      "add_to_cart_count_descending": "Acquisti aggiuntivi, da alto a basso",
+      "views_descending": "Visualizzazioni di pagina, da alto a basso"
+    }
+  },
+  "search": {
+    "title": "Risultati di ricerca",
+    "search_button": "Ricerca",
+    "results_tips": "<span class='search__count'>{{ count }}</span> risultati trovati per <span class='dj_skin_product_text search__key'>“{{ key }}”</span>",
+    "input_to_search": "Inserisci le parole chiave di ricerca…",
+    "no_results": "Nessun risultato per la tua ricerca di"
+  },
+  "collections": {
+    "general": {
+      "catalog_title": "Catalogo",
+      "all_of_collection": "Visualizza tutti",
+      "view_all_products_html": "Visualizza tutti <br>{{ count }} i prodotti",
+      "see_more": "Mostra di più",
+      "see_less": "Mostra di meno",
+      "no_matches": "Siamo spiacenti, non ci sono prodotti in questa collezione"
+    },
+    "sorting": {
+      "title": "Ordina per",
+      "featured": "In primo piano",
+      "price_ascending": "Prezzo, da basso ad alto",
+      "price_descending": "Prezzo, da alto a basso",
+      "newest": "Nuovi arrivi"
+    },
+    "filters": {
+      "title_tags": "Filtro",
+      "all_tags": "Tutti i prodotti"
+    }
+  },
+  "products": {
+    "general": {
+      "save_html": "Risparmi <span class='money'>{{ saved_amount }}</span>",
+      "collection_return": "Torna a {{ collection }}",
+      "next_product": "Prossimo: {{ title }}",
+      "sale_price": "Prezzo di vendita",
+      "regular_price": "Prezzo originale",
+      "from_text_html": "da {{ price }}",
+      "related_products": "Ti potrebbero interessare anche"
+    },
+    "product": {
+      "stock_label": "{{ count }} in magazzino",
+      "sold_out": "Esauriti",
+      "unavailable": "Non disponibile",
+      "quantity": "Quantità",
+      "add_to_cart": "Aggiungi al carrello",
+      "preorder": "Pre-ordine",
+      "buy_now": "Acquista ora",
+      "added_to_cart_successfully": "Aggiunto al carrello"
+    }
+  },
+  "home_page": {
+    "onboarding": {
+      "product_title": "Esempio di prodotto",
+      "product_description": "Quest'area è dedicata alla descrizione dei dettagli del tuo prodotto. Racconta l'aspetto, le caratteristiche e lo stile del tuo prodotto ai clienti. Aggiungi dettagli su colore, materiali, dimensioni e provenienza del prodotto.",
+      "collection_title": "Esempio di collezione",
+      "no_content": "Al momento questa sezione non ha nessun contenuto. Aggiungi contenuti a questa sezione usando la barra laterale."
+    }
+  },
+  "layout": {
+    "footer": {
+      "social_platform": "{{ name }} di {{ platform }}"
+    }
+  },
+  "sections": {
+    "map": {
+      "get_directions": "Ottieni percorsi",
+      "address_error": "Errore di ricerca dell'indirizzo",
+      "address_no_results": "Nessun risultato per quell'indirizzo",
+      "address_query_limit_html": "Hai superato il limite di utilizzo dell'API di Google. Potresti considerare di aderire al <a href=\"https://developers.google.com/maps/premium/usage-limits\"> Piano Premium </a>.",
+      "auth_error_html": "Si è verificato un problema durante l'autenticazione del tuo account Google Maps. crea e autorizza l'accesso API al Geocoding </a> della tua app, facendo riferimento a <a href=\"https://developers.google.com/maps/documentation/javascript/get-api-key\"> API JavaScript </a> e <a href=\"https://developers.google.com/maps/documentation/geocoding/get-api-key\">."
+    }
+  },
+  "date_formats": {
+    "month_day_year": "%b %d, %Y"
+  }
+}

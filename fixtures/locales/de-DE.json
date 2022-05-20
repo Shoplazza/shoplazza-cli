@@ -1,0 +1,290 @@
+{
+  "general": {
+    "404": {
+      "title": "Oh je!",
+      "tips": "Die gesuchte Seite kann leider nicht gefunden werden.",
+      "continue_shopping": "Weiter einkaufen",
+      "subtext_html": "<p>Die Seite, die Sie besucht haben, existiert nicht</p><p><a href=\"/\">Weiter einkaufen</a></p>"
+    },
+    "product": {
+      "quick_view": "Schnelle Ansicht",
+      "sold_out": "Ausverkauft",
+      "quick_shop": "Schnellkauf",
+      "view_more_products": "Weitere Produkte anzeigen",
+      "buy": "KAUFEN"
+    },
+    "newsletter_form": {
+      "email_address_empty_warning": "Bitte geben Sie Ihre E-Mail-Adresse ein.",
+      "email_address_invalid_warning": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+      "email_placeholder": "E-Mail",
+      "newsletter_email": "Geben Sie Ihre E-Mail",
+      "newsletter_confirmation": "Vielen Dank für Ihr Abonnement",
+      "submit": "Abonnement"
+    },
+    "footer": {
+      "email_address_empty_warning": "Bitte geben Sie Ihre E-Mail-Adresse ein.",
+      "email_address_invalid_warning": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+      "confirmation": "Vielen Dank für Ihr Abonnement! Wir senden eine Nachricht an Ihre E-Mail.",
+      "email_placeholder": "E-Mail",
+      "submit": "Abonnieren",
+      "follow_us": "Folgen Sie uns",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "twitter": "Twitter",
+      "sign_up": "Anmelden"
+    },
+    "view": {
+      "view_all": "Alle anzeigen"
+    },
+    "accessibility": {
+      "skip_to_content": "Zum Inhalt springen",
+      "close_modal": "Schließen(Esc)",
+      "close": "Schließen",
+      "learn_more": "Mehr erfahren"
+    },
+    "meta": {
+      "tags": "Markiert als \"{{ tags }}\"",
+      "page": "Seite {{ page }}"
+    },
+    "pagination": {
+      "previous": "Die vorige",
+      "next": "Weiter"
+    },
+    "social": {
+      "share_on_facebook": "Share",
+      "share_on_twitter": "Tweet",
+      "share_on_pinterest": "Pin it",
+      "alt_text": {
+        "share_on_facebook": "Share on Facebook",
+        "share_on_twitter": "Tweet on Twitter",
+        "share_on_pinterest": "Pin on Pinterest"
+      }
+    },
+    "search": {
+      "no_results_html": "Die von Ihnen gesuchten “{{ terms }}”lieferten keine Ergebnisse zurück.",
+      "results_for_html": "Die Ergebnisse von“{{ terms }}”die Sie gesucht haben, sind wie folgt:",
+      "title": "Suche",
+      "placeholder": "Suche in unserem Shop",
+      "submit": "Suche",
+      "result_count": {
+        "one": "{{ count }}Ergebnisse",
+        "other": "{{ count }}Ergebnisse"
+      }
+    },
+    "drawers": {
+      "navigation": "Navigation der Website",
+      "close_menu": "Menü schließen",
+      "expand_submenu": "Untermenü erweitern",
+      "collapse_submenu": "Untermenü einklappen"
+    },
+    "not_found": {
+      "title": "404 | Seite nicht gefunden",
+      "tips": "Die gesuchte Seite wurde nicht gefunden.",
+      "continue_shopping": "Mit dem Einkaufen fortfahren"
+    },
+    "blog": {
+      "read_more": "Weiterlesen"
+    }
+  },
+  "navigation": {
+    "general": {
+      "login": "einloggen",
+      "register": "registrieren",
+      "my_account": "Mein Konto",
+      "my_orders": "Meine Bestellung",
+      "address_book": "Adressbuch",
+      "log_out": "Abmeldung",
+      "search_placeholder": "Suche...",
+      "search_product": "Produktsuche",
+      "account": "Konto",
+      "bag": "Tasche"
+    }
+  },
+  "product": {
+    "product_detail": {
+      "sold": "{{ count }} Volumen der Verkäufe",
+      "off": "<span>{{ count }}%</span> OFF",
+      "qty": "Anzahl",
+      "product_description": "Beschreibung des Produkts",
+      "add_to_cart": "in den Warenkorb",
+      "sold_out": "Ausverkauft",
+      "buy_now": "Sofortiger Kauf",
+      "added_to_cart_successfully": "Erfolgreich in den Warenkorb",
+      "view_product_detail": "Produktdetails anzeigen",
+      "in_stock": "{{ count }}Bestand",
+      "related_product": "Auswahl der Woche",
+      "add_to_cart_tips": "In den Warenkorb!",
+      "view_cart": "Ansicht Warenkorb",
+      "proceed_to_checkout": "Abrechnung",
+      "review": "Kommentar",
+      "select_variant": "Bitte fügen Sie mindestens einen Stil hinzu",
+      "save_html": "Sparen <span class='money'>{{ saved_amount }}</span>",
+      "add_to_bag": "Der Tasche hinzufügen",
+      "switch_variant": "Aktualisieren",
+      "added_to_bag_successfully": "Erfolgreich hinzugefügt",
+      "variant_switch_successfully": "Erfolgreich geupdated",
+      "customers_review": "Kundenbewertungen",
+      "marketing_delivery_days": "Holen Sie es zwischen {{ from }} Tagen - {{ to }} Tagen",
+      "recently_viewed": "zuletzt angesehen",
+      "recommend_title": "Sie können auch mögen",
+      "not_like_these": "Mag diese nicht？",
+      "please_select": "Bitte wählen",
+      "marketing_inventory": "Nur noch {{ count }} auf Lager",
+      "marketing_live_view": "{{ count }} Leute sehen sich das gerade an",
+      "marketing_delivery": "Holen Sie es zwischen {{ from }} - {{ to }}",
+      "marketing_added_to_cart": "Andere Leute wollen das. Über {{ count }} Leute haben dies gerade in ihren Taschen.",
+      "share_the_love": "Teile die Liebe",
+      "sku": "Sku",
+      "weight": "Gewicht",
+      "barcode": "Barcode"
+    }
+  },
+  "collection": {
+    "collection_detail": {
+      "sales_descending": "Gesamtumsatz hoch bis niedrig",
+      "products": "{{ count }}Produkt",
+      "recommend": "Empfehlenswert",
+      "low_to_high": "Preis, von niedrig bis hoch",
+      "high_to_low": "Preis, von hoch bis niedrig",
+      "best_selling": "Bester Verkäufer",
+      "newest": "Neue Anreise",
+      "coming_soon": "Weitere neue Produkte kommen bald,bitte besuchen Sie später",
+      "continue_shopping": "Weiter einkaufen",
+      "sort_by": "Sortierreihenfolge",
+      "items_per_page": "{{ count }}Produkt pro Seite",
+      "prev": "Vorherige Seite",
+      "next": "Nächste Seite",
+      "filter_by": "Bildschirm",
+      "confirm": "bestätigen",
+      "clear_all": "Zurücksetzen",
+      "product": "{{ count }} Produkt",
+      "refine_by": "Filter",
+      "no_result": "Es gibt noch keine Produkte.",
+      "search_end": "Sie haben das Ende der Liste erreicht",
+      "remove_all": "Alles entfernen",
+      "apply": "Anwenden",
+      "add_to_cart_count_descending": "Zusätzliche, von hoch bis niedrig",
+      "views_descending": "Seitenaufrufe, von hoch bis niedrig"
+    }
+  },
+  "search": {
+    "title": "Ergebnis der Suche",
+    "search_button": "Suche",
+    "results_tips": "<span class='dj_skin_product_text search__key'>“{{ key }}”</span>Suche nach<span class='search__count'>{{ count }}</span>Ergebnis",
+    "input_to_search": "Suchbegriff eingeben…",
+    "search_end": "Sie haben das Ende der Liste erreicht",
+    "items": "{{ count }} Produkte",
+    "item": "{{ count }} Produkt",
+    "no_results": "Es gibt noch keine Produkte.",
+    "search_products": "Produktsuche"
+  },
+  "sections": {
+    "map": {
+      "get_directions": "Erhalten Sie Links",
+      "address_error": "Adressfehler suchen",
+      "address_no_results": "Die Adresse wurde nicht gefunden",
+      "address_query_limit_html": "Sie haben die Nutzungsgrenze von Google API überschritten. Überlegen Upgrade <a href=\"https://developers.google.com/maps/premium/usage-limits\">Senior Plan</a>。",
+      "auth_error_html": "Ich habe ein Problem mit Ihrem Google Maps Konto gefunden. Erstellen und aktivieren<a href=\"https://developers.google.com/maps/documentation/javascript/get-api-key\">JavaScript API</a>und<a href=\"https://developers.google.com/maps/documentation/geocoding/get-api-key\">Geografische Kodierung API</a> berechtigungen Ihrer App。"
+    }
+  },
+  "collections": {
+    "general": {
+      "catalog_title": "Katalog",
+      "all_of_collection": "Alle anzeigen",
+      "view_all_products_html": "Alle <br>{{ count }} Artikel anzeigen",
+      "see_more": "Mehr anzeigen",
+      "see_less": "Weniger anzeigen",
+      "no_matches": "Tut mir leid, Es gibt keine Produkte für dieses Album"
+    },
+    "sorting": {
+      "title": "Sortierung",
+      "featured": "Empfehlenswert",
+      "price_ascending": "Preis, von niedrig bis hoch",
+      "price_descending": "Preis, von hoch bis niedrig",
+      "newest": "Neue Anreise"
+    },
+    "filters": {
+      "title_tags": "Bildschirm",
+      "all_tags": "Alle Produkte"
+    }
+  },
+  "home_page": {
+    "onboarding": {
+      "product_title": "Beispiel Produkt",
+      "product_description": "Dieser Bereich wird verwendet, um die Details Ihres Produktes zu beschreiben. Erzählen Sie den Kunden von Aussehen, Gefühl und Stil des Produktes.Sie können auch Informationen wie Farbe, Material, Größe und Herstellungsort hinzufügen.",
+      "collection_title": "Beispiel-Sammlung",
+      "no_content": "Dieser Abschnitt enthält derzeit nichts. Verwenden Sie die Symbolleiste, um Inhalte hinzuzufügen."
+    }
+  },
+  "layout": {
+    "footer": {
+      "social_platform": "{{ platform }}von{{ name }}"
+    }
+  },
+  "products": {
+    "general": {
+      "save_html": "Sparen <span class='money'>{{ saved_amount }}</span>",
+      "collection_return": "Zurück{{ collection }}",
+      "next_product": "Weiter: {{ title }}",
+      "sale_price": "Preis",
+      "regular_price": "Ursprünglicher Preis",
+      "from_text_html": "von{{ price }}",
+      "related_products": "Du magst es vielleicht auch.",
+      "new": "Neu",
+      "best_seller": "Bestseller, Verkaufsschlager, Spitzenreiter",
+      "sale": "Verkauf",
+      "from": "Von"
+    },
+    "product": {
+      "stock_label": "{{ count }}Bestand",
+      "sold_out": "Ausverkauft",
+      "unavailable": "Nicht zu verkaufen",
+      "quantity": "Anzahl",
+      "add_to_cart": "in den Warenkorb",
+      "preorder": "Vorbestellung",
+      "buy_now": "Jetzt kaufen",
+      "added_to_cart_successfully": "Erfolgreich in den Warenkorb"
+    }
+  },
+  "date_formats": {
+    "month_day_year": "%b %d, %Y"
+  },
+  "bag": {
+    "general": {
+      "empty": "Deine Einkaufstasche ist leer",
+      "shopping_cart": "Einkaufswagen",
+      "item": "Artikel",
+      "price": "Preis",
+      "qty": "Menge",
+      "remove": "Entfernen",
+      "total": "Gesamt",
+      "edit": "Bearbeiten",
+      "your_bag": "Deine Tasche ",
+      "discount": "Rabatt",
+      "check_out": "Check out",
+      "shipping_taxes": "Versand & Steuern an der Kasse berechnet. Bestellungen werden in <b> {{ currency }} </b> bearbeitet",
+      "subtotal": "Zwischensumme",
+      "continue_shopping": "Mit dem Einkaufen fortfahren",
+      "sold_out": "Ausverkauft",
+      "removed_tip": "Einige Artikel wurden entfernt, bitte nachbestellen",
+      "withdraw_tip": "Einige Artikel sind ausverkauft, bitte nachbestellen",
+      "sold_out_tip": "Einige Artikel sind nicht auf Lager, bitte nachbestellen",
+      "related_product": "Ähnliches Produkt",
+      "updated_tip": "Einige Artikelinformationen wurden aktualisiert, bitte nachbestellen",
+      "enjoy_free_shopping": "Geben Sie {{ amount }} mehr aus und erhalten Sie kostenlosen Versand!",
+      "enable_free_shopping": "Sie haben Anspruch auf kostenlosen Versand!",
+      "order_summary": "Bestellübersicht",
+      "view_bag": "Tasche ansehen"
+    },
+    "errors": {
+      "removed": "Ihr Warenkorb wurde aktualisiert, er wird aktualisiert.",
+      "sold_out": "Einige Artikel sind ausverkauft, bitte nachbestellen",
+      "not_in_stock": "Einige Artikel sind nicht auf Lager, bitte nachbestellen",
+      "reorder": "Einige Artikelinformationen wurden aktualisiert, bitte nachbestellen",
+      "unknown": "Unbekannter Fehler"
+    }
+  },
+  "reviews": {
+    "submit_review": "Bewertung abschicken"
+  }
+}

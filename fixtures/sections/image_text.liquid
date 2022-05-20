@@ -1,0 +1,350 @@
+{% use 'image_text.css' %}
+<div style="background:{{section.settings.title_bg_color}};">
+<div class="{% unless section.settings.is_width_across_screen %}container container-gap{% endunless %}">
+{% assign layout = section.settings.layout | default: 'left' %}
+{% assign text_layout = section.settings.text_layout | default: 'left' %}
+{% assign  image= section.settings.image %}
+{% assign  link_to_url= section.settings.link_to_url %}
+{% assign  layout= layout %}
+{% assign defaultImage = 'oss/operation/1468cb0e248c143782cd5161c2a81455.png' | img_url %}
+
+{% capture image_layout %}
+  <div class="image-text__image {% if section.settings.is_width_across_screen %}image-text__image_m{% endif %}"> 
+    <a class="common__img-wrapper_lazy"
+      {% unless link_to_url.type != 'web' or link_to_url.url contains shop.domain %}
+        target="_blank"
+      {% endunless %}
+      {% if link_to_url.url != blank %}
+        href="{{ link_to_url.url }}"
+        data-track="viewImage"
+        data-track-url="{{ link_to_url.url }}"
+      {% endif %}
+      style="
+        font-size: 0;
+       {% if section.settings.is_width_across_screen %}
+        padding-bottom: 0;
+        {% else %}
+        {% if image != blank  %}
+        padding-bottom:{{ images[image].height | image_padding_bottom : images[image].width, origin: 'unlimit' }};
+        {% else %}
+        padding-bottom:70.4%;
+        {% endif %}
+        {% endif %}
+        width: 100%;">
+      {% if image != blank %}
+        {% assign class = 'img-full-width' %}
+        {% if link_to_url.url %}
+        {% assign class = 'img-full-width' | append: ' common__img_hover' %}
+        {% endif %}
+        {% if section.settings.is_width_across_screen %}
+        {% assign class= 'img-full-width' | append: ' position-static' %}       
+        {% endif %}
+        {% if section.settings.is_width_across_screen and link_to_url.url %}
+        {% assign class= 'img-full-width' | append: ' position-static common__img_hover' %}       
+        {% endif %}
+        {% include 'lazyimg',
+          src: image,
+          style: "margin: auto;",
+          class: class
+        %}
+      {% else %}
+        <img src="{{ defaultImage }}" class="{% if section.settings.is_width_across_screen %}position-static{% endif %} "/>
+      {% endif %}
+    </a>
+  </div>
+{% endcapture %}
+
+<div class="{% unless section.settings.is_width_across_screen %}row{% endunless %} image-text d-flex align-items-center mb-padding">
+  {% if layout == "left" %}
+    {{ image_layout }}
+  {% endif %}
+  <div class="image-text__text image-text__text_{{layout}}  text-{{text_layout}} {% if section.settings.is_width_across_screen %}px-14 flex-fill{% endif %}">
+    {% for block in section.blocks %}
+      {% if block.type == 'heading' and block.settings.title %}
+        <div class="image-text__title" style="color:{{block.settings.title_color}};">{{ block.settings.title | escape }}</div>
+      {% endif %}
+      {% if block.type == 'text' and block.settings.desc %}
+        <div class="image-text__desc dj-mce-view" style="color:{{block.settings.text_color}};">{{ block.settings.desc }}</div>
+      {% endif %}
+      {% if block.type == 'button' and block.settings.button_label and block.settings.button_link %}
+        <div>
+          <a href="{{ block.settings.button_link.url }}"
+            {% include 'link', link: block.settings.button_link  %}
+            class="btn image-text__btn" style="color:{{block.settings.button_color}};border:1px solid {{block.settings.button_border_color}};background-color:{{block.settings.button_bg_color}};">
+            {{ block.settings.button_label | escape }}
+          </a>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% if layout == "right" %}
+    {{ image_layout }}
+  {% endif %}
+</div>
+</div>
+</div>
+
+
+{% schema %}
+{
+  "name": "image_text",
+  "max_blocks": 3,
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": {
+        "zh-CN": "图片",
+        "en-US": "Image"
+      },
+      "info": {
+        "zh-CN": "建议尺寸（宽*长）：1080*900px，高度自适应",
+        "en-US": "Recommended resolution (width * height):1080*900px,responsive height"
+      },
+      "default": ""
+    },
+    {
+      "type": "url",
+      "id": "link_to_url",
+      "label": {
+        "en-US": "Image link",
+        "zh-CN": "图片链接"
+      },
+      "is_image_link": true,
+      "default": ""
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": {
+        "zh-CN": "PC图片位置",
+        "en-US": "Image position on desktop"
+      },
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": {
+            "en-US": "Image left,text right",
+            "zh-CN": "左图右文"
+          }
+        },
+        {
+          "value": "right",
+          "label": {
+            "en-US": "Image right,text left",
+            "zh-CN": "右图左文"
+          }
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "text_layout",
+      "label": {
+        "zh-CN": "文字对齐方式",
+        "en-US": "Text alignment"
+      },
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": {
+            "zh-CN": "居左",
+            "en-US": "Text left"
+          }
+        },
+        {
+          "value": "right",
+          "label": {
+            "zh-CN": "居右",
+            "en-US": "Text right"
+          }
+        },
+        {
+          "value": "center",
+          "label": {
+            "zh-CN": "居中",
+            "en-US": "Text center"
+          }
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "label": {
+        "zh-CN": "宽度铺满屏幕",
+        "en-US": "Full page width"
+      },
+      "id": "is_width_across_screen",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "title_bg_color",
+      "label": {
+        "en-US": "Background color",
+        "zh-CN": "背景颜色"
+      },
+      "default": "#FFFFFF"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": {
+        "zh-CN": "标题",
+        "en-US": "Heading"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          },
+          "default": "Image with text"
+        },
+        {
+          "type": "color",
+          "id": "title_color",
+          "label": {
+            "zh-CN": "标题颜色",
+            "en-US": "Heading color"
+          },
+          "default": "#000000"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": {
+        "zh-CN": "文字",
+        "en-US": "Text"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "desc",
+          "label": {
+            "en-US": "Text",
+            "zh-CN": "文字"
+          },
+          "default": "<p><span>Pair large text with an image to tell a story, explain a detail about your product, or describe a new promotion.</span></p>"
+        },
+        {
+          "type": "color",
+          "id": "text_color",
+          "label": {
+            "en-US": "Text color",
+            "zh-CN": "文字颜色"
+          },
+          "default": "#000000"
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": {
+        "zh-CN": "按钮",
+        "en-US": "Button"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "button_label",
+          "label": {
+            "zh-CN": "按钮文字",
+            "en-US": "Button text"
+          },
+          "default": "Optional button"
+        },
+        {
+          "type": "url",
+          "id": "button_link",
+          "label": {
+            "en-US": "Button link",
+            "zh-CN": "按钮链接"
+          },
+          "default": ""
+        },
+        {
+          "type": "color",
+          "id": "button_border_color",
+          "label": {
+            "en-US": "Button border color",
+            "zh-CN": "按钮边框颜色"
+          },
+          "default": "#000000"
+        },
+        {
+          "type": "color",
+          "id": "button_bg_color",
+          "label": {
+            "en-US": "Button background color",
+            "zh-CN": "按钮背景颜色"
+          },
+          "default": "#000000"
+        },
+        {
+          "type": "color",
+          "id": "button_color",
+          "label": {
+            "en-US": "Button text color",
+            "zh-CN": "按钮文案颜色"
+          },
+          "default": "#FFFFFF"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "image_text",
+      "cname": {
+        "zh-CN": "图文",
+        "en-US": "Image with text"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "title": "Image with text",
+            "title_color": "#000000"
+          }
+        },
+        {
+          "type": "text",
+          "settings": {
+            "desc": "<p><span>Pair large text with an image to tell a story, explain a detail about your product, or describe a new promotion.</span></p>",
+            "text_color": "#000000"
+          }
+        },
+        {
+          "type": "button",
+          "settings": {
+            "button_label": "Optional button",
+            "button_link": "",
+            "button_border_color": "#000000",
+            "button_bg_color": "#000000",
+            "button_color": "#FFFFFF"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

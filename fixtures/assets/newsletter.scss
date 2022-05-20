@@ -1,0 +1,90 @@
+@import './tools.scss';
+
+.newsletter {
+  &__input {
+    height: px-to-rem(88/2);
+    font-size: px-to-rem(28/2);
+  }
+
+  &__btn {
+    margin-top: px-to-rem(15);
+    width: px-to-rem(340/2);
+    height: px-to-rem(88/2);
+    font-size: px-to-rem(32/2);
+  }
+
+  &__title {
+    font-size: px-to-rem(46/2);
+    line-height: 1.2em;
+
+    &_sub {
+      margin-top: px-to-rem(40/2);
+      font-size: px-to-rem(28/2);
+      line-height: 1.2em;
+      color: #777;
+
+      + .newsletter__form {
+        margin-top: px-to-rem(80/2);
+      }
+    }
+
+    + .newsletter__form {
+      margin-top: px-to-rem(80/2);
+    }
+  }
+
+  &_subscribed {
+    display: none;
+  }
+
+  &_subscribing {
+    display: block;
+  }
+
+  &_success {
+    .newsletter_subscribing {
+      display: none;
+    }
+
+    .newsletter_subscribed {
+      display: block;
+    }
+  }
+}
+
+@media ($pc) {
+  .newsletter {
+    &__title {
+      font-size: px-to-rem(34);
+
+      &_sub {
+        font-size: px-to-rem(16);
+        line-height: 1.5em;
+      }
+    }
+
+    &__input {
+      width: px-to-rem(340);
+      margin-bottom: 0;
+    }
+
+    &__input-wrap {
+      max-width: px-to-rem(350);
+    }
+
+    &__btn {
+      margin-top: 0;
+      margin-left: px-to-rem(6);
+      width: px-to-rem(170);
+    }
+
+    &__btn-wrap {
+      max-width: px-to-rem(186);
+      text-align: left;
+    }
+  }
+
+  .form-row {
+    max-width: px-to-rem(536);
+  }
+}

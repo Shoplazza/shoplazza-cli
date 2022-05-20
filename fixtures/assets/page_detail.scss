@@ -1,0 +1,16 @@
+@import './tools.scss';
+.page_template {
+  margin: 0 auto;
+
+  &__title {
+    margin-bottom: px-to-rem(40);
+  }
+
+  @media ($mobile) {
+    padding: 0 px-to-rem(15);
+
+    &__title {
+      margin-bottom: px-to-rem(25);
+    }
+  }
+}

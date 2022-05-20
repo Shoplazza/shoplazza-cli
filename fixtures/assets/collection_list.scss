@@ -1,0 +1,11 @@
+@import './tools.scss';
+
+.collection_list_gap {
+  .common__product-gap {
+    margin-bottom: px-to-rem(30/2);
+
+    @media ($pc) {
+      margin-bottom: px-to-rem(24);
+    }
+  }
+}

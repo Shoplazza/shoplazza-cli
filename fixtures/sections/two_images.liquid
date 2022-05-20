@@ -1,0 +1,125 @@
+{% use 'two_images.css' %}
+<div class="container container-gap">
+  {% assign  text= section.settings.text %}
+<div class="row two-image__row">
+{% assign defaultImg = 'oss/operation/0910a006fb3101bcf913804c47bf3b13.png' %}
+
+{% for i in (1..2) %}
+  {% if i == 1 %}
+    {% assign imgSrc = 'image_src_1' %}
+    {% assign linkUrl = 'url_1' %}
+  {% else %}
+    {% assign imgSrc = 'image_src_2' %}
+    {% assign linkUrl = 'url_2' %}
+  {% endif %}
+  {% assign imageUrl = section.settings[imgSrc] %}
+  {% assign linkToUrl = section.settings[linkUrl].url %}
+  {% assign link_type = section.settings[linkUrl].type %}
+  <div class="col-sm-12 col-md-6 two-image__image">
+    <a class="common__img-wrapper_lazy {% if linkToUrl %}common__mask{% endif %} {%if shop.env == 1 and imageUrl == "" %}common__img-desc{% endif %}" data-title="Image-{{i}}"
+      style="padding-bottom:{{ images[imageUrl].height | image_padding_bottom : images[imageUrl].width, origin: 'unlimit'}}; width:100%"
+      {% if linkToUrl%}
+        href="{{linkToUrl}}"
+      {% endif %}
+      {% if link_type == 'web' %}
+        target="_blank"
+      {% endif %}>
+      {% assign src = imageUrl | default: defaultImg %}
+      {% include 'lazyimg',
+        src: src,
+        class: 'img-full-width'
+      %}
+    </a>
+  </div>
+{% endfor %}
+</div>
+</div>
+
+
+
+{% schema %}
+{
+  "name": "two_images",
+  "settings": [
+    {
+      "type": "header",
+      "content": {
+        "en-US": "Image 1",
+        "zh-CN": "图1"
+      }
+    },
+    {
+      "type": "image_picker",
+      "id": "image_src_1",
+      "label": {
+        "en-US": "Image",
+        "zh-CN": "图片"
+      },
+      "info": {
+        "zh-CN": "建议尺寸：宽度1000px,高度可自适应",
+        "en-US": "Recommended resolution:width 1000px,responsive height"
+      },
+      "default": ""
+    },
+    {
+      "type": "url",
+      "id": "url_1",
+      "label": {
+        "en-US": "Link",
+        "zh-CN": "链接"
+      },
+      "is_image_link": true,
+      "default": ""
+    },
+    {
+      "type": "header",
+      "content": {
+        "en-US": "Image 2",
+        "zh-CN": "图2"
+      }
+    },
+    {
+      "type": "image_picker",
+      "id": "image_src_2",
+      "label": {
+        "en-US": "Image",
+        "zh-CN": "图片"
+      },
+      "info": {
+        "zh-CN": "建议尺寸：宽度1000px,高度可自适应",
+        "en-US": "Recommended resolution:width 1000px,responsive height"
+      },
+      "default": ""
+    },
+    {
+      "type": "url",
+      "id": "url_2",
+      "label": {
+        "en-US": "Link",
+        "zh-CN": "链接"
+      },
+      "is_image_link": true,
+      "default": ""
+    }
+  ],
+  "presets": [
+    {
+      "name": "two_images",
+      "cname": {
+        "zh-CN": "多图-2",
+        "en-US": "Images 2"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": []
+    }
+  ]
+}
+{% endschema %}

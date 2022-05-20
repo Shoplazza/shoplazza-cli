@@ -1,0 +1,23 @@
+$primary-color: #212121;
+$white: #fff;
+$black: #000;
+$mb_row_padding: 30/2; // mobile row gap between products
+$mb_row_margin: 65/2; // mobile col gap between products
+$pc_row_padding: 24; // pc row gap between products
+$pc_row_margin: 40; // pc col gap between products
+
+$mb_collection_row_padding: 30/2; // mobile row gap between products
+$mb_collection_row_margin: 30/2; // mobile col gap between products
+$pc_collection_row_padding: 12; // pc row gap between products
+$pc_collection_row_margin: 12; // pc col gap between products
+
+$bootstrap_padding: 15; // bootstrap common padding
+
+$sm_mobile: 'max-width: 321px';
+$md: 'max-width: 991.98px';
+$mobile: 'max-width: 767.98px';
+$pc: 'min-width: 768px';
+
+@function px-to-rem ($px) {
+  @return $px / 16 * 1rem;
+}

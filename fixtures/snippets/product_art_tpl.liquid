@@ -1,0 +1,152 @@
+<script type="text/html" id="product_art_tpl">
+  <% var price = product.price || 0; %>
+  <% var compareAtPrice = product.compare_at_price || 0; %>
+  <% var title = product.title || ''; %>
+  <% var id = product.id || ''; %>
+  <% var url = product.url || ''; %>
+  <% var type = product.type || ''; %>
+  <% var isMock = product.isMock || false; %>
+  <% var wrapperHeight = "100%" %>
+
+  <% if ('{{settings.product_grid_image_size}}' == 'natural') { %>
+    <% wrapperHeight = $imports.image_padding_bottom(product.image.width, product.image.height); %>
+  <% } else if ('{{settings.product_grid_image_size}}') { %>
+    <% wrapperHeight = "{{settings.product_grid_image_size}}"; %>
+  <% } %>
+
+  <% if (image_size) { %>
+    <% wrapperHeight = image_size; %>
+  <% } %>
+
+  <% if (image_size == "auto") { %>
+    <% wrapperHeight = $imports.image_padding_bottom(product.image.width, product.image.height); %>
+  <% } %>
+
+  {% comment %} 小图情况处理 endcomment {% endcomment %}
+  <% var img_size = 'width: 100%;' %>
+  <% var rate = $imports.image_padding_bottom(product.image.width, product.image.height); %>
+  <% var wrapper_rate =  wrapperHeight; %>
+  <% if ($imports.getNumber(rate) > $imports.getNumber(wrapper_rate)) { %>
+    <% img_size = 'height: 100%;' %>
+  <% } %>
+
+  {% comment %}遍历子产品list，找到第一个可用的子产品 {% endcomment %}
+  <% if (product.variants && product.available) { %>
+    <% for(var i = 0; i < product.variants.length; i++){ %>
+      <% if (product.variants[i].available) { %>
+        <% var variantsId = product.variants[i].id; %>
+        <% var variants = product.variants[i]; %>
+        <% break; %>
+      <% } %>
+    <% } %>
+  <% } %>
+
+  <% if (product.published) { %>
+    <div data-track="item" data-track-price="<%=price%>" data-track-id="<%=id%>"
+      data-track-type="<%=type%>" data-track-name="<%=title%>" class="product-snippet serial-item">
+      <% if($data.beforeTplId) { %>
+        <% include ($data.beforeTplId, $data) %>
+      <% } %>
+      <a <% if (!isMock) { %> href="<%=product.url%>" <% } %> class="product-snippet__img-wrapper common__img-wrapper_lazy"
+        style="padding-bottom: <%= wrapperHeight %>; width: 100%">
+        <% include ('lazyimg_art', {
+          image: {
+            alt: product.image.alt || title,
+            style: img_size,
+            src: product.image.src,
+          }
+        }) %>
+        <div class="d-none d-md-block">
+          <% if (product.available) { %>
+            <div class="product-snippet__mask">
+              {% comment %} 1)此处需要用liquid语法，否则拿不到settings; 2) '<%=variants%>' 必须用单引号 {% endcomment %}
+              {% if settings.quick_view_btn_text and settings.is_quick_view_btn_show %}
+                <button type="button" class="btn btn-primary product-snippet__btn text-truncate"
+                  data-safe-href="prevent"
+                  <% if (isMock) { %> data-product-mock="true" <% } else { %> data-product-id="<%=id%>" data-track="quick_shop" data-track-product-id="<%=id%>" <% }%>
+                  data-product-url="<%=url%>"
+                  data-product-variants-id="<%=variantsId%>"
+                  data-product-variants='<%=variants%>'
+                  data-product='{"title":"<%=title%>","type":"<%=type%>","id":"<%=id%>","url":"<%=url%>","image":<%=product.image%>}'
+                >
+                  {{ settings.quick_view_btn_text }}
+                </button>
+              {% endif %}
+            </div>
+          <% } else { %>
+            <div class="product-snippet__mask" style="opacity: 1;">
+              <button type="button" disabled class="btn btn-primary product-snippet__btn text-truncate" style="white-space: normal; font-size: 13px; line-height: 16px; text-indent: 0; padding: 0;">{{ 'i18n.general.product.sold_out' | t }}</button>
+            </div>
+          <% } %>
+        </div>
+        <%
+          var on_sale = product.compare_at_price - product.price > 0 ? true : false;
+          var save_label = on_sale && product.available && {{settings.product_save_amount | default: false}};
+          var discount_label = on_sale && product.available && {{settings.is_discount_show | default: false }};
+        %>
+        <% if (save_label || discount_label) { %>
+          <div class="product-info__label product-info__label-{{settings.label_style | default: 'triangle'}}">
+            {% comment %} 折扣 {% endcomment %}
+            <% if (discount_label) { %>
+              <div class="product-info__discount-label product-info__header_tag">
+                <%- "{{ 'i18n.product.product_detail.off' | t }}".replace(/\{\{\s*count\s*\}\}/, ((1-product.price/product.compare_at_price)*100).toFixed(0)) %>
+              </div>
+            <% } %>
+            {% comment %} 优惠金额 {% endcomment %}
+            <% if (save_label) { %>
+              <div class="product-info__save-label">
+                <% var saved_amount = $imports.finance_money_with_symbol((product.compare_at_price -  product.price).toFixed(2)); %>
+                <%- "{{ 'i18n.product.product_detail.save_html' | t }}".replace(/\{\{\s*saved_amount\s*\}\}/, saved_amount) %>
+              </div>
+            <% } %>
+          </div>
+        <% } %>
+        <% if (!product.available) { %>
+        <div class="d-md-none product-snippet__soldout">{{ 'i18n.general.product.sold_out' | t }}</div>
+        <% } %>
+        <% if(typeof $data.contentTplId == "string") { %>
+          <% include ($data.contentTplId, $data) %>
+        <% } else if(typeof $data.contentTplId == "function") { %>
+          <%- $data.contentTplId($data) %>
+        <% } %>
+      </a>
+      <a <% if (product.url) { %> href="<%=product.url%>" <% } %> class="product-snippet__title-normal two_line_text_truncate dj_skin_product_list_title"><%= title %></a>
+      <div class="product-info__vendor text-center dj_skin_product_list_title"><%= product.vendor %></div>
+      <div class="product-snippet__price-wrapper text-center">
+        <span class="text-truncate dj_skin_product_price money" style="color: <%=price_color%>"><%= $imports.finance_money_with_symbol(price) %></span>
+        <% if (compareAtPrice * 1 > price * 1) { %>
+          <del class="text-truncate dj_skin_product_compare_at_price dj_skin_product_compare_at_price money">
+            <%= $imports.finance_money_with_symbol(compareAtPrice) %>
+          </del>
+        <% } %>
+      </div>
+      {% if settings.collection_color_swatches %}
+        <% for(var i = 0;i < (product.options && product.options.length); i++) { %>
+          <% var option = product.options[i]; %>
+          <% var option_name = option.name.toLowerCase(); %>
+          <% if (option_name.indexOf('color') > -1 || option_name.indexOf('colour') > -1) { %>
+            <% var option_index = i; %>
+            <% var values = ''; %>
+            <div class="grid-product__colors text-center mt-2">
+              <% for(var j = 0;j < (product.variants && product.variants.length); j++) { %>
+                <% var variant = product.variants[j]; %>
+                <% var value = variant.options[option_index].value %>
+                <% if (values.indexOf(value) == -1) { %>
+                  <% values = values + ',' + value; %>
+                  <a
+                    href="<%= variant.url %>"
+                    class="color-swatch"
+                    style="background-color: <%= value %>;">
+                  </a>
+                <% } %>
+              <% } %>
+            </div>
+          <% } %>
+        <% } %>
+      {% endif %}
+      <% if($data.afterTplId) { %>
+        <% include ($data.afterTplId, $data) %>
+      <% } %>
+    </div>
+  <% } %>
+</script>

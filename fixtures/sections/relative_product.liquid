@@ -1,0 +1,121 @@
+{% use 'relative_product.css' %}
+
+{% comment %} 商品详情页 商品推荐 {% endcomment %}
+<div class="container col-12 relative_product lazyload">
+  {% if section.settings.heading != blank %}
+    <div class="relative_product__title dj_skin_title_font position-relative">
+      {{ section.settings.heading}}
+      <span class="relative_product__change d-none">{{ 'i18n.product.product_detail.not_like_these' | t}}</span>
+    </div>
+  {% endif %}
+  <div class="relative_product__content row"></div>
+</div>
+{% comment %} 定义前端模板 {% endcomment %}
+<script id="relative-product-art-tpl" type="text/html">
+  <% for(var i = 0; i < products.length; i++) { %>
+    <div class="col-6 <%= colMd %> common__product-gap">
+      <% include ('product_art_tpl', {
+        product: products[i]
+      }) %>
+    </div>
+  <% } %>
+</script>
+
+{% javascript %}
+  $(function() {
+    $('.relative_product').lazy(function() {
+      var page = 1, per_page = 30, products = [], related_count = {{section.settings.product_number | default: 4}}, enableChangeCount = 10;
+        var $section = $('[data-section-id=' + {{section.id}} + ']');
+      {% comment %} 获取异步商品 {% endcomment %}
+      $.get('/api/product/similar-products?product_id={{product.id}}'+'&page='+page+'&per_page='+per_page, function(res) {
+        if (!(res.state == 0 && res.data)) { return ; }
+        products = (res.data.products || []).filter(function(item) { return item.published; });
+        {% comment %} 可以切换推荐 {% endcomment %}
+        products.length > enableChangeCount && $section.find('.relative_product__change').removeClass('d-none');
+        {% if shop.env == 0 %}
+          $('.relative_product__title')[products.length?"show":"hide"]();
+        {% else %}
+          if (products.length < related_count) {
+            products = products.concat(Array.apply(null, Array(related_count - products.length)).map(function(){ return {
+              image: { src: '{{ '0745b09b31974decc653e9a927fb444c.jpg' | img_url }}', width: 100, height: 100 },
+              compare_at_price: '99.99',
+              price: '88.88',
+              available: true,
+              published: true,
+              isMock: true,
+              title: 'Product Title'
+            }; }));
+          }
+        {% endif %}
+        var colMd = 'col-md-6';
+        colMd = ["","col-md-6","col-md-6","col-md-4","col-md-3","col-md-2_4"][related_count] || colMd;
+        var render = function () {
+          var count = 0;
+          products.length < related_count ? (count = products.length) : (count = related_count);
+          $section.find('.relative_product__content').html(window.template('relative-product-art-tpl', {
+            products:  new Array(count).fill(0).map(function (item, i) {
+              return products[((page-1)*related_count+i)%(products.length)];
+            }),
+            colMd: colMd
+          }));
+          console.log()
+          page+=1;
+        };
+        render();
+        $(document).on('click', '.relative_product__change', render);
+      });
+    });
+  });
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "relative_product",
+  "templates": [
+    "product"
+  ],
+  "limit": 1,
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": {
+        "en-US": "Heading",
+        "zh-CN": "标题"
+      },
+      "default": "You may also like"
+    },
+    {
+      "type": "range",
+      "id": "product_number",
+      "step": 1,
+      "max": 5,
+      "min": 2,
+      "label": {
+        "zh-CN": "商品总数",
+        "en-US": "Products number"
+      },
+      "default": 4,
+      "unit": ""
+    }
+  ],
+  "presets": [
+    {
+      "name": "relative_product",
+      "cname": {
+        "en-US": "Product recommendations",
+        "zh-CN": "商品推荐"
+      },
+      "category": {
+        "en-US": "Page",
+        "zh-CN": "页面"
+      },
+      "ccategory": {
+        "en-US": "Page",
+        "zh-CN": "页面"
+      },
+      "display": true
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,95 @@
+{% use 'video.css' %}
+{% assign defaultImage = 'oss/operation/ee147ae7fe87ec16f50a5f17e57e6aa9.jpg' | img_url %}
+<div class="container video-{{section.id}} container-gap">
+  <div class="row">
+    <div class="video">
+      {% if section.settings.video_title %}
+        <h1 class="video__title dj_skin_title text-truncate">{{section.settings.video_title}}</h1>
+      {% endif %}
+      <div class="video__wrapper">
+        <img class="video__wrappe_default" src="{{defaultImage}}"/>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% javascript %}
+  $(function () {
+    var videoId = $.getYoutubeId('{{section.settings.video.url}}');
+    videoId && $('.video-{{section.id}} .video__wrapper').html('<iframe title="" src="https://www.youtube.com/embed/' + videoId + '?rel=0&modestbranding=1&autoplay='+ 0 + '" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>');
+  })
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "video",
+  "settings": [
+    {
+      "type": "header",
+      "content": {
+        "en-US": "Text",
+        "zh-CN": "文本"
+      }
+    },
+    {
+      "type": "text",
+      "id": "video_title",
+      "label": {
+        "en-US": "Heading",
+        "zh-CN": "标题"
+      },
+      "placeholder": {
+        "zh-CN": "视频标题",
+        "en-US": "Video title"
+      },
+      "default": "Video"
+    },
+    {
+      "type": "header",
+      "content": {
+        "en-US": "Video",
+        "zh-CN": "视频"
+      }
+    },
+    {
+      "type": "popover",
+      "label": {
+        "zh-CN": "请复制视频链接到下方，当前仅支持Youtube视频",
+        "en-US": "Copy the video link to the below (only support Youtube video now)"
+      }
+    },
+    {
+      "type": "video_url",
+      "id": "video",
+      "placeholder": {
+        "en-US": "Paste Youtube video link",
+        "zh-CN": "粘贴Youtube视频链接"
+      },
+      "label": {
+        "zh-CN": "视频链接",
+        "en-US": "Video link"
+      },
+      "default": ""
+    }
+  ],
+  "presets": [
+    {
+      "name": "video",
+      "cname": {
+        "en-US": "Video",
+        "zh-CN": "视频"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": []
+    }
+  ]
+}
+{% endschema %}

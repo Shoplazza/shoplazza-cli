@@ -1,0 +1,39 @@
+{% use 'page_detail.css' %}
+<div class="overflow-hidden">
+  <div class="container container-page-gap">
+    <div class="row">
+      <div class="page_template dj-mce-view w-100">
+        {% if page.title %}<p class="page_template__title h2 w-100 text-center dj_skin_title_font">{{page.title}}</p>{% endif %}
+        {% if page.content %}<div class="dj_skin_text">{{page.content}}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "page_detail",
+  "templates": ["page"],
+  "limit": 1,
+  "settings": [],
+  "presets": [
+    {
+      "name": "page_detail",
+      "cname": {
+        "zh-CN": "自定义页面",
+        "en-US": "Custom page"
+      },
+      "category": {
+        "zh-CN": "基础",
+        "en-US": "Basic"
+      },
+      "ccategory": {
+        "zh-CN": "基础",
+        "en-US": "Basic"
+      },
+      "display": true,
+      "blocks": []
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,74 @@
+{% use 'cart_modal.css' %}
+<script id="atc-modal-wrapper" type="text/html">
+  <div class="modal fade right" id="atc-modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-body">
+          <div class="sep-font sep-font-close close modal__close" data-dismiss="modal" aria-label="Close"></div>
+          <div id='atc_container'>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;height: 2.5rem;">
+            <a href="/cart" class="atc-btn__link">{{ 'i18n.product.product_detail.view_cart' | t }}</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</script>
+
+{% javascript %}
+  $(function () {
+    if ($('#atc-modal').length) return;
+    $(document.body).on("dj.addToCart", function (e, options) {
+      if (window.SHOP_PARAMS.template_type == '13') { $.toast.show({ content: window.SHOP_PARAMS.product_lang.added_to_cart_successfully }) };
+      if (window.SHOP_PARAMS.template_type === '13') return;
+      if (options.source == "drawer" || options.process != 'to_toast') return;
+      if ($.cart) { $(document).trigger("dj.cart.refresh"); $('#atc-modal').modal('show'); return; }
+      $.ajax({
+        type: 'GET',
+        dataType: 'html',
+        url: '/cart?' + $.toQuery($.params()),
+        success: function (res) {
+          if ($('#atc-modal').length) return;
+          console.log('options', options)
+          var modalTemplate = template('atc-modal-wrapper', options);
+          $('body').prepend(modalTemplate);
+          var bodyHTML = res.match(/(<body\b[^>]*>)([^<]*(?:(?!<\/body>)<[^<]*)*)(<\/body>)/gi)[0];
+          var bodyClass = (res.match(/\<body.+class="([^"]+)/) || ["",""])[1];
+          $('#atc-modal .modal-content').addClass(bodyClass);
+          console.log('bodyHTML', bodyHTML)
+          var $body = $(bodyHTML);
+          $body.find('[data-section-type^=header],[data-section-type^=footer]').attr({ 'data-section-id': '' }).remove();
+          $("#atc_container").html($body);
+          var $modal = $('#atc-modal');
+          $('.modal-backdrop').css({ display: 'none' })
+          $modal.modal('show').on('shown.bs.modal', function () {
+            $.loading.hide();
+            $('#product-select-modal').modal('hide');
+            if ($(window).width() < 768) {
+              $(document.body).addClass('cart_fixed-screen');
+            }
+            $(document.body).one("click", '.modal-backdrop', function () {
+              $modal.modal('hide')
+            })
+          })
+          $modal.on('hide.bs.modal hidden.bs.modal', function () {
+            $(document.body).removeClass('cart_fixed-screen');
+          })
+          cartObj && cartObj.line_items && cartObj.line_items.forEach(function(item, index) {
+            if (Number(item.image.width) >= Number(item.image.height)) {
+              $('#cart').before('<style> #cart_form .cart__item:nth-of-type(' + (index + 1) + ') .cart__img {height:90px!important;} </style>')
+            } else {
+              if ((110 / 90) * item.image.width < item.image.height) {
+                $('#cart').before('<style> #cart_form .cart__item:nth-of-type(' + (index + 1) + ') .cart__img {height:110px!important;} </style>')
+              } else {
+                $('#cart').before('<style> #cart_form .cart__item:nth-of-type(' + (index + 1) + ') .cart__img {width:90px;height:' + ((90 * item.image.height) / item.image.width) + 'px!important;} </style>')
+              }
+            }
+          });
+          $(document).trigger("dj.cart.refresh")
+        }
+      });
+    })
+  })
+{% endjavascript %}

@@ -1,0 +1,157 @@
+{% use 'rich_text.css' %}
+<div class="container container-gap">
+  <div class="row">
+    {% assign  width= section.settings.width %}
+    {% assign  text_size= section.settings.text_size %}
+    <div class="rich-text container-gap mb-padding text-center rich-text__width_{{width}}">
+      {% for block in section.blocks %}
+        {% if block.type == 'heading' and block.settings.title %}
+          <div class="rich-text__title rich-text__title_{{ text_size }} dj_skin_title_font">{{ block.settings.title | escape }}</div>
+        {% endif %}
+        {% if block.type == 'text' and block.settings.text %}
+          <div class="dj-mce-view rich-text__text_{{ text_size }} dj_skin_text">{{ block.settings.text }}</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+
+
+{% schema %}
+{
+  "name": "rich_text",
+  "max_blocks": 2,
+  "settings": [
+    {
+      "type": "select",
+      "id": "text_size",
+      "label": {
+        "zh-CN": "字体大小",
+        "en-US": "Font Size"
+      },
+      "default": "medium",
+      "options": [
+        {
+          "value": "large",
+          "label": {
+            "zh-CN": "大",
+            "en-US": "Large"
+          }
+        },
+        {
+          "value": "medium",
+          "label": {
+            "zh-CN": "中",
+            "en-US": "Medium"
+          }
+        },
+        {
+          "value": "small",
+          "label": {
+            "zh-CN": "小",
+            "en-US": "Small"
+          }
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": {
+        "en-US": "Text width",
+        "zh-CN": "文本宽度"
+      },
+      "default": "large",
+      "options": [
+        {
+          "value": "large",
+          "label": {
+            "zh-CN": "大（1080px）",
+            "en-US": "Large（1080px）"
+          }
+        },
+        {
+          "value": "medium",
+          "label": {
+            "zh-CN": "中（760px）",
+            "en-US": "Medium（760px）"
+          }
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": {
+        "zh-CN": "标题",
+        "en-US": "Heading"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          },
+          "default": "Talk about your brand"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": {
+        "zh-CN": "文字",
+        "en-US": "Text"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": {
+            "en-US": "Text",
+            "zh-CN": "文本"
+          },
+          "default": "<p><span>A sentence or two introducing your brand, what you sell, and what makes your brand compelling to customers.</span></p>"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "rich_text",
+      "cname": {
+        "en-US": "Rich text",
+        "zh-CN": "富文本"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "title": "Talk about your brand"
+          }
+        },
+        {
+          "type": "text",
+          "settings": {
+            "text": "<p><span>A sentence or two introducing your brand, what you sell, and what makes your brand compelling to customers.</span></p>"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,40 @@
+{{ section.settings.html }}
+{% schema %}
+{
+  "name": "html",
+  "settings": [
+    {
+      "type": "header",
+      "content": "HTML"
+    },
+    {
+      "type": "html",
+      "id": "html",
+      "placeholder": {
+        "zh-CN": "请输入代码",
+        "en-US": "Input code"
+      },
+      "default": "<div style='height: 190px; background:#F7F7F7; color: #000; display:flex; align-items:center; flex-direction:column; justify-content:center;'> <h2 style='font-size: 24px;font-weight: 500;'>Heading</h2> <h4 style='font-size: 16px;'>body</h4> </div>"
+    }
+  ],
+  "presets": [
+    {
+      "name": "html",
+      "cname": {
+        "en-US": "HTML",
+        "zh-CN": "HTML"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": []
+    }
+  ]
+}
+{% endschema %}

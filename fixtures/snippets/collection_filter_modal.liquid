@@ -1,0 +1,56 @@
+{% assign content_col = 'col-12 col-md-9' %}
+{% assign product_col = 'col-6 col-md-4' %}
+<div class="col-md-3">
+  <div class="collection-filter__wrapper">
+    <div class="collection-filter">
+      <div class="collection-filter__title">{{ 'i18n.collection.collection_detail.filter_by' | t }}</div>
+      {% for block in section.blocks %}
+        {% if block.type contains 'shoplazza://apps' %}
+          {% render block %}
+        {% continue %}
+      {% endif %}
+      {% comment %} 价格标签处理 {% endcomment %}
+        {% if block.type == 'price_filter' %}
+          {% assign is_last_price_show = false %}
+          {% if block.settings.is_last_price_show %}
+            {% assign is_last_price_show = true %}
+          {% endif %}
+          {% assign tags = block.settings.tags | price_range: is_last_price_show %}
+        {% endif %}
+        {% comment %} 普通标签处理 {% endcomment %}
+        {% if block.type == 'tag_filter' %}
+          {% if block.settings.is_all_tags_show %}
+            {% comment %} 全部标签 {% endcomment %}
+            {% assign tags = collection.tags %}
+          {% else %}
+            {% assign tags = block.settings.tags | downcase | split: ',' | uniq %}
+          {% endif %}
+        {% endif %}
+        {% if tags.size > 0 %}
+          <div class="collection-filter__item" data-type="{{block.type}}">
+            <h3 class="collection-filter__item-title">{{block.settings.title}}</h3>
+            <div class="collection-filter__item-select">
+              {% for tag in tags %}
+                {% assign tag = tag | strip %}
+                {% comment %} 普通标签需要有效，价格标签直接输出 {% endcomment %}
+                {% if (block.type == 'tag_filter' and collection.tags contains tag) or (block.type == 'price_filter') %}
+                <div class="custom-control custom-radio">
+                  <input type="radio" id="{{block.settings.title}}_{{tag}}_{{block.id}}_{{forloop.index}}" value="{{tag}}" name="{{block.settings.title}}_{{block.id}}" class="custom-control-input">
+                  <label class="custom-control-label" for="{{block.settings.title}}_{{tag}}_{{block.id}}_{{forloop.index}}">{{tag}}</label>
+                </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      {% endfor %}
+      <div class="collection-filter__footer d-none d-md-block">
+        <button class="collection-filter-clear btn btn-primary form-control">{{ 'i18n.collection.collection_detail.clear_all' | t }}</button>
+      </div>
+      <div class="collection-filter__footer d-md-none">
+        <button class="collection-filter-clear btn btn-secondary form-control">{{ 'i18n.collection.collection_detail.clear_all' | t }}</button>
+        <button class="btn btn-primary form-control collection-filter__footer-confirm">{{ 'i18n.collection.collection_detail.confirm' | t }}</button>
+      </div>
+    </div>
+  </div>
+</div>

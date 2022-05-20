@@ -1,0 +1,212 @@
+{
+  "general": {
+    "404": {
+      "title": "404 الصفحة غير موجودة",
+      "tips": "عذرًاً،تعذرالحصولعلىالصفحةالتيتبحثعنها!",
+      "continue_shopping": "مواصلةالتسوق",
+      "subtext_html": "<p> الصفحة التي زرتها غير موجودة </p> <p> <a href = \"/\" > متابعة التسوق </a> </p>"
+    },
+    "product": {
+      "quick_view": "نظرةسريعة",
+      "sold_out": "بيعتكلها", 
+      "buy": "يشترى"
+    },
+    "newsletter_form": {
+      "email_address_empty_warning": "يرجى إدخال عنوان بريدك الإلكتروني.",
+      "email_address_invalid_warning": "يرجى إدخال عنوان بريد إلكتروني الفعال.",
+      "email_placeholder": "البريدالإلكتروني",
+      "newsletter_email": "أدخل عنوان بريدك الإلكتروني",
+      "newsletter_confirmation": "شكراً لك على اشتراكك",
+      "submit": "الاشتراك"
+    },
+    "footer": {
+      "email_address_empty_warning": "الرجاء إدخال عنوان البريد الإلكتروني الخاص بك.",
+      "email_address_invalid_warning": "من فضلك أدخل بريد أليكترونى صحيح.",
+      "confirmation": "شكرا على الإشتراك! سوف نرسل الأخبار إلى بريدك الإلكتروني.",
+      "email_placeholder": "البريد الإلكتروني",
+      "submit": "الإشتراك",
+      "follow_us": "تابعنا",
+      "instagram": "إنستجرام",
+      "facebook": "الفيسبوك",
+      "twitter": "تويتر"
+    },
+    "view": {
+      "view_all": "عرض الكل"
+    },
+    "accessibility": {
+      "skip_to_content": "انتقل إلى المحتوىات",
+      "close_modal": "إغلاق (ESC)",
+      "close": "إغلاق",
+      "learn_more": "تعرف على المزيد"
+    },
+    "meta": {
+      "tags": "وضع علامة على \"{{ tags }}\"",
+      "page": "رقم الصفحة {{ page }}"
+    },
+    "pagination": {
+      "previous": "السابق",
+      "next": "التالي"
+    },
+    "social": {
+      "share_on_facebook": "مشاركة",
+      "share_on_twitter": "تغريدة",
+      "share_on_pinterest": "إنشرها",
+      "alt_text": {
+        "share_on_facebook": "مشاركة على فيسبوك",
+        "share_on_twitter": "تغريد على تويتر",
+        "share_on_pinterest": "نشرها على بينتيريست"
+      }
+    },
+    "search": {
+      "no_results_html": "لم ينتج عن بحثك عن \"{{ terms }}\" أي نتائج.",
+      "results_for_html": "نتائج بحثك عن \"{{ terms }}\" هي كما يلي:",
+      "title": "بحث",
+      "placeholder": "ابحث عن متجرنا",
+      "submit": "بحث",
+      "result_count": {
+        "one": "{{ count }} النتائج",
+        "other": "{{ count }} النتائج"
+      }
+    },
+    "drawers": {
+      "navigation": "تصفح الموقع",
+      "close_menu": "إغلاق القائمة",
+      "expand_submenu": "توسيع القائمة الفرعية",
+      "collapse_submenu": "طي القائمة الفرعية"
+    }
+  },
+  "navigation": {
+    "general": {
+      "login": "الدخول",
+      "register": "التسجيل",
+      "my_account": "حسابي",
+      "my_orders": "طلباتي",
+      "address_book": "دليل العناوين",
+      "log_out": "خروج",
+      "search_placeholder": "البحث عن "
+    }
+  },
+  "product": {
+    "product_detail": {
+      "sold": "كمية البيع {{ count }}",
+      "off": "كمية البيع <span>{{ count }}%</span>",
+      "qty": "الكمية",
+      "product_description": "وصف المنتج",
+      "add_to_cart": "إضافة إلى السلة",
+      "sold_out": "انتهت",
+      "buy_now": "اشتر الآن",
+      "added_to_cart_successfully": "تمت الإضافة إلى السلة بنجاح",
+      "view_product_detail": "عرض تفاصيل المنتج",
+      "in_stock": "الكمية {{ count }} في المخزن",
+      "related_product": "منتجات مشابهة",
+      "add_to_cart_tips": "أضيفتإلىالسلةمنقبل!",
+      "view_cart": "عرضالسلة",
+      "proceed_to_checkout": "يتمالخروج",
+      "select_variant": "يرجى اختيار البديل على الأقل",
+      "save_html": "حفظ <span class='money'>{{ saved_amount }}</span>",
+      "review": "تعليق",
+      "not_like_these": "لا تحب هؤلاء؟",
+      "please_select": "اختر من فضلك",
+      "sku": "Sku",
+      "weight": "وزن",
+      "barcode": "الرمز الشريطي"
+    }
+  },
+  "collection": {
+    "collection_detail": {
+      "sales_descending": "إجمالي المبيعات ، من الأعلى إلى الأقل",
+      "products": "المنتجات {{ count }}",
+      "recommend": "موصى به",
+      "low_to_high": "السعر، من الأدنى إلى الأعلى",
+      "high_to_low": "السعر، من الأعلى إلى الأدنى",
+      "best_selling": "منتجات رائجة",
+      "newest": "منتجات جديدة",
+      "coming_soon": "الكثير من المنتجات ستعرض قريباً! يرجى زيارتنا لاحقا.",
+      "continue_shopping": "الاستمرار بالتسوق",
+      "sort_by": "تصنيف حسب",
+      "items_per_page": "عناصر لكل صفحة {{ count }}",
+      "prev": "السابق",
+      "next": "التالي",
+      "filter_by": "تصفية حسب",
+      "confirm": "تأكيد",
+      "clear_all": "مسح الجميع",
+      "no_result": "ليست هناك نتيجة تطابق شرط الفلتر.",
+      "add_to_cart_count_descending": "مشتريات إضافية ، من الأعلى إلى الأسفل",
+      "views_descending": "مشاهدات الصفحة ، من الأعلى إلى الأسفل"
+    }
+  },
+  "search": {
+    "title": "نتائجالبحث",
+    "search_button": "البحث",
+    "results_tips": "<span class='search__count'>{{ count }}</span> تطابق مع <span class='dj_skin_product_text search__key'>“{{ key }}”</span>",
+    "input_to_search": "قمبإدخالالبحث",
+    "no_results": "أنت تبحث عن لا توجد نتائج"
+  },
+  "sections": {
+    "map": {
+      "get_directions": "الحصول على الاتجاهات",
+      "address_error": "خطأ في إيجاد العنوان",
+      "address_no_results": "لم يتم العثور على هذا العنوان",
+      "address_query_limit_html": "لقد تجاوزت حد الاستخدام في Google API. ضع في اعتبارك الترقية إلى الخطة المتقدمة <a href=\"https://developers.google.com/maps/premium/usage-limits\"> </a>.",
+      "auth_error_html": "لقد وجدت مشكلة ما بحسابك على خريطة Google . إنشاء وتمكين<a href=\"https://developers.google.com/maps/documentation/javascript/get-api-key\">JavaScript API</a>和<a href=\"https://developers.google.com/maps/documentation/geocoding/get-api-key\">أذونات التطبيق ل API الترميز الجغرافي </a>."
+    }
+  },
+  "collections": {
+    "general": {
+      "catalog_title": "الدليل",
+      "all_of_collection": "عرض الكل",
+      "view_all_products_html": "عرض جميع <br> {{ count }} السلع",
+      "see_more": "عرض المزيد",
+      "see_less": "عرض أقل",
+      "no_matches": "عذرا، لا يوجد منتج لهذا الألبوم."
+    },
+    "sorting": {
+      "title": "التسلسل",
+      "featured": "الموصى بها",
+      "price_ascending": "الأسعار، من الادنى الى الاعلى",
+      "price_descending": "الأسعار، من الاعلى الى الادنى",
+      "newest": "المنتجات الجديده"
+    },
+    "filters": {
+      "title_tags": "تحديد",
+      "all_tags": "جميع المنتجات"
+    }
+  },
+  "home_page": {
+    "onboarding": {
+      "product_title": "أمثلة للمنتجات",
+      "product_description": "تستخدم هذه المنطقة لوصف تفاصيل المنتج الخاص بك. أخبر العملاء عن شكل المنتج وأسلوبه. كما يمكنك أيضًا إضافة معلومات مثل اللون والمواد والحجم ومكان الإنتاج.",
+      "collection_title": "أمثلة للألبوم",
+      "no_content": "لا يحتوي هذا القسم حالياً على أي محتوى. استخدم شريط الأدوات لإضافة المحتوى."
+    }
+  },
+  "layout": {
+    "footer": {
+      "social_platform": "{{ platform }} {{ name }}"
+    }
+  },
+  "products": {
+    "general": {
+      "save_html": "توفير <span class='money'>{{ saved_amount }}</span>",
+      "collection_return": "عودة {{ collection }}",
+      "next_product": "التالي: {{ title }}",
+      "sale_price": "سعر البيع",
+      "regular_price": "السعر الأصلي",
+      "from_text_html": "من {{ price }}",
+      "related_products": "أنت قَدْ تَحْبُّه ، أيضاً"
+    },
+    "product": {
+      "stock_label": "{{ count }} المخزون",
+      "sold_out": "تم البيع",
+      "unavailable": "غير متاحة للبيع",
+      "quantity": "الكمية",
+      "add_to_cart": "أضف إلى عربة التسوق",
+      "preorder": "الطلب المسبق",
+      "buy_now": "اشترِ الآن",
+      "added_to_cart_successfully": "تم الإضافة إلى عربة التسوق بنجاح"
+    }
+  },
+  "date_formats": {
+    "month_day_year": "%b %d, %Y"
+  }
+}

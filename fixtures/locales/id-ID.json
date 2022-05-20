@@ -1,0 +1,212 @@
+{
+  "general": {
+    "404": {
+      "title": "404 halaman tidak ditemukan",
+      "tips": "Maaf, halaman yang Anda cari tidak dapat ditemukan.",
+      "continue_shopping": "Lanjutkan Belanja",
+      "subtext_html": "<p> Halaman yang Anda cari tidak ada. </p> <p> <a href=\"/\"> Lanjutkan belanja </a> </p>"
+    },
+    "product": {
+      "quick_view": "Lihat sekilas",
+      "sold_out": "Habis terjual",
+      "buy": "MEMBELI"
+    },
+    "newsletter_form": {
+      "email_address_empty_warning": "Silakan masukkan alamat email Anda.",
+      "email_address_invalid_warning": "Mohon masukkan alamat email yang benar",
+      "email_placeholder": "Email",
+      "newsletter_email": "Masukkan email Anda",
+      "newsletter_confirmation": "Terima kasih telah berlangganan",
+      "submit": "Langganan"
+    },
+    "footer": {
+      "email_address_empty_warning": "Silakan masukkan alamat email Anda.",
+      "email_address_invalid_warning": "Mohon masukan alamat email yang valid",
+      "confirmation": "Terima kasih telah berlangganan! Kami akan mengirimkan informasi ke email Anda.",
+      "email_placeholder": "Email",
+      "submit": "Langganan",
+      "follow_us": "IKUTI KAMI",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "twitter": "Twitter"
+    },
+    "view": {
+      "view_all": "Lihat semua"
+    },
+    "accessibility": {
+      "skip_to_content": "Skip ke konten",
+      "close_modal": "Tutup (esc)",
+      "close": "Tutup",
+      "learn_more": "Cari tahu lebih lagi"
+    },
+    "meta": {
+      "tags": "Memilih \"{{ tags }}\"",
+      "page": "Halaman {{ page }}"
+    },
+    "pagination": {
+      "previous": "Sebelumnya",
+      "next": "Berikutnya"
+    },
+    "social": {
+      "share_on_facebook": "Share",
+      "share_on_twitter": "Tweet",
+      "share_on_pinterest": "Pin it",
+      "alt_text": {
+        "share_on_facebook": "Share on Facebook",
+        "share_on_twitter": "Tweet di Twitter",
+        "share_on_pinterest": "Pin di Pinterest"
+      }
+    },
+    "search": {
+      "no_results_html": "Pencarian Anda untuk \"{{ terms }}\" tidak ditemukan",
+      "results_for_html": "Pencarian Anda untuk \"{{ terms }}\" :",
+      "title": "Cari",
+      "placeholder": "Cari di toko kami",
+      "submit": "Cari",
+      "result_count": {
+        "one": "{{ count }} hasil",
+        "other": "{{ count }} hasil"
+      }
+    },
+    "drawers": {
+      "navigation": "Navigasi situs",
+      "close_menu": "Tutup menu",
+      "expand_submenu": "Perluas submenu",
+      "collapse_submenu": "Tutup submenu"
+    }
+  },
+  "navigation": {
+    "general": {
+      "login": "Login",
+      "register": "Daftar",
+      "my_account": "Akun saya",
+      "my_orders": "Pesananku",
+      "address_book": "Buku alamat",
+      "log_out": "Logout",
+      "search_placeholder": "Cari..."
+    }
+  },
+  "product": {
+    "product_detail": {
+      "sold": "{{ count }} terjual",
+      "off": "<span>{{ count }}%</span> OFF",
+      "qty": "Qty",
+      "product_description": "Deskripsi Produk",
+      "add_to_cart": "Masuk keranjang",
+      "sold_out": "Habis terjual",
+      "buy_now": "Beli sekarang",
+      "added_to_cart_successfully": "Berhasil ditambahkan ke keranjang",
+      "view_product_detail": "Lihat Detail Produk",
+      "in_stock": "{{ count }} dalam persediaan",
+      "related_product": "Produk terkait",
+      "add_to_cart_tips": "Telah ditambahkan ke keranjang!",
+      "view_cart": "Lihat Keranjang",
+      "proceed_to_checkout": "Lanjutkan ke pembayaran",
+      "select_variant": "Mohon pilih model",
+      "save_html": "Hemat <span class='money'>{{ saved_amount }}</span>",
+      "review": "komentar",
+      "not_like_these": "Tidak suka ini?",
+      "please_select": "tolong pilih",
+      "sku": "Sku",
+      "weight": "Bobot",
+      "barcode": "Kode batang"
+    }
+  },
+  "collection": {
+    "collection_detail": {
+      "sales_descending": "Total penjualan, tinggi ke rendah",
+      "products": "{{ count }} produk",
+      "recommend": "Rekomendasi",
+      "low_to_high": "Harga, rendah ke tinggi",
+      "high_to_low": "Harga, tinggi ke rendah",
+      "best_selling": "Best Seller",
+      "newest": "Terbaru",
+      "coming_soon": "Banyak produk baru akan segera hadir! Mohon cek lagi dilain waktu.",
+      "continue_shopping": "Lanjutkan Belanja",
+      "sort_by": "Urutkan berdasarkan",
+      "items_per_page": "{{ count }} produk per halaman",
+      "prev": "SEBELUMNYA",
+      "next": "BERIKUTNYA",
+      "filter_by": "Filter",
+      "confirm": "Yakin",
+      "clear_all": "Bersihkan",
+      "no_result": "Pencarian Anda untuk tidak ditemukan.",
+      "add_to_cart_count_descending": "Pembelian tambahan, tinggi ke rendah",
+      "views_descending": "Tayangan halaman, tinggi ke rendah"
+    }
+  },
+  "search": {
+    "title": "Hasil Pencarian",
+    "search_button": "Cari",
+    "results_tips": "<span class='search__count'> {{ count }} </span> hasil pencarian dari <span class='dj_skin_product_text search__key'> “{{ key }}” </span>",
+    "input_to_search": "ketik untuk mencari ...",
+    "no_results": "Pencarian Anda untuk tidak ditemukan."
+  },
+  "sections": {
+    "map": {
+      "get_directions": "Dapatkan petunjuk",
+      "address_error": "Kesalahan saat mencari url",
+      "address_no_results": "Tidak ada hasil untuk url",
+      "address_query_limit_html": "Anda telah melampaui batas penggunaan Google API. Pertimbangkan meningkatkan ke <a href=\"https://developers.google.com/maps/premium/usage-limits\"> Paket Premium </a>.",
+      "auth_error_html": "Ada masalah saat mencari lokasi akun Google Maps Anda. Buat dan aktifkan <a href=\"https://developers.google.com/maps/documentation/javascript/get-api-key\"> API JavaScript </a> dan izin <a href=\"https: // pengembang. google.com/maps/documentation/geocoding/get-api-key\">Geocoding API </a> aplikasi Anda."
+    }
+  },
+  "collections": {
+    "general": {
+      "catalog_title": "Katalog",
+      "all_of_collection": "Lihat semua",
+      "view_all_products_html": "Lihat semua produk {{ count }}",
+      "see_more": "Tampilkan lebih banyak",
+      "see_less": "Tampilkan sedikit",
+      "no_matches": "Maaf, tidak ada produk di koleksi ini."
+    },
+    "sorting": {
+      "title": "Sortir",
+      "featured": "Rekomendasi",
+      "price_ascending": "Harga, rendah ke tinggi",
+      "price_descending": "Harga, tinggi ke rendah",
+      "newest": "Terbaru"
+    },
+    "filters": {
+      "title_tags": "Filter",
+      "all_tags": "Semua produk"
+    }
+  },
+  "home_page": {
+    "onboarding": {
+      "product_title": "Contoh produk",
+      "product_description": "Area ini digunakan untuk menggambarkan detail produk Anda. Beri tahu pelanggan tentang tampilan gaya produk Anda. Tambahkan detail tentang warna, bahan yang digunakan, ukuran, dan asal produksi.",
+      "collection_title": "Contoh koleksi",
+      "no_content": "Bagian ini saat ini tidak termasuk konten apa pun. Tambahkan konten ke bagian ini dengan sidebar."
+    }
+  },
+  "layout": {
+    "footer": {
+      "social_platform": "{{ name }} pada {{ platform }}"
+    }
+  },
+  "products": {
+    "general": {
+      "save_html": "Hemat <span class='money'>{{ saved_amount }}</span>",
+      "collection_return": "Kembali ke {{ collection }}",
+      "next_product": "Berikutnya: {{ title }}",
+      "sale_price": "Harga promo",
+      "regular_price": "Harga normal",
+      "from_text_html": "dari {{ price }}",
+      "related_products": "Anda mungkin juga suka"
+    },
+    "product": {
+      "stock_label": "{{ count }} dalam persediaan",
+      "sold_out": "Habis terjual",
+      "unavailable": "Tidak tersedia",
+      "quantity": "Kuantitas",
+      "add_to_cart": "Masuk keranjang",
+      "preorder": "Pre-order",
+      "buy_now": "Beli sekarang",
+      "added_to_cart_successfully": "Berhasil dimasukkan ke keranjang"
+    }
+  },
+  "date_formats": {
+    "month_day_year": "%b %d, %Y"
+  }
+}

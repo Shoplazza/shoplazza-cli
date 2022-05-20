@@ -1,0 +1,436 @@
+{% use 'collection_detail.css' %}
+{% assign limit = section.settings.limit | default: 40 %}
+{% if section.settings.is_pagination_show == nil %}
+  {% assign is_pagination_show = false %}
+{% else %}
+  {% assign is_pagination_show = section.settings.is_pagination_show %}
+{% endif %}
+
+{% paginate collection.products by limit %}
+
+<div class="container container-gap collection__container">
+  {% comment %} 专辑商品列表 {% endcomment %}
+  <div class="row">
+    {% assign content_col = 'col-12 col-md-12' %}
+    {% assign product_col = 'col-6 col-md-3' %}
+    {% if section.settings.filter %}
+      {% include 'collection_filter_modal' %}
+    {% endif %}
+    <div class="{{content_col}}">
+      {% comment %} 排序部分 {% endcomment %}
+      <div class="collection__sort d-flex align-items-center justify-content-between" style="flex-wrap:wrap;">
+        <span class="collection__number">{{ 'i18n.collection.collection_detail.products' | t: count: collection.products_count }}</span>
+        {% if section.settings.sort or section.settings.sort == nil %}
+          {% assign show_sort = true %}
+        {% endif %}
+        <div class="d-flex justify-content-between collection__filter-buttons {% if section.settings.filter %}collection__filter-buttons_has-filter{% endif %}">
+          {% if section.settings.filter %}
+            <button
+              class="d-md-none form-control btn btn-primary collection__filter-by"
+              {% if show_sort %}
+              style="margin-right: 8px;"
+              {% endif %}>
+              {{ 'i18n.collection.collection_detail.filter_by' | t }}
+            </button>
+          {% endif %}
+          {% if show_sort %}
+            <span class="collection__sort-select d-flex align-items-center" style="margin-left: 8px;">
+              {% if collection.products_count > 0 %}
+                {% assign recomend = 'i18n.collection.collection_detail.recommend' | t %}
+                {% assign low_to_high = 'i18n.collection.collection_detail.low_to_high' | t %}
+                {% assign high_to_low = 'i18n.collection.collection_detail.high_to_low' | t %}
+                {% assign best_selling = 'i18n.collection.collection_detail.best_selling' | t %}
+                {% assign newest = 'i18n.collection.collection_detail.newest' | t %}
+                {% assign sales_descending = 'i18n.collection.collection_detail.sales_descending' | t %}
+                {% assign add_to_cart_count_descending = 'i18n.collection.collection_detail.add_to_cart_count_descending' | t %}
+                {% assign views_descending = 'i18n.collection.collection_detail.views_descending' | t %}
+
+                {% assign manual = "@manual|" %}
+                {% assign price_ascending = "@price-ascending|" %}
+                {% assign price_descending = "@price-descending|" %}
+                {% assign best_selling_tag = "@best-selling|" %}
+                {% assign published_descending = "@published-descending|" %}
+                {% assign sales_descending_value = '@best-selling|' %}
+                {% assign add_to_cart_count_descending_value = '@add_to_cart_count|' %}
+                {% assign views_descending_value = '@views' %}
+                {% comment %} {% assign options = recomend | append: manual | append: low_to_high | append: price_ascending | append: high_to_low | append: price_descending | append: best_selling | append: best_selling_tag | append: newest | append: published_descending | append: sales_descending | append: sales_descending_value | append: add_to_cart_count_descending_value | append: add_to_cart_count_descending | append: views_descending_value | append: views_descending %} {% endcomment %}
+              {% assign options = recomend | append: manual | append: low_to_high | append: price_ascending | append: high_to_low | append: price_descending | append: newest | append: published_descending | append: sales_descending | append: sales_descending_value | append: add_to_cart_count_descending | append: add_to_cart_count_descending_value | append: views_descending | append: views_descending_value %}
+                <span class="d-none d-md-block collection__sort-label" style="margin-right: 16px;">{{ 'i18n.collection.collection_detail.sort_by' | t }}</span>
+                {% assign price = product.price %}
+                {% assign compareAtPrice = product.compare_at_price %}
+                {% assign title = product.title %}
+                {% assign id = product.id %}
+                {% assign type = product.type %}
+                {% assign option = options | split: "|" %}
+                <span class="common__select">
+                  <select class ="form-control">
+                    {% for item in option %}
+                      {% assign i = item | split: "@" %}
+                      <option value="{{i[1]}}">{{i[0]}}</option>
+                    {% endfor %}
+                  </select>
+                </span>
+                {% javascript %}
+                  $(function () {
+                    var dom = $('[data-section-id={{section.id}}] .common__select');
+                    dom.find('select').change(function () {
+                      var select = dom.find('option:selected');
+                      $(document).trigger('dj.common.sort_select.change', {
+                        value: select.val(),
+                        name: select.text(),
+                        sectionId: '{{section.id}}'
+                      })
+                    })
+                  })
+                {% endjavascript %}
+              {% endif %}
+            </span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="row collection-product__wrapper" data-top-products-flag="enabled">
+      {% comment %} 置顶商品 {% endcomment %}
+      {% assign top_product_ids = "" %}
+      {% assign has_valid_top_product = false %}
+      {% assign params = REQUEST_URI | split: "?" | last | split: "&" %}
+      {% for p in params %}
+        {% assign pair = p | split: "=" %}
+        {% if pair[0] == "page" and pair[1] != "1" and REQUEST_URI contains 'show_page=first_page' %}
+          {% assign top_product_ids = "" %}
+          {% break %}
+        {% endif %}
+        {% if pair[0] == "ids" and pair[1] != '' %}
+          {% assign top_product_ids = pair[1] %}
+        {% endif  %}
+      {% endfor %}
+
+      
+      {% if top_product_ids != "" %}
+        {% assign top_product_ids_arr = top_product_ids | url_decode | split: "," %}
+        {% for product_id in top_product_ids_arr %}
+          {% if product_id != "" %}
+            {% assign product = all_products[product_id] %}
+            {% if product.published %}
+              {% assign has_valid_top_product = true %}
+              <div class="{{product_col}} common__product-gap top-product">
+                {% include 'product', product: product %}
+              </div>
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+
+      {% for product in collection.products %}
+        {% if product.published %}
+          {% unless top_product_ids contains product.id %}
+            <div class="{{product_col}} common__product-gap">
+              {% include 'product', product: product %}
+            </div>
+          {% endunless %}
+        {% endif %}
+      {% endfor %}
+      {% comment %} 列表空 {% endcomment %}
+      {% if collection.products_count == 0 and has_valid_top_product != true %}
+        <div class="col-12 text-center collection__none">{{ 'i18n.collection.collection_detail.coming_soon' | t }}</div>
+        <div class="col-12 text-center collection__none-btn"><a href="/" class="btn btn-primary col-12">{{ 'i18n.collection.collection_detail.continue_shopping' | t }}</a></div>
+      {% endif %}
+      </div>
+    </div>
+  </div>
+  {% comment %} 加载更多 {% endcomment %}
+  {% comment %} 分页 {% endcomment %}
+  {% if is_pagination_show and collection.products_count != 0 %}
+    <div class="row collection__pagination">
+      <div id="pagination" class="col-12"></div>
+    </div>
+  {% endif %}
+</div>
+
+{% comment %} 定义前端模板 {% endcomment %}
+<script id="collection-art-tpl" type="text/html">
+  <% var col = 'col-6 col-md-3' %>
+  <% if (filter == 'true') { %>
+    <% col = 'col-6 col-md-4' %>
+  <% } %>
+  <% for(var i = 0; i < products.length; i++) { %>
+    <div class="<%= col %> common__product-gap">
+      <% include ('product_art_tpl', {
+        product: products[i]
+      }) %>
+    </div>
+  <% } %>
+</script>
+{% comment %} 定义搜索结果空模板 {% endcomment %}
+<script id="collection-empty-art-tpl" type="text/html">
+  <div style="margin: 100px auto;color: #999;font-size: 14px;" class="collection-empty-art-tpl">{{ 'i18n.collection.collection_detail.no_result' | t }}</div>
+</script>
+{% include 'pagination' %}
+{% javascript %}
+
+  $(function () {
+    $.collectionDetail && $.collectionDetail({
+      filter: '{{section.settings.filter}}',
+      id: '{{ section.id }}',
+      env: '{{ shop.env }}',
+      collection_id: '{{ collection.id }}',
+      lang: {{ 'i18n.collection.collection_detail' | t | json }},
+      products_count: {{ collection.products_count }},
+      is_pagination_show: {{ is_pagination_show }},
+      limit: {{ limit }},
+      current_tags:{{ current_tags | json }},
+      current_page: {{ paginate.current_page }},
+      pages: {{ paginate.pages }},
+      handle: "{{ collection.handle }}"
+    });
+  })
+{% endjavascript %}
+
+{% endpaginate %}
+
+{% schema %}
+{
+  "name": "collection_detail",
+  "templates": ["collection"],
+  "limit": 1,
+  "contentType": [
+    "collection"
+  ],
+  "max_blocks": 10,
+  "settings": [
+    {
+      "type": "select",
+      "id": "limit",
+      "label": {
+        "zh-CN": "每页商品数",
+        "en-US": "Number of products per page"
+      },
+      "default": 48,
+      "options": [
+        {
+          "value": 8,
+          "label": "8"
+        },
+        {
+          "value": 12,
+          "label": "12"
+        },
+        {
+          "value": 16,
+          "label": "16"
+        },
+        {
+          "value": 24,
+          "label": "24"
+        },
+        {
+          "value": 40,
+          "label": "40"
+        },
+        {
+          "value": 48,
+          "label": "48"
+        },
+        {
+          "value": 60,
+          "label": "60"
+        },
+        {
+          "value": 72,
+          "label": "72"
+        },
+        {
+          "value": 80,
+          "label": "80"
+        },
+        {
+          "value": 84,
+          "label": "84"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "is_pagination_show",
+      "label": {
+        "en-US": "Pagination",
+        "zh-CN": "分页"
+      },
+      "desc": {
+        "zh-CN": "开启后将会展示在PC端列表底部",
+        "en-US": "It will be displayed on the bottom of the desktop list after being activated"
+      },
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "sort",
+      "label": {
+        "zh-CN": "开启排序",
+        "en-US": "Show Sort by"
+      },
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "filter",
+      "label": {
+        "en-US": "Enable filter",
+        "zh-CN": "开启筛选"
+      },
+      "default": false
+    },
+    {
+      "content": {
+        "zh-CN": "筛选维度",
+        "en-US": "Filter dimension"
+      },
+      "type": "header"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "@app"
+    },
+    {
+      "type": "tag_filter",
+      "name": {
+        "zh-CN": "标签筛选",
+        "en-US": "Label"
+      },
+      "info": {
+        "zh-CN": "商品标签可在后台<a href='/admin/products' style='text-decoration: underline;' target='_blank'>商品管理</a>模块设置",
+        "en-US": "Product tags can be setted up at product module"
+      },
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          },
+          "default": "Tags",
+          "placeholder": {
+            "zh-CN": "输入标题",
+            "en-US": "Input heading"
+          }
+        },
+        {
+          "type": "checkbox",
+          "id": "is_all_tags_show",
+          "label": {
+            "en-US": "Show all tags",
+            "zh-CN": "显示所有标签"
+          },
+          "info": {
+            "zh-CN": "自动隐藏筛选结果为空的标签",
+            "en-US": "Automatically hides tags with empty filter results"
+          },
+          "default": true
+        },
+        {
+          "type": "text",
+          "id": "tags",
+          "label": {
+            "zh-CN": "显示部分标签",
+            "en-US": "Show partial tags"
+          },
+          "info": {
+            "zh-CN": "仅当“显示所有标签”关闭时，才会显示此处设置的标签，多个标签以英文逗号隔开。",
+            "en-US": "The tags setted will be displayed only when 'Show all tags' is disabled. Multiple tags are separated by commas."
+          },
+          "placeholder": {
+            "zh-CN": "示例：Tag1,Tag2,Tag3",
+            "en-US": "Example：Tag1,Tag2,Tag3"
+          }
+        }
+      ]
+    },
+    {
+      "type": "price_filter",
+      "name": {
+        "zh-CN": "价格筛选",
+        "en-US": "Price"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          },
+          "default": "Price",
+          "placeholder": {
+            "zh-CN": "输入标题",
+            "en-US": "Input heading"
+          }
+        },
+        {
+          "type": "text",
+          "id": "tags",
+          "label": {
+            "en-US": "Price ranges",
+            "zh-CN": "价格区间的边界值"
+          },
+          "info": {
+            "zh-CN": "设置不同价格区间的边界值，多个值以英文逗号隔开。ps. 货币单位取店铺的结算货币。",
+            "en-US": "Set the boundary values of different price ranges, separated by commas. eg. Unit of currency adopt the settlement currency of the store."
+          },
+          "default": "0,50,100",
+          "placeholder": {
+            "zh-CN": "示例：0,50,100",
+            "en-US": "Example：0,50,100"
+          }
+        },
+        {
+          "type": "checkbox",
+          "id": "is_last_price_show",
+          "label": {
+            "en-US": "Show the last price range",
+            "zh-CN": "显示最后一个价格区间"
+          },
+          "default": true
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "collection_detail",
+      "cname": {
+        "zh-CN": "专辑详情",
+        "en-US": "Collection pages"
+      },
+      "category": {
+        "en-US": "Page",
+        "zh-CN": "页面"
+      },
+      "ccategory": {
+        "en-US": "Page",
+        "zh-CN": "页面"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "tag_filter",
+          "settings": {
+            "title": "Color",
+            "is_all_tags_show": true,
+            "tags": "red,yellow,blue"
+          }
+        },
+        {
+          "type": "price_filter",
+          "settings": {
+            "title": "Price",
+            "is_last_price_show": true,
+            "tags": "0,50,100"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

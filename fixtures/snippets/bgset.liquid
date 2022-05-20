@@ -1,0 +1,21 @@
+{% if image != blank %}
+  {% comment %} 默认图是从管理平台上传，没有width信息，返回 {% endcomment %}
+  {% if image.width == 0 or image.width == nil %}
+    {{ image.src | img_url: '180x' }} 180w,
+    {{ image.src | img_url: '540x' }} 540w,
+    {{ image.src | img_url: '900x' }} 900w,
+    {{ image.src | img_url: '1296x' }} 1296w,
+    {{ image.src | img_url: '1728x' }} 1728w
+  {% else %}
+    {% if image.width <= 180 %}{{ image.src | img_url: '180x' }} 180w,{% endif %}
+    {% if image.width > 180 %}{{ image.src | img_url: '180x' }} 180w,{% endif %}
+    {% if image.width > 360 %}{{ image.src | img_url: '360x' }} 360w,{% endif %}
+    {% if image.width > 540 %}{{ image.src | img_url: '540x' }} 540w,{% endif %}
+    {% if image.width > 720 %}{{ image.src | img_url: '720x' }} 720w,{% endif %}
+    {% if image.width > 900 %}{{ image.src | img_url: '900x' }} 900w,{% endif %}
+    {% if image.width > 1080 %}{{ image.src | img_url: '1080x' }} 1080w,{% endif %}
+    {% if image.width > 1296 %}{{ image.src | img_url: '1296x' }} 1296w,{% endif %}
+    {% if image.width > 1512 %}{{ image.src | img_url: '1512x' }} 1512w,{% endif %}
+    {% if image.width > 1728 %}{{ image.src | img_url: '1728x' }} 1728w{% endif %}
+  {% endif %}
+{% endif %}

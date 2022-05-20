@@ -1,0 +1,48 @@
+{% comment %}
+  description:  分页template
+{% endcomment %}
+{% use 'pagination.css' %}
+<script id="tpl-pagination" type="text/html">
+  <div class="sep-pagination">
+    <span class="d-none d-md-block sep-pagination__sum"><%= page %>/<%= total %></span>
+    <span class="d-block d-md-none sep-pagination__sum">
+      <input type="number" class="sep-pagination-mobile_input" value="<%= page %>">/ <%= total %>
+      <button class="sep-pagination-mobile_goto">GO</button>
+    </span>
+    <span class="sep-pagination__pagesize"><%= labelPageSize.replace('{% raw %}{{ count }}{% endraw %}',pageSize) %></span>
+
+    <a class="sep-pagination__link sep-pagination__prev" href="javascript:;" data-page="<%= page-1 %>"
+      <% if(page!=1){ %> style="visibility: visible;" <% } else { %> style="visibility: hidden;" <% } %>
+    >
+      <%= labelPrev %>
+    </a>
+
+    <% if(total<=delimiterPageSize){ %>
+      <% for(var i=1;i<=total;i++){ %>
+      <a class="sep-pagination__link <%= (page==i?"sep-pagination__link_active":"")  %>" data-page="<%= i %>" href="javascript:;"><%= i %></a>
+      <% } %>
+    <% }else{ %>
+    <a class="sep-pagination__link <%= (page==1?"sep-pagination__link_active":"")  %>" data-page="1" href="javascript:;">1</a>
+      <% if(page>3){ %>
+      <span class="sep-pagination__more">...</span>
+      <% } %>
+      <% for(var i= $imports.clamp(page-1,2,total-3);i<= $imports.clamp(page+1,4,total-1) ;i++){ %>
+      <a class="sep-pagination__link <%= (page==i?"sep-pagination__link_active":"")  %>" data-page="<%= i %>" href="javascript:;"><%= i %></a>
+      <% } %>
+
+      <% if(page<total-2){ %>
+      <span class="sep-pagination__more">...</span>
+      <% } %>
+
+    <a class="sep-pagination__link <%= (page==total?"sep-pagination__link_active":"")  %>" data-page="<%= total %>" href="javascript:;"><%= total %></a>
+    <% } %>
+
+    <a class="sep-pagination__link sep-pagination__next" href="javascript:;" data-page="<%= page+1 %>"
+      <% if(page!=total){ %> style="visibility: visible;" <% } else { %> style="visibility: hidden;" <% } %>
+    >
+      <%= labelNext %>
+    </a>
+
+  </div>
+</script>
+

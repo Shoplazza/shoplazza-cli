@@ -1,0 +1,46 @@
+{% comment %}
+  商品标签 
+  product: 大商品;
+  is_opacity: true则保留product-info__label的dom;
+  product_selected: 需要切换子款式的时候填子款式;
+{% endcomment %}
+
+{% assign opacity = is_opacity | default : false %}
+{% assign selected = product_selected | default: product %}
+
+{% assign save_label = false %}
+{% assign discount_label = false %}
+
+{% if opacity == true %}
+  {% if product.available and settings.product_save_amount %}
+    {% assign save_label = true %}      
+  {% endif %}
+  {% if product.available and settings.is_discount_show %}
+    {% assign discount_label = true %}    
+  {% endif %}
+{% else %}
+  {% if product.available and product.compare_at_price > product.price and settings.product_save_amount %}
+    {% assign save_label = true %}
+  {% endif %}
+  {% if product.available and product.off_ratio > 0 and settings.is_discount_show %}
+    {% assign discount_label = true %}
+  {% endif %}
+{% endif %}
+{% if save_label == true or discount_label == true %}
+  <div class="product-info__label product-info__label-{{settings.label_style | default: 'triangle'}}" 
+    style="{% if opacity == true and selected.off_ratio <= 0 and selected.compare_at_price <= selected.price %}opacity: 0{% endif %}">
+    {% comment %} 折扣 {% endcomment %}
+    {% if discount_label == true %}
+      <div class="product-info__discount-label product-info__header_tag">
+        {{ 'i18n.product.product_detail.off' | t: count: selected.off_ratio }}
+      </div>
+    {% endif %}
+    {% comment %} 优惠金额 {% endcomment %}
+    {% if save_label == true %}
+      <div class="product-info__save-label">
+        {% capture saved_amount %}{{ selected.compare_at_price | minus: selected.price | money_with_symbol }}{% endcapture %}
+        {{ 'i18n.product.product_detail.save_html' | t: saved_amount: saved_amount }}
+      </div>
+    {% endif %}
+  </div> 
+{% endif %}

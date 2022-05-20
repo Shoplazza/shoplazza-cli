@@ -1,0 +1,26 @@
+@import './tools.scss';
+
+.block {
+  &__image {
+    margin-bottom: px-to-rem(15);
+
+    @media ($pc) {
+      margin-bottom: px-to-rem(20);
+    }
+  }
+
+  &__title {
+    font-size: px-to-rem(18);
+    margin-bottom: px-to-rem(10);
+  }
+
+  &__text {
+    font-size: px-to-rem(14);
+    margin-bottom: px-to-rem(18);
+  }
+
+  &__btn {
+    padding: px-to-rem(10) px-to-rem(30);
+    font-size: px-to-rem(14);
+  }
+}

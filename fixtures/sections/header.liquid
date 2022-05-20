@@ -1,0 +1,1157 @@
+<div class="header__wrapper">
+  {% comment %} 公告栏 {% endcomment %}
+  {% if section.settings.is_announce_show %}
+    {% unless section.settings.is_announce_show_only_on_home and template.type != 15 %}
+      <a class="fast-bar"
+        {% if section.settings.announce_src.url %}
+          href="{{section.settings.announce_src.url}}"
+        {% endif %}
+        {% unless section.settings.announce_src.type != "web" or section.settings.announce_src.url contains shop.domain %}
+          target="_blank"
+        {% endunless %}
+        style="background: {{section.settings.announce_bg_color}};
+          color: {{section.settings.announce_color}};
+          {% if section.settings.announce_src.url %}cursor: pointer;{% endif %}">
+          <div class="container">
+            <div class="row">
+              <div class="col-12 fast-bar__text-wrapper">
+                <span class="fast-bar__text
+                  {% if section.settings.announce_src.url %}
+                    dj_skin_link
+                  {% endif %}
+                ">
+                  {{section.settings.announce_title}}
+                </span>
+              </div>
+            </div>
+          </div>
+      </a>
+    {% endunless %}
+  {% endif  %}
+
+  {% capture header_menu_icon %}
+    <a class="header__icon header__icon_menu pl-0  ml-0">
+      <i class="sep-font sep-font-list logo-icon-color"></i>
+    </a>
+  {% endcapture %}
+  
+  {% capture header_pc_menu %}
+    {% assign links = linklists[section.settings.menu_id.id].links %}
+    {% if links.size > 0 %}
+      {% if section.settings.alignment == 'center-drawer' %}
+        <div class="d-flex align-items-center col-4">
+          {{ header_menu_icon }}
+        </div>
+      {% endif %}
+      <div class="d-none pc_menu 
+        {% if section.settings.alignment == 'left' or section.settings.alignment == 'center' %}
+          order-3 col-12 d-md-block
+        {% elsif section.settings.alignment == 'center-left'%}
+          order-0 col-4 d-md-block
+        {% elsif section.settings.alignment == 'left-inline'%}
+          order-1 col-6 d-md-block
+        {% endif %}"
+        {% if section.settings.alignment == 'left' or section.settings.alignment == 'center' %}
+          style="color: {{section.settings.menu_color}};"
+        {% endif %}
+        >
+        <div id="navigation-pc-menu" class="navigation-pc__menu 
+        {% if section.settings.alignment == 'center-left' or section.settings.alignment == 'left' %}justify-content-start{% else%}justify-content-center{% endif %}">
+          <ul class="row p-0 my-0">
+            {% for firstLinks in links %}
+              {% assign link = linklists[firstLinks.id] %}
+              <li class="navigation-pc__menu-block
+                {% if link.links %}
+                navigation-pc__menu-block_has-child
+                navigation-pc__menu-item_caret
+                {% endif %}
+                ">
+                <div class="d-flex align-items-center justify-content-between link-wrap">
+                  <div class="position-relative d-flex">
+                    <a class="navigation-pc__menu-item_link c-text-truncate"
+                      {% if firstLinks.url %}
+                        href="{{ firstLinks.url }}"
+                      {% endif %}
+                      {% unless firstLinks.type != "web" or firstLinks.url contains shop.domain %}
+                        target="_blank"
+                      {% endunless %}
+                      >
+                      {{ firstLinks.title }}
+                    </a>
+                    {% assign firstLinkTitle = firstLinks.title | downcase %}
+                    {% for block in section.blocks %}
+                      {% assign menu = block.settings.menu_trigger | downcase %}
+                      {% if firstLinkTitle == menu %}
+                        {% if block.settings.menu_label_text %}
+                          <span class="tip" style="background-color: {{block.settings.label_bg}}; color: {{block.settings.label_text}};">{{block.settings.menu_label_text}}</span>
+                        {% endif %}
+                        {% break %}
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                  {% if link.links %}
+                    <i class="sep-font navigation-m__icon nav_first-menu-icon flex-grow-1 text-right sep-font-plus"></i>
+                  {% endif %}
+                </div>
+                {% if link.links %}
+                  {% assign secondLinks = link.links %}
+                  {% comment %} 
+                    菜单类型：仅二级菜单，三级菜单（多组菜单，单组菜单） 
+
+                    treeType('two','three')->菜单层级
+                    threeLinksSize(number)->拥有三级菜单的二级菜单数量
+                    存在三级菜单(多组菜单,子菜单显示1~5列，自左往右排序。下拉容器宽高自适应主题内容区域宽高)
+                    存在三级菜单(仅有一组菜单,单列显示，下拉容器宽度自适应列宽，不通栏显示)
+                    仅存在二级菜单(所有二级菜单单列显示，下拉容器宽度自适应列宽，不通栏显示)
+
+                  {% endcomment %}
+                  {% assign seconndLinksSize = 0 %}
+                  {% assign threeLinksSize = 0 %}
+                  {% assign treeType = 'two' %}
+                  {% for secondLink in secondLinks %}
+                    {% if linklists[secondLink.id].links %}
+                      {% assign treeType = 'three' %}
+                    {% endif %}
+                  {% endfor %}
+                  {% comment %} 仅存在二级菜单 {% endcomment %}
+                  {% if treeType == 'two' %}
+                    <div class="navigation-pc__menu-block navigation-pc__menu-block_child navigation-pc__second-menu-blocks {% if section.settings.alignment == 'center-drawer' %}position-relative border-0{% endif %}">
+                      {% for secondLink in secondLinks %}
+                        {% assign secondLinkTitle = secondLink.title | downcase %}
+                        <div class="navigation-pc__menu-item position-relative d-flex">
+                          <a class="navigation-pc__menu-item_link c-text-truncate"
+                            {% if secondLink.url %}href="{{ secondLink.url }}"{% endif %}
+                            {% unless secondLink.type != "web" or secondLink.url contains shop.domain %}target="_blank"{% endunless %}
+                          >{{ secondLink.title }}</a>
+                          {% if firstLinkTitle != secondLinkTitle  %}
+                            {% for block in section.blocks %}
+                              {% assign menu = block.settings.menu_trigger | downcase %}
+                              {% if menu == secondLinkTitle %}
+                                {% if block.settings.menu_label_text %}
+                                  <span class="tip quirk-tip" style="background-color: {{block.settings.label_bg}}; color: {{block.settings.label_text}};">{{block.settings.menu_label_text}}</span>
+                                {% endif %}
+                                {% break %}
+                              {% endif %}
+                            {% endfor %}
+                          {% endif %}
+                        </div>
+                      {% endfor %}
+                    </div>
+
+                  {% comment %} 三级菜单 {% endcomment %}
+                  {% else %}
+                    <div class="navigation-hidden-data navigation-pc__menu-block navigation-pc__menu-block_child {% if section.settings.alignment == 'center-drawer' %}position-relative border-0{% endif %}">
+                      {% for block in section.blocks %}
+                        {% assign menu = block.settings.menu | downcase %}
+                        {% if firstLinkTitle == menu %}
+                          {% include 'header_ads', position: block.settings.position1, type: block.settings.type1, image: block.settings.image1, title: block.settings.title1, desc: block.settings.desc1, link: block.settings.link1, product: block.settings.product1 %}
+                          {% include 'header_ads', position: block.settings.position2, type: block.settings.type2, image: block.settings.image2, title: block.settings.title2, desc: block.settings.desc2, link: block.settings.link2, product: block.settings.product2 %}
+                          {% include 'header_ads', position: block.settings.position3, type: block.settings.type3, image: block.settings.image3, title: block.settings.title3, desc: block.settings.desc3, link: block.settings.link3, product: block.settings.product3 %}
+                          {% break %}
+                        {% endif %}
+                      {% endfor %}
+                      {% assign secondLinkNum = 0 %}
+                      {% for secondLink in secondLinks %}
+                        {% assign secondLinkNum =  secondLinkNum | plus: 1 %}
+                        {% assign secondLinkTitle = secondLink.title | downcase %}
+                        <div class="navigation-pc__third-menu-blocks d-block {% if secondLinkNum == secondLinks.size and secondLinks.size > 5 %} nav_wrap_menus {% endif %} " >
+                          <div class="d-flex align-items-center justify-content-between navigation-pc__second-menu-item">
+                            <div class="navigation-pc__menu-item position-relative d-flex">
+                              <a class="navigation-pc__menu-item_link c-text-truncate"
+                                {% if secondLink.url %}href="{{ secondLink.url }}"{% endif %}
+                                {% unless secondLink.type != "web" or secondLink.url contains shop.domain %}target="_blank"{% endunless %}
+                              >
+                                {{ secondLink.title }}
+                              </a>
+                              {% if firstLinkTitle != secondLinkTitle  %}
+                                {% for block in section.blocks %}
+                                  {% assign menu = block.settings.menu_trigger | downcase %}
+                                  {% if menu == secondLinkTitle %}
+                                    {% if block.settings.menu_label_text %}
+                                      <span class="tip" style="background-color: {{block.settings.label_bg}}; color: {{block.settings.label_text}};">{{block.settings.menu_label_text}}</span>
+                                    {% endif %}
+                                    {% break %}
+                                  {% endif %}
+                                {% endfor %}
+                              {% endif %}
+                            </div>
+
+                            {% comment %} if secondLink.links  {% endcomment %}
+                            {% if linklists[secondLink.id].links %}
+                              <i class="sep-font navigation-m__icon nav_second-menu-icon flex-grow-1 text-right sep-font-plus"></i>
+                            {% endif %}
+                          </div>
+                          <div class="navigation-pc__third-menu-items d-flex flex-column">
+                          {% assign thirdLinks = linklists[secondLink.id].links %}
+                          {% for threeLink in thirdLinks %}
+                            {% assign threeLinkTitle = threeLink.title | downcase %}
+                            <div class="navigation-pc__third-menu-item position-relative d-flex">
+                              <a
+                                class="navigation-pc__menu-item_link"
+                                {% if threeLink.url %}href="{{ threeLink.url }}"{% endif %}
+                                {% unless threeLink.type != "web" or threeLink.url contains shop.domain %}target="_blank"{% endunless %}
+                              >
+                                {{ threeLink.title }}
+                              </a>
+                              {% if threeLinkTitle != firstLinkTitle and threeLinkTitle != secondLinkTitle %}
+                                {% for block in section.blocks %}
+                                  {% assign menu = block.settings.menu_trigger | downcase %}
+                                  {% if menu == threeLinkTitle %}
+                                    {% if block.settings.menu_label_text %}
+                                      <span class="tip" style="background-color: {{block.settings.label_bg}}; color: {{block.settings.label_text}};">{{block.settings.menu_label_text}}</span>
+                                    {% endif %}
+                                    {% break %}
+                                  {% endif %}
+                                {% endfor %}
+                              {% endif %}
+                            </div>
+                          {% endfor %}
+                          </div>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% endif %}
+
+  {% endcapture %}
+  {% capture header_icons %}
+    <style>
+      .logo-icon-color {
+        color: {{section.settings.logo_icon_color}};
+      }
+      .logo-color {
+        color: {{section.settings.logo_color}};
+      }
+      .logo-bg-color {
+        background: {{section.settings.logo_bg_color}};
+      }
+      .logo-bg-color:after{
+        background-color: 
+          {% if section.settings.alignment == 'left' or section.settings.alignment == 'center' %}
+            {{section.settings.menu_bg_color}}
+          {% else %}
+            inherit
+          {% endif %}
+      }
+    </style>
+
+    <div class="dj_skin_header_logo logo-bg-color logo-color">
+      {% comment %} 移动 {% endcomment %}
+      <div class="container header__icon-container d-md-none">
+        <div class="row header">
+          <div class="col-3 d-flex align-items-center">
+            {{ header_menu_icon }}
+            {% if section.settings.is_search_show %}
+              <a class="header__icon" href="/search">
+                <i class="sep-font sep-font-search-thin logo-icon-color"></i>
+              </a>
+            {% endif %}
+          </div>
+          <div class="col-6 d-flex align-items-center justify-content-center">
+            <a class="header__logo d-flex align-items-center justify-content-center" href="/">
+              {% if section.settings.shop_logo %}
+                <img src="{{section.settings.shop_logo | img_url : '600x'}}" alt="{{images[section.settings.shop_logo].alt | default: shop.name}}"/>
+              {% else %}
+                <span class="text-truncate logo-color dj_skin_title_font_family">{{shop.name}}</span>
+              {% endif %}
+            </a>
+          </div>
+          <div class="col-3 d-flex flex-row-reverse align-items-center">
+            <a class="header__icon pr-0" href="/cart">
+              <i class="sep-font sep-font-{{section.settings.cart_style}}-thin dj_skin_link logo-icon-color"></i>
+              {% if section.settings.cart_style == 'bag' %}
+                <span class="header__cart-count header__cart-count_bag" style="display: none;"></span>
+              {% else %}
+                <span class="header__cart-count header__cart-count_cart" style="display: none;"></span>
+              {% endif %}
+            </a>
+          </div>
+        </div>
+      </div>
+      {% comment %} PC {% endcomment %}
+      <div class="container header__icon-container d-none d-md-block">
+        <div class="d-flex header align-items-center justify-content-center h-100 {% if section.settings.alignment == 'left' or section.settings.alignment == 'center' %}flex-wrap{% endif %}"> 
+            {% if section.settings.alignment == 'center' %}
+              <div class="order-0 col-4"></div>
+            {% endif %}
+            {{ header_pc_menu }}
+            <div class="header__logo-wrap d-flex align-items-center justify-content-center order-0 {% if section.settings.alignment == 'left'%}col-6{% elsif section.settings.alignment == 'left-inline'%}col-3{% else %}col-4{% endif %}">
+                <a class="header__logo d-flex align-items-center {% if section.settings.alignment == 'center-left' or section.settings.alignment == 'center' or section.settings.alignment == 'center-drawer'%}justify-content-center{% else %}justify-content-start{% endif %}" href="/">
+                {% if section.settings.shop_logo %}
+                  {% if section.settings.alignment == 'left' or section.settings.alignment == 'center' %}
+                    <img src="{{section.settings.shop_logo | img_url : '600x'}}" alt="{{images[section.settings.shop_logo].alt | default: shop.name}}"/>
+                  {% else %}
+                    <img src="{{section.settings.shop_logo | img_url : '300x'}}" alt="{{images[section.settings.shop_logo].alt | default: shop.name}}"/>
+                  {% endif %}
+                {% else %}
+                  <span class="text-truncate logo-color dj_skin_title_font_family">{{shop.name}}</span>
+                {% endif %}
+              </a>
+            </div>
+            <div class="header__icon-wrap d-flex flex-row-reverse align-items-center order-2
+              {% if section.settings.alignment == 'left'%}col-6{% elsif section.settings.alignment == 'left-inline'%}col-3{% else %}col-4{% endif %}">
+                <div class="header__icon dj_skin_text_font_family multiply_currency"></div>
+              <a class="header__icon" href="/cart">
+                <i class="sep-font sep-font-{{section.settings.cart_style}}-thin dj_skin_link logo-icon-color"></i>
+                {% if section.settings.cart_style == 'bag' %}
+                  <span class="header__cart-count header__cart-count_bag" style="display: none;"></span>
+                {% else %}
+                  <span class="header__cart-count header__cart-count_cart" style="display: none;"></span>
+                {% endif %}
+              </a>
+              {% if section.settings.is_account_show %}
+                <div class="header__icon header__account">
+                  <i class="sep-font sep-font-user-thin dj_skin_link logo-icon-color"></i>
+                  <div style="display: none;" class="header__account-popover">
+                    <ul>
+                      {% if customer.id %}
+                        <li class="header__popover-item"><a href="/account/order">{{ 'i18n.navigation.general.my_orders' | t }}</a></li>
+                        <li class="header__popover-item"><a href="/account/addresses">{{ 'i18n.navigation.general.address_book' | t }}</a></li>
+                        <li class="header__popover-item"><div class="header__logout header__logout_border">{{ 'i18n.navigation.general.log_out' | t }}</div></li>
+                      {% else %}
+                        <li class="header__popover-item"><a href="/account/login">{{ 'i18n.navigation.general.login' | t }}</a></li>
+                        <li class="header__popover-item"><a href="/account/register">{{ 'i18n.navigation.general.register' | t }}</a></li>
+                      {% endif %}
+                    </ul>
+                  </div>
+                </div>
+              {% endif %}
+              {% if section.settings.is_search_show %}
+                <form action="/search" method="get">
+                  <div tabindex="-1" class="header__icon d-none d-lg-flex flex-row-reverse align-items-center header__search">
+                    <button type="submit" class="sep-font sep-font-search-thin header__search-icon dj_skin_link logo-icon-color" tabindex="-1"></button>
+                    <input style="background-color: {{section.settings.logo_bg_color}} !important;"  name="q" id="search{{section.id}}" type="text" class="form-control header__search-input " placeholder="{{ 'i18n.navigation.general.search_placeholder' | t }}" />
+                    <label for="search{{section.id}}" class="header__search-label" tabindex="1"></label>
+                  </div>
+                </form>
+                <a class="header__icon d-md-block d-lg-none" href="/search">
+                  <i class="sep-font sep-font-search-thin logo-icon-color"></i>
+                </a>
+              {% endif %}
+            </div>
+        </div>
+      </div>
+    </div>
+    {% comment %} 三级导航通屏占位 {% endcomment %} 
+    <div class="menus_container" style="background-color: {{ section.settings.menu_bg_color }}">
+      <div class="menus_container_inner container d-md-flex justify-content-center flex-wrap">
+      </div>
+    </div>
+
+  {% endcapture %}
+  {% comment %} 导航图标 {% endcomment %}
+  {{ header_icons }}
+</div>
+{% comment %} 菜单 {% endcomment %}
+{% comment %} navigation-m__menu-item_has-child 用于表示是否有二级菜单，用来切换 expanded {% endcomment %}
+<div class="container dj_skin_text_font_family">
+  <div class="row">
+    {% comment %} 菜单 {% endcomment %}
+    <div class="col-12 navigation-m">
+      <div class="navigation-m__menu-wrap">
+        <ul class="navigation-m__menu"></ul>
+        {% comment %} 个人中心 {% endcomment %}
+        {% if section.settings.is_account_show %}
+          <ul class="navigation-m__account">
+            {% if customer.id %}
+              <li class="navigation-pc__menu-block navigation-pc__menu-block_has-child">
+                <div class="d-flex align-items-center justify-content-between position-relative navigation-m__account_opacity">
+                  <a class="navigation-pc__menu-item_link text-truncate flex-grow-1" target="_blank">{{ 'i18n.navigation.general.my_account' | t }}</a>
+                  <i class="sep-font sep-font-plus navigation-m__icon nav_first-menu-icon flex-grow-1 text-right"></i>
+                </div>
+                <div class="navigation-pc__menu-block navigation-pc__menu-block_child">
+                  <a class="navigation-m__menu-item navigation-m__menu-item_link" href="/account/order">{{ 'i18n.navigation.general.my_orders' | t }}</a>
+                  <a class="navigation-m__menu-item navigation-m__menu-item_link" href="/account/addresses">{{ 'i18n.navigation.general.address_book' | t }}</a>
+                  <a class="navigation-m__menu-item navigation-m__menu-item_link header__logout">{{ 'i18n.navigation.general.log_out' | t }}</a>
+                </div>
+              </li>
+            {% else %}
+              <a class="navigation-m__menu-item navigation-m__menu-item_link" href="/account/login">{{ 'i18n.navigation.general.login' | t }}</a>
+              <a class="navigation-m__menu-item navigation-m__menu-item_link" href="/account/register">{{ 'i18n.navigation.general.register' | t }}</a>
+            {% endif %}
+          </ul>
+        {% endif %}
+      </div>
+      {% comment %} 货币接入 {% endcomment %}
+      <div class="navigation-m__setting d-block d-md-none">
+        <div class="multiply_currency"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% javascript %}
+  $(function () {
+    $.header && $.header({
+      id: '{{section.id}}',
+      env: {{shop.env}},
+      is_header_fixed: {{section.settings.is_header_fixed}}
+    });
+    $(window).on('resize header_event', function() {
+      var w = $(window).width();
+      var alignment = '{{section.settings.alignment}}';
+      if ( alignment == 'center-drawer' || w < 768) {
+        $('.nav_first-menu-icon').parent().addClass('nav_first-menu-icon-close');
+        $('.nav_second-menu-icon').parent().addClass('nav_second-menu-icon-close');
+      }
+    }).trigger('header_event');
+  });
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "header",
+  "settings": [
+    {
+      "type": "header",
+      "content": {
+        "zh-CN": "菜单导航设置",
+        "en-US": "Navigation"
+      }
+    },
+    {
+      "type": "link_list",
+      "id": "menu_id",
+      "label": {
+        "zh-CN": "选择菜单",
+        "en-US": "Select menu"
+      },
+      "default": {
+        "id": "header",
+        "type": "menu",
+        "title": {
+          "zh-CN": "顶部导航菜单",
+          "en-US": "Main menu"
+        }
+      }
+    },
+    {
+      "type": "header",
+      "content": {
+        "zh-CN": "公告栏",
+        "en-US": "Announcement"
+      }
+    },
+    {
+      "type": "checkbox",
+      "id": "is_announce_show",
+      "label": {
+        "en-US": "Show announcement",
+        "zh-CN": "开启公告栏"
+      },
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "is_announce_show_only_on_home",
+      "label": {
+        "en-US": "Home page only",
+        "zh-CN": "仅首页显示公告栏"
+      },
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "announce_title",
+      "placeholder": {
+        "zh-CN": "输入文本内容",
+        "en-US": "Input text"
+      },
+      "label": {
+        "zh-CN": "公告栏文案",
+        "en-US": "Announcement text"
+      },
+      "default": "We Offer Free Shipping Worldwide."
+    },
+    {
+      "type": "url",
+      "id": "announce_src",
+      "label": {
+        "zh-CN": "公告栏链接",
+        "en-US": "Link"
+      },
+      "default": ""
+    },
+    {
+      "type": "header",
+      "content": {
+        "zh-CN": "顶部logo与图标",
+        "en-US": "Logo and icon"
+      }
+    },
+    {
+      "type": "image_picker",
+      "id": "shop_logo",
+      "label": {
+        "zh-CN": "logo图片",
+        "en-US": "Logo"
+      },
+      "info": {
+        "zh-CN": "建议尺寸（宽*长）：600x150px，减少左右边距留白",
+        "en-US": "Recommended resolution (width * height): 600x150px, reduce the left and right blank margin"
+      },
+      "default": ""
+    },
+    {
+      "type": "select",
+      "label": {
+        "zh-CN": "PC端logo位置",
+        "en-US": "Desktop logo position"
+      },
+      "id": "alignment",
+      "default": "center",
+      "options": [
+        {
+          "value": "center",
+          "label": {
+            "zh-CN": "居中",
+            "en-US": "Center"
+          }
+        },
+        {
+          "value": "center-left",
+          "label": {
+            "en-US": "Logo center, menu left",
+            "zh-CN": "中间，菜单左边"
+          }
+        },
+        {
+          "value": "center-drawer",
+          "label": {
+            "en-US": "Logo center, menu drawer",
+            "zh-CN": "中间，菜单收起"
+          }
+        },
+        {
+          "value": "left",
+          "label": {
+            "zh-CN": "居左，菜单换行",
+            "en-US": "Left-align, menu newline"
+          }
+        },
+        {
+          "value": "left-inline",
+          "label": {
+            "zh-CN": "居左，菜单同行",
+            "en-US": "Left-align, menu same line"
+          }
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "cart_style",
+      "label": {
+        "zh-CN": "购物车形状",
+        "en-US": "Cart icon"
+      },
+      "default": "cart",
+      "options": [
+        {
+          "value": "cart",
+          "label": {
+            "en-US": "Cart",
+            "zh-CN": "购物车"
+          }
+        },
+        {
+          "value": "bag",
+          "label": {
+            "zh-CN": "购物袋",
+            "en-US": "Bag"
+          }
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "is_account_show",
+      "label": {
+        "zh-CN": "个人中心",
+        "en-US": "User center"
+      },
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "is_search_show",
+      "label": {
+        "en-US": "Search",
+        "zh-CN": "搜索"
+      },
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "is_header_fixed",
+      "label": {
+        "zh-CN": "固定悬浮导航栏",
+        "en-US": "Enable sticky header"
+      },
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": {
+        "en-US": "Color settings",
+        "zh-CN": "颜色设置"
+      }
+    },
+    {
+      "type": "color",
+      "id": "announce_color",
+      "label": {
+        "zh-CN": "公告栏字体",
+        "en-US": "Announcement font"
+      },
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "announce_bg_color",
+      "label": {
+        "zh-CN": "公告栏背景",
+        "en-US": "Announcement"
+      },
+      "default": "#222F3E"
+    },
+    {
+      "type": "color",
+      "id": "menu_color",
+      "label": {
+        "zh-CN": "PC菜单栏字体",
+        "en-US": "Desktop menu font"
+      },
+      "default": "#3D4246"
+    },
+    {
+      "type": "color",
+      "id": "menu_bg_color",
+      "label": {
+        "zh-CN": "PC菜单栏背景",
+        "en-US": "Desktop menu background"
+      },
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "logo_color",
+      "label": {
+        "zh-CN": "logo栏字体",
+        "en-US": "Logo font"
+      },
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "logo_icon_color",
+      "label": {
+        "zh-CN": "logo栏图标",
+        "en-US": "Logo icon"
+      },
+      "default": "#3D4246"
+    },
+    {
+      "type": "color",
+      "id": "logo_bg_color",
+      "label": {
+        "zh-CN": "logo栏背景",
+        "en-US": "Logo background"
+      },
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "header",
+      "content": {
+        "zh-CN": "菜单自定义内容",
+        "en-US": "Mega menu"
+      }
+    },
+    {
+      "type": "paragraph",
+      "content": {
+        "zh-CN": "运营位仅在有三级菜单时生效",
+        "en-US": "Only takes effect when there is a third directory"
+      }
+    }
+  ],
+  "max_blocks": 20,
+  "blocks": [
+    {
+      "type": "ads",
+      "name": {
+        "zh-CN": "运营位",
+        "en-US": "Mega menu"
+      },
+      "settings": [
+        {
+          "type": "text",
+          "id": "menu",
+          "label": {
+            "en-US": "Mega menu trigger",
+            "zh-CN": "触发的混合菜单"
+          },
+          "info": {
+            "zh-CN": "名字需与一级菜单名字保持一致，不区分大小写",
+            "en-US": "Menu item' must match the name of the first-level menu items. Case insensitive"
+          },
+          "default": "",
+          "placeholder": "Input mega menu trigger"
+        },
+        {
+          "type": "select",
+          "label": {
+            "zh-CN": "位置",
+            "en-US": "Position 1"
+          },
+          "id": "position1",
+          "default": "right",
+          "options": [
+            {
+              "value": "left",
+              "label": {
+                "en-US": "Left",
+                "zh-CN": "左边"
+              }
+            },
+            {
+              "value": "right",
+              "label": {
+                "en-US": "Right",
+                "zh-CN": "右边"
+              }
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "label": {
+            "zh-CN": "类型",
+            "en-US": "Type 1"
+          },
+          "id": "type1",
+          "default": "product",
+          "options": [
+            {
+              "value": "custom",
+              "label": {
+                "en-US": "Custom content",
+                "zh-CN": "自定义内容"
+              }
+            },
+            {
+              "value": "product",
+              "label": {
+                "en-US": "Product",
+                "zh-CN": "商品"
+              }
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "image1",
+          "visibleOn": "type1 == 'custom'",
+          "label": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "default": ""
+        },
+        {
+          "type": "text",
+          "id": "title1",
+          "visibleOn": "type1 == 'custom'",
+          "label": {
+            "zh-CN": "标题",
+            "en-US": "Heading"
+          },
+          "default": "",
+          "placeholder": {
+            "zh-CN": "输入标题",
+            "en-US": "Input heading"
+          }
+        },
+        {
+          "type": "textarea",
+          "id": "desc1",
+          "visibleOn": "type1 == 'custom'",
+          "label": {
+            "en-US": "Description",
+            "zh-CN": "描述"
+          },
+          "placeholder": {
+            "zh-CN": "请输入描述",
+            "en-US": "Input description"
+          },
+          "default": ""
+        },
+        {
+          "type": "url",
+          "id": "link1",
+          "visibleOn": "type1 == 'custom'",
+          "label": {
+            "en-US": "Link",
+            "zh-CN": "链接"
+          },
+          "default": ""
+        },
+        {
+          "type": "product",
+          "visibleOn": "type1 == 'product'",
+          "id": "product1",
+          "label": {
+            "zh-CN": "商品",
+            "en-US": "Product"
+          }
+        },
+        {
+          "type": "select",
+          "label": {
+            "zh-CN": "位置2",
+            "en-US": "Position 2"
+          },
+          "id": "position2",
+          "default": "right",
+          "options": [
+            {
+              "value": "left",
+              "label": {
+                "en-US": "Left",
+                "zh-CN": "左边"
+              }
+            },
+            {
+              "value": "right",
+              "label": {
+                "en-US": "Right",
+                "zh-CN": "右边"
+              }
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "label": {
+            "zh-CN": "类型2",
+            "en-US": "Type 2"
+          },
+          "id": "type2",
+          "default": "product",
+          "options": [
+            {
+              "value": "custom",
+              "label": {
+                "en-US": "Custom content",
+                "zh-CN": "自定义内容"
+              }
+            },
+            {
+              "value": "product",
+              "label": {
+                "en-US": "Product",
+                "zh-CN": "商品"
+              }
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "image2",
+          "visibleOn": "type2 == 'custom'",
+          "label": {
+            "zh-CN": "图片2",
+            "en-US": "Image 2"
+          },
+          "default": ""
+        },
+        {
+          "type": "text",
+          "id": "title2",
+          "visibleOn": "type2 == 'custom'",
+          "label": {
+            "zh-CN": "标题2",
+            "en-US": "Title 2"
+          },
+          "default": "",
+          "placeholder": {
+            "zh-CN": "输入标题",
+            "en-US": "Input heading"
+          }
+        },
+        {
+          "type": "textarea",
+          "id": "desc2",
+          "visibleOn": "type2 == 'custom'",
+          "label": {
+            "zh-CN": "描述2",
+            "en-US": "Description 2"
+          },
+          "placeholder": {
+            "zh-CN": "请输入描述",
+            "en-US": "Input description"
+          },
+          "default": ""
+        },
+        {
+          "type": "url",
+          "id": "link2",
+          "visibleOn": "type2 == 'custom'",
+          "label": {
+            "zh-CN": "链接2",
+            "en-US": "Link 2"
+          },
+          "default": ""
+        },
+        {
+          "type": "product",
+          "visibleOn": "type2 == 'product'",
+          "id": "product2",
+          "label": {
+            "zh-CN": "商品",
+            "en-US": "Product"
+          }
+        },
+        {
+          "type": "select",
+          "label": {
+            "zh-CN": "位置3",
+            "en-US": "Position 3"
+          },
+          "id": "position3",
+          "default": "right",
+          "options": [
+            {
+              "value": "left",
+              "label": {
+                "en-US": "Left",
+                "zh-CN": "左边"
+              }
+            },
+            {
+              "value": "right",
+              "label": {
+                "en-US": "Right",
+                "zh-CN": "右边"
+              }
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "label": {
+            "zh-CN": "类型3",
+            "en-US": "Type 3"
+          },
+          "id": "type3",
+          "default": "product",
+          "options": [
+            {
+              "value": "custom",
+              "label": {
+                "en-US": "Custom content",
+                "zh-CN": "自定义内容"
+              }
+            },
+            {
+              "value": "product",
+              "label": {
+                "en-US": "Product",
+                "zh-CN": "商品"
+              }
+            }
+          ]
+        },
+        {
+          "type": "image_picker",
+          "id": "image3",
+          "visibleOn": "type3 == 'custom'",
+          "label": {
+            "zh-CN": "图片3",
+            "en-US": "Image 3"
+          },
+          "default": ""
+        },
+        {
+          "type": "text",
+          "id": "title3",
+          "visibleOn": "type3 == 'custom'",
+          "label": {
+            "zh-CN": "标题3",
+            "en-US": "Title 3"
+          },
+          "default": "",
+          "placeholder": {
+            "zh-CN": "输入标题",
+            "en-US": "Input heading"
+          }
+        },
+        {
+          "type": "textarea",
+          "id": "desc3",
+          "visibleOn": "type3 == 'custom'",
+          "label": {
+            "zh-CN": "描述3",
+            "en-US": "Description 3"
+          },
+          "placeholder": {
+            "zh-CN": "请输入描述",
+            "en-US": "Input description"
+          },
+          "default": ""
+        },
+        {
+          "type": "url",
+          "id": "link3",
+          "visibleOn": "type3 == 'custom'",
+          "label": {
+            "zh-CN": "链接3",
+            "en-US": "Link 3"
+          },
+          "default": ""
+        },
+        {
+          "type": "product",
+          "visibleOn": "type3 == 'product'",
+          "id": "product3",
+          "label": {
+            "zh-CN": "商品",
+            "en-US": "Product"
+          }
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": {
+        "en-US": "Label",
+        "zh-CN": "气泡文案"
+      },
+      "settings": [
+        {
+          "type": "text",
+          "id": "menu_trigger",
+          "label": {
+            "zh-CN": "触发菜单",
+            "en-US": "Mega menu name"
+          },
+          "info": {
+            "zh-CN": "名字需与菜单名字保持一致，不区分大小写",
+            "en-US": "Menu item' must match the name of the first-level menu items. Case insensitive"
+          },
+          "default": "",
+          "placeholder": "Input menu name"
+        },
+        {
+          "type": "text",
+          "id": "menu_label_text",
+          "label": {
+            "en-US": "Label",
+            "zh-CN": "气泡文案"
+          },
+          "info": {
+            "zh-CN": "最大支持输入12个字符",
+            "en-US": "Support up to 12 characters"
+          },
+          "props": {
+            "maxLength": "12"
+          },
+          "default": "HOT",
+          "placeholder": "Input label"
+        },
+        {
+          "type": "color",
+          "id": "label_bg",
+          "label": {
+            "en-US": "Background color",
+            "zh-CN": "背景颜色"
+          },
+          "default": "#E62405"
+        },
+        {
+          "type": "color",
+          "id": "label_text",
+          "label": {
+            "en-US": "Text color",
+            "zh-CN": "文字颜色"
+          },
+          "default": "#ffffff"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "header",
+      "cname": {
+        "en-US": "Navigation",
+        "zh-CN": "导航"
+      },
+      "category": {
+        "en-US": "Navigation",
+        "zh-CN": "导航"
+      },
+      "ccategory": {
+        "en-US": "Navigation",
+        "zh-CN": "导航"
+      },
+      "display": false,
+      "blocks": []
+    }
+  ]
+}
+{% endschema %}
+<style>
+  :root {
+    --menu-color: {{section.settings.menu_color}};
+  }
+  @media (max-width: 768px) {
+    [data-section-id="header"] .navigation-pc__third-menu-blocks {
+      width: 100%!important;
+    }
+  }
+ {% if section.settings.alignment == 'center-drawer' %} 
+  @media (min-width: 767.98px) {
+    [data-section-id="header"] .navigation-pc__third-menu-blocks .navigation-pc__third-menu-items {
+      padding-left: 15px;
+    }
+    [data-section-id="header"] .navigation-pc__third-menu-blocks {
+      width: 100%!important;
+    }
+  }
+  {% else %} 
+  @media (min-width: 767.98px) {
+    [data-section-id="header"] .navigation-hidden-data,
+    [data-section-id="header"] .navigation-pc__third-menu-blocks i{
+      display: none!important;
+    }
+
+    [data-section-id="header"] .navigation-pc__third-menu-blocks .navigation-pc__menu-item{
+      font-weight: bold;
+    }
+    {% comment %} [data-section-id="header"] .navigation-pc__third-menu-blocks .navigation-pc__third-menu-item{
+      opacity: 0.65;
+    } {% endcomment %}
+
+    [data-section-id="header"] .menus_container_inner {
+      {% comment %} max-height: 656px; {% endcomment %}
+      {% comment %} overflow: scroll; {% endcomment %}
+      {% comment %} overflow: -moz-scrollbars-none; {% endcomment %}
+      -ms-overflow-style: none;
+    }
+    [data-section-id="header"] .menus_container_inner::-webkit-scrollbar {
+        width: 0 !important;
+    }
+
+    [data-section-id="header"] .menus_container_inner .nav_wrap_menus {
+      margin-right: auto;
+    }
+  }
+ {% endif %}
+</style>

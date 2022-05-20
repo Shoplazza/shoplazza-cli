@@ -1,0 +1,2 @@
+{% unless link.url == blank or link.type != 'web' or link.url contains shop.domain %} target="_blank" {% endunless %}
+{% if link.url != blank %} href="{{ link.url }}" {% endif %}

@@ -1,0 +1,212 @@
+{
+  "general": {
+    "404": {
+      "title": "อุ๊ย!",
+      "tips": "ขออภัยค่ะ ไม่พบหน้าที่คุณกำลังค้นหา",
+      "continue_shopping": "ซื้อสินค้าต่อ",
+      "subtext_html": "<p>ขออภัยค่ะ ไม่พบหน้าที่คุณกำลังค้นหา</p><p><a href=\"/\">ซื้อสินค้าต่อ</a></p>"
+    },
+    "product": {
+      "quick_view": "ดูข้อมูลแบบย่อ",
+      "sold_out": "ขายหมดแล้ว",
+      "buy": "ซื้อ"
+    },
+    "newsletter_form": {
+      "email_address_empty_warning": "กรุณากรอกอีเมลแอดเดรสของคุณ",
+      "email_address_invalid_warning": "กรุุณากรอกอีเมลแอดเดรสที่ถูกต้อง",
+      "email_placeholder": "อีเมล",
+      "newsletter_email": "โปรดป้อนที่อยู่อีเมลของคุณ",
+      "newsletter_confirmation": "ขอบคุณสำหรับการกดติดตาม",
+      "submit": "กดติดตาม"
+    },
+    "footer": {
+      "email_address_empty_warning": "กรุณากรอกอีเมลแอดเดรสของคุณ",
+      "email_address_invalid_warning": "กรุุณากรอกอีเมลแอดเดรสที่ถูกต้อง",
+      "confirmation": "ขอบคุณสำหรับการกดติดตาม! เราจะจัดส่งข่าวสารต่างๆ ให้คุณทางอีเมล",
+      "email_placeholder": "อีเมล",
+      "submit": "กดติดตาม",
+      "follow_us": "ติดตามเรา",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "twitter": "Twitter"
+    },
+    "view": {
+      "view_all": "ดูทั้งหมด"
+    },
+    "accessibility": {
+      "skip_to_content": "ข้ามไปยังเนื้อหา",
+      "close_modal": "ปิด（ESC）",
+      "close": "ปิด",
+      "learn_more": "เรียนรู้เพิ่มเติม"
+    },
+    "meta": {
+      "tags": "ทำเครื่องหมายเป็น“{{ tags }}”",
+      "page": "หน้าที่{{ page }}"
+    },
+    "pagination": {
+      "previous": "ก่อน",
+      "next": "ถัดไป"
+    },
+    "social": {
+      "share_on_facebook": "Share",
+      "share_on_twitter": "Tweet",
+      "share_on_pinterest": "Pin it",
+      "alt_text": {
+        "share_on_facebook": "Share on Facebook",
+        "share_on_twitter": "Tweet on Twitter",
+        "share_on_pinterest": "Pin on Pinterest"
+      }
+    },
+    "search": {
+      "no_results_html": "ค้นหา \"{{ terms }}\" ไม่พบ",
+      "results_for_html": "ผลลัพธ์การค้นหา\"{{ terms }}\"ของคุณมีดังนี้:",
+      "title": "ค้นหา",
+      "placeholder": "ค้นหาร้านค้าของเรา",
+      "submit": "ค้นหา",
+      "result_count": {
+        "one": "มี{{ count }}ผลลัพธ์การ",
+        "other": "มี{{ count }}ผลลัพธ์การ"
+      }
+    },
+    "drawers": {
+      "navigation": "การนำทางเว็บไซต์",
+      "close_menu": "ปิดเมนู",
+      "expand_submenu": "ขยายเมนูย่อย",
+      "collapse_submenu": "ปิดเมนูย่อย"
+    }
+  },
+  "navigation": {
+    "general": {
+      "login": "ลงชื่อเข้าใช้",
+      "register": "ลงทะเบียน",
+      "my_account": "บัญชีของฉัน",
+      "my_orders": "คำสั่งซื้อของฉัน",
+      "address_book": "สมุดรายชื่อผู้ติดต่อ",
+      "log_out": "ออกจากระบบ",
+      "search_placeholder": "ค้นหา..."
+    }
+  },
+  "product": {
+    "product_detail": {
+      "sold": "ขายหมด {{ count }}",
+      "off": "ลด <span>{{ count }}%</span>",
+      "qty": "จำนวน",
+      "product_description": "คำอธิบายสินค้า",
+      "add_to_cart": "ใส่ในรถเข็น",
+      "sold_out": "ขายหมดแล้ว",
+      "buy_now": "ซื้ื้อเลย",
+      "added_to_cart_successfully": "ใส่ในรถเข็นเรียบร้อยแล้ว",
+      "view_product_detail": "ดูรายละเอียดสินค้า",
+      "in_stock": "มีสินค้าในสต็อก {{ count }}",
+      "related_product": "สินค้าที่เกี่ยวข้อง",
+      "select_variant": "เลือกสินค้า",
+      "save_html": "ประหยัด <span class='money'>{{ saved_amount }}</span>",
+      "add_to_cart_tips": "แอดเข้าตะกร้าชอปปิ้งแล้ว",
+      "view_cart": "เช็คดูตะกร้าชอปปิ้ง",
+      "proceed_to_checkout": "ชำระ",
+      "review": "แสดงความคิดเห็น",
+      "not_like_these": "ไม่ชอบสิ่งเหล่านี้?",
+      "please_select": "โปรดเลือก",
+      "sku": "Sku",
+      "weight": "น้ำหนัก",
+      "barcode": "บาร์โค้ด"
+    }
+  },
+  "collection": {
+    "collection_detail": {
+      "sales_descending": "ยอดขายสูงไปต่ำ",
+      "products": "สินค้า {{ count }}",
+      "recommend": "แนะนำ",
+      "low_to_high": "ราคา จากต่ำไปสูง",
+      "high_to_low": "ราคา จากสูงไปต่ำ",
+      "best_selling": "ขายดีที่สุด",
+      "newest": "มาใหม่ล่าสุด",
+      "coming_soon": "สินค้าใหม่มากมายกำลังจะมาเร็วๆ นี้! กรุณากลับมาเยี่ยมชมอีกครั้งในภายหลัง",
+      "continue_shopping": "ซื้อสินค้าต่อ",
+      "sort_by": "จัดเรียงตาม",
+      "items_per_page": "{{ count }} รายการต่อหน้า",
+      "prev": "ก่อนหน้านี้",
+      "next": "ถัดไป",
+      "filter_by": "กรองตาม",
+      "confirm": "ยืนยัน",
+      "clear_all": "ตั้งใหม่",
+      "no_result": "ค้นหา ไม่พบ",
+      "add_to_cart_count_descending": "การซื้อเพิ่มเติมจากสูงไปต่ำ",
+      "views_descending": "จำนวนหน้าที่มีการเปิดจากสูงไปต่ำ"
+    }
+  },
+  "search": {
+    "title": "ผลการค้นหา",
+    "search_button": "ค้นหา",
+    "results_tips": "<span class='search__count'>{{ count }}</span> จับคู่กับ <span class='dj_skin_product_text search__key'>“{{ key }}”</span>",
+    "input_to_search": "กรอกข้อมูลเพื่อค้นหา...",
+    "no_results": "ค้นหา ไม่พบ"
+  },
+  "sections": {
+    "map": {
+      "get_directions": "รับรู้เส้นทาง",
+      "address_error": "มีข้อผิดพลาดในที่อยู่ที่ค้นหา",
+      "address_no_results": "ไม่ได้พบที่อยู่นี้",
+      "address_query_limit_html": "คุณได้เกินข้อจำกัดการใช้งานของ Google API แล้ว ลองอัปเกรดเป็น<a href=\"https://developers.google.com/maps/premium/usage-limits\">โปรแกรมขั้นสูง></a>",
+      "auth_error_html": "พบปัญหาเกี่ยวกับบัญชี Google Maps ของคุณ โปรดสร้างและเปิดใช้งาน<a href=\"https://developers.google.com/maps/documentation/javascript/get-api-key\">JavaScript API</a>และ<a href=\"https://developers.google.com/maps/documentation/geocoding/get-api-key\">รหัสทางภูมิศาสตร์API</a> ของสิทธิ์แอพลิเคชัน"
+    }
+  },
+  "collections": {
+    "general": {
+      "catalog_title": "แคตตาล็อก",
+      "all_of_collection": "ดูทั้งหมด",
+      "view_all_products_html": "ดูสินค้าทั้งหมด<br>{{ count }}รายการ",
+      "see_more": "แสดงเพิ่มเติม",
+      "see_less": "แสดงผลน้อยลง",
+      "no_matches": "ขอโทษที่ไม่มีสินค้าในอัลบั้มนี้"
+    },
+    "sorting": {
+      "title": "จัดเรียงตาม",
+      "featured": "แนะนำ",
+      "price_ascending": "ราคา จากต่ำไปสูง",
+      "price_descending": "ราคา จากสูงไปต่ำ",
+      "newest": "มาใหม่ล่าสุด"
+    },
+    "filters": {
+      "title_tags": "กรองตาม",
+      "all_tags": "สินค้าทั้งหมด"
+    }
+  },
+  "home_page": {
+    "onboarding": {
+      "product_title": "ตัวอย่างสินค้า",
+      "product_description": "พื้นที่นี้ใช้เพื่ออธิบายรายละเอียดของรายการผลิตภัณฑ์ของคุณ ซึ่งสามารถบอกลูกค้าถึงรูปลักษณ์ ความรู้สึกและสไตล์ของผลิตภัณฑ์ และยังสามารถเพิ่มข้อมูลเช่นสี วัสดุ ขนาดและแหล่งผลิต ฯลฯ",
+      "collection_title": "ตัวอย่างอัลบั้ม",
+      "no_content": "ส่วนนี้ยังไม่มีเนื้อหาใดๆในขณะนี้ โปรดใช้แถบเครื่องมือเพื่อเพิ่มเนื้อหาที่ต้องการ"
+    }
+  },
+  "layout": {
+    "footer": {
+      "social_platform": "{{ platform }}ของ{{ name }}"
+    }
+  },
+  "products": {
+    "general": {
+      "save_html": "ประหยัด <span class='money'>{{ saved_amount }}</span>",
+      "collection_return": "ส่งคืน{{ collection }}",
+      "next_product": "ถัดไป：{{ title }}",
+      "sale_price": "ราคา",
+      "regular_price": "ราคาปกติ",
+      "from_text_html": "จาก{{ price }}",
+      "related_products": "ท่านอาจชอบ"
+    },
+    "product": {
+      "stock_label": "{{ count }}สินค้าคงคลัง",
+      "sold_out": "ขายหมดแล้ว",
+      "unavailable": "ไม่พร้อมที่จะขาย",
+      "quantity": "จำนวน",
+      "add_to_cart": "ใส่ในรถเข็น",
+      "preorder": "สั่งซื้อล่วงหน้า",
+      "buy_now": "ซื้ื้อเลย",
+      "added_to_cart_successfully": "ใส่ในรถเข็นเรียบร้อยแล้ว"
+    }
+  },
+  "date_formats": {
+    "month_day_year": "%b %d, %Y"
+  }
+}

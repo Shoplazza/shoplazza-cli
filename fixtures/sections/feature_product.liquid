@@ -1,0 +1,227 @@
+{% use 'feature_product.css' %}
+{% assign block = section.settings.product %}
+{% assign layout = section.settings.layout %}
+{% if shop.env == 1 or block.id != 0 %}
+  {% if block.id != 0 and all_products[block.id].id %}
+    {% assign data = all_products[block.id] %}
+  {% elsif block.id != 0 and all_products[block.id].id == blank %}
+    {% comment %} 若选择产品后被删除，C端不展示，B端加上‘已删除’标记，展示默认商品信息{% endcomment %}
+    {% assign data = default_product %}
+    {% assign type = 'delete' %}
+  {% else %}
+    {% assign data = default_product %}
+  {% endif %}
+
+  {% comment %} 下架产品在C端不展示，B端预览区域要展示,B端选择产品后移除，id为0，其他信息保留 {% endcomment %}
+  {% if shop.env == 1 or all_products[block.id].published %}
+    <div class="container container-gap">
+      <div class="row featured-product d-flex align-items-center mb-padding {% if layout == "right" %}flex-md-row-reverse {%endif%}">
+      {% assign product = data %}
+        <div class="featured-product__image">
+          <a class="common__img-wrapper_lazy"
+            {% unless product.isMock %}
+              href="{{product.url}}"
+              data-track="viewImage"
+              data-track-url="{{ product.url }}"
+              data-track-id="{{product.id}}"
+              data-track-price="{{product.price}}" 
+              data-track-name="{{product.title | escape}}" 
+              data-track-type="{{product.type}}"
+            {% endunless %}
+            style="padding-bottom:
+              {% if product.url != blank %}
+                {{ product.image.height | image_padding_bottom : product.image.width, origin: 'unlimit' }};
+              {% else %}
+                70.4%;
+              {% endif %}
+              width: 100%;">
+              {% include 'lazyimg',
+                src: product.image.src,
+                alt: product.image.alt | default: product.title,
+                class: 'img-full-width common__img_hover'
+              %}
+          </a>
+          {% include 'product_label', product: product %}
+        </div>
+
+        <div class="featured-product__text text-center" data-track="product" data-track-id="{{product.id}}" data-track-price="{{product.price}}" data-track-name="{{product.title | escape}}" data-track-type="{{product.type}}">
+          {% for block in section.blocks %}
+            {% if block.type == 'heading'%}
+              <a {% unless product.isMock %}href="{{ product.url }}"{% endunless %} class="featured-product__title dj_skin_title_font two_line_text_truncate">{{ product.title }}</a>
+            {% endif %}
+            {% if block.type == 'vendor' and product.vendor %}
+              <div class="text-center dj_skin_product_list_title">{{ product.vendor }}</div>
+            {% endif %}
+            {% if block.type == 'sub_heading' and product.brief %}
+              <div class="featured-product__desc dj_skin_text three_line_text_truncate">{{ product.brief }}</div>
+            {% endif %}
+            {% if block.type == 'price' %}
+              <div class="featured-product__price-wrapper">
+                <span class="text-truncate dj_skin_product_detail_price featured-product__price money">
+                  {{ product.price | money_with_symbol}}
+                </span>
+                {% if product.compare_at_price > product.price %}
+                  <del class="dj_skin_product_compare_at_price text-truncate dj_skin_product_detail_compare_at_price featured-product__compare-at-price money">
+                    {{ product.compare_at_price | money_with_symbol}}
+                  </del>
+                {% endif %}
+              </div>
+            {% endif %}
+            {% if block.type == 'button' and block.settings.button_label %}
+              <div>
+                {% if product.available %}
+                  <a {% unless product.isMock %}href="{{ product.url }}"{%else%}data-product-mock="true"{% endunless %} class="btn btn-primary featured-product__btn">
+                    {{ block.settings.button_label | escape }}
+                  </a>
+                {% else %}
+                  <button type="button" class="btn btn-primary " disabled="">{{ 'i18n.general.product.sold_out' | t }}</button>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endif %}
+
+
+
+{% schema %}
+{
+  "name": "feature_product",
+  "max_blocks": 5,
+  "settings": [
+    {
+      "type": "product",
+      "id": "product",
+      "label": {
+        "zh-CN": "商品",
+        "en-US": "Product"
+      },
+      "default": ""
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": {
+        "zh-CN": "PC图片位置",
+        "en-US": "Image position on desktop"
+      },
+      "default": "left",
+      "options": [
+        {
+          "value": "left",
+          "label": {
+            "en-US": "Left",
+            "zh-CN": "居左"
+          }
+        },
+        {
+          "value": "right",
+          "label": {
+            "en-US": "Right",
+            "zh-CN": "居右"
+          }
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": {
+        "zh-CN": "标题",
+        "en-US": "Heading"
+      },
+      "limit": 1,
+      "settings": []
+    },
+    {
+      "type": "sub_heading",
+      "name": {
+        "zh-CN": "副标题",
+        "en-US": "Subheading"
+      },
+      "limit": 1,
+      "settings": []
+    },
+    {
+      "type": "price",
+      "name": {
+        "zh-CN": "价格",
+        "en-US": "Price"
+      },
+      "limit": 1,
+      "settings": []
+    },
+    {
+      "type": "button",
+      "name": {
+        "zh-CN": "按钮",
+        "en-US": "Button"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "button_label",
+          "label": {
+            "zh-CN": "按钮文字",
+            "en-US": "Button text"
+          },
+          "default": "Shop Now"
+        }
+      ]
+    },
+    {
+      "type": "vendor",
+      "limit": 1,
+      "name": {
+        "en-US": "vendor",
+        "zh-CN": "供应商"
+      },
+      "settings": []
+    }
+  ],
+  "presets": [
+    {
+      "name": "feature_product",
+      "cname": {
+        "en-US": "Single product",
+        "zh-CN": "单个商品"
+      },
+      "category": {
+        "en-US": "Products",
+        "zh-CN": "商品"
+      },
+      "ccategory": {
+        "en-US": "Product",
+        "zh-CN": "商品"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {}
+        },
+        {
+          "type": "sub_heading",
+          "settings": {}
+        },
+        {
+          "type": "price",
+          "settings": {}
+        },
+        {
+          "type": "button",
+          "settings": {
+            "button_label": "Shop Now"
+          }
+        }
+      ],
+      "icon": "oss/operation/7e0a77a12be9e9b9ecabd1b3cd972f13.svg"
+    }
+  ]
+}
+{% endschema %}

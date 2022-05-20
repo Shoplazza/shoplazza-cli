@@ -1,0 +1,295 @@
+{% assign titleFont = settings.skin_title_font_family %}
+{% assign textFont = settings.skin_text_font_family %}
+{% assign btnFont = settings.skin_btn_font_family %}
+{% assign productHeaderFont = settings.skin_product_header_font_family %}
+
+{% capture titleFontDesc %}
+    font-family: {{titleFont.family}},{{titleFont.fallback_families}} !important;
+    font-style:{{titleFont.style}} !important;
+    font-weight:{{titleFont.weight}} !important;
+{% endcapture %}
+
+{% capture textFontDesc %}
+    font-family: {{textFont.family}},{{textFont.fallback_families}} !important;
+    font-style:{{textFont.style}} !important;
+    font-weight:{{textFont.weight}} !important;
+{% endcapture %}
+
+{% capture btnFontDesc %}
+    font-family: {{btnFont.family}},{{btnFont.fallback_families}} !important;
+    font-style:{{btnFont.style}} !important;
+    font-weight:{{btnFont.weight}} !important;
+{% endcapture %}
+
+{% capture productHeaderFontDesc %}
+    font-family: {{productHeaderFont.family}},{{productHeaderFont.fallback_families}} !important;
+    font-style:{{productHeaderFont.style}} !important;
+    font-weight:{{productHeaderFont.weight}} !important;
+{% endcapture %}
+<style type="text/css">
+:root {
+  --skin_primary_btn_bg_color: {{settings.skin_primary_btn_bg_color}};
+  --skin_primary_btn_text_color: {{settings.skin_primary_btn_text_color}};
+  --skin_bg: {{settings.skin_bg}};
+}
+
+@media (min-width: 768px){
+  {% assign general_layout_width = settings.general_layout_width | default: 1080 %}
+  {% assign general_layout_spacing = settings.general_layout_spacing | default: 40 %}
+  .container{
+    max-width: {{general_layout_spacing | times: 2 | plus : general_layout_width}}px !important;
+    padding-right: {{general_layout_spacing | plus : 15}}px !important;
+    padding-left: {{general_layout_spacing | plus : 15}}px !important;
+  }
+  .tw-container{
+    max-width: {{general_layout_spacing | times: 2 | plus : general_layout_width}}px !important;
+    padding-right: {{general_layout_spacing | plus : 15}}px !important;
+    padding-left: {{general_layout_spacing | plus : 15}}px !important;
+    margin: 0 auto;
+  }
+}
+
+.tw-container{
+  width: 100%;
+  padding-right: 15px;
+  padding-left: 15px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+/* 字体 */
+{% assign titleFont = settings.skin_title_font_family %}
+{% assign textFont = settings.skin_text_font_family %}
+{% assign btnFont = settings.skin_btn_font_family %}
+{% assign productHeaderFont = settings.skin_product_header_font_family %}
+{% capture fonts %}{{ titleFont.font_face }}|{{ textFont.font_face }}|{{ btnFont.font_face }}|{{ productHeaderFont.font_face }}{% endcapture %}
+{% assign arr = fonts | split:"|" | uniq %}
+{% for f in  arr  %}{{ f }}{% endfor %}
+
+/* 页面背景 */
+.dj_skin_bg {
+  background-color: {{settings.skin_bg}} !important;
+}
+/* 全局标题 */
+.dj_skin_title {
+  color: {{settings.skin_title_color}} !important;
+  font-size: {{settings.skin_title_font_size}}px !important;
+  {{titleFontDesc}}
+}
+
+/* 全局标题 --- 不包含font-size */
+.dj_skin_title_font {
+  color: {{settings.skin_title_color}} !important;
+  {{titleFontDesc}}
+}
+
+.dj_skin_title_font_family {
+  {{titleFontDesc}}
+}
+
+/* 全局文本 */
+.dj_skin_text {
+  color: {{settings.skin_text_color}} !important;
+}
+
+.dj_skin_body {
+  -webkit-font-smoothing: antialiased;
+  {{textFontDesc}}
+}
+
+/* 全局文本字体 */
+.dj_skin_text_font_family {
+  {{textFontDesc}}
+}
+
+/*----------------------------*/
+
+/* 商品标题 */
+.dj_skin_product_title {
+  color: {{settings.skin_title_color}} !important;
+  {{titleFontDesc}};
+}
+
+/* 商品列表标题 */
+.dj_skin_product_list_title{
+  color: {{settings.skin_text_color}} !important;
+  font-size: {{settings.skin_product_header_font_size}}px !important;
+  {{productHeaderFontDesc}};
+}
+
+/* 商品标题字体 */
+.dj_skin_product_title_font_family{
+  {{productHeaderFontDesc}}
+}
+
+/* 商品副标题 */
+.dj_skin_product_brief_title {
+  {{textFontDesc}}
+}
+
+/* 商品现价 */
+.dj_skin_product_price {
+  color: {{settings.skin_price_color}} !important;
+  font-size: {{settings.skin_price_font_size}}px !important;
+  {{textFontDesc}}
+}
+
+/* 商品详情现价--不需要限制字体 */
+.dj_skin_product_detail_price {
+  color: {{settings.skin_price_color}} !important;
+  {{textFontDesc}}
+}
+
+/* 商品原价 */
+.dj_skin_product_compare_at_price {
+  color: {{settings.skin_compare_at_price_color}} !important;
+  font-size: {{settings.skin_compare_at_price_font_size}}px !important;
+  {{textFontDesc}}
+}
+
+/* 商品详情原价--不需要限制字体 */
+.dj_skin_product_detail_compare_at_price {
+  color: {{settings.skin_compare_at_price_color}} !important;
+  {{textFontDesc}}
+}
+
+/* 商品数目和排序 */
+.dj_skin_product_text {
+  color: {{settings.skin_text_color}} !important;
+  {{textFontDesc}}
+}
+
+/* 商品详情款式选择框 */
+.dj_skin_product_variants_selected {
+  color: {{settings.skin_primary_btn_bg_color}} !important;
+}
+
+.dj_skin_product_variants_selected:hover {
+  color: {{settings.skin_primary_btn_bg_color}} !important;
+}
+
+.dj_skin_product_variants_selected::before,.dj_skin_product_variants_selected label::before {
+  border: 2px solid {{settings.skin_primary_btn_bg_color}} !important;
+}
+
+{% assign label_color = settings.label_color | default: '#FFFFFF' %}
+{% assign label_background_color = settings.label_background_color | default: '#9B3C44' %}
+.product-info__label {
+  color: {{label_color}};
+  background: {{label_background_color}};
+}
+.product-info__label-triangle {
+  box-shadow: 0px -100px 0px 100px {{label_background_color}};
+}
+/* 优惠折扣标签同时存在 */
+{% if settings.is_discount_show and settings.product_save_amount %}
+  .product-info__discount-label{
+    font-size: 12px;
+  }
+  .product-info__save-label{
+    font-weight: 300;
+  }
+  .product-info__label-triangle{
+    max-width: 90px;
+  }
+  @media (max-width: 576px){
+    .product-info__discount-label, .product-info__label-badge .money{
+      font-size: 10px;
+    }
+    .product-info__save-label{
+      font-size: 12px;
+    }
+  }
+{% endif %}
+
+{% unless settings.is_discount_show  %}.product-info__header_tag{display:none!important;}{% endunless %}
+{% unless settings.skin_price_color  %}.dj_skin_product_detail_price{display:none!important;}{% endunless %}
+{% unless settings.is_compare_at_price_show  %}.dj_skin_product_compare_at_price{display:none!important;}{% endunless %}
+{% unless settings.is_sales_show  %}.product__select_modal .product-info__header_sales {display:none!important;}{% endunless %}
+{% unless settings.is_stock_show  %}.product-info__qty_stock {display:none!important;}{% endunless %}
+{% unless settings.is_brief_show  %}.product-info__header_brief {display:none!important;}{% endunless %}
+{% unless settings.is_quantity_box_show  %}.product-info__qty_container {display:none!important;}{% endunless %}
+{% unless settings.vendor_enable  %}.product-info__vendor {display:none!important;}{% endunless %}
+
+/*----------------------------*/
+/* 页尾 */
+.dj_skin_footer_title{
+  {{titleFontDesc}}
+}
+/*----------------------------*/
+.btn {
+  {{btnFontDesc}}
+}
+
+/* 主要按钮 */
+.btn-primary {
+  position: relative !important;
+  border-color: {{settings.skin_primary_btn_border_color}} !important;
+  background: {{settings.skin_primary_btn_bg_color}} !important;
+  color: {{settings.skin_primary_btn_text_color}} !important;
+}
+.btn-primary:hover {
+  color: {{settings.skin_primary_btn_text_color}} !important;
+  border-color: {{settings.skin_primary_btn_border_color}} !important;
+  background: {{settings.skin_primary_btn_bg_color}} !important;
+  opacity: .9 !important;
+}
+.btn-primary:active,.btn-primary:focus {
+  color: {{settings.skin_primary_btn_text_color}} !important;
+  border-color: {{settings.skin_primary_btn_border_color}} !important;
+  background: {{settings.skin_primary_btn_bg_color}} !important;
+  opacity: .9 !important;
+}
+.btn-primary:disabled,.btn-primary.disabled {
+  color: #f9f9f9 !important;
+  background: #d6d6d6 !important;
+  border: 1px solid #d6d6d6 !important;
+}
+
+/* 次级按钮 */
+.btn-secondary {
+  position: relative !important;
+  background: {{settings.skin_secondary_btn_bg_color}} !important;
+  color: {{settings.skin_secondary_btn_text_color}} !important;
+  border: 1px solid {{settings.skin_secondary_btn_text_color}} !important;
+}
+.btn-secondary:hover {
+  color: {{settings.skin_secondary_btn_text_color}} !important;
+  border: 1px solid {{settings.skin_secondary_btn_text_color}} !important;
+  background: {{settings.skin_secondary_btn_bg_color}} !important;
+  opacity: .9 !important;
+}
+.btn-secondary:active,.btn-secondary:focus {
+  color: {{settings.skin_secondary_btn_text_color}} !important;
+  border: 1px solid {{settings.skin_secondary_btn_text_color}} !important;
+  background: {{settings.skin_secondary_btn_bg_color}} !important;
+  opacity: .9 !important;
+}
+.btn-secondary:disabled,.btn-secondary.disabled {
+  background: #f9f9f9 !important;
+  color: #d6d6d6 !important;
+  border-color: #d6d6d6 !important;
+}
+
+{% comment %} 列表色卡 {% endcomment %}
+.color-swatch {
+  position: relative;
+  display: inline-block;
+  text-indent: -9999px;
+  overflow-y: hidden;
+  width: 14px;
+  height: 14px;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  margin: 0 2px 2px 0;
+  border-radius: 50%;
+  border: 1px solid {{ settings.skin_primary_btn_border_color | default: '#212121' }};
+}
+@media (min-width: 768px){
+  .color-swatch {
+    width: 17px;
+    height: 17px;
+  }
+}
+</style>

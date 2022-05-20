@@ -1,0 +1,212 @@
+{
+  "general": {
+    "404": {
+      "title": "404-ая ошибка",
+      "tips": "Извините,страница не найдена.",
+      "continue_shopping": "Продолжить покупки",
+      "subtext_html": "<p>Извините,страница не найдена.</p><p><a href=\"/\">Продолжить покупки</a></p>"
+    },
+    "product": {
+      "quick_view": "Быстрый просмотр",
+      "sold_out": "Распродано",
+      "buy": "КУПИТЬ"
+    },
+    "newsletter_form": {
+      "email_address_empty_warning": "Введите вашу эл. почту.",
+      "email_address_invalid_warning": "Введите действительный адрес электронной почты.",
+      "email_placeholder": "Эл. почта",
+      "newsletter_email": "Введите вашу эл. почту.",
+      "newsletter_confirmation": "Спасибо за подписку! Сообщения будут отправлены на ваш адрес.",
+      "submit": "Подписаться"
+    },
+    "footer": {
+      "email_address_empty_warning": "Введите вашу эл. почту.",
+      "email_address_invalid_warning": "Введите действительный адрес электронной почты.",
+      "confirmation": "Спасибо за подписку! Сообщения будут отправлены на ваш адрес.",
+      "email_placeholder": "Эл. почта",
+      "submit": "Подписаться",
+      "follow_us": "О нас",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "twitter": "Twitter"
+    },
+    "view": {
+      "view_all": "Показать все"
+    },
+    "accessibility": {
+      "skip_to_content": "Перейти к контенту \n",
+      "close_modal": "Закрыть (esc)",
+      "close": "Закрыть",
+      "learn_more": "Подробнее узнать"
+    },
+    "meta": {
+      "tags": "С отметкой “{{ tags }}”",
+      "page": "Страница {{ page }}"
+    },
+    "pagination": {
+      "previous": "Назад",
+      "next": "Вперед"
+    },
+    "social": {
+      "share_on_facebook": "Share",
+      "share_on_twitter": "Tweet",
+      "share_on_pinterest": "Pin it",
+      "alt_text": {
+        "share_on_facebook": "Share on Facebook",
+        "share_on_twitter": "Tweet on Twitter",
+        "share_on_pinterest": "Pin on Pinterest"
+      }
+    },
+    "search": {
+      "no_results_html": "Нет результатов для поиска <span class='dj_skin_product_text search__key'>\"{{ terms }}\"</span>",
+      "results_for_html": "Ваш поиск \"{{ terms }} \" показал следующее:",
+      "title": "Поиск",
+      "placeholder": "Искать наш магазин",
+      "submit": "Поиск",
+      "result_count": {
+        "one": "{{ count }} результатов",
+        "other": "{{ count }} результатов"
+      }
+    },
+    "drawers": {
+      "navigation": "Навигация по сайту",
+      "close_menu": "Закрыть меню",
+      "expand_submenu": "Развернуть подменю",
+      "collapse_submenu": "Свернуть подменю"
+    }
+  },
+  "navigation": {
+    "general": {
+      "login": "Войти",
+      "register": "Зарегистрироваться",
+      "my_account": "Мой аккаунт",
+      "my_orders": "Мои заказы",
+      "address_book": "Список адресов",
+      "log_out": "Выход",
+      "search_placeholder": "Поиск"
+    }
+  },
+  "product": {
+    "product_detail": {
+      "sold": "Объем реализации {{ count }}",
+      "off": "<span>{{ count }}%</span> скидки",
+      "qty": "Кол-во",
+      "product_description": "Описание о товаре",
+      "add_to_cart": "Добавить в корзину",
+      "sold_out": "Распродано",
+      "buy_now": "Немедленно купить",
+      "added_to_cart_successfully": "Товар успешно добавлен в корзину.",
+      "view_product_detail": "Узнать больше о товаре",
+      "in_stock": "В запасе {{ count }}",
+      "related_product": "Рекомендуемые товары",
+      "select_variant": "Выберите товар",
+      "save_html": "Сэкономить <span class='money'>{{ saved_amount }}</span>",
+      "add_to_cart_tips": "Успешное добавление в корзину!",
+      "view_cart": "Просмотр корзины",
+      "proceed_to_checkout": "Провести подсчет",
+      "review": "комментарий",
+      "not_like_these": "Не нравятся эти?",
+      "please_select": "пожалуйста, выбери",
+      "sku": "Sku",
+      "weight": "Вес",
+      "barcode": "Штрих-код"
+    }
+  },
+  "collection": {
+    "collection_detail": {
+      "sales_descending": "Общий объем продаж, по убыванию",
+      "products": "{{ count }} товаров",
+      "recommend": "Рекомендуемые товары",
+      "low_to_high": "По цене↑",
+      "high_to_low": "По цене↓",
+      "best_selling": "Хиты продаж",
+      "newest": "Новинки",
+      "coming_soon": "Скоро в продажу поступит много новинок,пожалуйста,зайдите позже",
+      "continue_shopping": "Продолжить покупки",
+      "sort_by": "Порядок отображения товаров",
+      "items_per_page": "В каждой странице {{ count }} товаров",
+      "prev": "Назад",
+      "next": "Вперед",
+      "filter_by": "Фильтры",
+      "confirm": "Подтвердить",
+      "clear_all": "Восстановить",
+      "no_result": "Нет результатов для поиска",
+      "add_to_cart_count_descending": "Дополнительная покупка",
+      "views_descending": "Просмотры страниц"
+    }
+  },
+  "search": {
+    "title": "Результаты поиска",
+    "search_button": "Поиск",
+    "results_tips": "Всего<span class='search__count'>{{ count }}</span>результатов в поиске <span class='dj_skin_product_text search__key'>“{{ key }}”</span>",
+    "input_to_search": "Введите ключевые слова в строку поиска",
+    "no_results": "Нет результатов для поиска"
+  },
+  "collections": {
+    "general": {
+      "catalog_title": "Каталог",
+      "all_of_collection": "Показать все",
+      "view_all_products_html": "Просмотр всех <br>{{ count }} товаров",
+      "see_more": "Показать больше",
+      "see_less": "Показать меньше",
+      "no_matches": "К сожалению, в этой коллекции нет товаров"
+    },
+    "sorting": {
+      "title": "Последовательность",
+      "featured": "Рекомендуемые",
+      "price_ascending": "Цена, от низкой до высокой",
+      "price_descending": "Цена, от высокой до низкой",
+      "newest": "Новые товары"
+    },
+    "filters": {
+      "title_tags": "Отбор",
+      "all_tags": "Все товары"
+    }
+  },
+  "products": {
+    "general": {
+      "save_html": "Сэкономить <span class='money'>{{ saved_amount }}</span>",
+      "collection_return": "Вернуться к {{ collection }}",
+      "next_product": "Следующее: {{ title }}",
+      "sale_price": "Цена",
+      "regular_price": "Первоначальная цена",
+      "from_text_html": "от {{ price }}",
+      "related_products": "Вам также может понравиться"
+    },
+    "product": {
+      "stock_label": "В наличии {{ count }}",
+      "sold_out": "Распродано",
+      "unavailable": "Добавить в корзину",
+      "quantity": "Кол-во",
+      "add_to_cart": "Добавить в корзину",
+      "preorder": "Предварительный заказ",
+      "buy_now": "Немедленно купить",
+      "added_to_cart_successfully": "Товар успешно добавлен в корзину."
+    }
+  },
+  "home_page": {
+    "onboarding": {
+      "product_title": "Примеры товаров",
+      "product_description": "В данном секторе приведена подробная информация о ваших товарах. Ознакомьте клиентов с внешним видом, ощущениями и стилями ваших товаров. Также можно добавить информацию о цвете, используемых материалах, размерах и месте их происхождения.",
+      "collection_title": "Примеры коллекций",
+      "no_content": "В данный момент этот раздел не содержит никакого контента. Добавьте контент в этот раздел с помощью панели инструментов."
+    }
+  },
+  "layout": {
+    "footer": {
+      "social_platform": "{{ name }} {{ platform }}"
+    }
+  },
+  "sections": {
+    "map": {
+      "get_directions": "Получить канал",
+      "address_error": "Ошибка поиска адреса",
+      "address_no_results": "Не найден данный адрес",
+      "address_query_limit_html": "Вы превысили лимит использования Google API. Рассмотрите возможность обновления до <a href=\"https://developers.google.com/maps/premium/usage-limits\" > высший план</a>.",
+      "auth_error_html": "Возникла проблема с вашей учетной записью Google Maps. Создать и включить <a href=\"https://developers.google.com/maps/documentation/javascript/get-api-key\">JavaScript API</a> и <a href=\"https://developers.google.com/maps/documentation/geocoding/get-api-key\"> API геокодирование </A> полномочия app"
+    }
+  },
+  "date_formats": {
+    "month_day_year": "%b %d, %Y"
+  }
+}

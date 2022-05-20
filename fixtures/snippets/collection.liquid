@@ -1,0 +1,77 @@
+{% assign title = collection.title %}
+{% assign type = collection.type %}
+{% assign image = collection.image %}
+{% assign url = collection.url %}
+{% assign imgSize = imgSize | '600x' %}
+
+{% assign isMock = collection.isMock %}
+{% assign imageHeightMd = heightMd | default: "100%" %}
+{% assign imageHeight = height | default: "100%" %}
+{% assign defaultImg = defaultImage | default: 'oss/operation/5fa90cbdc7fbff1eac9c585b3b5caa0e.png' %}
+{% assign src = image.src | default: defaultImg %}
+
+{% comment %} 小图情况处理 {% endcomment %}
+{% assign rate = image.height | image_padding_bottom : image.width, origin: 'unlimit' | abs %}
+{% assign rate_gt = 'width: 100%;height: auto;max-width: unset;max-height: unset; right: 0; top: 50%; left: 50%; bottom: unset; transform: translate(-50%, -50%);' %}
+{% assign rate_lt = 'height: 100%;max-width: unset;max-height: unset; bottom: 0; left: 50%; top: 100%; right: unset; transform: translate(-50%, -50%);' %}
+
+{% comment %} 由于无法获取默认图宽高比例，需要手动设置 {% endcomment %}
+{% if src == defaultImg %}
+  {% assign rate = '100' %}
+{% endif %}
+
+{% comment %} PC端 {% endcomment %}
+<div data-track="item"
+  data-track-type="{{type|escape}}" data-track-name="{{title|escape}}" class="product-snippet">
+  {% if isMock %}
+    {% assign src = defaultImg %}
+  {% endif %}
+  {% assign wrapper_rate =  imageHeightMd | abs %}
+  {% assign img_size = rate_lt %}
+  {% if rate > wrapper_rate %}
+    {% assign img_size = rate_gt %}
+  {% endif %}
+  {% assign wrapper_rate_mobile =  imageHeight | abs %}
+  {% assign img_size_mobile = rate_lt %}
+  {% if rate > wrapper_rate_mobile %}
+    {% assign img_size_mobile = rate_gt %}
+  {% endif %}
+  <style>
+    @media (min-width: 768px) {
+      [data-section-id="{{section.id}}"] a.product-snippet__img-wrapper {
+        padding-bottom: {{imageHeightMd}};
+      }
+      [data-section-id="{{section.id}}"] a.product-snippet__img-wrapper img[id="{{src}}"] {
+        {{img_size}}
+      }
+    }
+    @media (max-width: 768px) {
+      [data-section-id="{{section.id}}"] a.product-snippet__img-wrapper {
+        padding-bottom: {{imageHeight}};
+      }
+      [data-section-id="{{section.id}}"] a.product-snippet__img-wrapper img[id="{{src}}"] {
+        {{img_size_mobile}}
+      }
+    }
+  </style>
+
+  <a {% if isMock != true and url %}href="{{url}}"{% endif %}
+    class="product-snippet__img-wrapper common__img-wrapper_lazy common__mask_title two_line_text_truncate d-flex align-items-center justify-content-center dj_skin_title_font_family"
+    title="{{title}}"
+    style="width: 100%; {% if isMock %}background: #f7f7f7;{% endif %}">
+    <img
+      id="{{src}}"
+      src="{{shop.default_img}}"
+      class="lazyload {{class}} imglazy"
+      {% if lazysize %}
+        data-src="{{src | img_url: lazysize}}"
+      {% else %}
+
+        data-src="{{src | img_url: '{width}x'}}"
+        data-sizes="auto"
+      {% endif %}
+      alt="{{image.alt | default: title | escape}}"
+      {{other}}
+    >
+  </a>
+</div>

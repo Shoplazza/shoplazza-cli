@@ -1,0 +1,488 @@
+
+{% case section.blocks.size %}
+  {% when 1 %}
+    {% assign class_footer_item = 'footer__item_full-width text-center' %}
+  {% when 2 %}
+    {% assign class_footer_item = 'footer__item_one-half' %}
+  {% when 3 %}
+    {% assign class_footer_item = 'footer__item_one-third' %}
+  {% when 4 %}
+    {% assign class_footer_item = 'footer__item_one-quarter' %}
+{% endcase %}
+
+{% assign BlocksSize = section.blocks.size %}
+<footer id="section_{{section.id}}"
+  class="footer dj_skin_footer"
+  style="background: {{ section.settings.footer_bg_color }};
+    color: {{ section.settings.footer_text_color }};">
+  <div class="container d-flex footer-content footer-content-{{BlocksSize}}">
+    {% for item in section.blocks %}
+      {% if item.type == 'menu' %}
+        <div class="footer__item {{ class_footer_item }}">
+          {% assign  myblock = item.settings %}
+          <div class="footer-menu">
+            {% if myblock.title %}
+              <p class="footer-column__title text-truncate dj_skin_footer_title"
+                style="color: {{ section.settings.footer_title_color }};">{{ myblock.title | escape }}</p>
+            {% endif %}
+            {% assign links = linklists[myblock.menu.id].links %}
+            <div class="footer-menu__link-wrap">
+              {% for firstLinks in links %}
+                <a
+                  {% if firstLinks.url %}
+                    href="{{ firstLinks.url }}" class="footer-menu__link text-truncate has-link"
+                  {% else %}
+                    class="footer-menu__link text-truncate without-link"
+                  {% endif %}
+                  {% unless firstLinks.type != 'web' or firstLinks.url contains shop.domain %}
+                    target="_blank"
+                  {% endunless %}
+                  data-track-event="jumpAddress"
+                  data-track-href= "{{ firstLinks.url }}"
+                >
+                  {{ firstLinks.title | escape }}
+                </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      {% elsif item.type == 'social' %}
+        <div class="footer__item {{ class_footer_item }}">
+          {% assign  insUrl = item.settings.instagram_url %}
+          {% assign  facebookUrl = item.settings.facebook_url %}
+          {% assign  twitterUrl = item.settings.twitter_url %}
+          {% assign  pinterestUrl = item.settings.pinterest_url %}
+          {% assign  youtubeUrl = item.settings.youtube_url %}
+          <div class="footer-social">
+            {% assign facebook = settings.facebook_url %}
+            {% assign twitter = settings.twitter_url %}
+            {% assign instagram = settings.instagram_url %}
+            {% assign pinterest = settings.pinterest_url %}
+            {% assign youtube = settings.youtube_url %}
+            {% if insUrl or facebookUrl or twitterUrl or pinterestUrl or youtubeUrl %}
+              <p class="footer-column__title dj_skin_footer_title"
+                style="color: {{ section.settings.footer_title_color }};">{{ 'i18n.general.footer.follow_us' | t }}</p>
+            {% endif %}
+            {% if insUrl %}
+              <a
+                class="dj_skin_link footer-social__link dj_skin_footer_title"
+                {% if instagram %}
+                  href="{{ instagram }}"
+                  target="_blank"
+                  data-track-href= "{{ instagram }}"
+                {% endif %}
+                data-track-event="jumpAddress"
+                style="color: {{ section.settings.footer_text_color }};"
+              >
+                <i class="sep-font sep-font-instagram footer-social__icon dj_skin_link"></i>
+              </a>
+            {% endif %}
+            {% if facebookUrl %}
+              <a
+                class="dj_skin_link footer-social__link dj_skin_footer_title"
+                {% if facebook %}
+                  href="{{ facebook }}"
+                  target="_blank"
+                  data-track-href= "{{ facebook }}"
+                {% endif %}
+                data-track-event="jumpAddress"
+                style="color: {{ section.settings.footer_text_color }};"
+              >
+                <i class="sep-font sep-font-facebook footer-social__icon dj_skin_link"></i>
+              </a>
+            {% endif %}
+            {% if twitterUrl %}
+              <a
+                class="dj_skin_link footer-social__link dj_skin_footer_title"
+                {% if twitter %}
+                  href="{{ twitter }}"
+                  target="_blank"
+                  data-track-href= "{{ twitter }}"
+                {% endif %}
+                data-track-event="jumpAddress"
+                style="color: {{ section.settings.footer_text_color }};"
+              >
+                <i class="sep-font sep-font-twitter footer-social__icon dj_skin_link"></i>
+              </a>
+            {% endif %}
+            {% if pinterestUrl %}
+              <a
+                class="dj_skin_link footer-social__link dj_skin_footer_title"
+                {% if pinterest %}
+                  href="{{ pinterest }}"
+                  target="_blank"
+                  data-track-href= "{{ pinterest }}"
+                {% endif %}
+                data-track-event="jumpAddress"
+                style="color: {{ section.settings.footer_text_color }};"
+              >
+                <i class="sep-font sep-font-pinterest footer-social__icon dj_skin_link"></i>
+              </a>
+            {% endif %}
+            {% if youtubeUrl %}
+              <a
+                class="dj_skin_link footer-social__link dj_skin_footer_title"
+                {% if youtube %}
+                  href="{{ youtube }}"
+                  target="_blank"
+                  data-track-href= "{{ youtube }}"
+                {% endif %}
+                data-track-event="jumpAddress"
+                style="color: {{ section.settings.footer_text_color }};"
+              >
+                <i class="sep-font sep-font-youtube footer-social__icon dj_skin_link"></i>
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      {% elsif item.type == 'info' %}
+        <div class="footer__item {{ class_footer_item }}">
+          {% assign logoDesc =  item.settings.richtext %}
+          {% assign logoUrl =  item.settings.logo_src %}
+          <div class="footer-info">
+            {% if logoUrl != blank %}
+              <img
+                class="footer-info__img"
+                src="{{ logoUrl | img_url: '600x' }}"
+                alt="{{images[logoUrl].alt | escape}}"
+              >
+            {% else %}
+              <p class="footer-column__title text-truncate dj_skin_footer_title"
+                  style="color: {{ section.settings.footer_title_color }};">{{ shop.name }}</p>
+            {% endif %}
+            {% unless logoDesc == blank %}
+              <div class="footer-info__desc dj-mce-view" style="color: {{ section.settings.footer_text_color }};">{{ logoDesc }}</div>
+            {% endunless %}
+          </div>
+        </div>
+      {% elsif item.type == 'newsletter' %}
+        <div class="footer__item {{ class_footer_item }}">
+          {% assign newsletterTitle =  item.settings.title %}
+          {% assign describe = item.settings.describe | default: '' %}
+          <div id="footer-newsletter" class="footer-newsletter">
+            <p class="footer-column__title text-truncate dj_skin_footer_title"
+              style="color: {{ section.settings.footer_title_color }};">{{ newsletterTitle | escape }}</p>
+            {% unless describe == blank %}
+              <div class="footer-info__desc">
+                {{ describe }}
+              </div>
+            {% endunless %}
+            <div class="footer-newsletter__form">
+              <div class="footer-newsletter__input-wrap">
+                <input id="input_email_footer_newsletter" type="email" class=" footer-newsletter__input form-control" placeholder="{{ 'i18n.general.footer.email_placeholder' | t }}">
+                <div class="text-left invalid-feedback"></div>
+                <div class="text-left valid-feedback" style="color: {{ section.settings.footer_text_color }};"></div>
+              </div>
+              <div class="footer-newsletter__btn-wrap">
+                <input type="button" id="submit_footer_newsletter" class="footer-newsletter__btn btn btn-primary" type="submit" value="{{ 'i18n.general.footer.submit' | t }}">
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% if section.settings.footer_payment_icon or section.settings.copyright or section.settings.special_desc %}
+    <div class="footer-copyright">
+      <div class="container footer-copyright__inner">
+        {% if section.settings.footer_payment_icon %}
+          <div class="footer__payment">
+            {% if shop.enabled_payment_types.size > 0 %}
+              <ul>
+                {% assign enabled_payment_resources = shop.enabled_payment_resources %}
+                {% for item in shop.enabled_payment_types %}
+                  {% for payment in shop.enabled_payment_resources[item].support_cards %}
+                    <li>
+                      {% include 'lazyimg', src: payment.icon, %}
+                    </li>
+                  {% endfor %}
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        {% endif %}
+        <div class="copyright d-flex align-items-center justify-content-center flex-wrap">
+          &copy;&nbsp;{{ 'today' | time_tag: format: 'year' }}&nbsp;{{ shop.name }}&nbsp;{{ section.settings.copyright }}
+        </div>
+        <div class="dj-mce-view">{{ section.settings.special_desc }}</div>
+        <div class="copyright">{{powered_by_link}}</div>
+      </div>
+    </div>
+  {% endif %}
+</footer>
+
+{% javascript %}
+
+  $(function () {
+    $.card_footer && $.card_footer({
+      lan: {{ 'i18n.general.footer' | t | json }}
+    })
+  })
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "footer",
+  "max_blocks": 4,
+  "settings": [
+    {
+      "type": "header",
+      "content": {
+        "en-US": "Copyright",
+        "zh-CN": "版权"
+      }
+    },
+    {
+      "type": "richtext",
+      "id": "copyright",
+      "default": ""
+    },
+    {
+      "type": "header",
+      "content": {
+        "zh-CN": "特殊信息说明",
+        "en-US": "Specific information description"
+      }
+    },
+    {
+      "type": "richtext",
+      "id": "special_desc",
+      "default": ""
+    },
+    {
+      "type": "header",
+      "content": {
+        "zh-CN": "颜色",
+        "en-US": "Colors"
+      }
+    },
+    {
+      "type": "color",
+      "id": "footer_bg_color",
+      "label": {
+        "en-US": "Background",
+        "zh-CN": "背景"
+      },
+      "default": "#F5F5F5"
+    },
+    {
+      "type": "color",
+      "id": "footer_text_color",
+      "label": {
+        "en-US": "Text",
+        "zh-CN": "正文"
+      },
+      "default": "#3D4246"
+    },
+    {
+      "type": "color",
+      "id": "footer_title_color",
+      "label": {
+        "en-US": "Heading",
+        "zh-CN": "标题"
+      },
+      "default": "#3D4246"
+    },
+    {
+      "type": "checkbox",
+      "id": "footer_payment_icon",
+      "label": {
+        "en-US": "Show payment icons",
+        "zh-CN": "显示付款图标"
+      },
+      "default": true
+    }
+  ],
+  "blocks": [
+    {
+      "type": "social",
+      "name": {
+        "en-US": "Social media",
+        "zh-CN": "社交媒体"
+      },
+      "info": {
+        "zh-CN": "图标跳转链接请点击全局配置填写",
+        "en-US": "Click \"Theme settings\" to set the jump link for icon."
+      },
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "instagram_url",
+          "label": "Instagram link",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "facebook_url",
+          "label": "Facebook link",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "twitter_url",
+          "label": "Twitter link",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "pinterest_url",
+          "label": "Pinterest link",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "youtube_url",
+          "label": "Youtube link",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "menu",
+      "name": {
+        "en-US": "Menu link",
+        "zh-CN": "菜单链接"
+      },
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          },
+          "default": "SUPPORT"
+        },
+        {
+          "type": "link_list",
+          "id": "menu",
+          "label": {
+            "zh-CN": "选择菜单",
+            "en-US": "Select menu"
+          },
+          "default": {
+            "id": "footer",
+            "type": "menu",
+            "title": {
+              "en-US": "Footer menu",
+              "zh-CN": "页尾菜单"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": {
+        "zh-CN": "文字介绍",
+        "en-US": "Text introduction"
+      },
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "logo_src",
+          "label": {
+            "en-US": "Logo image",
+            "zh-CN": "logo图片"
+          },
+          "info": {
+            "zh-CN": "建议尺寸（宽*长）：600x90px，减少左右边距留白",
+            "en-US": "Recommended resolution(width * height):600x90px, reduce the left and right blank margin"
+          },
+          "default": ""
+        },
+        {
+          "type": "richtext",
+          "id": "richtext",
+          "label": {
+            "en-US": "Text",
+            "zh-CN": "正文"
+          },
+          "default": "<p><span>Use this text to share information about your brand with your customers.</span></p>"
+        }
+      ]
+    },
+    {
+      "type": "newsletter",
+      "name": {
+        "zh-CN": "邮件订阅",
+        "en-US": "Newsletter"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          },
+          "default": "Newsletter",
+          "info": {
+            "zh-CN": "订阅用户将被添加到<a href='/admin/customers?tabKey=subscribed&subscribed=true' target='_blank'>顾客名单</a>中",
+            "en-US": "Customers who have placed order will be added to <a href='/admin/customers?tabKey=subscribed&subscribed=true' target='_blank'>customer list</a>"
+          }
+        },
+        {
+          "type": "richtext",
+          "id": "describe",
+          "label": {
+            "zh-CN": "描述",
+            "en-US": "Description"
+          },
+          "default": ""
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "footer",
+      "cname": {
+        "en-US": "Footer",
+        "zh-CN": "页尾"
+      },
+      "category": {
+        "en-US": "Navigation",
+        "zh-CN": "导航"
+      },
+      "ccategory": {
+        "en-US": "Navigation",
+        "zh-CN": "导航"
+      },
+      "display": false,
+      "blocks": [
+        {
+          "type": "social",
+          "settings": {
+            "instagram_url": true,
+            "facebook_url": true,
+            "twitter_url": true
+          }
+        },
+        {
+          "type": "menu",
+          "settings": {
+            "title": "SUPPORT",
+            "menu": {
+              "id": "footer",
+              "type": "menu",
+              "title": {
+                "en-US": "Footer menu",
+                "zh-CN": "页尾菜单"
+              }
+            }
+          }
+        },
+        {
+          "type": "info",
+          "settings": {
+            "logo_src": "",
+            "richtext": "<p><span>Use this text to share information about your brand with your customers.</span></p>"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

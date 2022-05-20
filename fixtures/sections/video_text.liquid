@@ -1,0 +1,128 @@
+{% use 'video_text.css' %}
+{% assign defaultImage = 'oss/operation/ee147ae7fe87ec16f50a5f17e57e6aa9.jpg' | img_url %}
+<div class="video-text container container-gap">
+  <div class="row">
+    <div class="col-12 col-md-6 video-text__text d-flex flex-column justify-content-center">
+      {% for block in section.blocks %}
+        {% if block.type == 'heading' and block.settings.heading %}
+          <h1 class="dj_skin_title_font video-text__text_title">{{block.settings.heading | escape}}</h1>
+        {% endif %}
+        {% if block.type == 'desc' and block.settings.desc %}
+          <div class="dj-mce-view dj_skin_text video-text__text_desc">{{block.settings.desc}}</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div class="col-12 col-md-6 video-text__video d-flex align-items-center">
+      <div class="video-text__video_wrapper">
+        <img class="video-text__video_wrapper-default" src="{{defaultImage}}"/>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{% javascript %}
+
+$(function () {
+  var videoId = $.getYoutubeId('{{section.settings.video_url.url}}');
+  videoId && $('[data-section-id="{{section.id}}"] .video-text__video_wrapper').html('<iframe title="" class="video-text__video_wrapper-iframe" src="https://www.youtube.com/embed/' + videoId + '?rel=0&modestbranding=1&autoplay='+ 0 + '" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>');
+})
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "video_text",
+  "max_blocks": 2,
+  "settings": [
+    {
+      "type": "video_url",
+      "id": "video_url",
+      "placeholder": {
+        "en-US": "Paste Youtube video link",
+        "zh-CN": "粘贴Youtube视频链接"
+      },
+      "label": {
+        "zh-CN": "视频背景链接",
+        "en-US": "Video link"
+      },
+      "default": ""
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": {
+        "zh-CN": "标题",
+        "en-US": "Heading"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          },
+          "default": "Video hero"
+        }
+      ]
+    },
+    {
+      "type": "desc",
+      "name": {
+        "zh-CN": "文字",
+        "en-US": "Text"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "desc",
+          "label": {
+            "en-US": "Text",
+            "zh-CN": "正文"
+          },
+          "placeholder": {
+            "zh-CN": "输入文本内容",
+            "en-US": "Input text"
+          },
+          "default": "<p><span>Use this text to share information about your brand with your customers. Describe a product,share announcements,or welcome customers to your store.</span></p>"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "video_text",
+      "cname": {
+        "en-US": "Text video",
+        "zh-CN": "文本视频"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "heading": "Video hero"
+          }
+        },
+        {
+          "type": "desc",
+          "settings": {
+            "desc": "<p><span>Use this text to share information about your brand with your customers. Describe a product,share announcements,or welcome customers to your store.</span></p>"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

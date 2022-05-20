@@ -1,0 +1,611 @@
+{% comment %} {% capture time_seed %}{{ 'now' | date: "%s" }}{% endcapture %}
+{% assign random = time_seed | times: 1103515245 | plus: 12345 | divided_by: 65536 | modulo: 32768 %} {% endcomment %}
+<div class='{% unless REQUEST_URI contains "view=ajax" %}container{% endunless %} container-gap product-detail product-detail-{{section.id}}'
+  id="product_detail_{{ product.id }}"
+  data-track="product"
+  data-track-id="{{product.id}}"
+  data-track-price="{{product.price}}"
+  data-track-name="{{product.title | escape}}"
+  data-track-type="{{product.type}}" data-life-style="true">
+  {% assign recommendedProductsPosition = section.settings.recommended_products_position | default: false %}
+  {% assign selectedVariantId = "" %}
+  {% assign selectedVariant = nil %}
+  {% assign priceMin = 99999999 %}
+  {% assign comparePriceMin = 99999999 %}
+  {% assign priceMax = 0 %}
+  {%  if settings.is_select_default_variants or product.variants.size == 1 %}
+    {% for variant in product.variants %}
+      {% if variant.available_quantity > 0 %}
+        {% assign selectedVariantId = variant.id %}
+        {% break %}
+      {% endif %}
+    {% endfor %}
+  {%  endif %}
+  {% assign variant_type = settings.variant_type | default: 'button' %}
+  {% assign params = REQUEST_URI | split: "?" | last | split: "&" %}
+  {% for p in params %}
+    {% assign pair = p | split: "=" %}
+    {% if pair[0] contains "variant" and pair[1] != '' %}
+      {% assign selectedVariantId = pair[1] %}
+    {% endif  %}
+  {% endfor %}
+
+  {% for variant in product.variants %}
+    {% if variant.compare_at_price < comparePriceMin %}
+      {% assign comparePriceMin = variant.compare_at_price %}
+    {% endif %}
+    {% if variant.price < priceMin %}
+      {% assign priceMin = variant.price %}
+    {% endif %}
+    {% if variant.price > priceMax %}
+      {% assign priceMax = variant.price %}
+    {% endif %}
+    {% if variant.id == selectedVariantId %}
+      {% assign selectedVariant = variant %}
+    {% endif %}
+  {% endfor %}
+
+  {% assign initialSlide = 0 %}
+  {% for item in product.images %}
+    {% if item.src contains selectedVariant.image.src %}
+      {% assign initialSlide = forloop.index0 %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="row">
+    {% assign commonImg = 'oss/operation/1e6f85988d86fcd8bf0debdec2d41eda.png' | img_url %}
+    <div class="product-image col-12 col-md-6">
+      <div class="position-relative">
+        <div class="support-slick">
+          {% if product.images.size > 0 %}
+            {% for item in product.images %}
+              <div class="swiper-slide">
+                {% assign imgHeight = item.height | image_padding_bottom : item.width, origin:'unlimit' %}
+                {% assign media = item.src | media_parse %}
+                {% assign class_name = 'position-relative w-100 zoom' %}
+                {% unless initialSlide == forloop.index0 %}
+                  {% assign class_name = class_name | append: ' d-none' %}
+                {% endunless %}
+                {% if media.mp4 or media.hls %}
+                  {% include 'video_html', media: media, padding_bottom: imgHeight, class: class_name %}
+                {% else %}
+                  <div style="padding-bottom:{{imgHeight}};" class="{{class_name}}">
+                    <img data-lazy="{{item.src | img_url: '1080x'}}" src="{{shop.default_img}}" class="product-image__swiper_img imglazy loading_bg" data-zoom-src="{{item.src | img_url: '1080x'}}" data-zoom-width="{% if item.width < 1080 %}{{item.width}}{% else %}1080{% endif %}" data-zoom-height="{% if item.width < 1080 %}{{item.height}}{% else %}{{ 1080 | divided_by: item.aspect_ratio | round }}{% endif %}"  alt="{{item.alt | default: product.title | escape}}" />
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="swiper-slide">
+              <div style="padding-bottom:100%">
+                {% include 'lazyimg', src: commonImg %}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+        {% if product.images.size > 1 %}
+        <a href="javascript:;" class="sep-loaded-slider__button sep-loaded-slider__button-prev d-none d-md-block"><i class="sep-font sep-font-angle-left"></i></a>
+        <a href="javascript:;" class="sep-loaded-slider__button sep-loaded-slider__button-next d-none d-md-block"><i class="sep-font sep-font-angle-right"></i></a>
+        {% endif %}
+      </div>
+      <div class="product-image__swiper_bullets">{{initialSlide | plus: 1}} / {{product.images.size}}</div>
+      {% comment %} 缩略图 {% endcomment %}
+      {% if product.images.size > 1 %}
+        <div class="product-image__thumbs">
+          <div class="product-image__thumbs-content">
+            {% assign thumbWidth = 80 %}
+            {% assign marginLeft = 0 %}
+            {% assign size = product.images.size %}
+            {% assign maxIdx = product.images.size | minus:6 %}
+            {% if initialSlide < 6 %}
+              {% assign marginLeft = 0 %}
+            {% elsif initialSlide >= maxIdx and size > 6 %}
+              {% assign marginLeft = maxIdx | times: 80 %}
+            {% else %}
+              {% assign marginLeft = initialSlide | times: 80 %}
+            {% endif %}
+
+            {% for item in product.images %}
+              <div class="product-image__thumbs-item position-relative {% if initialSlide == forloop.index0 %}slick-slide slick-current{% endif %}" style="margin-left:{% if forloop.index0  == 0 %}-{{marginLeft}}{% endif %}px" data-thumb-idx="{{ forloop.index0 }}" >
+                {% assign inView = 0 %}
+                {% assign offsetLeft  = forloop.index0 | times: 80 | minus: marginLeft %}
+                {% if offsetLeft >= 0 and offsetLeft < 480 %}
+                {% assign inView = 1 %}
+                {% endif %}
+
+                <img class="{% if inView == 0 %}lazy-{%endif%}lazyload" src="{{shop.default_img}}" data-src="{{item.src | img_url: '100x' }}" alt="{{ item.alt | default: product.title | escape }}">
+                {% assign media = item.src | media_parse %}
+                {% if media.mp4 or media.hls %}
+                  {% include 'video_thumb_icon' %}
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+          <div class="swiper-button-prev product-image__thumbs_button-prev-{{section.id}} product-image__thumbs_btn sep-font sep-font-angle-left"></div>
+          <div class="swiper-button-next product-image__thumbs_button-next-{{section.id}} product-image__thumbs_btn sep-font sep-font-angle-right"></div>
+        </div>
+      {% endif %}
+      {% unless REQUEST_URI contains "view=ajax" %}
+        {% if recommendedProductsPosition %}
+          <div class="col-12 relative_product_left d-none d-md-block">
+            {% if section.settings.relative_title != blank %}
+              <div class="relative_product__title dj_skin_title_font position-relative">
+                {{ section.settings.relative_title}}
+                <span class="relative_product__change d-none">{{ 'i18n.product.product_detail.not_like_these' | t}}</span>
+              </div>
+            {% endif %}
+            <div class="relative_product__content row"></div>
+          </div>
+        {% endif %}
+      {% endunless %}
+      {% assign productSelected = selectedVariant | default: product %}
+      {% assign priceMinus = productSelected.compare_at_price | minus: productSelected.price %}
+      {% include 'product_label', product: product, product_selected: productSelected, is_opacity: true %}
+    </div>
+
+    <form class="product-info product-info-{{product.id}} col-12 col-md-6 properties">
+      {% include 'product_info_body' %}
+    </form>
+    {% unless REQUEST_URI contains "view=ajax" %}
+      {% if recommendedProductsPosition%}
+        <div class="col-12 relative_product d-block d-md-none">
+          {% if section.settings.relative_title != blank %}
+            <div class="relative_product__title dj_skin_title_font position-relative">
+              {{ section.settings.relative_title}}
+              <span class="relative_product__change d-none">{{ 'i18n.product.product_detail.not_like_these' | t}}</span>
+            </div>
+          {% endif %}
+          <div class="relative_product__content row"></div>
+        </div>
+      {% endif %}
+        {% comment %} 定义前端模板 {% endcomment %}
+        <script id="relative-product-art-tpl" type="text/html">
+          <% for(var i = 0; i < products.length; i++) { %>
+            <div class="col-6 <%= colMd %> common__product-gap">
+              <% include ('product_art_tpl', {
+                product: products[i]
+              }) %>
+            </div>
+          <% } %>
+        </script>
+    {% endunless %}
+  </div>
+</div>
+{%capture inline_js_code%}
+{{settings.inline_js_code}}
+  $(function () {
+    {% assign ajax = false %}
+    {% if REQUEST_URI contains "view=ajax" %}
+      {% assign ajax = true %}
+    {% endif %}
+    $(".product-detail-{{ section.id }}").product_detail({section_id:"{{ section.id }}",default_img:"{{ '0745b09b31974decc653e9a927fb444c.jpg' | img_url }}",product:{{ product | json: "description,meta_description,meta_keyword,meta_title,brief" }}, initialSlide: {{initialSlide}}, ajax: {{ajax}} });
+    {% unless REQUEST_URI contains "view=ajax" %}
+    {% assign count = section.settings.product_number | default: 3 %}
+    {% if recommendedProductsPosition and template.type == 1 %}
+      var page = 1, per_page = 30, products = [], related_count = {{section.settings.product_number | default: 3}}, enableChangeCount = 10;
+        var $section = $('[data-section-id=' + {{section.id}} + ']');
+      {% comment %} 获取异步商品 {% endcomment %}
+      $.get('/api/product/similar-products?product_id={{product.id}}'+'&page='+page+'&per_page='+per_page, function(res) {
+        if (!(res.state == 0 && res.data)) { return ; }
+        products = (res.data.products || []).filter(function(item) { return item.published; });
+        {% comment %} 可以切换推荐 {% endcomment %}
+        products.length > enableChangeCount && $section.find('.relative_product__change').removeClass('d-none');
+        {% if shop.env == 0 %}
+          $('.relative_product__title')[products.length?"show":"hide"]();
+        {% else %}
+          if (products.length < related_count) {
+            products = products.concat(Array.apply(null, Array(related_count - products.length)).map(function(){ return {
+              image: { src: '{{ '0745b09b31974decc653e9a927fb444c.jpg' | img_url }}', width: 100, height: 100 },
+              compare_at_price: '99.99',
+              price: '88.88',
+              available: true,
+              published: true,
+              isMock: true,
+              title: 'Product Title'
+            }; }));
+          }
+        {% endif %}
+        var colMd = 'col-md-6';
+        var render = function () {
+          var count = 0;
+          products.length < related_count ? (count = products.length) : (count = related_count);
+          $section.find('.relative_product__content').html(window.template('relative-product-art-tpl', {
+            products:  new Array(count).fill(0).map(function (item, i) {
+              return products[((page-1)*related_count+i)%(products.length)];
+            }),
+            colMd: colMd
+          }));
+          page+=1;
+        };
+        render();
+        $(document).on('click', '.relative_product__change', render);
+      });
+    {% endif %}
+    {% endunless %}
+  });
+
+{%endcapture%}
+
+{% gassign settings.inline_js_code = inline_js_code %}
+{% javascript %}{{inline_js_code}}{% endjavascript %}
+
+{% schema %}
+{
+  "name": "product_detail",
+  "max_blocks": 10,
+  "contentType": [
+    "products"
+  ],
+  "settings": [
+    {
+      "type": "checkbox",
+      "label": {
+        "zh-CN": "推荐商品与商品详情并行",
+        "en-US": "Recommended products position below description"
+      },
+      "id": "recommended_products_position",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "relative_title",
+      "visibleOn": "recommended_products_position",
+      "label": {
+        "en-US": "Heading",
+        "zh-CN": "标题"
+      },
+      "default": "You may also like"
+    },
+    {
+      "type": "range",
+      "id": "product_number",
+      "visibleOn": "recommended_products_position",
+      "step": 1,
+      "max": 5,
+      "min": 2,
+      "label": {
+        "zh-CN": "商品总数",
+        "en-US": "Products number"
+      },
+      "default": 4,
+      "unit": ""
+    }
+  ],
+  "blocks": [
+    {
+      "type": "@app"
+    },
+    {
+      "type": "vendor",
+      "limit": 1,
+      "name": {
+        "en-US": "vendor",
+        "zh-CN": "供应商"
+      },
+      "settings": []
+    },
+    {
+      "type": "title",
+      "limit": 1,
+      "name": {
+        "en-US": "Title",
+        "zh-CN": "标题"
+      },
+      "settings": [
+        {
+          "type": "select",
+          "label": {
+            "zh-CN": "移动端商品标题样式",
+            "en-US": "Product title style on mobile"
+          },
+          "id": "title_style",
+          "options": [
+            {
+              "value": "full",
+              "label": {
+                "en-US": "Full display",
+                "zh-CN": "完全显示"
+              }
+            },
+            {
+              "value": "more_hide",
+              "label": {
+                "zh-CN": "超过一行隐藏",
+                "en-US": "Hide more than one line"
+              }
+            },
+            {
+              "value": "hide",
+              "label": {
+                "zh-CN": "隐藏",
+                "en-US": "Hide"
+              }
+            }
+          ],
+          "default": "full"
+        }
+      ]
+    },
+    {
+      "type": "sub_title",
+      "limit": 1,
+      "name": {
+        "en-US": "Subtitle",
+        "zh-CN": "副标题"
+      },
+      "settings": []
+    },
+    {
+      "type": "price",
+      "limit": 1,
+      "name": {
+        "en-US": "Price and volume",
+        "zh-CN": "价格&销量"
+      },
+      "settings": []
+    },
+    {
+      "type": "SKU",
+      "limit": 1,
+      "name": {
+        "en-US": "SKU",
+        "zh-CN": "SKU"
+      },
+      "settings": []
+    },
+    {
+      "type": "variant",
+      "limit": 1,
+      "name": {
+        "en-US": "Variant",
+        "zh-CN": "变体"
+      },
+      "settings": []
+    },
+    {
+      "type": "quantity",
+      "limit": 1,
+      "name": {
+        "en-US": "Quantity field",
+        "zh-CN": "数量选择器"
+      },
+      "settings": []
+    },
+    {
+      "type": "checkout",
+      "limit": 1,
+      "name": {
+        "en-US": "Dynamic checkout",
+        "zh-CN": "立即购买"
+      },
+      "settings": [
+        {
+          "type": "checkbox",
+          "label": {
+            "en-US": "Show dynamic checkout button",
+            "zh-CN": "开启立即购买"
+          },
+          "id": "dynamic_checkout",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "label": {
+            "en-US": "Show ‘Add to cart’ button",
+            "zh-CN": "开启加购按钮"
+          },
+          "id": "add_to_cart",
+          "default": true
+        },
+        {
+          "type": "header",
+          "content": {
+            "zh-CN": "加购信息补充区域",
+            "en-US": "Order information area"
+          },
+          "info": {
+            "zh-CN": "可在购买按钮下方添加文字和图片，来增强网站安全感，展示更多服务信息或产品特性等。",
+            "en-US": "Add text and images below the checkout button to enhance the security of the site and show more service information or product features."
+          }
+        },
+        {
+          "type": "richtext",
+          "id": "additional_text",
+          "placeholder": {
+            "zh-CN": "输入文本内容",
+            "en-US": "Input text"
+          },
+          "label": {
+            "en-US": "Text",
+            "zh-CN": "文本"
+          },
+          "default": ""
+        },
+        {
+          "type": "image_picker",
+          "id": "additional_image_pc",
+          "label": {
+            "en-US": "Desktop image",
+            "zh-CN": "PC端图片"
+          },
+          "info": {
+            "en-US": "Recommended resolution (width * height): 570*110px",
+            "zh-CN": "建议尺寸（宽*高）：570*110px"
+          },
+          "default": ""
+        },
+        {
+          "type": "image_picker",
+          "id": "additional_image_mobile",
+          "label": {
+            "en-US": "Mobile image",
+            "zh-CN": "移动端图片"
+          },
+          "info": {
+            "en-US": "Recommended resolution (width * height): 720*220px",
+            "zh-CN": "建议尺寸（宽*高）：720*220px"
+          },
+          "default": ""
+        }
+      ]
+    },
+    {
+      "type": "description_style",
+      "limit": 1,
+      "name": {
+        "en-US": "Description",
+        "zh-CN": "描述"
+      },
+      "settings": [
+        {
+          "type": "select",
+          "label": {
+            "zh-CN": "描述风格",
+            "en-US": "Description style"
+          },
+          "id": "description_style",
+          "options": [
+            {
+              "value": "expandable",
+              "label": {
+                "en-US": "Expandable",
+                "zh-CN": "可展开"
+              }
+            },
+            {
+              "value": "visible",
+              "label": {
+                "zh-CN": "一直可见",
+                "en-US": "Always visible "
+              }
+            }
+          ],
+          "default": "expandable"
+        },
+        {
+          "type": "page",
+          "label": {
+            "en-US": "Page for tab 1 - select page",
+            "zh-CN": "自定义页面1-选择页面"
+          },
+          "id": "page1"
+        },
+        {
+          "type": "page",
+          "label": {
+            "en-US": "Page for tab 2 - select page",
+            "zh-CN": "自定义页面2-选择页面"
+          },
+          "id": "page2"
+        },
+        {
+          "type": "page",
+          "label": {
+            "en-US": "Page for tab 3 - select page",
+            "zh-CN": "自定义页面3-选择页面"
+          },
+          "id": "page3"
+        }
+      ]
+    },
+    {
+      "type": "sharing",
+      "limit": 1,
+      "name": {
+        "en-US": "Social sharing",
+        "zh-CN": "社交分享"
+      },
+      "settings": [
+        {
+          "type": "checkbox",
+          "label": {
+            "en-US": "Share on Facebook",
+            "zh-CN": "可分享到facebook"
+          },
+          "id": "share_facebook",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "label": {
+            "en-US": "Tweet on Twitter",
+            "zh-CN": "可分享到Twitter"
+          },
+          "id": "share_twitter",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "label": {
+            "en-US": "Pin on Pinterest",
+            "zh-CN": "可分享到Pinterest"
+          },
+          "id": "share_pinterest",
+          "default": true
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "product_detail",
+      "cname": {
+        "zh-CN": "商品详情",
+        "en-US": "Product"
+      },
+      "category": {
+        "zh-CN": "基础",
+        "en-US": "Basic"
+      },
+      "ccategory": {
+        "zh-CN": "基础",
+        "en-US": "Basic"
+      },
+      "display": false,
+      "blocks": [
+        {
+          "type": "title",
+          "settings": {
+            "title_style": "full"
+          }
+        },
+        {
+          "type": "sub_title",
+          "settings": {}
+        },
+        {
+          "type": "price",
+          "settings": {}
+        },
+        {
+          "type": "variant",
+          "settings": {}
+        },
+        {
+          "type": "quantity",
+          "settings": {}
+        },
+        {
+          "type": "checkout",
+          "settings": {
+            "dynamic_checkout": true,
+            "add_to_cart": true,
+            "additional_text": "",
+            "additional_image_pc": "",
+            "additional_image_mobile": ""
+          }
+        },
+        {
+          "type": "sharing",
+          "settings": {
+            "share_facebook": true,
+            "share_twitter": true,
+            "share_pinterest": true
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}
+

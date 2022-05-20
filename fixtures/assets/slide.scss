@@ -1,0 +1,51 @@
+@import './tools.scss';
+
+.slide {
+  &__screen {
+    background: #f7f7f7;
+  }
+
+  &__img-wrapper {
+    overflow: hidden;
+    outline: 0;
+
+    .slide__img {
+      width: 100%;
+      object-fit: cover;
+      &_auto {
+        object-fit: contain;
+      }
+    }
+  }
+
+  &__bottom-margin {
+    margin-bottom: px-to-rem(40);
+  }
+
+  .swiper-container {
+    .swiper-slide {
+      width: 100% !important;
+    }
+
+    .swiper-pagination {
+      // bottom: px-to-rem(34);
+    }
+
+    .swiper-pagination-bullet {
+      margin: 0 px-to-rem(6);
+      width: px-to-rem(11);
+      height: px-to-rem(11);
+      background: transparent;
+      opacity: 1;
+      border: 2px solid white;
+
+      @media ($pc) {
+        border: 1px solid white;
+      }
+    }
+
+    .swiper-pagination-bullet-active {
+      background: #fff;
+    }
+  }
+}

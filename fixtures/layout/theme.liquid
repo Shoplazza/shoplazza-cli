@@ -1,0 +1,76 @@
+{% if REQUEST_URI contains "view=ajax" %}{{ content_for_layout }}{% if shop.env == 0 %}<script type="text/javascript" class="inline-code">{{ settings.inline_js_code }}</script>{% endif %}{% else %}<!doctype html>
+<html class="no-js" lang="{{ shop.locale }}" {% if shop.locale == "ar-SA" %}dir="rtl"{% endif %}>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+    <title>{{ page_title | default: shop.name }}</title>
+    <meta name="keywords" content="{{ page_keyword | default: shop.name | escape }}">
+    <meta name="description" content="{{ page_description | default: shop.name | escape | truncatebytes: 320, "" }}">
+    <meta http-equiv="x-dns-prefetch-control" content="on">
+    <link rel="dns-prefetch" href="{{shop.cdn_domain}}">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <link rel="shortcut icon" href="{{shop.favicon}}">
+    <meta name="theme-color" content="{{ settings.color_primary }}">
+    <meta name="format-detection" content="telephone=no, email=no">
+    {% if shop.env == 0 %}
+    <link rel="stylesheet" type="text/css" href="{{'iconfont/font_846249_3zb2b60e2ks/iconfont.css,themes/common/assets/vendor-4d14ea7807.css,theme.css,header.css,footer.css,slider.css,product_detail.css' | shoplaza_asset_url }}"/>
+    {% else %}
+      <link rel="stylesheet" type="text/css" href="{{'iconfont/font_846249_3zb2b60e2ks/iconfont.css,themes/common/assets/vendor-4d14ea7807.css' | shoplaza_asset_url }}"/>
+      <link rel="stylesheet" type="text/css" href="{{'theme.css' | asset_abs_url }}"/>
+      <link rel="stylesheet" type="text/css" href="{{'header.css,footer.css,slider.css,product_detail.css' | shoplaza_asset_url }}"/>
+    {% endif %}
+    {% include 'social-meta-tags' %}
+    {% include 'settings' %}
+
+    <script>
+      {% assign off = 'i18n.product.product_detail.off' | t | json | replace: '{{ count }}', '{ count }' %}
+      {% assign save_html = 'i18n.product.product_detail.save_html' | t | json | replace: '{{ saved_amount }}', '{ saved_amount }' %}
+      window.SHOP_PARAMS = {
+        customer_id: '{{customer.id}}',
+        finance: '{{shop.finance}}',
+        finance_symbol: '{{shop.finance_symbol}}',
+        cdn_domain: '{{shop.cdn_domain}}',
+        shop_name: '{{shop.name | escape}}',
+        theme_id: '{{theme.id}}',
+        shop_id: '{{shop.id}}',
+        shop_env: '{{shop.env}}',
+        default_img: '{{shop.default_img}}',
+        template_name: '{{template.name}}',
+        template_type: '{{template.type}}',
+        form_lang: { invalid_characters:{{ 'i18n.checkout.form.invalid_characters' | t | json }} },
+        product_settings: {
+          add_to_cart_process:{{ settings.add_to_cart_process | default: "to_toast" | json }},
+        },
+        product_lang: {
+          added_to_cart_successfully:{{ 'i18n.product.product_detail.added_to_cart_successfully' | t  | json }},
+          select_variant:{{ 'i18n.product.product_detail.select_variant' | t | json}},
+          off: {{ off }},
+          save_html: {{ save_html }}
+        },
+        is_select_default_variants: {{ settings.is_select_default_variants | default:false }},
+      }
+    </script>
+    {{ content_for_header }}
+
+    {% include 'social-meta-tags' %}
+  </head>
+  <body class="dj_skin_bg dj_skin_body" >
+    {% include 'lazysizes' %}
+    <div class="page_container">{% section 'header' %}{{ content_for_layout }}{% section 'footer' %}</div>
+    {% include 'product_info_tpl' %}
+    {% include 'product_art_tpl' %}
+    <script type="text/javascript">
+    window.addEventListener("DOMContentLoaded",function(){
+    var s= document.createElement("script");
+    s.src="{{'themes/jquery-min-dbf25edba7.js,themes/common/assets/vendor-6f5abf3a01.js,themes/common/assets/serial_list-a8b9117f0d.js,header.js,footer.js,search.js,collection_detail.js,product_detail.js,themes/common/assets/zoom-bad8fec116.js' | shoplaza_asset_url }}";
+    s.setAttribute("onload","window.dispatchEvent(new CustomEvent('libloaded'))");
+    document.body.appendChild(s);
+    },false);
+    </script>
+    {{ content_for_js }}
+    {% include "cart_modal" %}
+    {% include 'video_source' %}
+  </body>
+</html>
+{% endif %}

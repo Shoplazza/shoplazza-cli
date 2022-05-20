@@ -1,0 +1,423 @@
+{% include 'lazyimg_art' %}
+<script id="product-info-qty-tpl" type="text/html">
+  <div class="qty-title product-info__qty_title">{{ 'i18n.product.product_detail.qty' | t }}
+    <% if ( {{ settings.is_stock_show | default: true }} ) { %>
+      <span class="product-info__qty_stock">
+        <% if (product.inventory_quantity > 0 && product.inventory_tracking) { %>
+          (<%= $imports.getI18n("{{ 'i18n.product.product_detail.in_stock' | t }}", {
+            '{% raw %}{{ count }}{% endraw %}': product.inventory_quantity
+          }) %>)
+        <% } %>
+      </span>
+    <% } %>
+
+  </div>
+  <div class="product-info__qty {% if settings.variant_type == 'dropdown' %}product-info__qty-dropdown{% endif %}">
+    <button type="button" class="btn product-info__qty_btn product-info__qty_decr"
+      data-click="decrease"
+      <% if (qty === 1
+        || (product.available === false)
+        || (!product.published && product.published !== undefined)) { %> disabled <% } %>
+      >
+      -
+    </button>
+    <input id="product_quantity_<%= product.id %>" class="form-control product-info__qty_num"
+      <% if ((product.available === false)
+        || (!product.published && product.published !== undefined)) { %> disabled <% } %>
+      type="text" value="<%= qty %>"  name="quantity" >
+    <button  type="button" class="btn product-info__qty_btn product-info__qty_incr"
+      data-click="increase" <% if ((product
+        && qty === product.available_quantity)
+        || (product.available === false)
+        || (!product.published && product.published !== undefined) ) { %> disabled <% } %>
+      >
+      +
+    </button>
+  </div>
+</script>
+<script id="product-info-price-wrapper" type="text/html">
+  <div class="product-info__header_price-wrapper-left">
+    <span class="product-info__header_price dj_skin_product_detail_price money">
+      <% if (product.price_min !== undefined) { %>
+        <%= $imports.finance_money_with_symbol(product.price_min) %>
+        <% if (product.price_max > product.price_min) { %>
+          - <%= $imports.finance_money_with_symbol(product.price_max) %>
+        <% } %>
+      <% } else { %>
+        <%= $imports.finance_money_with_symbol(product.price) %>
+      <% } %>
+    </span>
+    <% if (product.compare_at_price - product.price > 0) { %>
+      <span class="product-info__header_compare-at-price dj_skin_product_compare_at_price money ">
+        <%= $imports.finance_money_with_symbol(product.compare_at_price) %>
+      </span>
+    <% } %>
+  </div>
+  <span class="product-info__header_sales ">
+    <%= $imports.getI18n("{{ 'i18n.product.product_detail.sold' | t }}", {
+      '{% raw %}{{ count }}{% endraw %}': product.sales
+    }) %>
+  </span>
+</script>
+<script id="product-select-wrapper" type="text/html">
+  <div class="modal fade" id="product-select-modal" tabindex="-1" role="dialog" aria-labelledby="" aria-hidden="true" >
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+      <div class="modal-content product__select_modal">
+        <div class="sep-font sep-font-close close modal__close" data-dismiss="modal" aria-label="Close">
+        </div>
+        <div class="modal-body product-select-modal">
+          <div class='container-gap product-detail'
+            id="product_detail_<%= product.id %>"
+            data-track="product"
+            data-track-id="<%= product.id %>"
+            data-track-price="<%= product.price %>"
+            data-track-name="<%= product.title %>"
+            data-track-type="<%= product.type %>" data-life-style="true">
+
+            <div class="row">
+              {% assign commonImg = 'oss/operation/1e6f85988d86fcd8bf0debdec2d41eda.png' | img_url %}
+              <div class="product-image col-12 col-md-6">
+                <div class="position-relative">
+                  <div class="support-slick">
+                    <% if (product.images.length > 0) { %>
+                      <% for (var i = 0; i < product.images.length; i++) { %>
+                        <% var item = product.images[i]; %>
+                        <div class="swiper-slide">
+                          <% var media = $imports.media_parse(item.src); %>
+                          <% var classList = 'w-100' %>
+                          <% if (initialSlide != i) { %>
+                            <% classList = classList + ' d-none' %>
+                          <% } %>
+                          <% if (media.mp4 || media.hls) { %>
+                            <% include ('video_html_tpl', {
+                              media: media,
+                              padding_bottom: $imports.image_padding_bottom(item.width, item.height,'unlimit'),
+                              class_name: classList
+                            }) %>
+                          <% } else { %>
+                            <div style="padding-bottom:<%= $imports.image_padding_bottom(item.width, item.height,'unlimit') %>;" class="position-relative w-100 zoom <% if (initialSlide != i) { %> d-none <% } %>">
+                              <img
+                                data-lazy="<%= $imports.reset_image(item.src, '1080x') %>"
+                                src="{{shop.default_img}}"
+                                class="product-image__swiper_img imglazy loading_bg"
+                                data-zoom-src="<%= $imports.reset_image(item.src, '1080x') %>"
+                                data-zoom-width="<% if (item.width < 1080) { %><%= item.width %><% } else { %>1080<% } %>"
+                                data-zoom-height="<% if (item.width < 1080) { %><%= item.height %><% } else { %><%= (1080/item.aspect_ratio).toFixed() %><% } %>"
+                                alt="<%= item.alt || product.title %>" >
+                            </div>
+                          <% } %>
+                        </div>
+                      <% } %>
+                    <% } else { %>
+                      <div class="swiper-slide">
+                        <div style="padding-bottom:100%">
+                          {% include 'lazyimg', src: commonImg %}
+                        </div>
+                      </div>
+                    <% } %>
+                  </div>
+                  <% if (product.images.length > 1) { %>
+                    <a href="javascript:;" class="sep-loaded-slider__button sep-loaded-slider__button-prev d-none d-md-block"><i class="sep-font sep-font-angle-left"></i></a>
+                    <a href="javascript:;" class="sep-loaded-slider__button sep-loaded-slider__button-next d-none d-md-block"><i class="sep-font sep-font-angle-right"></i></a>
+                  <% } %>
+                </div>
+                <div class="product-image__swiper_bullets"><%= initialSlide + 1 %> / <%= product.images.length %></div>
+                {% comment %} 缩略图 {% endcomment %}
+                <% if (product.images.length > 1) { %>
+                  <div class="product-image__thumbs">
+                    <div class="product-image__thumbs-content">
+                      <% var thumbWidth = 80; %>
+                      <% var marginLeft = 0; %>
+                      <% var size = product.images.length; %>
+                      <% var maxIdx = product.images.length - 6; %>
+                      <% if (initialSlide < 6) { %>
+                        <% marginLeft = 0; %>
+                      <% } else if (initialSlide >= maxIdx && size > 6 ) { %>
+                        <% marginLeft = maxIdx * thumbWidth; %>
+                      <% } else { %>
+                        <% marginLeft = initialSlide * thumbWidth; %>
+                      <% } %>
+
+                      <% for (var i = 0; i < product.images.length; i++) { %>
+                        <% var item = product.images[i]; %>
+                        <% var inView = 0; %>
+                        <% var offsetLeft = i * thumbWidth - marginLeft; %>
+                        <% if (offsetLeft >= 0 && offsetLeft < 480) { %>
+                          <% inView = 1; %>
+                        <% } %>
+                        <div class="product-image__thumbs-item position-relative <% if (initialSlide == i) { %>slick-slide slick-current<% } %>" style="margin-left:<% if (i == 0) { %>-<%= marginLeft %><% } %>px" data-thumb-idx="<%= i %>" >
+                          <img class="<% if (inView == 0) { %>lazy-<% } %>lazyload" src="{{shop.default_img}}" data-src="<%= $imports.reset_image(item.src, '100x') %>" alt="<%= item.alt || product.title %>">
+                          <% var media = $imports.media_parse(item.src); %>
+                          <% if (media.mp4 || media.hls) { %>
+                            {% include 'video_thumb_icon' %}
+                          <% } %>
+                        </div>
+                      <% } %>
+                    </div>
+                    <div class="swiper-button-prev product-image__thumbs_button-prev-ajax product-image__thumbs_btn sep-font sep-font-angle-left"></div>
+                    <div class="swiper-button-next product-image__thumbs_button-next-ajax product-image__thumbs_btn sep-font sep-font-angle-right"></div>
+                  </div>
+                <% } %>
+
+                {% comment %} 商品标签 {% endcomment %}
+                <% var selected = selectedVariant || product; %>
+                <% var priceMinus = selected.compare_at_price - selected.price; %>
+                <% var save_label = false; %>
+                <% var discount_label = false; %>
+
+                <% if (product.available && {{settings.product_save_amount | default: false}}) { %>
+                  <% save_label = true; %>
+                <% } %>
+                <% if (product.available && {{settings.is_discount_show | default: false}}) { %>
+                  <% discount_label = true; %>
+                <% } %>
+
+                <% if (save_label == true || discount_label == true) { %>
+                  <div class="product-info__label product-info__label-{{settings.label_style | default: 'triangle'}}"
+                    style="<% if (selected.off_ratio <= 0 && selected.compare_at_price <= selected.price) { %> opacity: 0 <% } %>">
+                    {% comment %} 折扣 {% endcomment %}
+                    <% if (discount_label) { %>
+                      <div class="product-info__discount-label product-info__header_tag">
+                        <%- "{{ 'i18n.product.product_detail.off' | t }}".replace(/\{\{\s*count\s*\}\}/, (selected.off_ratio)) %>
+                      </div>
+                    <% } %>
+                    {% comment %} 优惠金额 {% endcomment %}
+                    <% if (save_label == true) { %>
+                      <div class="product-info__save-label">
+                        <% var saved_amount = $imports.finance_money_with_symbol((selected.compare_at_price -  selected.price).toFixed(2)); %>
+                        <%- "{{ 'i18n.product.product_detail.save_html' | t }}".replace(/\{\{\s*saved_amount\s*\}\}/, saved_amount) %>
+                      </div>
+                    <% } %>
+                  </div>
+                <% } %>
+
+              </div>
+
+              <form class="product-info product-info-<%= product.id %> col-12 col-md-6 properties">
+                <div class="product-info__header">
+                  <div class="product-info__vendor dj_skin_product_list_title"><%= product.vendor %></div>
+                  <h1 class="product-info__header_title dj_skin_product_title"><%= product.title %></h1>
+                  <% if (product.brief) { %>
+                    <p class="product-info__header_brief"><%= product.brief %></p>
+                  <% } %>
+                  {% if settings.is_sku_show  %}
+                    <p class="product-info__header-sku"><% if (selectedVariant) { %> <%= selectedVariant.sku %> <% } %></p>
+                  {% endif %}
+                  <div class="product-info__header_price-wrapper">
+                    <div class="product-info__header_price-wrapper-left">
+                      <% var current = selectedVariant || product; %>
+
+                      <span class="product-info__header_price dj_skin_product_detail_price money">
+                        <% if (selectedVariant) { %>
+                          <%= $imports.finance_money_with_symbol((selectedVariant.price)) %>
+                        <% } else { %>
+                          <% if (priceMax > priceMin) { %>
+                            <%= $imports.finance_money_with_symbol((priceMin)) %> - <%= $imports.finance_money_with_symbol((priceMax)) %>
+                          <% } else { %>
+                            <%= $imports.finance_money_with_symbol((priceMin)) %>
+                          <% } %>
+                        <% } %>
+                      </span>
+
+                      <% var price_minus = current.compare_at_price - current.price; %>
+                      <% if (price_minus > 0) { %>
+                        <span class="product-info__header_compare-at-price dj_skin_product_compare_at_price money">
+                          <%= $imports.finance_money_with_symbol((current.compare_at_price)) %>
+                        </span>
+                      <% } %>
+                    </div>
+                    <span class="product-info__header_sales ">
+                      <%- "{{ 'i18n.product.product_detail.sold' | t }}".replace(/\{\{\s*count\s*\}\}/, (product.sales)) %>
+                    </span>
+                  </div>
+                </div>
+
+                <input type="hidden" name="product_id" value="<%= product.id %>" />
+                <input type="hidden" name="variant_id" id="selected_variant_id_<%= product.id %>" value="<% if (selectedVariantId && selectedVariant.available_quantity > 0 ) { %><%= selectedVariantId %><% } %>" />
+
+                <div class="product-info__body">
+                  <% var variant_type = "{{settings.variant_type | default: 'button'}}"; %>
+                  <div class="product-info__variants ">
+                    <% for (var i = 0; i < product.options.length; i++) { %>
+                      <% var opt = product.options[i]; %>
+                      <% var optIdx = 'option' + (i + 1); %>
+                      <% var optname = opt.name.toLowerCase(); %>
+                      <% var selectedOptValue = ""; %>
+                      <% if (selectedVariant) { %>
+                        <% selectedOptValue = selectedVariant[optIdx]; %>
+                      <% } %>
+                      <% var is_color = false; %>
+                      {% if settings.product_color_swatches %}
+                        <% if (optname.includes('color') || optname.includes('colour') ) { %>
+                          <% is_color = true; %>
+                        <% } %>
+                      {% endif %}
+
+                      <% var variantDisabledArray = []; %>
+                      <% for (var j = 0; j < opt.values.length; j++) { %>
+                        <% var value = opt.values[j]; %>
+                        <% if (selectedVariant) { %>
+                          <% var variantDisabled = 1; %>
+                          <% var option1Value = selectedVariant.option1 || ''; %>
+                          <% if (optIdx.includes('option1')) { %>
+                            <% var option1Value = value || ''; %>
+                          <% } %>
+                          <% var option2Value = selectedVariant.option2 || ''; %>
+                          <% if (optIdx.includes('option2')) { %>
+                            <% var option2Value = value || ''; %>
+                          <% } %>
+                          <% var option3Value = selectedVariant.option3 || ''; %>
+                          <% if (optIdx.includes('option3')) { %>
+                            <% var option3Value = value || ''; %>
+                          <% } %>
+
+                          <% for (var m = 0; m < product.variants.length; m++) { %>
+                            <% var variant = product.variants[m]; %>
+                            <% var v1 = variant.option1 || ''; %>
+                            <% var v2 = variant.option2 || ''; %>
+                            <% var v3 = variant.option3 || ''; %>
+                            <% if ( variant.available && option1Value == v1 && option2Value == v2 && option3Value == v3) { %>
+                              <% variantDisabled = 0; %>
+                            <% } %>
+                          <% } %>
+                        <% } else { %>
+                          {% comment %}没有选中子商品需要检查该属性值是否有对应的子商品，没有需要禁用{% endcomment %}
+                          <% var variantExists = 0; %>
+                          <% if (optIdx.includes('option1') && variantExists == 0) { %>
+                            <% for (var n = 0; n < product.variants.length; n++) { %>
+                              <% var variant = product.variants[n]; %>
+                              <% if (value == variant.option1 && variant.available_quantity > 0) { %>
+                                <% variantExists = 1; %>
+                              <% } %>
+                            <% } %>
+                          <% } %>
+                          <% if (optIdx.includes('option2') && variantExists == 0) { %>
+                            <% for (var n = 0; n < product.variants.length; n++) { %>
+                              <% var variant = product.variants[n]; %>
+                              <% if (value == variant.option2 && variant.available_quantity > 0) { %>
+                                <% variantExists = 1; %>
+                              <% } %>
+                            <% } %>
+                          <% } %>
+                          <% if (optIdx.includes('option3') && variantExists == 0) { %>
+                            <% for (var n = 0; n < product.variants.length; n++) { %>
+                              <% var variant = product.variants[n]; %>
+                              <% if (value == variant.option3 && variant.available_quantity > 0) { %>
+                                <% variantExists = 1; %>
+                              <% } %>
+                            <% } %>
+                          <% } %>
+
+                          <% if (variantExists == 0) { %>
+                            <% variantDisabled = 1; %>
+                          <% } %>
+                        <% } %>
+                        <% if (!(product.available || product.published)) { %>
+                          <% variantDisabled = 1; %>
+                        <% } %>
+
+                        <% variantDisabledArray.push(variantDisabled); %>
+                      <% } %>
+
+                      <% if (is_color || variant_type == 'button') { %>
+                        <div class="product-info__variants_items">
+                          <div class="product-info__variants_title">
+                            <%= opt.name %>
+                            <% if (is_color) { %>
+                              <span id="variant_color-label"><% if (selectedOptValue) { %> - <%= selectedOptValue %><% } %></span>
+                            <% } %>
+                          </div>
+                          <div class="product-info__variants_value-wrapper">
+                            <% for (var j = 0; j < opt.values.length; j++) { %>
+                              <% var value = opt.values[j]; %>
+                              <% var isDisabled = +variantDisabledArray[j]; %>
+                              <span class="btn product-info__variants_value <% if (is_color) { %>product-info__variants_value_color<% } %>">
+                                <input type="radio" class="d-none product-info__variants_radio" name="<%= optIdx + '-' + product.id %>" id="<%= optIdx + '-' + j + '-' + product.id %>" <% if (isDisabled == 1) { %> disabled <% } else if (value == selectedOptValue) { %> checked <% } %> value="<%= value %>" />
+                                <% if (is_color) { %>
+                                  <label data-iscolor style="background-color: <%= value %>;" for="<%= optIdx + '-' + j + '-' + product.id %>" data-variants-value="<%= value %>" class="mb-0" data-options-order="<%= i %>" data-click="select"></label>
+                                <% } else { %>
+                                  <label for="<%= optIdx + '-' + j + '-' + product.id %>" data-variants-value="<%= value %>" class="mb-0" data-options-order="<%= i %>" data-click="select">
+                                    <%= value %>
+                                  </label>
+                                <% } %>
+                              </span>
+                            <% } %>
+                          </div>
+                        </div>
+                      <% } else { %>
+                        <div class="product-info__variants_items d-inline-block w-100">
+                          <div class="dj_skin_title_font product-info__variants_title"><%= opt.name %></div>
+                          <% var is_select_default_variants = {{settings.is_select_default_variants | default: false}}; %>
+                          <% var showDefault = false; %>
+                          <% if (!(selectedVariantId || is_select_default_variants)) { %>
+                            <% showDefault = true; %>
+                          <% } %>
+                          <select <% if (showDefault) { %>class="tw-text-black tw-opacity-50"<% } %>>
+                            <% if (showDefault) { %>
+                              <option disabled selected>{{'i18n.product.product_detail.please_select' | t}}</option>
+                            <% } %>
+                            <% for (var j = 0; j < opt.values.length; j++) { %>
+                              <% var value = opt.values[j]; %>
+                              <% var isDisabled = +variantDisabledArray[j]; %>
+                              <option data-soldout="{{ 'i18n.product.product_detail.sold_out' | t }}" <% if (isDisabled == 1) { %>disabled<% } %> name="<%= optIdx + '-' + product.id %>" id="<%= optIdx + '-' + j + '-' + product.id %>" class="text-center d-inline-block product-info__variants_value" value="<%= value %>" <% if (value == selectedOptValue) { %>selected<% } %>>
+                                <%= value %>
+                                <% if (isDisabled == 1) { %>({{ 'i18n.product.product_detail.sold_out' | t }})<% } %>
+                              </option>
+                            <% } %>
+                          </select>
+                        </div>
+                      <% } %>
+                    <% } %>
+                  </div>
+                  <div class="product-info__qty_container">
+                    <div class="qty-title product-info__qty_title">
+                      {{ 'i18n.product.product_detail.qty' | t }}
+                      <% if (selectedVariant) { %>
+                        <span class="product-info__qty_stock">
+                          <% if (selectedVariant.inventory_quantity > 0 && product.inventory_tracking) { %>
+                            <%- "{{ 'i18n.product.product_detail.in_stock' | t }}".replace(/\{\{\s*count\s*\}\}/, (selectedVariant.inventory_quantity)) %>
+                          <% } %>
+                        </span>
+                      <% } %>
+                    </div>
+                    <div class="product-info__qty <% if (variant_type == 'dropdown') { %> product-info__qty-dropdown <% } %>">
+                      <button type="button" class="btn product-info__qty_btn product-info__qty_decr" data-click="decrease" disabled="">-</button>
+                      <input class="form-control product-info__qty_num" id="product_quantity_<%= product.id %>" name="quantity" type="text" value="1">
+                      <button type="button" class="btn product-info__qty_btn product-info__qty_incr" data-click="increase">+</button>
+                    </div>
+                  </div>
+                </div>
+
+                {% assign btns = 0 %}
+                {% if settings.is_add_to_cart_show %}
+                  {% assign btns = btns | plus: 1 %}
+                {% endif %}
+                {% if settings.is_payment_btn_show %}
+                  {% assign btns = btns | plus: 1 %}
+                {% endif %}
+                <div class="product-info__btn product-info__btn_{{btns}}">
+                  <% if (product.published && product.available) { %>
+                    {% if settings.is_add_to_cart_show %}
+                      <button type="button" {% unless settings.is_payment_btn_show %} class="btn btn-primary" {% else %} class="btn btn-secondary" {% endunless %} data-click="addToCart" data-track="click" data-track-content="{% if settings.add_to_cart_process == "to_checkout" %}checkout{% else %}add_to_cart{% endif %}" data-track-source="quick_shop">
+                        {{ 'i18n.product.product_detail.add_to_cart' | t }}
+                      </button>
+                    {% endif %}
+                    <button type="button" class="btn btn-primary {% unless settings.is_payment_btn_show %}d-none{% endunless %} "  data-click="submit" data-track="click" data-track-content="checkout" data-track-source="quick_shop">{{ 'i18n.product.product_detail.buy_now' | t }}</button>
+                  <% } else { %>
+                    <button type="button" class="btn btn-primary" style="width: 100%;" disabled>{{ 'i18n.product.product_detail.sold_out' | t }}</button>
+                  <% } %>
+                </div>
+                <div class="product-info__url">
+                  <a href="<%= product.url %>">{{ 'i18n.product.product_detail.view_product_detail' | t }}</a>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</script>
+
+
+

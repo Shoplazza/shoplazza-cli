@@ -1,0 +1,94 @@
+{% comment %}
+  description: 蒙层图片
+  author: lucida
+  @param {{image_size}} 缩略图尺寸，不可直接使用原图：widthxheight(eg: 1000x，1x1)
+  @param {{type}} 指定卡片类型，若为static则需要固定背景图高度，目前是slide卡片
+  @param {{image_height}} 背景图高度：固定高度(eg:'200px')或者尺寸(eg: 'large', 'medium','small', 'normal')
+{% endcomment %}
+
+{% assign defaultImg = 'oss/operation/bbb5b6c710007fbaa2ad1adc6800ee6c.png' %}
+{% if image_src == blank %}
+  {% assign src = defaultImg %}
+{% else %}
+  {% assign src = image_src %}
+{% endif %}
+
+
+<div {% if type == 'cover' %}style="height: 100%;"{% endif %} {% if section.settings.is_full_width != true and section.settings.is_full_width != nil %}class="container"{% endif %}>
+  <div {% if type == 'cover' %}style="height: 100%;"{% endif %} class="hero hero--{{id}} {% if url %}url-cursor{% endif %}
+      {% if section.settings.is_full_width != true and section.settings.is_full_width != nil %}row{% endif %}
+  ">
+    <a {% if url %}href="{{url}}"{% endif %}
+      {% if link_type == "web" %}target="_blank"{% endif %}
+      {% if section.settings.is_full_width != true and section.settings.is_full_width != nil %}
+        class="col-12"
+      {% endif %}
+      style="width: 100%;
+        position: relative;
+        display: flex;
+        justify-content: center;
+        overflow: hidden;
+        margin: auto;"
+      >
+        <div class="hero__bg lazyload"
+        title="{{ images[src].alt | escape }}"
+        data-bgset="{% include 'bgset', image: images[src] %}"
+        data-sizes="auto"
+        style="
+          background-size: cover;
+          background-position: {{alignment}};
+          position: relative;
+          width: 100%;
+          min-height: 100%;
+          height: {{image_height}};
+          "
+        >
+          {% if image_height == 'origin' %}
+            {% comment %} 拿不到图片的高度，需要撑开 {% endcomment %}
+            <img src="{{ src | img_url: '100x' }}" style="width: 100%;opacity: 0;min-height: 100%;" alt="{{images[src].alt | escape}}"/>
+          {% endif %}
+          {% comment %} 灰色蒙层以及文案 {% endcomment %}
+          {% if title or text or button_label %}
+            <div class="hero__inner" style="
+              width: 100%;
+              margin: auto;"
+            >
+              <div class="page-width-outer">
+                <div class="page-width">
+                  {% for block in section.blocks %}
+                    {% if block.type == 'heading' %}
+                      <h2
+                        class="mega-title mega-title-{{text_size}}"
+                        data-theme-editor-setting="{{titlePath}}"
+                      >
+                        {{ title | escape }}
+                      </h2>
+                    {% endif %}
+                    {% if block.type == 'text' %}
+                      <div
+                        class="mega-subtitle mega-subtitle-{{text_size}}"
+                        data-theme-editor-setting="{{textPath}}"
+                      >
+                        {{ text }}
+                      </div>
+                    {% endif %}
+                    {% if block.type == 'button' %}
+                      <object><a
+                        class="hero-btn btn btn-primary"
+                        href="{{button_link}}"
+                        {% if button_link_type == 'web' %}
+                          target="_blank"
+                        {% endif %}
+                      >
+                        {{ button_label | escape }}
+                      </a></object>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+    </a>
+  </div>
+</div>

@@ -1,0 +1,55 @@
+@import './tools.scss';
+
+@media ($pc) {
+  .grid__item {
+    &.dashed-border {
+      border: 1px solid #ebebeb;
+    }
+
+    &-bg {
+      background-size: cover;
+      transition: all 0.5s;
+
+      &:hover {
+        transform: scale(1.1);
+      }
+    }
+
+    &-text {
+      font-size: 2rem;
+      padding: 0 55px;
+      max-width: 750px;
+    }
+  }
+
+  .overflow-hidden {
+    overflow: hidden;
+  }
+}
+
+@media ($mobile) {
+  .grid__item {
+    &.dashed-border {
+      border: 1px solid #ebebeb;
+    }
+
+    &-bg {
+      background-size: cover;
+      transition: all 0.5s;
+
+      &:hover {
+        transform: scale(1.1);
+      }
+    }
+
+    &-text {
+      font-size: 2rem;
+      padding: 0 px-to-rem(22 / 2);
+      max-width: px-to-rem(690 / 2);
+    }
+  }
+
+  .overflow-hidden {
+    overflow: hidden;
+  }
+}

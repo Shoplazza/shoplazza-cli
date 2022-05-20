@@ -1,0 +1,36 @@
+{% comment %}
+  class: 传入的class
+  src: 传入的图片路径
+  style: 传入节点样式
+  alt: 传入图片信息
+  original: 是否原图
+  other: 传入其他属性和值
+{% endcomment %}
+<script type="text/html" id="lazyimg_art">
+  <% if (image.original) { %>
+    <img
+      src="{{shop.default_img}}"
+      id="<%= image.id || '' %>"
+      class="imglazy lazyload <%= image.class || '' %>"
+      data-src="<%= image.src %>"
+      style="<%= image.style || '' %>"
+      alt="<%= image.alt || '' %>"
+      <%= other %>
+  <% } else { %>
+    <img
+      src="{{shop.default_img}}"
+      id="<%= image.id || '' %>"
+      class="imglazy lazyload <%= image.class || '' %>"
+      <% if (image.size) { %>
+        data-src="<%= $imports.reset_image(image.src, size) %>"
+      <% } else { %>
+        data-src="<%= $imports.reset_image(image.src, '{width}') %>"
+        
+        data-sizes="auto"
+      <% } %>
+      style="<%= image.style || '' %>"
+      alt="<%= image.alt || '' %>"
+      <%= other %>
+  <% } %>
+  >
+</script>

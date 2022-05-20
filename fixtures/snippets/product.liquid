@@ -1,0 +1,126 @@
+{% assign price = product.price %}
+{% assign compareAtPrice = product.compare_at_price %}
+{% assign title = product.title %}
+{% assign id = product.id %}
+{% assign type = product.type %}
+{% assign isMock = product.isMock %}
+{% assign wrapperHeight = "100%" %}
+
+{% if settings.product_grid_image_size == 'natural' %}
+  {% assign wrapperHeight = 100 | divided_by: images[product.image.src].aspect_ratio | append: '%' %}
+{% elsif settings.product_grid_image_size %}
+  {% assign wrapperHeight = settings.product_grid_image_size %}
+{% endif %}
+
+{% if image_size %}
+  {% assign wrapperHeight = image_size %}
+{% endif %}
+
+{% if image_size == "auto" %}
+  {% assign wrapperHeight = product.image.height | image_padding_bottom : product.image.width, 'unlimit' %}
+{% endif %}
+
+{% comment %} 小图情况处理 {% endcomment %}
+{% assign img_size = 'width: 100%;' %}
+{% assign rate = product.image.height | image_padding_bottom : product.image.width, origin: 'unlimit' | abs %}
+{% assign wrapper_rate =  wrapperHeight | abs %}
+{% if rate > wrapper_rate %}
+  {% assign img_size = 'height: 100%;' %}
+{% endif %}
+
+{% comment %} 遍历子产品list，找到第一个可用的子产品 {% endcomment %}
+{% if product.variants and product.available %}
+  {% for item in product.variants %}
+    {% if item.available %}
+      {% assign variantsId = item.id %}
+      {% assign variants = item | json %}
+      {% break %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+<div data-track="item" data-track-price="{{price}}" data-track-id="{{id}}"
+  data-track-type="{{type|escape}}" data-track-name="{{title|escape}}" class="product-snippet serial-item">
+  {% if beforeTplId %}
+    {% include beforeTplId %}
+  {% endif %}
+  <a {% unless isMock %}href="{{product.url}}"{% endunless %} class="product-snippet__img-wrapper common__img-wrapper_lazy"
+    style="padding-bottom: {{wrapperHeight}}; width: 100%; {% if isMock %}background: #f7f7f7;{% endif %}">
+    {% include 'lazyimg',
+      src: product.image.src,
+      style: img_size,
+      alt: product.image.alt | default: title
+    %}
+
+    <div class="d-none d-md-block">
+      {% if product.available %}
+        <div class="product-snippet__mask">
+          {% if settings.quick_view_btn_text and settings.is_quick_view_btn_show %}
+            <button type="button" class="btn btn-primary product-snippet__btn text-truncate"
+              data-safe-href="prevent"
+              {% unless isMock %} data-product-id="{{id}}" data-track="quick_shop" data-track-product-id="{{id}}" {% else %}data-product-mock="true"{% endunless %}
+              data-product-url="{{ product.url }}"
+              data-product-variants-id="{{ variantsId }}"
+              data-product-variants='{{ variants }}'
+              data-product='{"title":{{title | escape  | json }},"type":{{type | json }},"id":{{id | json }},"url":{{product.url | json }},"image":{{ product.image | json }} }' >
+              {{ settings.quick_view_btn_text }}
+            </button>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="product-snippet__mask" style="opacity: 1;">
+          <button type="button" disabled class="btn btn-primary product-snippet__btn text-truncate">{{ 'i18n.general.product.sold_out' | t }}</button>
+        </div>
+      {% endif %}
+    </div>
+
+    {% include 'product_label', product: product %}
+
+    {% unless product.available %}
+      <div class="d-md-none product-snippet__soldout">{{ 'i18n.general.product.sold_out' | t }}</div>
+    {% endunless %}
+    {% if contentTplId %}
+      {% include contentTplId) %}
+    {% endif %}
+  </a>
+  <a {% unless isMock %}href="{{product.url}}"{% endunless %} class="product-snippet__title-normal two_line_text_truncate dj_skin_product_list_title">{{title}}</a>
+  <div class="product-info__vendor text-center dj_skin_product_list_title">{{ product.vendor }}</div>
+  <div class="product-snippet__price-wrapper text-center">
+    <span class="text-truncate dj_skin_product_price money">{{price | money_with_symbol}}</span>
+    {% assign compareAtPrice = compareAtPrice | times: 1 %}
+    {% assign price = price | times: 1 %}
+    {% if compareAtPrice > price %}
+      <del class="text-truncate dj_skin_product_compare_at_price money">
+        {{compareAtPrice | money_with_symbol}}
+      </del>
+    {% endif %}
+  </div>
+  {% if settings.collection_color_swatches %}
+    {% for option in product.options %}
+      {% assign option_name = option.name | downcase %}
+      {% if option_name contains 'color' or option_name contains 'colour' %}
+        {% assign option_index = forloop.index0 %}
+        {% assign values = '' %}
+        <div class="grid-product__colors text-center mt-2">
+          {% for variant in product.variants %}
+            {% assign value = variant.options[option_index].value %}
+            {% unless values contains value %}
+              {% assign values = values | join: ',' %}
+              {% assign values = values | append: ',' | append: value %}
+              {% assign values = values | split: ',' %}
+              {% assign color_swatch_fallback = value | split: ' ' | last | handle %}
+              <a
+                href="{{ variant.url }}"
+                class="color-swatch"
+                style="background-color: {{ color_swatch_fallback }};">
+              </a>
+            {% endunless %}
+            {% endfor %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+  {% if afterTplId %}
+    {% include afterTplId) %}
+  {% endif %}
+</div>

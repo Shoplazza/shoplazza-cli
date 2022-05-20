@@ -1,0 +1,24 @@
+@import './tools.scss';
+
+@media ($mobile) {
+  .two-image {
+    &__image {
+      &:last-child {
+        margin-top: px-to-rem($mb_row_padding);
+        margin-bottom: px-to-rem($mb_row_padding);
+      }
+    }
+  }
+}
+
+@media ($pc) {
+  .two-image {
+    &__row {
+      margin: 0 px-to-rem(- $bootstrap_padding - $pc_row_padding / 2);
+    }
+
+    &__image {
+      padding: 0 px-to-rem($pc_row_padding / 2);
+    }
+  }
+}

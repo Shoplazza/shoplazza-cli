@@ -1,0 +1,23 @@
+{% comment %}
+  description: 渲染默认图片，适用于需要不同正方形图片的假数据，如ins照片墙，专辑列表1
+{% endcomment %}
+
+{% assign index = forloop.index0 | modulo: 8 %}
+{% case index %}
+  {% when "1" %}
+    {% assign defaultImage = "oss/operation/38968edd7e80d8d473ea654b081ca3fc.png" %}
+  {% when "2" %}
+    {% assign defaultImage = "oss/operation/83c443ae094ceaafdad986e573c20e6f.png" %}
+  {% when "3" %}
+    {% assign defaultImage ="oss/operation/189e7c91334761234480abb0a4f774f5.png" %}
+  {% when "4" %}
+    {% assign defaultImage ="oss/operation/f0ba1fdae63450dd8a6e8fd98c2d10f9.png" %}
+  {% when "5" %}
+    {% assign defaultImage ="oss/operation/1db3209dc8a7f3a9687e80a7766d9ca3.png" %}
+  {% when "6" %}
+    {% assign defaultImage ="oss/operation/aab788ce294fdf70587369f117e76fe5.png" %}
+  {% when "7" %}
+    {% assign defaultImage ="oss/operation/13465bf3d4c83fe7c485dfd07acc6e2c.png" %}
+  {% when "0" %}
+    {% assign defaultImage ="oss/operation/c617f75bc8f41ad3cbdfbe0548b73247.png" %}
+{% endcase %}

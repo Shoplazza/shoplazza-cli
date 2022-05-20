@@ -1,0 +1,212 @@
+{
+  "general": {
+    "404": {
+      "title": "Ah",
+      "tips": "Desculpe, a página que procura não tenha sido encontrada.",
+      "continue_shopping": "Continuar as compras",
+      "subtext_html": "<p>Desculpe, a página que procura não tenha sido encontrada.</p><p><a href=\"/\">Continuar as compras</a></p>"
+    },
+    "product": {
+      "quick_view": "Navegação rápida",
+      "sold_out": "Esgotado",
+      "buy": "COMPRAR"
+    },
+    "newsletter_form": {
+      "email_address_empty_warning": "Introduza o seu endereço de e-mail",
+      "email_address_invalid_warning": "Introduza um endereço de e-mail válido",
+      "email_placeholder": "E-mail",
+      "newsletter_email": "Digite seu email",
+      "newsletter_confirmation": "Obrigada pela sua subscrição. Enviaremos mensagens para o seu e-mail.",
+      "submit": "Subscrever"
+    },
+    "footer": {
+      "email_address_empty_warning": "Inserir o email",
+      "email_address_invalid_warning": "Introduza um endereço de e-mail válido",
+      "confirmation": "Obrigada pela sua subscrição. Enviaremos mensagens para o seu e-mail.",
+      "email_placeholder": "E-mail",
+      "submit": "Subscrever",
+      "follow_us": "Siga-nos",
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "twitter": "Twitter"
+    },
+    "view": {
+      "view_all": "Ver tudo"
+    },
+    "accessibility": {
+      "skip_to_content": "Saltar para conteudo",
+      "close_modal": "Fechar (esc)",
+      "close": "Fechar",
+      "learn_more": "Saber mais"
+    },
+    "meta": {
+      "tags": "Marcado\"{{ tags }}\"",
+      "page": "Página{{ page }}"
+    },
+    "pagination": {
+      "previous": "Página anterior",
+      "next": "Página seguinte"
+    },
+    "social": {
+      "share_on_facebook": "Share",
+      "share_on_twitter": "Tweet",
+      "share_on_pinterest": "Pin it",
+      "alt_text": {
+        "share_on_facebook": "Share on Facebook",
+        "share_on_twitter": "Tweet on Twitter",
+        "share_on_pinterest": "Pin on Pinterest"
+      }
+    },
+    "search": {
+      "no_results_html": "<span class='dj_skin_product_text search__key'>\"{{ terms }}\"</span>que você procurou não tem resultado",
+      "results_for_html": "O \"{{ terms }}\" que procura devolve os resultados do seguinte: \n",
+      "title": "Pesquisar",
+      "placeholder": "Revistar a nossa loja",
+      "submit": "Pesquisar",
+      "result_count": {
+        "one": "{{ count }} resultados",
+        "other": "{{ count }} resultados"
+      }
+    },
+    "drawers": {
+      "navigation": "Navegação no site",
+      "close_menu": "Fechar o menu",
+      "expand_submenu": "Expandir o submenu",
+      "collapse_submenu": "Colapsar o submenu"
+    }
+  },
+  "navigation": {
+    "general": {
+      "login": "Login",
+      "register": "Registra-se",
+      "my_account": "Minha conta",
+      "my_orders": "Minha encomenda",
+      "address_book": "Lista de endereços",
+      "log_out": "Logout",
+      "search_placeholder": "Pesquisar"
+    }
+  },
+  "product": {
+    "product_detail": {
+      "sold": "{{ count }} volume das vendas",
+      "off": "<span>{{ count }}%</span> OFF",
+      "qty": "Quantidade",
+      "product_description": "Descrição do produto",
+      "add_to_cart": "Adicionar ao carrinho",
+      "sold_out": "Esgotado",
+      "buy_now": "Compra imediata",
+      "added_to_cart_successfully": "Adicionar ao carrinho de compras com sucesso",
+      "view_product_detail": "Ver detalhes do produto",
+      "in_stock": "{{ count }}Inventário",
+      "related_product": "Mercadorias recomendadas",
+      "select_variant": "Selecione mercadoria",
+      "save_html": "Poupe <span class='money'>{{ saved_amount }}</span>",
+      "add_to_cart_tips": "Foi adicionado ao carrinho de compras!",
+      "view_cart": "Verifique o carrinho de Compras.",
+      "proceed_to_checkout": "Pagar a conta",
+      "review": "Comente",
+      "not_like_these": "Não gosta disso?",
+      "please_select": "por favor escolha",
+      "sku": "Sku",
+      "weight": "Peso",
+      "barcode": "Código de barras"
+    }
+  },
+  "collection": {
+    "collection_detail": {
+      "sales_descending": "Vendas totais, altas a baixas",
+      "products": "{{ count }}produtos",
+      "recommend": "Recomendação",
+      "low_to_high": "Preço, de baixo a alto",
+      "high_to_low": "Preço, de alto a baixo",
+      "best_selling": "Mais vendidos",
+      "newest": "Lançamentos novos",
+      "coming_soon": "Mais novos produtos estão prestes a ser lançados.Volte mais tarde, por favor.",
+      "continue_shopping": "Continua a fazer compras",
+      "sort_by": "Modo de ordenação",
+      "items_per_page": "{{ count }} Produtos cada página",
+      "prev": "Página anterior",
+      "next": "Página seguinte",
+      "filter_by": "Filtrar",
+      "confirm": "Confirmar",
+      "clear_all": "Reinicializar",
+      "no_result": "que você procurou não tem resultado",
+      "add_to_cart_count_descending": "Compras adicionais, de alto a baixo",
+      "views_descending": "Visualizações de página, de alto a baixo"
+    }
+  },
+  "search": {
+    "title": "Resultados da pesquisa",
+    "search_button": "Pesquisar",
+    "results_tips": "<span class='dj_skin_product_text search__key'>“{{ key }}”</span>encontrou<span class='search__count'>{{ count }}</span>resultados",
+    "input_to_search": "Indique a palavra-chave para procurar …",
+    "no_results": "que você procurou não tem resultado"
+  },
+  "collections": {
+    "general": {
+      "catalog_title": "Catálogo",
+      "all_of_collection": "Ver tudo",
+      "view_all_products_html": "Ver todos os <br>{{ count }} produtos",
+      "see_more": "Mostrar mais",
+      "see_less": "Mostrar menos",
+      "no_matches": "Desculpe, não há produtos nesta coleção."
+    },
+    "sorting": {
+      "title": "Ordenar",
+      "featured": "Recomendação",
+      "price_ascending": "Preço, de baixo a alto",
+      "price_descending": "Preço, de alto a baixo",
+      "newest": "Novo chegado"
+    },
+    "filters": {
+      "title_tags": "Filtro",
+      "all_tags": "Todos os produtos"
+    }
+  },
+  "products": {
+    "general": {
+      "save_html": "Poupe <span class='money'>{{ saved_amount }}</span>",
+      "collection_return": "De volta a {{ collection }}",
+      "next_product": "Ptulo: {{ title }}",
+      "sale_price": "Preço de venda",
+      "regular_price": "Preço original",
+      "from_text_html": "A partir de {{ price }}",
+      "related_products": "Talvez você também goste"
+    },
+    "product": {
+      "stock_label": "{{ count }} em estoque",
+      "sold_out": "Esgotado",
+      "unavailable": "Adiciona ao carrinho de compras",
+      "quantity": "Quantidade",
+      "add_to_cart": "Adiciona ao carrinho de compras",
+      "preorder": "Pré-ordem",
+      "buy_now": "Compra imediata",
+      "added_to_cart_successfully": "Adicionar ao carrinho de compras com sucesso"
+    }
+  },
+  "home_page": {
+    "onboarding": {
+      "product_title": "Produto de exemplo",
+      "product_description": "Esta área é usada para descrever os detalhes do seu oroduto. Indique aos clientes sobre a aparência, a sensação e o estilo do seu produto. Podem também ser aditadas informações como a cor, o material, as dimensões e o local de produção.",
+      "collection_title": "Recolha de exemplos",
+      "no_content": "Esta secção não inclui actualmente qualquer conteúdo. Use a barra de ferramentas para adicionar conteúdo."
+    }
+  },
+  "layout": {
+    "footer": {
+      "social_platform": "{{ name }} de {{ platform }}"
+    }
+  },
+  "sections": {
+    "map": {
+      "get_directions": "Obter a rota",
+      "address_error": "Erro de localização",
+      "address_no_results": "Não encontrei a morada",
+      "address_query_limit_html": "Excedeu os limites de utilização da API do google. Upgrade para <a href=\"https://developers.google.com/maps/premium/usage-limits\">plano premium</a>.",
+      "auth_error_html": "Encontrei um problema com a sua conta no google maps. Criar e activar o acesso à aplicação de API de geocodificação de <a href=\"https://developers.google.com/maps/documentation/javascript/get-api-key\">JavaScript API</a> e <a href=\"https://developers.google.com/maps/documentation/geocoding/get-api-key\">"
+    }
+  },
+  "date_formats": {
+    "month_day_year": "%b %d, %Y"
+  }
+}

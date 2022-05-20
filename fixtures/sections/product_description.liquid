@@ -1,0 +1,208 @@
+{% if section.blocks.size > 0 %}
+  {% assign open_full_page = section.settings.open_full_page %}
+  {% use 'product_description.css' %}
+  <style>
+    [data-section-id='{{section.id}}'] {
+      .reviews_plugin {
+        padding-top: 20px;
+      }
+    }
+    @media (min-width: 768px) {
+      .full__page-spacing {
+        padding: 0 {{ section.settings.spacing }}px;
+      }
+      .reviews_plugin {
+        padding-top: 54px;
+      }
+    }
+  </style>
+  <div class="product-info__desc-tab container">
+    {% for block in section.blocks %}
+      {% assign type = block.type %}
+      {% assign page_id = block.settings.page.id %}
+      {% if type == 'custom' %}
+        {% unless page_id %}
+          {% continue %}
+        {% endunless %}
+      {% endif %}
+      <div class="product-info__desc-container {% if open_full_page %} full__page-spacing {% endif %}">
+        <div class="product-info__desc-wrap {% if block.settings.desc_style == 'visible' %}is-open {% endif %} {% unless open_full_page %} product-info__desc-unfull {% endunless %}" >
+          <label class="product-info__desc-tab-header" for="r-{{ section.id }}-{{ forloop.index }}">
+            <span class="product-info__desc-text">
+              {% if type == "desc" %}
+                {{ 'i18n.product.product_detail.product_description' | t }}
+              {% else %}
+                {{ pages[page_id].title }}
+              {% endif %}
+            </span>
+            <i class="sep-font sep-font-angle-down-strong product-info__desc-icon"></i>
+          </label>
+          <input autocomplete="off" type="checkbox" name="r-{{ section.id }}-{{ forloop.index }}" class="product-info__desc-tab-cb" id="r-{{ section.id }}-{{ forloop.index }}" {% if block.settings.desc_style == 'visible' %} checked {% endif %}/>
+          <div class="product-info__desc-content mce__content" style="{% unless block.settings.desc_style == 'visible' %} display: none; {% endunless %}">
+            {% if type == 'desc' %}
+              {{ product.description | lazysizes }}
+            {% else %}
+              {{ pages[page_id].content }}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+    {% comment %} 评论插件坑位 {% endcomment %}
+    <div class="reviews_plugin empty:tw-hidden plugin__reviews"></div>
+  </div>
+
+  {% javascript %}
+    $(function(){
+      $(document).off('change.descTab').on('change.descTab', '.product-info__desc-tab-cb', function(){
+        var checked = $(this).prop('checked');
+        var $content = $(this).next();
+        $(this).parents('.product-info__desc-wrap').toggleClass('is-open', checked);
+        checked
+          ? $content.slideDown(300)
+          : $content.slideUp(300);
+      })
+    })
+  {% endjavascript %}
+{% endif %}
+
+{% schema %}
+{
+  "name": "product_description",
+  "templates": ["product"],
+  "limit": 1,
+  "max_blocks": 4,
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "open_full_page",
+      "label": {
+        "en-US": "Full page width",
+        "zh-CN": "全屏宽度"
+      },
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "spacing",
+      "label": {
+        "en-US": "Spacing",
+        "zh-CN": "间距"
+      },
+      "unit": "px",
+      "step": 1,
+      "min": 0,
+      "max": 40,
+      "default": 20
+    }
+  ],
+  "blocks": [
+    {
+      "type": "desc",
+      "limit": 1,
+      "allow_delete": false,
+      "name": {
+        "en-US": "Description",
+        "zh-CN": "描述"
+      },
+      "settings": [
+        {
+          "type": "select",
+          "id": "desc_style",
+          "label": {
+            "en-US": "Description style",
+            "zh-CN": "描述风格"
+          },
+          "options": [
+            {
+              "label": {
+                "en-US": "Expandable",
+                "zh-CN": "可展开"
+              },
+              "value": "expand"
+            },
+            {
+              "label": {
+                "en-US": "Always visible",
+                "zh-CN": "一直可见"
+              },
+              "value": "visible"
+            }
+          ],
+          "default": "expand"
+        }
+      ]
+    },
+    {
+      "type": "custom",
+      "limit": 3,
+      "allow_delete": false,
+      "name": {
+        "en-US": "Customize content",
+        "zh-CN": "自定义内容"
+      },
+      "settings": [
+        {
+          "type": "page",
+          "id": "page",
+          "label": {
+            "en-US": "Page for tab  - select page",
+            "zh-CN": "自定义页面-选择页面"
+          }
+        },
+        {
+          "type": "select",
+          "id": "desc_style",
+          "label": {
+            "en-US": "Description style",
+            "zh-CN": "描述风格"
+          },
+          "options": [
+            {
+              "value": "expand",
+              "label": {
+                "en-US": "Expandable",
+                "zh-CN": "可展开"
+              }
+            },
+            {
+              "value": "visible",
+              "label": {
+                "en-US": "Always visible",
+                "zh-CN": "一直可见"
+              }
+            }
+          ],
+          "default": "expand"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "product_description",
+      "cname": {
+        "en-US": "Description",
+        "zh-CN": "描述"
+      },
+      "category": {
+        "en-US": "Page",
+        "zh-CN": "页面"
+      },
+      "ccategory": {
+        "en-US": "Page",
+        "zh-CN": "页面"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "desc",
+          "settings": {
+            "desc_style": "expand"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

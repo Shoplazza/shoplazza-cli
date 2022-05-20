@@ -1,0 +1,39 @@
+<div class="container not-found container-empty-gap">
+  <div class="row">
+    <div class="col-12 d-flex flex-column justify-content-center align-items-center text-center">
+      <span class="not-found__title dj_skin_title_font_family">{{ 'i18n.general.404.title' | t }}</span>
+      <span class="not-found__text ">{{ 'i18n.general.404.tips' | t }}</span>
+      <a href="/" class="btn btn-primary dj_skin_title_font not-found__btn">{{ 'i18n.general.404.continue_shopping' | t }}</a>
+    </div>
+  </div>
+</div>
+
+{% use 'not_found.css' %}
+
+
+{% schema %}
+{
+  "name": "not_found",
+  "templates": ["404"],
+  "limit": 1,
+  "settings": [],
+  "presets": [
+    {
+      "name": "not_found",
+      "cname": {
+        "en-US": "404 page",
+        "zh-CN": "404页面"
+      },
+      "category": {
+        "zh-CN": "基础",
+        "en-US": "Basic"
+      },
+      "ccategory": {
+        "zh-CN": "基础",
+        "en-US": "Basic"
+      },
+      "display": true
+    }
+  ]
+}
+{% endschema %}

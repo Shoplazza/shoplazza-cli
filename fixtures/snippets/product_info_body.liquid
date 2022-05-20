@@ -1,0 +1,337 @@
+<div class="product-info__content">
+  {% for block in section.blocks %}
+    {% if block.type contains 'shoplazza://apps' %}
+      {% render block %}
+      {% continue %}
+    {% endif %}
+    {% if block.type == 'vendor' and product.vendor %}
+      <div class="dj_skin_product_list_title">{{ product.vendor }}</div>
+    {% endif%}
+    {% if block.type == 'title' and product.title %}
+      <h1 class="product-info__header_title dj_skin_product_title {% if block.settings.title_style == 'more_hide' %} product-info__header_title-more-hide {% elsif block.settings.title_style == 'hide' %} product-info__header_title-hide {% endif %}">{{ product.title | escape }}</h1>
+    {% endif%}
+    {% if block.type == 'sub_title' and product.brief %}
+      <p class="product-info__header_brief">{{ product.brief }}</p>
+    {% endif %}
+    {% if block.type == 'SKU' and selectedVariant != nill %}
+      <p class="product-info__header-sku">{{ selectedVariant.sku }}</p>
+    {% endif %}
+    {% if block.type == 'price' %}
+      <div class="product-info__header_price-wrapper">
+        <div class="product-info__header_price-wrapper-left">
+          {% assign current = selectedVariant | default: product %}
+          <span class="product-info__header_price dj_skin_product_detail_price money">
+            {% if selectedVariant == nill %}
+              {% if priceMax > priceMin %}
+                {{ priceMin | money_with_symbol}} - {{ priceMax | money_with_symbol}}
+              {% else %}
+                {{ priceMin | money_with_symbol}}
+              {% endif %}
+            {% else %}
+              {{ selectedVariant.price | money_with_symbol }}
+            {% endif %}
+          </span>
+
+          {% assign price_minus = current.compare_at_price | minus: current.price %}
+          {% if price_minus > 0 %}
+            <span class="product-info__header_compare-at-price dj_skin_product_compare_at_price money">
+              {{current.compare_at_price | money_with_symbol}}
+            </span>
+          {% endif %}
+        </div>
+        <span class="product-info__header_sales">
+        {{ 'i18n.product.product_detail.sold' | t: count: product.sales }}
+        </span>
+      </div>
+    {% endif %}
+    {% if block.type == 'variant' %}
+      <div class="product-info__variants ">
+        {% for opt in product.options %}
+          {% assign optIdx = forloop.index | downcase | prepend: 'option'  %}
+          {% if selectedVariant != nill %}
+            {% assign selectedOptValue = selectedVariant[optIdx]  %}
+          {% endif  %}
+          {% comment %} 色卡 {% endcomment %}
+          {% if settings.product_color_swatches %}
+            {% assign optname = opt.name | downcase %}
+            {% assign is_color = false %}
+            {% if optname contains 'color' or optname contains 'colour' %}
+              {% assign is_color = true %}
+            {% endif %}
+          {% endif %}
+
+          {% assign variantDisabledArray = '' %}
+          {% for value in opt.values %}
+            {% comment %} 计算按钮是否需要禁用 {% endcomment %}
+            {%  assign variantDisabled = 0 %}
+            {% if selectedVariant != nil %}
+              {% comment %}选中子款式 替换其中一个属性值 对应的子商品不存在，该属性值禁用{% endcomment %}
+              {%  assign variantDisabled = 1 %}
+              {%  assign option1Value = selectedVariant.option1 | default: '' %}
+              {% if optIdx contains 'option1' %}
+                {%  assign option1Value = value | default: '' %}
+              {% endif %}
+              {%  assign option2Value = selectedVariant.option2 | default: '' %}
+              {% if optIdx contains 'option2' %}
+                {%  assign option2Value = value | default: '' %}
+              {% endif %}
+              {%  assign option3Value = selectedVariant.option3 | default: '' %}
+              {% if optIdx contains 'option3' %}
+                {%  assign option3Value = value | default: '' %}
+              {% endif %}
+              {% for variant in product.variants %}
+                {% assign v1 = variant.option1 | default: '' %}
+                {% assign v2 = variant.option2 | default: '' %}
+                {% assign v3 = variant.option3 | default: '' %}
+                {%  if variant.available and option1Value == v1 and option2Value == v2 and option3Value == v3  %}
+                    {%  assign variantDisabled = 0 %}
+                {% endif %}
+              {% endfor %}
+            {% else %}
+              {% comment %}没有选中子商品需要检查该属性值是否有对应的子商品，没有需要禁用{% endcomment %}
+              {% assign variantExists = 0 %}
+              {% if optIdx contains 'option1' and variantExists == 0  %}
+                {% for variant in product.variants %}
+                  {%  if value == variant.option1 and variant.available_quantity > 0 %}
+                    {% assign variantExists = 1 %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+              {% if optIdx contains 'option2' and variantExists == 0  %}
+                {% for variant in product.variants %}
+                  {%  if value == variant.option2 and variant.available_quantity > 0 %}
+                    {% assign variantExists = 1 %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+              {% if optIdx contains 'option3' and variantExists == 0  %}
+                {% for variant in product.variants %}
+                  {%  if value == variant.option3 and variant.available_quantity > 0 %}
+                    {% assign variantExists = 1 %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+
+              {% if variantExists == 0 %}
+                {%  assign variantDisabled = 1 %}
+              {% endif %}
+            {% endif  %}
+            {% unless product.available or product.published %}
+              {%  assign variantDisabled = 1 %}
+            {% endunless %}
+            {% assign variantDisabledArray = variantDisabledArray | append: variantDisabled %}
+          {% endfor %}
+
+          {% if is_color or variant_type == 'button' %}
+            <div class="product-info__variants_items">
+              <div class="product-info__variants_title">{{ opt.name }}{% if is_color %}<span id="variant_color-label">{%if selectedOptValue%} - {{selectedOptValue}}{%endif%}</span>{% endif %}</div>
+              <div class="product-info__variants_value-wrapper">
+                {% for value in opt.values %}
+                  {% assign isDisabled = variantDisabledArray | slice: forloop.index0, 1 %}
+                  <span class="btn product-info__variants_value {% if is_color %}product-info__variants_value_color{% endif %}">
+                    <input type="radio" class="d-none product-info__variants_radio" name="{{ optIdx }}-{{product.id}}" id="{{ optIdx }}-{{ forloop.index0 }}-{{product.id}}" {% if isDisabled == 1 %} disabled {% elsif value == selectedOptValue %} checked {% endif %} value="{{ value | escape }}" />
+                    {% if is_color %}
+                      <label data-iscolor style="background-color: {{value}};" for="{{ optIdx }}-{{ forloop.index0 }}-{{product.id}}" data-variants-value="{{ value | escape }}" class="mb-0" data-options-order="{{ forloop.index0 }}" data-click="select"></label>
+                    {% else %}
+                      <label for="{{ optIdx }}-{{ forloop.index0 }}-{{product.id}}" data-variants-value="{{ value | escape }}" class="mb-0" data-options-order="{{ forloop.index0 }}" data-click="select">
+                        {{ value }}
+                      </label>
+                    {% endif %}
+                  </span>
+                {% endfor %}
+              </div>
+            </div>
+          {% else %}
+            <div class="product-info__variants_items d-inline-block w-100">
+              <div class="dj_skin_title_font product-info__variants_title">{{ opt.name }}</div>
+              {% unless settings.is_select_default_variants or selectedVariantId %}
+                {% assign showDefault = true %}
+              {% endunless %}
+              <select {% if showDefault %}class="tw-text-black tw-opacity-50"{% endif %}>
+                {% if showDefault %}
+                  <option disabled selected>{{'i18n.product.product_detail.please_select' | t}}</option>
+                {% endif %}
+                {% for value in opt.values %}
+                  {% assign isDisabled = variantDisabledArray | slice: forloop.index0, 1 %}
+                  <option data-soldout="{{ 'i18n.product.product_detail.sold_out' | t }}" {% if isDisabled == 1 %}disabled{% endif %} name="{{ optIdx }}-{{product.id}}" id="{{ optIdx }}-{{ forloop.index0 }}-{{product.id}}" class="text-center d-inline-block product-info__variants_value" value="{{ value | escape }}" {% if value == selectedOptValue %} selected {% endif %}>
+                    {{ value }}{% if isDisabled == 1 %} ({{ 'i18n.product.product_detail.sold_out' | t }}){% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% if block.type == 'quantity' %}
+      <div  class="product-info__qty_container">
+        <div class="qty-title product-info__qty_title">
+          {{ 'i18n.product.product_detail.qty' | t }}
+          {% assign is_stock_show = settings.is_stock_show | default: true %}
+          {% if is_stock_show %}
+            {% unless selectedVariant == nill %}
+              <span class="product-info__qty_stock">
+              {% if selectedVariant.inventory_quantity > 0 and product.inventory_tracking  %}
+                {{'i18n.product.product_detail.in_stock' | t: count:selectedVariant.inventory_quantity }}
+              {% endif %}
+              </span>
+          {% endunless %}
+          {% endif %}
+        </div>
+        <div class="product-info__qty {% if variant_type == 'dropdown' %}product-info__qty-dropdown{% endif %}">
+          <button type="button" class="btn product-info__qty_btn product-info__qty_decr" data-click="decrease" disabled="">-</button>
+          <input class="form-control product-info__qty_num" id="product_quantity_{{product.id}}" name="quantity" type="text" value="1">
+          <button type="button" class="btn product-info__qty_btn product-info__qty_incr" data-click="increase">+</button>
+        </div>
+      </div>
+    {% endif %}
+    {% if block.type == 'checkout' %}
+      <div class="product-info__btn product-info__btn_2">
+        {% if product.published and product.available %}
+          {% if block.settings.add_to_cart %}
+            <button type="button" class="btn btn-secondary" data-click="addToCart" data-track="click" {% if settings.add_to_cart_process == "to_checkout" %}data-track-content="checkout" data-track-source="buy_now"{% else %}data-track-content="add_to_cart" data-track-source="add_to_cart"{% endif %}>
+              {{ 'i18n.product.product_detail.add_to_cart' | t }}
+            </button>
+          {% endif %}
+          {% if block.settings.dynamic_checkout %}
+            <button type="button" class="btn btn-primary"  data-click="submit" data-track="click" data-track-content="checkout" data-track-source="buy_now">{{ 'i18n.product.product_detail.buy_now' | t }}</button>
+          {% endif %}
+        {% else %}
+          <button type="button" class="btn btn-primary" style="width: 100%;" disabled>{{ 'i18n.product.product_detail.sold_out' | t }}</button>
+        {% endif %}
+      </div>
+      {% assign paypal_express_enabled = shop.payment_settings.paypal_express_enabled %}
+      {% unless REQUEST_URI contains "view=ajax" %}
+        {% if paypal_express_enabled %}
+          <div class="placeholder-paypal-express-button-container"></div>
+        {% endif %}
+      {% endunless %}
+    {% endif %}
+    {% comment %} view=ajax不加载tab {% endcomment %}
+    {% unless REQUEST_URI contains "view=ajax" %}
+      {% if block.type == 'description_style' %}
+        <div class="product-info__desc-tab">
+          <div class="product-info__desc-wrap {% if block.settings.description_style == 'visible' %}is-open {% endif %}" >
+            <label class="product-info__desc-tab-header" for="r-{{ section.id }}-desc">
+              <span class="product-info__desc-text">
+                {{ 'i18n.product.product_detail.product_description' | t }}
+              </span>
+              <i class="sep-font sep-font-angle-down-strong product-info__desc-icon"></i>
+            </label>
+            <input autocomplete="off" type="checkbox" name="r-{{ section.id }}-desc" class="product-info__desc-tab-cb" id="r-{{ section.id }}-desc" {% if block.settings.description_style == 'visible' %} checked {% endif %}/>
+            <div class="product-info__desc-content mce__content" style="{% unless block.settings.description_style == 'visible' %} display: none; {% endunless %}">
+              {{ product.description | lazysizes }}
+            </div>
+          </div>
+          {% if block.settings.page1.id %}
+            <div class="product-info__desc-wrap {% if block.settings.description_style == 'visible' %}is-open {% endif %}" >
+              <label class="product-info__desc-tab-header" for="r-{{ section.id }}-page1">
+                <span class="product-info__desc-text">
+                  {{ pages[block.settings.page1.id].title }}
+                </span>
+                <i class="sep-font sep-font-angle-down-strong product-info__desc-icon"></i>
+              </label>
+              <input autocomplete="off" type="checkbox" name="r-{{ section.id }}-page1" class="product-info__desc-tab-cb" id="r-{{ section.id }}-page1" {% if block.settings.description_style == 'visible' %} checked {% endif %}/>
+              <div class="product-info__desc-content mce__content" style="{% unless block.settings.description_style == 'visible' %} display: none; {% endunless %}">
+                {{ pages[block.settings.page1.id].content }}
+              </div>
+            </div>
+          {% endif %}
+          {% if block.settings.page2.id %}
+            <div class="product-info__desc-wrap {% if block.settings.description_style == 'visible' %}is-open {% endif %}" >
+              <label class="product-info__desc-tab-header" for="r-{{ section.id }}-page2">
+                <span class="product-info__desc-text">
+                  {{ pages[block.settings.page2.id].title }}
+                </span>
+                <i class="sep-font sep-font-angle-down-strong product-info__desc-icon"></i>
+              </label>
+              <input autocomplete="off" type="checkbox" name="r-{{ section.id }}-page2" class="product-info__desc-tab-cb" id="r-{{ section.id }}-page2" {% if block.settings.description_style == 'visible' %} checked {% endif %}/>
+              <div class="product-info__desc-content mce__content" style="{% unless block.settings.description_style == 'visible' %} display: none; {% endunless %}">
+                {{ pages[block.settings.page2.id].content }}
+              </div>
+            </div>
+          {% endif %}
+          {% if block.settings.page3.id %}
+            <div class="product-info__desc-wrap {% if block.settings.description_style == 'visible' %}is-open {% endif %}" >
+              <label class="product-info__desc-tab-header" for="r-{{ section.id }}-page3">
+                <span class="product-info__desc-text">
+                  {{ pages[block.settings.page3.id].title }}
+                </span>
+                <i class="sep-font sep-font-angle-down-strong product-info__desc-icon"></i>
+              </label>
+              <input autocomplete="off" type="checkbox" name="r-{{ section.id }}-page3" class="product-info__desc-tab-cb" id="r-{{ section.id }}-page3" {% if block.settings.description_style == 'visible' %} checked {% endif %}/>
+              <div class="product-info__desc-content mce__content" style="{% unless block.settings.description_style == 'visible' %} display: none; {% endunless %}">
+                {{ pages[block.settings.page3.id].content }}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+      {% comment %} 分享模块 {% endcomment %}
+      {% unless REQUEST_URI contains "view=ajax" %}
+        {% if block.type == 'sharing' %}
+          <div class="product-info__social-sharing">
+            {% assign share_title = product.title %}
+            {% assign share_permalink = product.url %}
+            {% assign share_image = product.image.src %}
+            {% if block.settings.share_facebook %}
+              <a target="_blank"
+                href="//www.facebook.com/sharer.php?u={{ shop.url | append: share_permalink }}"
+                class="share-facebook dj_skin_text">
+                <i class="sep-font sep-font-facebook"></i>
+                <span class="share-title" aria-hidden="true">Share</span>
+              </a>
+            {% endif %}
+            {% if block.settings.share_twitter %}
+              <a target="_blank"
+                href="//twitter.com/share?text={{ share_title | url_param_escape }}&amp;url={{ shop.url | append: share_permalink }}"
+                class="share-twitter dj_skin_text">
+                <i class="sep-font sep-font-twitter"></i>
+                <span class="share-title" aria-hidden="true">Tweet</span>
+              </a>
+            {% endif %}
+            {% if block.settings.share_pinterest %}
+              <a target="_blank"
+                href="//pinterest.com/pin/create/button/?url={{ shop.url | append: share_permalink }}&amp;media={{ share_image | img_url: '1024x1024' }}&amp;description={{ share_title | url_param_escape }}"
+                class="share-pinterest dj_skin_text">
+                <i class="sep-font sep-font-pinterest"></i>
+                <span class="share-title" aria-hidden="true">Pin it</span>
+              </a>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endunless %}
+    {% endunless %}
+  {% endfor %}
+</div>
+
+<input type="hidden" name="product_id" value="{{ product.id }}" />
+<input type="hidden" name="variant_id" id="selected_variant_id_{{product.id}}" value="{% if selectedVariantId !='' and selectedVariant.available_quantity > 0 %}{{ selectedVariantId }}{% endif %}" />
+
+{% comment %} 加购信息补充区域 {% endcomment %}
+{% unless REQUEST_URI contains "view=ajax" %}
+  <div class="product-info__additional">
+    {% for block in section.blocks %}
+      {% if block.type == 'checkout'%}
+        {% if block.settings.additional_text %}
+          <div class="rich-text">{{ block.settings.additional_text}}</div>
+        {% endif %}
+        {% if block.settings.additional_image_pc %}
+          <div class="common__img-wrapper_lazy d-none d-md-block" style="padding-bottom: {{ 100 | divided_by: images[settings.additional_image_pc].aspect_ratio }}%;">
+            <img class="lazyload w-100" data-src="{{ block.settings.additional_image_pc | img_url }}" src="{{shop.default_img}}"/>
+          </div>
+        {% endif %}
+        {% if block.settings.additional_image_mobile %}
+          <div class="common__img-wrapper_lazy d-md-none" style="padding-bottom: {{ 100 | divided_by: images[settings.additional_image_mobile].aspect_ratio }}%;">
+            <img class="lazyload w-100" data-src="{{ block.settings.additional_image_mobile | img_url }}" src="{{shop.default_img}}"/>
+          </div>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endunless %}
+{% if REQUEST_URI contains "view=ajax" %}
+  <div class="product-info__url">
+    <a href="{{ product.url }}">{{ 'i18n.product.product_detail.view_product_detail' | t }}</a>
+  </div>
+{% endif %}

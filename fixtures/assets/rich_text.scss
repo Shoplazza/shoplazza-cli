@@ -1,0 +1,71 @@
+@import './tools.scss';
+
+.rich-text {
+  margin: 0 auto;
+
+  @media ($mobile) {
+    padding-left: px-to-rem(15);
+    padding-right: px-to-rem(15);
+  }
+
+  &__title {
+    color: #212121;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: px-to-rem(24);
+
+    &_large {
+      font-size: px-to-rem(48);
+    }
+
+    &_medium {
+      font-size: px-to-rem(36);
+    }
+
+    &_small {
+      font-size: px-to-rem(24);
+    }
+
+    @media ($mobile) {
+      margin-bottom: px-to-rem(12);
+
+      &_large {
+        font-size: px-to-rem(30);
+      }
+
+      &_medium {
+        font-size: px-to-rem(24);
+      }
+
+      &_small {
+        font-size: px-to-rem(18);
+      }
+    }
+  }
+
+  &__text {
+    &_large {
+      font-size: px-to-rem(18);
+    }
+
+    &_medium {
+      font-size: px-to-rem(16);
+    }
+
+    &_small {
+      font-size: px-to-rem(14);
+    }
+  }
+
+  @media ($pc) {
+    &__width_large {
+      width: 100%;
+      max-width: px-to-rem(1080);
+    }
+
+    &__width_medium {
+      width: 70.37%;
+      max-width: px-to-rem(760);
+    }
+  }
+}

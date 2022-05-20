@@ -1,0 +1,183 @@
+{% use 'logo_bar.css' %}
+{% assign defaultImg = "oss/operation/bd6b59c95b561f181796c20cecfee168.png" %}
+
+<div class="container container-gap">
+
+  {% if section.settings.title != blank %}
+    {% include 'card_title', title: section.settings.title %}
+  {% endif %}
+
+  {% if section.blocks.size > 0 %}
+    {% case section.blocks.size %}
+      {% when 1 %}
+        {% assign col = "col-12" %}
+        {% assign colMd = "col-md-12" %}
+      {% when 2 %}
+        {% assign col = "col-6" %}
+        {% assign colMd = "col-md-6" %}
+      {% when 3 %}
+        {% assign col = "col-4" %}
+        {% assign colMd = "col-md-4" %}
+      {% when 4 %}
+        {% assign col = "col-3" %}
+        {% assign colMd = "col-md-3" %}
+      {% when 5 %}
+        {% assign col = "col-3" %}
+        {% assign colMd = "col-md-2_4" %}
+      {% else %}
+        {% assign col = "col-3" %}
+        {% assign colMd = "col-md-2" %}
+    {% endcase %}
+    <div class="row common__product-row">
+      {% for block in section.blocks %}
+        <div class="{{col}} {{colMd}} common__product-gap logo-bar__block">
+          <a
+            {% unless block.settings.link.type != 'web' or block.settings.link.url contains shop.domain %}target="_blank"{% endunless %}
+            {% if block.settings.link.url != blank %}href="{{ block.settings.link.url }}"{% endif %}
+            {% if block.settings.image == blank %}style="background: #f7f7f7;"{% endif %}
+            class="common__img-wrapper_lazy logo-bar__link">
+            {% assign src = block.settings.image | default: defaultImg %}
+            {% include 'lazyimg',
+              src: src,
+              style: "width: 100%;height:100%;object-fit: contain;",
+              alt: images[block.settings.image].alt | default: shop.name,
+              class: 'logo-bar__img'
+            %}
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    {% comment %} 补充模拟数据 {% endcomment %}
+    {% if shop.env == 1 %}
+      <div class="row common__product-row">
+        {% for block in (1..4) %}
+          <div class="col-3 col-md-3 common__product-gap logo-bar__block">
+            <a style="background: #f7f7f7;"
+              class="common__img-wrapper_lazy logo-bar__link">
+              <img class="logo-bar__img" src="{{defaultImg | img_url}}">
+            </a>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+
+
+{% schema %}
+{
+  "name": "logo_bar",
+  "max_blocks": 20,
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": {
+        "en-US": "Heading",
+        "zh-CN": "标题"
+      },
+      "default": "BRAND LIST"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "logo_image",
+      "name": {
+        "zh-CN": "品牌图",
+        "en-US": "Logo image"
+      },
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "info": {
+            "zh-CN": "建议尺寸（宽*长）：600*360px,透明底色png格式图片",
+            "en-US": "Recommended resolution (width * height):600*360px,png images with transparent background"
+          }
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": {
+            "zh-CN": "图片链接",
+            "en-US": "Image link"
+          }
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "logo_bar",
+      "cname": {
+        "zh-CN": "品牌列表",
+        "en-US": "Logo list"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "logo_image",
+          "name": {
+            "zh-CN": "品牌图",
+            "en-US": "Logo image"
+          },
+          "max_blocks": 20,
+          "settings": {
+            "image": "",
+            "link": ""
+          }
+        },
+        {
+          "type": "logo_image",
+          "name": {
+            "zh-CN": "品牌图",
+            "en-US": "Logo image"
+          },
+          "max_blocks": 20,
+          "settings": {
+            "image": "",
+            "link": ""
+          }
+        },
+        {
+          "type": "logo_image",
+          "name": {
+            "zh-CN": "品牌图",
+            "en-US": "Logo image"
+          },
+          "max_blocks": 20,
+          "settings": {
+            "image": "",
+            "link": ""
+          }
+        },
+        {
+          "type": "logo_image",
+          "name": {
+            "zh-CN": "品牌图",
+            "en-US": "Logo image"
+          },
+          "max_blocks": 20,
+          "settings": {
+            "image": "",
+            "link": ""
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

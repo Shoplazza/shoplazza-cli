@@ -1,0 +1,150 @@
+@import './tools.scss';
+
+$pagination-height: 32px;
+
+/* sep-pagination : block */
+.sep-pagination {
+  height: $pagination-height;
+  line-height: $pagination-height;
+  font-size: 14px;
+  text-align: center;
+  margin: 20px 0;
+
+  a {
+    color: #2a2a2a;
+  }
+
+  /* link more pagesize : elements */
+  &__link,
+  &__more {
+    font-size: 13px;
+    padding: 0 12px;
+    margin-right: 10px;
+    display: inline-block;
+    line-height: #{$pagination-height - 2px};
+    position: relative;
+
+    &::before {
+      content: '';
+      display: block;
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      left: 0;
+      top: 0;
+      border: 1px solid #bfbfbf;
+    }
+  }
+
+  &__link {
+    /* modifier: active */
+    &_active {
+      position: relative;
+
+      &::before {
+        border: 2px solid #000;
+      }
+    }
+  }
+
+  &__link:last-child {
+    margin-right: 0;
+  }
+
+  &__sum {
+    line-height: $pagination-height;
+    float: left;
+  }
+
+  &__pagesize {
+    line-height: $pagination-height;
+    float: right;
+  }
+
+  &__prev,
+  &__next,
+  &__more {
+    font-weight: 500;
+
+    &::before {
+      border: unset;
+    }
+  }
+}
+
+@media ($mobile) {
+  .sep-pagination {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    &__pagesize,
+    &__more,
+    &__link:not(&__prev):not(&__next) {
+      display: none;
+    }
+
+    &__prev {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    &__next {
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+
+    &__sum {
+      float: none;
+    }
+    
+    &-mobile_input {
+      width: 35px;
+      height: 28px;
+      line-height: 1.6;
+      outline: none;
+      text-align: center;
+      border: 1px solid #000;
+      border-radius: 4px;
+      margin-right: 5px;
+    }
+    &-mobile_goto {
+      height: 28px;
+      line-height: 1.6;
+      outline: none;
+      background-color: transparent;
+      border: 1px solid #000;
+      margin-left: 12px;
+      border-radius: 4px;
+      &:focus {
+        outline: none;
+      }
+    }
+  }
+}
+
+html[dir='rtl'] {
+  @media ($mobile) {
+    .sep-pagination__prev {
+      left: unset;
+      right: 0;
+    }
+
+    .sep-pagination__next {
+      right: unset;
+      left: 0;
+    }
+  }
+}
+
+input[type=number]::-webkit-inner-spin-button,  
+input[type=number]::-webkit-outer-spin-button {  
+    -webkit-appearance: none;  
+    margin: 0;  
+}  
+input[type=number] {  
+  -moz-appearance:textfield;  
+}  

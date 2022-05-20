@@ -1,0 +1,258 @@
+{% use 'gallery.css' %}
+{% assign image_height = section.settings.image_height %}
+
+{% case section.blocks.size %}
+  {% when 1 %}
+    {% if image_height == "large" %}
+      {% assign paddingBottom = '50%' %}
+    {% elsif image_height == "medium" %}
+      {% assign paddingBottom = '38.19%' %}
+    {% elsif image_height == "small" %}
+      {% assign paddingBottom = '29.17%' %}
+    {% endif %}
+  {% when 2 %}
+    {% if image_height == "large" %}
+      {% assign paddingBottom = '100%' %}
+    {% elsif image_height == "medium" %}
+      {% assign paddingBottom = '76.39%' %}
+    {% elsif image_height == "small" %}
+      {% assign paddingBottom = '58.33%' %}
+    {% endif %}
+  {% else %}
+    {% if image_height == "large" %}
+      {% assign paddingBottom = '146.67%' %}
+    {% elsif image_height == "medium" %}
+      {% assign paddingBottom = '100%' %}
+    {% elsif image_height == "small" %}
+      {% assign paddingBottom = '58.33%' %}
+    {% endif %}
+{% endcase %}
+
+<div class="d-md-flex d-block w-100 m-0 p-0">
+  {% for block in section.blocks %}
+    {% assign src = block.settings.src %}
+    {% assign link = block.settings.link %}
+    {% assign alignment = block.settings.alignment %}
+    {% assign title = block.settings.title %}
+    {% if src == blank %}
+      {% include 'default_image_4'%}
+      {% assign image = defaultImage %}
+    {% else %}
+      {% assign image = src %}
+    {% endif %}
+    <div
+      class="position-relative flex-grow-1 w-100 overflow-hidden grid__item {% if src == blank %}dashed-border{% endif %}"
+    >
+      <a
+        {% if link.url %}href="{{link.url}}"{% endif %}
+        {% unless link.type != "web" or link.url contains shop.domain %}target="_blank"{% endunless %}
+        data-bgset="{% include 'bgset', image: images[image] %}"
+        data-sizes="auto"
+        class="position-absolute w-100 h-100 d-flex flex-grow-1 justify-content-center align-items-center lazyload grid__item-bg"
+        style="background-position: {{alignment}};"
+      >
+        <div class="text-white grid__item-text">{{ title | escape }}</div>
+      </a>
+      <div style="padding-bottom: {{paddingBottom}};"></div>
+    </div>
+  {% endfor %}
+</div>
+
+<style>
+[data-section-id='{{section.id}}'] .grid__item-text{
+  {% assign titleFont = settings.skin_title_font_family %}
+  font-family: {{titleFont.family}},{{titleFont.fallback_families}};
+  font-style:{{titleFont.style}};
+  font-weight:{{titleFont.weight}};
+}
+</style>
+
+
+
+{% schema %}
+{
+  "name": "gallery",
+  "max_blocks": 4,
+  "settings": [
+    {
+      "type": "select",
+      "id": "image_height",
+      "default": "medium",
+      "label": {
+        "zh-CN": "图片高度",
+        "en-US": "Image height"
+      },
+      "options": [
+        {
+          "label": {
+            "zh-CN": "大",
+            "en-US": "Large"
+          },
+          "value": "large"
+        },
+        {
+          "label": {
+            "zh-CN": "中",
+            "en-US": "Medium"
+          },
+          "value": "medium"
+        },
+        {
+          "label": {
+            "zh-CN": "小",
+            "en-US": "Small"
+          },
+          "value": "small"
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "type": "banner",
+      "name": {
+        "en-US": "Image",
+        "zh-CN": "图片"
+      },
+      "disableText": {
+        "en-US": "Add images up to 4",
+        "zh-CN": "最多添加4个图片"
+      },
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "src",
+          "label": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "info": {
+            "zh-CN": "建议尺寸（宽*长）：1000x1000px",
+            "en-US": "Recommended resolution (width * height):1000x1000px"
+          }
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": {
+            "zh-CN": "图片链接",
+            "en-US": "Image link"
+          },
+          "info": ""
+        },
+        {
+          "type": "select",
+          "id": "alignment",
+          "label": {
+            "zh-CN": "截取位置",
+            "en-US": "Crop"
+          },
+          "default": "center",
+          "options": [
+            {
+              "label": {
+                "en-US": "Top",
+                "zh-CN": "上"
+              },
+              "value": "top"
+            },
+            {
+              "label": {
+                "en-US": "Center",
+                "zh-CN": "中"
+              },
+              "value": "center"
+            },
+            {
+              "label": {
+                "en-US": "Bottom",
+                "zh-CN": "下"
+              },
+              "value": "bottom"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          }
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "gallery",
+      "cname": {
+        "en-US": "Single row image",
+        "zh-CN": "单排图片"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "banner",
+          "name": {
+            "en-US": "Image",
+            "zh-CN": "图片"
+          },
+          "disableText": {
+            "en-US": "Add images up to 4",
+            "zh-CN": "最多添加4个图片"
+          },
+          "settings": {
+            "src": "",
+            "link": "",
+            "alignment": "center",
+            "title": ""
+          }
+        },
+        {
+          "type": "banner",
+          "name": {
+            "en-US": "Image",
+            "zh-CN": "图片"
+          },
+          "disableText": {
+            "en-US": "Add images up to 4",
+            "zh-CN": "最多添加4个图片"
+          },
+          "settings": {
+            "src": "",
+            "link": "",
+            "alignment": "center",
+            "title": ""
+          }
+        },
+        {
+          "type": "banner",
+          "name": {
+            "en-US": "Image",
+            "zh-CN": "图片"
+          },
+          "disableText": {
+            "en-US": "Add images up to 4",
+            "zh-CN": "最多添加4个图片"
+          },
+          "settings": {
+            "src": "",
+            "link": "",
+            "alignment": "center",
+            "title": ""
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

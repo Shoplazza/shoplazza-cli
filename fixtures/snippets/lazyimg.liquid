@@ -1,0 +1,22 @@
+{% comment %}
+  class: 传入的class
+  src: 传入的图片路径
+  style: 传入节点样式
+  alt: 传入图片信息
+  other: 传入其他属性和值
+{% endcomment %}
+<img
+  id="{{id}}"
+  src="{{shop.default_img}}"
+  class="lazyload {{class}} imglazy"
+  {% if lazysize %}
+    data-src="{{src | img_url: lazysize}}"
+  {% else %}
+    
+    data-src="{{src | img_url: '{width}x'}}"
+    data-sizes="auto"
+  {% endif %}
+  style="{{style}}"
+  alt="{{alt | default: images[src].alt | escape}}"
+  {{other}}
+>

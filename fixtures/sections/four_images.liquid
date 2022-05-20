@@ -1,0 +1,160 @@
+{% use 'four_images.css' %}
+<div class="four_images container container-gap">
+  <div class="row">
+    <div class="four_images-container">
+      {% include 'four_images_item', img: section.settings.image_url_1, link: section.settings.link_to_url_1, defaultImg: 'oss/operation/f08515a9bc38f6f52039889771d3e550.png', class: 'four_images__item-1', dataTitle: 'Image-1' %}
+      {% include 'four_images_item', img: section.settings.image_url_2, link: section.settings.link_to_url_2, defaultImg: 'oss/operation/0910a006fb3101bcf913804c47bf3b13.png', class: 'four_images__item-2', dataTitle: 'Image-2' %}
+      {% include 'four_images_item', img: section.settings.image_url_3, link: section.settings.link_to_url_3, defaultImg: 'oss/operation/5da998ec5a8a767dcec511d57e19a62a.png', class: 'four_images__item-3', dataTitle: 'Image-3' %}
+      {% include 'four_images_item', img: section.settings.image_url_4, link: section.settings.link_to_url_4, defaultImg: 'oss/operation/4097f63bc5e99df419b6dcd6ab1edfbb.png', class: 'four_images__item-4', dataTitle: 'Image-4' %}
+    </div>
+  </div>
+</div>
+
+
+
+{% schema %}
+{
+  "name": "four_images",
+  "settings": [
+    {
+      "content": {
+        "en-US": "Image 1",
+        "zh-CN": "图1"
+      },
+      "type": "header"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_url_1",
+      "label": {
+        "en-US": "Image",
+        "zh-CN": "图片"
+      },
+      "info": {
+        "zh-CN": "建议尺寸（宽*长）：800x800px,固定比例",
+        "en-US": "Recommended resolution (width * height):800x800px, fixed scale"
+      },
+      "default": ""
+    },
+    {
+      "type": "url",
+      "id": "link_to_url_1",
+      "label": {
+        "en-US": "Link",
+        "zh-CN": "链接"
+      },
+      "is_image_link": true,
+      "default": ""
+    },
+    {
+      "content": {
+        "en-US": "Image 2",
+        "zh-CN": "图2"
+      },
+      "type": "header"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_url_2",
+      "label": {
+        "en-US": "Image",
+        "zh-CN": "图片"
+      },
+      "info": {
+        "zh-CN": "建议尺寸（宽*长）：800x800px,固定比例",
+        "en-US": "Recommended resolution (width * height):800x800px, fixed scale"
+      },
+      "default": ""
+    },
+    {
+      "type": "url",
+      "id": "link_to_url_2",
+      "label": {
+        "en-US": "Link",
+        "zh-CN": "链接"
+      },
+      "is_image_link": true,
+      "default": ""
+    },
+    {
+      "content": {
+        "en-US": "Image 3",
+        "zh-CN": "图3"
+      },
+      "type": "header"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_url_3",
+      "label": {
+        "en-US": "Image",
+        "zh-CN": "图片"
+      },
+      "info": {
+        "zh-CN": "建议尺寸（宽*长）：688x1424px,固定比例",
+        "en-US": "Recommended resolution(width * height):688x1424px, fixed scale"
+      },
+      "default": ""
+    },
+    {
+      "type": "url",
+      "id": "link_to_url_3",
+      "label": {
+        "en-US": "Link",
+        "zh-CN": "链接"
+      },
+      "is_image_link": true,
+      "default": ""
+    },
+    {
+      "content": {
+        "en-US": "Image 4",
+        "zh-CN": "图4"
+      },
+      "type": "header"
+    },
+    {
+      "type": "image_picker",
+      "id": "image_url_4",
+      "label": {
+        "en-US": "Image",
+        "zh-CN": "图片"
+      },
+      "info": {
+        "zh-CN": "建议尺寸（宽*长）：1424x688px,固定比例",
+        "en-US": "Recommended resolution(width * height):1424x688px, fixed scale"
+      },
+      "default": ""
+    },
+    {
+      "type": "url",
+      "id": "link_to_url_4",
+      "label": {
+        "en-US": "Link",
+        "zh-CN": "链接"
+      },
+      "is_image_link": true,
+      "default": ""
+    }
+  ],
+  "presets": [
+    {
+      "name": "four_images",
+      "cname": {
+        "zh-CN": "多图-4",
+        "en-US": "Images 4"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": []
+    }
+  ]
+}
+{% endschema %}

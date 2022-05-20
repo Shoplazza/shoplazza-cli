@@ -1,0 +1,330 @@
+{% use 'collection_slider.css' %}
+
+<style>
+  .card-{{section.id}}.collection_slider_bg {
+    background: {{section.settings.background}};
+  }
+  .card-{{section.id}} .collection_slider_modal-bg {
+    background: {{section.settings.modal_bg}};
+  }
+  .card-{{section.id}} .collection_slider_text {
+    color: {{section.settings.text_color}};
+  }
+  .card-{{section.id}} .collection_slider_switch_btn {
+    color: {{section.settings.switch_btn | default: '#000000'}};
+  }
+</style>
+{% assign collection_id = section.settings.collection.id %}
+{% assign products = collections[collection_id].products %}
+{% assign count = section.settings.count %}
+{% if products.size > 0 and products.size <= count %}
+  {% assign count = products.size %}
+{% endif %}
+{% assign is_view_all = section.settings.is_view_all | default: false %}
+{% assign align_text = section.settings.align_text | default: left %}
+{% if products.size > 0 or shop.env == 1 %}
+  <div class="collection_slider card-{{section.id}} container container-gap collection_slider_bg">
+    {% if section.settings.title != blank %}
+      <h1 class="collection_slider__title collection_slider_title dj_skin_title">{{section.settings.title | strip_html}}</h1>
+    {% endif %}
+    <div class="collection_slider__outer">
+      <div class="collection_slider__wrapper">
+        {% for i in (1..count) %}
+          {% assign i = i | minus: 1 %}
+          {% assign product = products[i] | default: default_product %}
+          {% if section.settings.image_height == "large" %}
+            {% assign paddingBottom = '153%' %}
+            {% assign aspect_ratio = 1.53 %}
+          {% elsif section.settings.image_height == "medium" %}
+            {% assign paddingBottom = '123%' %}
+            {% assign aspect_ratio = 1.23 %}
+          {% elsif section.settings.image_height == "auto" %}
+            {% assign paddingBottom = product.image.height | image_padding_bottom : product.image.width, 'unlimit' %}
+            {% assign aspect_ratio = product.image.aspect_ratio %}
+          {% else %}
+            {% assign paddingBottom = '100%' %}
+            {% assign aspect_ratio = 1 %}
+          {% endif %}
+          {% if product.published %}
+            <a class="collection_slider__item" href="{{product.url}}">
+              <div class="w-100 position-relative" style="padding-bottom: {{ paddingBottom }};">
+                {% assign product_aspect_ratio = product.image.height | divided_by: product.image.width %}
+                {% if product_aspect_ratio > aspect_ratio %}
+                  {% assign class = 'collection_slider__image position-absolute m-auto' | append: ' h-100' %}
+                {% else %}
+                  {% assign class = 'collection_slider__image position-absolute m-auto' | append: ' w-100' %}
+                {% endif %}
+                {% include 'lazyimg',
+                    src: product.image.src,
+                    class: class,
+                  %}
+              </div>
+              <div class="collection_slider__info collection_slider_modal-bg collection_slider_text {% if align_text == 'center' %} text-center {% endif %}">
+                {% if product.title %}
+                  <h2 class="collection_slider__info-title two_line_text_truncate collection_slider_text">
+                    {{product.title}}
+                  </h2>
+                {% endif %}
+                {% if product.brief %}
+                  <p class="collection_slider__info-brief text-truncate">
+                    {{product.brief}}
+                  </p>
+                {% endif %}
+                {% if product.price %}
+                  <div class="dj_skin_product_detail_price collection_slider__info-price money" {% if align_text == 'center' %}style="left:50%;transform: translate(-50%);"{% endif %} >
+                    {{product.price | money_with_symbol}}
+                  </div>
+                {% endif %}
+              </div>
+            </a>
+          {% endif %}
+        {% endfor %}
+        {% if is_view_all %}
+          <div class="collection_slider__item collection_slider__mobile">
+            <a {% if collections[collection_id].url != blank %}
+                href="{{collections[collection_id].url}}"
+              {% endif %}
+              class="collection_slider__view-mobile btn-primary">
+              {{ 'i18n.general.view.view_all' | t }}
+            </a>
+          </div>
+        {% endif %}
+      </div>
+      {% if products.size > 4 %}
+        <div class="collection_slider__pagination collection_slider__pagination-prev action-prev done">
+          <i class="sep-font sep-font-seemore collection_slider_switch_btn"></i>
+        </div>
+        <div class="collection_slider__pagination collection_slider__pagination-next action-next">
+          <i class="sep-font sep-font-back collection_slider_switch_btn"></i>
+        </div>
+      {% endif %}
+    </div>
+    {% if is_view_all %}
+      <div class="collection_slider__view collection_slider__pc ">
+        <a {% if collections[collection_id].url != blank %}
+            href="{{collections[collection_id].url}}"
+          {% endif %}
+          class="collection_slider__view-btn btn-primary">
+          {{ 'i18n.general.view.view_all' | t }}
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  {% javascript %}
+    $(function () {
+      var $section = $('[data-section-id=' + {{section.id}} + ']');
+      var $container = $section.find('.collection_slider__wrapper');
+      $(document).on('click', '[data-section-id=' + {{section.id}} + '] .collection_slider__pagination', function () {
+        var distance = $('[data-section-id=' + {{section.id}} + '] .collection_slider__wrapper > .collection_slider__item:first').outerWidth() + 24;
+        if($(this).hasClass('collection_slider__pagination-prev')){
+          $container.stop().animate({
+                scrollLeft: $container.scrollLeft() - distance*4
+              }, {
+                duration: "150",
+                easing: "linear"
+              }
+            );
+          return
+        }
+        if($(this).hasClass('collection_slider__pagination-next')){
+          $container.stop().animate({
+                scrollLeft: $container.scrollLeft() + distance*4
+              }, {
+                duration: "150",
+                easing: "linear"
+              }
+            );
+          return
+        
+        }
+      })
+      $container.scroll($.throttle(function () {
+        $section.find('.collection_slider__pagination').removeClass('done');
+        if ($container[0].scrollWidth - ($container.width() + $container.scrollLeft()) <= 5) { // 最右边
+          $section.find('.collection_slider__pagination-next').addClass('done');
+        } else if ($container.scrollLeft() <= 5) { // 最左边
+          $section.find('.collection_slider__pagination-prev').addClass('done');
+        }
+      }, 100))
+    })
+  {% endjavascript %}
+
+{% endif %}
+
+{% schema %}
+{
+  "name": "collection_slider",
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": {
+        "zh-CN": "专辑",
+        "en-US": "Collection"
+      },
+      "info": {
+        "zh-CN": "建议添加5个商品以上的专辑",
+        "en-US": "Add collection with more than 5 products"
+      }
+    },
+    {
+      "type": "paragraph",
+      "content": {
+        "zh-CN": "建议添加5个商品以上的专辑",
+        "en-US": "Recommend to add collections contain more than 5 products"
+      }
+    },
+    {
+      "type": "range",
+      "id": "count",
+      "step": 1,
+      "max": 8,
+      "min": 5,
+      "label": {
+        "zh-CN": "商品展示数量",
+        "en-US": "Show number of products"
+      },
+      "default": 8
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": {
+        "en-US": "Heading",
+        "zh-CN": "标题"
+      },
+      "default": "Collection List",
+      "placeholder": "Collection List"
+    },
+    {
+      "type": "select",
+      "id": "image_height",
+      "default": "small",
+      "label": {
+        "zh-CN": "图片高度",
+        "en-US": "Image height"
+      },
+      "options": [
+        {
+          "label": {
+            "zh-CN": "大",
+            "en-US": "Large"
+          },
+          "value": "large"
+        },
+        {
+          "label": {
+            "zh-CN": "中",
+            "en-US": "Medium"
+          },
+          "value": "medium"
+        },
+        {
+          "label": {
+            "zh-CN": "小",
+            "en-US": "Small"
+          },
+          "value": "small"
+        },
+        {
+          "value": "auto",
+          "label": {
+            "zh-CN": "原始比例",
+            "en-US": "Nature"
+          }
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "align_text",
+      "label": {
+        "en-US": "Text alignment",
+        "zh-CN": "文字对齐方式"
+      },
+      "options": [
+        {
+          "value": "left",
+          "label": {
+            "en-US": "Text left",
+            "zh-CN": "居左"
+          }
+        },
+        {
+          "value": "center",
+          "label": {
+            "en-US": "Text center",
+            "zh-CN": "居中"
+          }
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "default": "#FFFFFF",
+      "label": {
+        "zh-CN": "标题&商品文案",
+        "en-US": "Title & Description of product"
+      }
+    },
+    {
+      "type": "color",
+      "id": "modal_bg",
+      "default": "#000000",
+      "label": {
+        "zh-CN": "模块背景",
+        "en-US": "Section background"
+      }
+    },
+    {
+      "type": "color",
+      "id": "switch_btn",
+      "default": "#000000",
+      "label": {
+        "en-US": "Switch button",
+        "zh-CN": "切换按钮"
+      }
+    },
+    {
+      "type": "color",
+      "id": "background",
+      "default": "#FFFFFF",
+      "label": {
+        "en-US": "Card background",
+        "zh-CN": "卡片背景"
+      }
+    },
+    {
+      "type": "checkbox",
+      "id": "is_view_all",
+      "default": false,
+      "label": {
+        "zh-CN": "显示“View all”",
+        "en-US": "Show \"View all\""
+      }
+    }
+  ],
+  "presets": [
+    {
+      "name": "collection_slider",
+      "cname": {
+        "en-US": "Product switch",
+        "zh-CN": "商品切换"
+      },
+      "category": {
+        "en-US": "Product",
+        "zh-CN": "商品"
+      },
+      "ccategory": {
+        "en-US": "Product",
+        "zh-CN": "商品"
+      },
+      "icon": "oss/operation/cc0e2854f12920a16ecd225ad83a5ed5.svg",
+      "display": true
+    }
+  ]
+}
+{% endschema %}

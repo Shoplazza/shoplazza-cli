@@ -1,0 +1,72 @@
+@import './tools.scss';
+
+.image-text {
+  @media ($pc) {
+    justify-content: space-between;
+
+    .px-14 {
+      padding-left: 140px !important;
+      padding-right: 140px !important;
+    }
+  }
+
+  @media ($mobile) {
+    flex-direction: column;
+  }
+
+  &__image {
+    @media ($mobile) {
+      width: 100%;
+      margin-bottom: px-to-rem(20);
+      order: 0;
+    }
+
+    @media ($pc) {
+      width: 50%;
+    }
+
+    &_m {
+      @media ($mobile) {
+        margin-top: px-to-rem(20);
+      }
+    }
+  }
+
+  &__text {
+    display: grid;
+    row-gap: 20px;
+    margin-bottom: 20px;
+    width: 100%;
+    // justify-items: start;
+    @media ($mobile) {
+      order: 1;
+      text-align: center;
+    }
+
+    @media ($pc) {
+      width: 40%;
+    }
+  }
+
+  &__title {
+    font-size: px-to-rem(24);
+    font-weight: 500;
+
+    @media ($pc) {
+      font-size: px-to-rem(30);
+    }
+  }
+
+  &__desc {
+    font-size: 16px;
+  }
+
+  &__btn {
+    max-width: px-to-rem(345);
+    padding: px-to-rem(10) px-to-rem(30);
+
+    @media ($pc) {
+      max-width: px-to-rem(200);
+    }
+  }
+}

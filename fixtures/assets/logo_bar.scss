@@ -1,0 +1,11 @@
+@import './tools.scss';
+
+.logo-bar {
+  &__link {
+    padding-bottom: 120px;
+
+    @media ($mobile) {
+      padding-bottom: 75%;
+    }
+  }
+}

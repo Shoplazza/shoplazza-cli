@@ -1,0 +1,39 @@
+@import './tools.scss';
+
+.not-found {
+  &__btn {
+    width: 100%;
+    font-size: px-to-rem(15);
+    line-height: px-to-rem(30);
+
+    @media ($pc) {
+      width: px-to-rem(240);
+      font-size: px-to-rem(16);
+      line-height: px-to-rem(36);
+    }
+  }
+
+  &__title {
+    font-size: px-to-rem(22);
+    line-height: px-to-rem(31);
+    letter-spacing: 2.2px;
+    color: #000;
+
+    @media ($pc) {
+      font-size: px-to-rem(36);
+      line-height: px-to-rem(42);
+    }
+  }
+
+  &__text {
+    color: #777;
+    font-size: px-to-rem(14);
+    line-height: px-to-rem(20);
+    margin: px-to-rem(23) 0;
+
+    @media ($pc) {
+      font-size: px-to-rem(16);
+      margin: px-to-rem(30) 0;
+    }
+  }
+}

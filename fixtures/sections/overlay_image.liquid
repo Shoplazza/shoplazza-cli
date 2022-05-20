@@ -1,0 +1,648 @@
+{% comment %} color_to_hex: Converts a CSS color string to hex6 format. {% endcomment %}
+{% assign image_height = section.settings.image_height %}
+{% assign text_size = section.settings.text_size %}
+{% assign image_src = section.settings.image_src %}
+{% assign opacity = section.settings.opacity | divided_by: 100.0 %}
+{% assign alignment = section.settings.alignment %}
+{% assign url = section.settings.link_to_url.url %}
+{% assign link_type = section.settings.link_to_url.type %}
+{% assign text_position = section.settings.text_position %}
+{% assign text_color = section.settings.text_color %}
+{% assign text_justify = section.settings.text_justify %}
+{% assign is_bottom_margin_show = section.settings.is_bottom_margin_show %}
+{% assign overlay_bg_color = section.settings.overlay_bg_color | color_to_hex %}
+
+{% assign title = nil %}
+{% assign text = nil %}
+{% assign button_label = nil %}
+{% for block in section.blocks %}
+  {% if block.type == 'heading' and block.settings.title %}
+    {% assign title = block.settings.title %}
+  {% endif %}
+  {% if block.type == 'text' and block.settings.text %}
+    {% assign text = block.settings.text %}
+  {% endif %}
+  {% if block.type == 'button' and block.settings.button_label %}
+    {% assign button_label = block.settings.button_label %}
+    {% assign button_link = block.settings.button_link.url %}
+    {% assign button_link_type = block.settings.button_link.type %}
+    {% assign button_bg_color = block.settings.button_bg_color | color_to_hex | default: '#ffffff'  %}
+    {% assign button_text_color = block.settings.button_text_color | default: '#212121' %}
+  {% endif %}
+{% endfor %}
+
+
+
+
+
+{% if image_height == "large" %}
+  {% assign mobile_height = "460px" %}
+  {% assign pc_height = "600px" %}
+{% elsif image_height == "medium" %}
+  {% assign mobile_height = "400px" %}
+  {% assign pc_height = "500px" %}
+{% elsif image_height == "small" %}
+  {% assign mobile_height = "300px" %}
+  {% assign pc_height = "400px" %}
+{% elsif image_height == "origin" %}
+  {% assign mobile_height = 'origin' %}
+  {% assign pc_height = 'origin' %}
+{% else if image_height == nil %}
+  {% assign mobile_height = "325px" %}
+  {% assign pc_height = "450px" %}
+{% endif %}
+
+{% comment %} Mobile {% endcomment %}
+<div class="d-md-none w-100 overlay-image">
+  {% include 'hero_image',
+    image_height: mobile_height,
+    text_size: text_size,
+    image_src: image_src,
+    alignment: alignment,
+    title: title,
+    text: text,
+    url: url,
+    link_type: link_type,
+    button_label: button_label,
+    button_link: button_link,
+    button_link_type: button_link_type,
+    image_size: '1080x'
+  %}
+</div>
+{% comment %} PC {% endcomment %}
+<div class="d-none d-md-block w-100 overlay-image">
+  {% include 'hero_image',
+    image_height: pc_height,
+    text_size: text_size,
+    image_src: image_src,
+    alignment: alignment,
+    title: title,
+    text: text,
+    url: url,
+    link_type: link_type,
+    button_label: button_label,
+    button_link: button_link,
+    button_link_type: button_link_type,
+    image_size: '1920x'
+  %}
+</div>
+<style>
+[data-section-id='{{section.id}}'] .hero__inner .mega-title{
+  {% assign titleFont = settings.skin_title_font_family %}
+  font-family: {{titleFont.family}},{{titleFont.fallback_families}};
+  font-style: {{titleFont.style}};
+  font-weight: {{titleFont.weight}};
+  margin: 0;
+}
+
+[data-section-id='{{section.id}}'] .page-width {
+  display: grid;
+  row-gap: 20px;
+}
+
+[data-section-id='{{section.id}}'] .hero__inner .mega-title, [data-section-id='{{section.id}}'] .hero__inner .mega-subtitle{
+  {% if text_color == nil %}
+    color: #fff;
+  {% else %}
+    color: {{ text_color }};
+  {% endif %}
+  margin: 0;
+}
+
+@media screen and (max-width: 767.98px) {
+  [data-section-id='{{section.id}}'] .hero__inner .page-width-outer {
+    padding: 54px 15px;
+  }
+
+  {% if image_src == blank and image_height == "origin" %}
+    [data-section-id='{{section.id}}'] .hero__bg .img {
+      height: 260px!important;
+    }
+  {% endif %}
+}
+
+@media screen and (min-width: 768px) {
+  [data-section-id='{{section.id}}'] .hero__inner .page-width-outer {
+    width: 720px;
+    margin: 0 auto;
+    padding: 76px 0px;
+  }
+
+  {% if image_src == blank and image_height == "origin" %}
+    [data-section-id='{{section.id}}'] .hero__bg .img {
+      height: 450px!important;
+    }
+  {% endif %}
+}
+
+@media screen and (min-width: 992px) {
+  [data-section-id='{{section.id}}'] .hero__inner .page-width-outer {
+    width: 960px;
+    margin: 0 auto;
+    padding: 76px 0px;
+  }
+}
+
+@media screen and (min-width: 1200px) {
+  [data-section-id='{{section.id}}'] .hero__inner .page-width-outer {
+    width: 1080px;
+    margin: 0 auto;
+    padding: 76px 0px;
+  }
+}
+
+[data-section-id='{{section.id}}'] .hero__inner .page-width-outer {
+  display: flex;
+  height: 100%;
+  {% if text_position == nil or text_position == 'center' %}
+    align-items: center;
+    justify-content: center;
+  {% elsif text_position == 'top_left' %}
+    align-items: flex-start;
+    justify-content: flex-start;
+  {% elsif text_position == 'top_center' %}
+    align-items: flex-start;
+    justify-content: center;
+  {% elsif text_position == 'top_right' %}
+    align-items: flex-start;
+    justify-content: flex-end;
+  {% elsif text_position == 'center_left' %}
+    align-items: center;
+    justify-content: flex-start;
+  {% elsif text_position == 'center_right' %}
+    align-items: center;
+    justify-content: flex-end;
+  {% elsif text_position == 'bottom_left' %}
+    align-items: flex-end;
+    justify-content: flex-start;
+  {% elsif text_position == 'bottom_center' %}
+    align-items: flex-end;
+    justify-content: center;
+  {% elsif text_position == 'bottom_right' %}
+    align-items: flex-end;
+    justify-content: flex-end;
+  {% endif %}
+}
+
+[data-section-id='{{section.id}}'] .hero__inner .page-width {
+  padding: 0;
+  {% if text_justify == nil %}
+    text-align: center;
+  {% else %}
+    text-align: {{ text_justify }};
+  {% endif %}
+}
+
+{% if is_bottom_margin_show %}
+  [data-section-id='{{section.id}}'] .overlay-image {
+    padding-bottom: 40px;
+  }
+{% endif %}
+
+[data-section-id='{{section.id}}'] .hero__inner {
+  {% if overlay_bg_color == nil %}
+    background: {{ '#000000' | color_modify: 'alpha', opacity }} !important;
+  {% else %}
+    background: {{ overlay_bg_color | color_modify: 'alpha', opacity }} !important;
+  {% endif %}
+}
+
+[data-section-id='{{section.id}}'] .hero .hero-btn {
+  background: {{ button_bg_color }};
+  border-color: {{ button_bg_color }};
+  color: {{ button_text_color }};
+  margin: 0;
+}
+[data-section-id='{{section.id}}'] .hero .hero-btn:is(:hover, :focus) {
+  {% assign lighten = 5 %}
+  border-color: {{ button_bg_color | color_lighten: lighten }} !important;
+  background: {{button_bg_color | color_lighten: lighten}} !important;
+  color: {{ button_text_color }} !important;
+  cursor: pointer;
+}
+</style>
+
+{% javascript %}
+
+  {% comment %} Calculate the padding of the origin size image {% endcomment %}
+  $(function(){
+    var imageHeight = {{ images[image_src].height }};
+    var imageWidth = {{ images[image_src].width }};
+    var imageHeightType = {{ section.settings.image_height | json }};
+    var imageRealHeight = $(window).width() * (imageHeight / imageWidth);
+    var imagePadding = imageRealHeight * 0.15 + 'px';
+    if(imageHeightType === 'origin') {
+      $("[data-section-id='{{section.id}}'] .hero__inner .page-width-outer").css({
+        'padding-top': imagePadding,
+        'padding-bottom': imagePadding
+      })
+    }
+  });
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "overlay_image",
+  "max_blocks": 3,
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "image_src",
+      "label": {
+        "zh-CN": "图片",
+        "en-US": "Image"
+      },
+      "info": {
+        "zh-CN": "建议尺寸（宽*高）：1920x667px,高度可自适应",
+        "en-US": "Recommended resolution（ width * height）: 1920*667px, adaptive height"
+      },
+      "default": ""
+    },
+    {
+      "type": "url",
+      "id": "link_to_url",
+      "label": {
+        "en-US": "Image link",
+        "zh-CN": "图片链接"
+      },
+      "default": ""
+    },
+    {
+      "type": "range",
+      "id": "opacity",
+      "step": 1,
+      "max": 100,
+      "min": 0,
+      "label": {
+        "en-US": "Opacity",
+        "zh-CN": "蒙层不透明度"
+      },
+      "default": 25,
+      "unit": "%"
+    },
+    {
+      "type": "color",
+      "id": "overlay_bg_color",
+      "label": {
+        "en-US": "Overlay",
+        "zh-CN": "蒙层颜色"
+      },
+      "default": "#000000"
+    },
+    {
+      "type": "select",
+      "id": "image_height",
+      "label": {
+        "zh-CN": "图片高度",
+        "en-US": "Image height"
+      },
+      "default": "medium",
+      "options": [
+        {
+          "label": {
+            "en-US": "Natural",
+            "zh-CN": "保留原尺寸"
+          },
+          "value": "origin"
+        },
+        {
+          "label": {
+            "zh-CN": "大",
+            "en-US": "Large"
+          },
+          "value": "large"
+        },
+        {
+          "label": {
+            "zh-CN": "中",
+            "en-US": "Medium"
+          },
+          "value": "medium"
+        },
+        {
+          "label": {
+            "zh-CN": "小",
+            "en-US": "Small"
+          },
+          "value": "small"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "alignment",
+      "label": {
+        "zh-CN": "截取位置",
+        "en-US": "Crop"
+      },
+      "default": "center",
+      "options": [
+        {
+          "label": {
+            "en-US": "Top",
+            "zh-CN": "上"
+          },
+          "value": "top"
+        },
+        {
+          "label": {
+            "zh-CN": "中",
+            "en-US": "Center"
+          },
+          "value": "center"
+        },
+        {
+          "label": {
+            "en-US": "Bottom",
+            "zh-CN": "下"
+          },
+          "value": "bottom"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "label": {
+        "en-US": "Show below space",
+        "zh-CN": "显示下间距"
+      },
+      "id": "is_bottom_margin_show",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "text_size",
+      "label": {
+        "zh-CN": "标题和正文大小",
+        "en-US": "Heading and text size"
+      },
+      "default": "medium",
+      "options": [
+        {
+          "label": {
+            "zh-CN": "小",
+            "en-US": "Small"
+          },
+          "value": "small"
+        },
+        {
+          "label": {
+            "zh-CN": "中",
+            "en-US": "Medium"
+          },
+          "value": "medium"
+        },
+        {
+          "label": {
+            "zh-CN": "大",
+            "en-US": "Large"
+          },
+          "value": "large"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "text_position",
+      "label": {
+        "en-US": "Text layout",
+        "zh-CN": "文字布局"
+      },
+      "default": "center",
+      "options": [
+        {
+          "label": {
+            "en-US": "Top left",
+            "zh-CN": "上左"
+          },
+          "value": "top_left"
+        },
+        {
+          "label": {
+            "en-US": "Top center",
+            "zh-CN": "上中"
+          },
+          "value": "top_center"
+        },
+        {
+          "label": {
+            "en-US": "Top right",
+            "zh-CN": "上右"
+          },
+          "value": "top_right"
+        },
+        {
+          "label": {
+            "en-US": "Center left",
+            "zh-CN": "中左"
+          },
+          "value": "center_left"
+        },
+        {
+          "label": {
+            "en-US": "Center",
+            "zh-CN": "中"
+          },
+          "value": "center"
+        },
+        {
+          "label": {
+            "en-US": "Center right",
+            "zh-CN": "中右"
+          },
+          "value": "center_right"
+        },
+        {
+          "label": {
+            "en-US": "Bottom left",
+            "zh-CN": "下左"
+          },
+          "value": "bottom_left"
+        },
+        {
+          "label": {
+            "en-US": "Bottom center",
+            "zh-CN": "下中"
+          },
+          "value": "bottom_center"
+        },
+        {
+          "label": {
+            "en-US": "Bottom right",
+            "zh-CN": "下右"
+          },
+          "value": "bottom_right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "text_justify",
+      "label": {
+        "en-US": "Text alignment",
+        "zh-CN": "文字对齐方式"
+      },
+      "default": "center",
+      "options": [
+        {
+          "label": {
+            "en-US": "Left",
+            "zh-CN": "居左"
+          },
+          "value": "left"
+        },
+        {
+          "label": {
+            "zh-CN": "居中",
+            "en-US": "Center"
+          },
+          "value": "center"
+        },
+        {
+          "label": {
+            "en-US": "Right",
+            "zh-CN": "居右"
+          },
+          "value": "right"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": {
+        "en-US": "Text color",
+        "zh-CN": "文字颜色"
+      },
+      "default": "#FFFFFF"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": {
+        "zh-CN": "标题",
+        "en-US": "Heading"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          },
+          "default": "Image with text overlay"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": {
+        "zh-CN": "文字",
+        "en-US": "Text"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "text",
+          "label": {
+            "en-US": "Text",
+            "zh-CN": "正文"
+          },
+          "default": "Use overlay text to give your customers insight into your brand. Select imagery and text that relates to your style and story"
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "name": {
+        "zh-CN": "按钮",
+        "en-US": "Button"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "button_label",
+          "label": {
+            "zh-CN": "按钮文字",
+            "en-US": "Button text"
+          },
+          "default": "Option button"
+        },
+        {
+          "type": "url",
+          "id": "button_link",
+          "label": {
+            "en-US": "Button link",
+            "zh-CN": "按钮链接"
+          },
+          "default": ""
+        },
+        {
+          "type": "color",
+          "id": "button_bg_color",
+          "label": {
+            "en-US": "Button background color",
+            "zh-CN": "按钮背景颜色"
+          },
+          "default": "#ffffff"
+        },
+        {
+          "type": "color",
+          "id": "button_text_color",
+          "label": {
+            "en-US": "Button text color",
+            "zh-CN": "按钮文字颜色"
+          },
+          "default": "#000000"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "overlay_image",
+      "cname": {
+        "en-US": "Single image",
+        "zh-CN": "单图片"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "title": "Image with text overlay"
+          }
+        },
+        {
+          "type": "text",
+          "settings": {
+            "text": "Use overlay text to give your customers insight into your brand. Select imagery and text that relates to your style and story"
+          }
+        },
+        {
+          "type": "button",
+          "settings": {
+            "button_label": "Option button",
+            "button_link": "",
+            "button_bg_color": "#ffffff",
+            "button_text_color": "#000000"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

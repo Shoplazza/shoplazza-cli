@@ -1,0 +1,34 @@
+{% if collection.title %}
+  <div class="container container-gap collection__container">
+    <div class="row">
+      <div class="collection__title dj_skin_title_font col-12">{{collection.title}}</div>
+    </div>
+  </div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "collection_name",
+  "templates": ["collection"],
+  "limit": 1,
+  "settings": [],
+  "presets": [
+    {
+      "name": "collection_name",
+      "cname": {
+        "en-US": "Collection name",
+        "zh-CN": "专辑名称"
+      },
+      "category": {
+        "en-US": "Page",
+        "zh-CN": "页面"
+      },
+      "ccategory": {
+        "en-US": "Page",
+        "zh-CN": "页面"
+      },
+      "display": true
+    }
+  ]
+}
+{% endschema %}

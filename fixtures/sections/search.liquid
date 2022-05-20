@@ -1,0 +1,163 @@
+{% use 'search.css' %}
+<div class="container container-gap search">
+  {% comment %} 搜索标题 {% endcomment %}
+  <div class="row">
+    <div class="search__title col-12 text-center dj_skin_title_font">{{ 'i18n.search.title' | t }}</div>
+  </div>
+  {% comment %} 搜索输入框 {% endcomment %}
+  <form action="/search" method="get">
+    <div class="row d-flex align-items-center justify-content-center">
+      <div class="col-sm-12 col-md-6">
+        <input name="q" maxlength="1024" class="form-control search__input " value="{{ search.terms | url_decode }}" placeholder="{{ 'i18n.search.input_to_search' | t }}" />
+      </div>
+      <div class="col-sm-12 col-md-auto">
+        <button type="submit" class="btn btn-primary dj_skin_title_font search__btn">{{ 'i18n.search.search_button' | t }}</button>
+      </div>
+    </div>
+  </form>
+  {% comment %} 搜索为空 {% endcomment %}
+  {% assign key = search.terms %}
+  {% assign count = search.results.products_count %}
+  {% assign limit = 12 %}
+  <style>
+  .search__count{
+    padding:0 10px;
+    color: {{ settings.skin_primary_btn_bg_color }} !important;
+  }
+  .search__key {
+    color: {{ settings.skin_primary_btn_bg_color }} !important;
+    padding:0 10px;
+  }
+  .search__result{
+    line-height:30px;
+  }
+  </style>
+  <div class="row">
+      <div class="search__result  col-12 text-center">
+        {% if key %}
+          {% if count == 0 %}
+            <div class="search__result_empty">{{ 'i18n.search.no_results' | t: key: key }}</div>
+          {% else %}
+            <div class="search__result_not-empty">{{ 'i18n.search.results_tips' | t: key: key, count: count }}</div>
+          {% endif %}
+        {% endif %}
+      </div>
+  </div>
+  <div class="row common__product-row">
+    {% comment %} 渲染C端节点 {% endcomment %}
+    {% for block in search.results.products limit: limit %}
+      {% if block.published %}
+        <div class="col-6 col-sm-6 col-md-3 common__product-gap">
+          {% include 'product', product: block, is_compare_at_price_show: true %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% if count > limit %}
+    {% comment %}
+      Description: 加载更多
+      Author: Pang
+      Params:
+    {% endcomment %}
+    <div class="row">
+      <div class="col-12 d-flex justify-content-center text-center">
+        <span class="common__load-more-btn">click load more</span>
+        <div class="sep-loading__content common__load-more-loading" style="display: none;"></div>
+      </div>
+    </div>
+    {% javascript %}
+      $(function () {
+        var $loadMore = $('[data-section-id={{section.id}}] .common__load-more-btn');
+        var $loading = $('[data-section-id={{section.id}}] .common__load-more-loading');
+
+        // 点击loadmore
+        $loadMore.click(function () {
+          $(document).trigger('dj.common.load_more.is_click', {
+            sectionId: '{{section.id}}'
+          })
+        })
+
+        // 监听隐藏
+        $(document).on('dj.common.load_more.hide', function(e, data) {
+          if (data.sectionId == {{section.id}}) {
+            $loadMore.hide();
+            $loading.hide();
+          }
+        })
+
+        // 加载中
+        $(document).on('dj.common.load_more.loading.start', function(e, data) {
+          if (data.sectionId == {{section.id}}) {
+            $loadMore.hide();
+            $loading.show();
+          }
+        })
+        // 加载结束
+        $(document).on('dj.common.load_more.loading.end', function(e, data) {
+          if (data.sectionId == {{section.id}}) {
+            $loadMore.show();
+            $loading.hide();
+          }
+        })
+      })
+    {% endjavascript %}
+  {% endif %}
+
+  {% comment %} 定义前端模板 {% endcomment %}
+  <script id="search-art-tpl" type="text/html">
+    <% for(var i = 0; i < products.length; i++) { %>
+      <div class="col-6 col-sm-6 col-md-3 common__product-gap">
+        <% include ('product_art_tpl', {product: products[i], is_compare_at_price_show: is_compare_at_price_show}) %>
+      </div>
+    <% } %>
+  </script>
+</div>
+
+
+
+{% javascript %}
+  $(function () {
+    var keyword = '{{search.terms | url_decode}}';
+    $.search_card && $.search_card({
+      id: '{{section.id}}',
+      env: '{{shop.env}}',
+      style: '{{section.settings.style}}',
+      keyword: '{{ search.terms }}',
+      search_result: "{{ 'i18n.search.results_tips' | t: key: keyword, count: search.results.products_count }}"
+    });
+    // 触发自定义事件（sa）
+    setTimeout(function() {
+      ($.params() && JSON.stringify($.params()) !== '{}') && $(document.body).trigger('productSearch', {
+        keyWord: '{{search.terms | url_encode}}',
+        hasResult: '{{search.results.products_count}}' > 0
+      });
+    }, 50);
+  })
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "search",
+  "templates": ["search"],
+  "limit": 1,
+  "settings": [],
+  "presets": [
+    {
+      "name": "search",
+      "cname": {
+        "en-US": "Search results",
+        "zh-CN": "搜索结果"
+      },
+      "category": {
+        "zh-CN": "基础",
+        "en-US": "Basic"
+      },
+      "ccategory": {
+        "zh-CN": "基础",
+        "en-US": "Basic"
+      },
+      "display": true
+    }
+  ]
+}
+{% endschema %}

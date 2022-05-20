@@ -1,0 +1,104 @@
+{% if collection.image.src %}
+  {% assign cover_width = section.settings.cover_width | default: 'auto' %}
+  <style>
+    .collection__cover{
+      padding-bottom: {{section.settings.md_img_height}}px;
+    }
+    @media (min-width: 767.98px) {
+      .collection__cover{
+        padding-bottom: {{section.settings.pc_img_height}}px;
+      }
+    }
+  </style>
+  <div class="{% if cover_width == 'auto' %}
+    container container-gap collection__container{% endif %}">
+    <div {% if cover_width == 'auto' %}class="row"{% endif %}>
+      <div class="{% if cover_width == 'auto' %}col-12{% endif %} common__img-wrapper_lazy collection__cover">
+        {% include 'lazyimg',
+          src: collection.image.src,
+          style: "width: 100%;object-fit: cover;",
+          alt: collection.image.alt | default: collection.title
+        %}
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "collection_image",
+  "templates": ["collection"],
+  "limit": 1,
+  "settings": [
+    {
+      "type": "range",
+      "id": "pc_img_height",
+      "step": 10,
+      "max": 600,
+      "min": 0,
+      "label": {
+        "en-US": "Desktop image heigh",
+        "zh-CN": "PC端封面高度"
+      },
+      "default": 450,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "md_img_height",
+      "step": 10,
+      "max": 240,
+      "min": 0,
+      "label": {
+        "en-US": "Mobile image heigh",
+        "zh-CN": "移动端封面高度"
+      },
+      "default": 200,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "cover_width",
+      "label": {
+        "en-US": "Collection cover width",
+        "zh-CN": "专辑封面宽度"
+      },
+      "options": [
+        {
+          "value": "auto",
+          "label": {
+            "zh-CN": "两边留白",
+            "en-US": "Leave blank on both sides"
+          }
+        },
+        {
+          "value": "full",
+          "label": {
+            "en-US": "Full screen",
+            "zh-CN": "铺满全屏"
+          }
+        }
+      ],
+      "default": "auto"
+    }
+  ],
+  "presets": [
+    {
+      "name": "collection_image",
+      "cname": {
+        "en-US": "Collection image",
+        "zh-CN": "专辑封面"
+      },
+      "category": {
+        "en-US": "Page",
+        "zh-CN": "页面"
+      },
+      "ccategory": {
+        "en-US": "Page",
+        "zh-CN": "页面"
+      },
+      "display": true
+    }
+  ]
+}
+{% endschema %}

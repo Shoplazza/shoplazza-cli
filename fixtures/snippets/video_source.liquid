@@ -1,0 +1,98 @@
+<style>
+  .video_play_controls {
+    position: relative;
+  }
+  .video_play_controls > video {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    left: 0px;
+    margin: auto;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    cursor: pointer;
+  }
+  .video_play_controls::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .video_play_controls > .video_pause_icon {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .video_play_controls > .video_pause_icon > svg {
+    display: block;
+  }
+  .video_play_controls.playing > .video_pause_icon {
+    display: none !important;
+  }
+  .slides-active .video_play_controls > .video_pause_icon,
+  .slick-active .video_play_controls > .video_pause_icon {
+    display: block;
+  }
+</style>
+
+<script>
+  try {
+    window.handleVideoClick = window.handleVideoClick || (e => {
+      const classList = e.target.classList;
+      if (!classList.contains('video_play_controls')) return;
+      const video = e.target.querySelector('video');
+      video.paused ? video.play() : video.pause();
+    });
+    document.removeEventListener('click', window.handleVideoClick);
+    document.addEventListener('click', window.handleVideoClick);
+    ['pause', 'ended'].forEach(event => {
+      window.addEventListener(event, e => {
+        const video = e.target;
+        video.parentNode.classList.remove('playing');
+      }, true);
+    });
+    document.addEventListener('play', e => {
+      const video = e.target;
+      video.parentNode.classList.add('playing');
+    }, true);
+  } catch (e) {
+    console.error(e);
+  }
+  window.addEventListener("load", () => {
+    window.template.defaults.imports.media_parse = function (url) {
+      var result = {};
+      try {
+        url.replace(/[?&]+([^=&]+)=([^&]*)/gi, function (str, key, value) {
+          try {
+            result[key] = decodeURIComponent(value);
+          } catch (e) {
+            result[key] = value;
+          }
+        });
+        result.preview_image = url.split('?')[0];
+      } catch (e) {};
+      return result;
+    }
+  });
+</script>
+
+
+<script type="text/html" id="video_html_tpl">
+  <div style="padding-bottom: <%= padding_bottom %>;" class="video_play_controls <%= class_name %>">
+    <video x5-playsinline="true" playsinline="true" webkit-playsinline="true" poster="<%-media.preview_image%>">
+      <% if (media.hls) { %>
+        <source src="<%-media.hls%>" type="application/x-mpegURL">
+      <% } %>
+      <% if (media.mp4) { %>
+        <source src="<%-media.mp4%>" type="video/mp4">
+      <% } %>
+    </video>
+    <div class="video_pause_icon">{% include 'icon_video_play_large' %}</div>
+  </div>
+</script>

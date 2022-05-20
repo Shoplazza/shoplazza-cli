@@ -1,0 +1,137 @@
+<div class="container container-gap">
+  {% if section.settings.title %}
+    <div id="blog-{{section.id}}-title" {% if shop.env == 0 %} style="display:none" {% endif %} >
+    {% include 'card_title',
+      title: section.settings.title,
+      titlePath: 'title'
+    %}
+    </div>
+  {% endif %}
+  <div id="blog-{{section.id}}-articles" class="row"></div>
+  <div style="margin:3.5rem 0;text-align:center;display:none;" id="blog-{{section.id}}-viewall">
+    <a href="{{section.settings.blog.url}}" class="btn btn-primary dj_skin_title_font">{{ 'i18n.general.view.view_all' | t }}</a>
+  </div>
+</div>
+{% use 'blog.css' %}
+{% javascript %}
+$(function(){
+  var settings = {{ section.settings | json }};
+  var sectionId = "{{section.id}}";
+  (function(callback){
+    if(settings.blog && settings.blog.id && settings.blog.url){
+      $.get('/api/front' + settings.blog.url + '/articles?per_page=' + settings.size + '&page=1').then(function(res){
+        $("#blog-{{section.id}}-viewall")[res.count > settings.size?"show":"hide"]();
+        callback(res.articles);
+      })
+    }else{
+      callback([]);
+    }
+  })(function(arr){
+    {% if shop.env == 1 %}
+    arr = arr.concat(Array.apply(null, Array(settings.size-arr.length)).map(function(){
+      return {url:"javascript:$.toast.show({content:'请添加博客专辑'});",published_at:"2019-06-14T00:30:47Z",author:"{{shop.name}}",title:"New Pattern Spotlight: The Micro-Stripe",excerpt:"With an expansive collection of solid and heather colors in our line, the idea of adding a pattern to our collection has naturally been for years",blogs:[{title:"category1"},{title:"category2"}]};
+    }));
+    {% endif %}
+    arr.length && ($("#blog-{{section.id}}-title").show());
+    $("#blog-{{section.id}}-articles").html(arr.map(function(a){
+      return window.template("blogs-tpl", { article: a });
+    }).join(""));
+  });
+});
+{% endjavascript %}
+
+<script id="blogs-tpl" type="text/html">
+  <div class="col-12 col-md-6">
+    <a href="<%= article.url %>" class="article__img">
+      <div class="common__img-wrapper_lazy" style="padding-bottom: 57%;overflow:hidden;">
+        {% assign defaultImg = 'oss/operation/1468cb0e248c143782cd5161c2a81455.png' | img_url: '1080x' %}
+        <% var src = article.image && article.image.src ? article.image.src : '{{defaultImg}}'; %>
+        <img src="{{shop.default_img}}" data-src="<%= src %>"
+          style="width: 100%;max-height: unset;"
+          alt="<%= (article.image && article.image.alt) || article.title %>" class="lazy lazyload">
+      </div>
+    </a>
+    <div class="article__date">
+    <% if (article.published_at) { %>
+      <span><%= $imports.dateFormat($imports.toTimestamp(article.published_at), 'MM.dd.yyyy') %></span>
+    <% } %>
+    <% if (article.published_at && article.author) { %>
+      <span style='margin:0 10px;'>|</span>
+    <% } %>
+    <% if (article.author) { %>
+      <span><%= article.author %></span>
+    <% } %>
+    </div>
+    <a href="<%= article.url %>" class="article__title two_line_text_truncate"><%= article.title %></a>
+    <% if (article.excerpt) { %><div class="article__excerpt"><%= article.excerpt %></div><% } %>
+    <hr>
+    <div class="d-flex justify-content-between article__readline">
+      <a href="<%= article.url %>" class="article__read">{{ 'i18n.blog.general.blog_read' | t }}</a>
+      <span class="article__blogs two_line_text_truncate">
+        <% for (var i = 0; i < article.blogs.length; i++) { %>
+          <%= article.blogs[i].title %><% if (i < article.blogs.length - 1) { %>,<% } %>
+        <% } %>
+      </span>
+    </div>
+  </div>
+</script>
+
+
+{% schema %}
+{
+  "name": "blog",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": {
+        "en-US": "Heading",
+        "zh-CN": "标题"
+      },
+      "default": "Blog",
+      "placeholder": "Blog"
+    },
+    {
+      "type": "range",
+      "label": {
+        "zh-CN": "博客显示数量",
+        "en-US": "Show blog posts"
+      },
+      "id": "size",
+      "min": 1,
+      "max": 8,
+      "step": 1,
+      "default": 8
+    },
+    {
+      "type": "blog",
+      "id": "blog",
+      "label": {
+        "en-US": "Blog posts",
+        "zh-CN": "博客专辑"
+      }
+    }
+  ],
+  "blocks": [],
+  "presets": [
+    {
+      "name": "blog",
+      "cname": {
+        "zh-CN": "博客专辑",
+        "en-US": "Blogs"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": [],
+      "icon": "oss/operation/a2a64b5c6aed6f57a53dcf82935520ae.svg"
+    }
+  ]
+}
+{% endschema %}

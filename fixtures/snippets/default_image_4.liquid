@@ -1,0 +1,14 @@
+{% comment %}
+  description: 渲染不透明带边距默认图，1280px x 600px图片，单排商品1
+{% endcomment %}
+{% assign index = forloop.index0 | modulo: 4 %}
+{% case index %}
+  {% when "0" %}
+    {% assign defaultImage = "oss/operation/92198d501567ee37aabb6b1ab5c666bc.png" %}
+  {% when "1" %}
+    {% assign defaultImage = "oss/operation/c91b569e943ad8cba70db81e4a8d0046.png" %}
+  {% when "2" %}
+    {% assign defaultImage = "oss/operation/6fd2538eb583ee35023090bfb390e8a2.png" %}
+  {% when "3" %}
+    {% assign defaultImage = "oss/operation/13036a056b7bcce362f295380cdde2d5.png" %}
+{% endcase %}

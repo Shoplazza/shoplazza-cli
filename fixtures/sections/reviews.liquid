@@ -1,0 +1,115 @@
+{% assign defaultImg = 'oss/operation/1468cb0e248c143782cd5161c2a81455.png' | img_url: '1080x' %}
+
+<div class="container">
+  <div class="row d-block reviews-product-container pt-5" data-aos="reviews">
+    <div class="reviews-product">
+    {% assign first_product_id = '0' %}
+    {% for i in (1..4) %}
+      {% assign key = i | prepend:"product" %}
+      {% assign product_id =  section.settings[key].id %}
+      {% assign product = all_products[product_id] %}
+      {% if first_product_id == '0' and product.published and product.available %}
+        {% assign first_product_id = product_id %}
+      {% endif %}
+      {% if product.published and product.available %}
+        <div class="review-product-item {% if first_product_id == product_id %}on{% endif %}" data-review-product-id="{{product_id}}">
+          <div class="image-wrap lazyload" data-bgset='{%if product.image.src %}{{ product.image.src }}{% else %}{{ defaultImg }}{% endif %}' alt="{{ product.image.alt | default: product.title }}" title="{{ product.image.alt || product.title }}"></div>
+          <h3>{%if product.title %}{{ product.title }}{% else %}Example product{% endif %}</h3>
+        </div>
+      {%else%}
+        <div class="review-product-item" data-review-product-id="">
+          <div class="image-wrap lazyload" data-bgset='{{ defaultImg }}' alt="" title=""></div>
+          <h3>Example product</h3>
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    </div>
+  </div>
+  <div class="row d-block reviews-content reviews-section" id="section-{{section.id}}-contents" data-product-reviews="{{ first_product_id }}">
+  <div class="sep-loading__content reviews-content-loading"></div>
+  </div>
+</div>
+
+{% use 'reviews.css' %}
+
+{% javascript %}
+   $(function () {
+     $(document.body).on('click', '.review-product-item', function (event) {
+       $(this).addClass('on').siblings().removeClass('on');
+       $("#section-{{section.id}}-contents").attr("data-product-reviews", $(this).attr("data-review-product-id")).html('<div class="sep-loading__content reviews-content-loading"></div>');
+       $(document.body).trigger("update_section_review");
+       !event.isTrigger && this.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+        inline: "center"
+      });
+     });
+     $('.review-product-item:eq(0)').click();
+   })
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "reviews",
+  "settings": [
+    {
+      "type": "product",
+      "id": "product1",
+      "label": {
+        "zh-CN": "商品",
+        "en-US": "Product"
+      },
+      "default": ""
+    },
+    {
+      "type": "product",
+      "id": "product2",
+      "label": {
+        "zh-CN": "商品",
+        "en-US": "Product"
+      },
+      "default": ""
+    },
+    {
+      "type": "product",
+      "id": "product3",
+      "label": {
+        "zh-CN": "商品",
+        "en-US": "Product"
+      },
+      "default": ""
+    },
+    {
+      "type": "product",
+      "id": "product4",
+      "label": {
+        "zh-CN": "商品",
+        "en-US": "Product"
+      },
+      "default": ""
+    }
+  ],
+  "blocks": [],
+  "presets": [
+    {
+      "name": "reviews",
+      "cname": {
+        "zh-CN": "评论",
+        "en-US": "Testimonial"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": [],
+      "icon": "oss/operation/e0ccc00871bdced0e572c90bfabfcacc.png"
+    }
+  ]
+}
+{% endschema %}

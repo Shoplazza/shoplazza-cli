@@ -1,0 +1,117 @@
+#!/usr/bin/env node
+
+const { program } = require('commander');
+const updateNotifier = require('update-notifier');
+const Sentry = require('@sentry/node');
+const Tracing = require('@sentry/tracing');
+const pkg = require('../package.json');
+const report = require('../lib/report');
+require('../lib/tracing');
+
+Sentry.init({
+  dsn: 'https://89964605acaf4db8839f2d5237396d6c@sentry.shoplazza.com/730',
+  integrations: [
+    // enable HTTP calls tracing
+    new Sentry.Integrations.Http({ tracing: true })
+  ],
+
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for performance monitoring.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 1.0
+});
+
+updateNotifier({ pkg }).notify({
+  isGlobal: true
+});
+program.usage('[command] [options]');
+
+program.command('version').description('Welcome to the Shoplazza CLI').action(require('../lib/commands/version'));
+
+program
+  .command('login')
+  .description('Authenticates and logs you into the specified store with Shoplazza CLI.')
+  .option('-s, --store <store>', 'The store domain (Eg: developer.myshoplaza.com)')
+  .action(require('../lib/commands/login').login);
+
+program
+  .command('logout')
+  .description('Logs you out of the Shoplazza account.')
+  .action(require('../lib/commands/logout'));
+
+program
+  .command('switch')
+  .option('-s, --store <store>', 'The store url')
+  .description(`Switches between stores without logging out and logging in again.`)
+  .action(require('../lib/commands/switch'));
+
+program
+  .command('store')
+  .description(`Displays the store that you're currently connected to.`)
+  .action(require('../lib/commands/store'));
+
+const theme = program
+  .command('theme')
+  .description('Some commands related to the theme, Use `shoplazza theme --help` for more details.')
+  .usage('[command] [options]');
+
+theme
+  .command('init')
+  .description('Clones a Git repository to your local machine to use as the starting point for building a theme.')
+  .option('-n, --name <name>', 'Theme folder name')
+  .action(require('../lib/commands/theme/init'));
+
+theme
+  .command('serve')
+  .description(`Uploads the current theme to the store that you're connected to, and returns the following.`)
+  .option('-t, --theme <theme>', 'The ID of the theme that you want to overwrite.')
+  .action(require('../lib/commands/theme/serve'));
+
+theme
+  .command('pull')
+  .description(`Retrieves theme files from Shoplazza.`)
+  .option('-t, --theme <theme>', 'The ID of the theme that you want to pull.')
+  .action(require('../lib/commands/theme/pull'));
+
+theme
+  .command('push')
+  .description(`Uploads your local theme files to Shoplazza, overwriting the remote theme if specified.`)
+  .option('-t, --theme <theme>', 'The ID of the theme that you want to overwrite.')
+  .action(require('../lib/commands/theme/push').pushCommand);
+
+theme
+  .command('publish')
+  .description(`Publishes a theme from your theme library.`)
+  .option('-t, --theme <theme>', 'The ID of the theme that you want to publish.')
+  .action(require('../lib/commands/theme/publish'));
+
+theme.command('list').description(`Lists the themes in your store.`).action(require('../lib/commands/theme/list'));
+
+theme
+  .command('share')
+  .description(`Return a theme preview link.`)
+  .option('-t, --theme <theme>', 'The ID of the theme that you want to delete.')
+  .action(require('../lib/commands/theme/share'));
+
+theme
+  .command('package')
+  .description(`Packages your local theme files into a ZIP file that can be uploaded to Shoplazza.`)
+  .action(require('../lib/commands/theme/package').packageCommand);
+
+theme
+  .command('delete')
+  .description(`Deletes a theme from your store.`)
+  .option('-t, --theme <theme>', 'The ID of the theme that you want to delete.')
+  .action(require('../lib/commands/theme/delete'));
+
+program.parse(process.argv);
+!program.args.length && program.help();
+
+const yargs = require('yargs/yargs');
+const { hideBin } = require('yargs/helpers');
+const { argv } = yargs(hideBin(process.argv));
+
+report('cli_usage', {
+  command: argv._,
+  argv: hideBin(process.argv)
+});

@@ -1,0 +1,433 @@
+
+ <div class="photo_collection-section container-gap" {% if section.settings.photo_collection_bg %}style="background:{{ section.settings.photo_collection_bg }};"{% endif %}>
+    {% if section.settings.title != blank %}
+      <header class="section-header">
+        <h2 class="dj_skin_title common-card-title col-12">{{ section.settings.title }}</h2>
+      </header>
+    {% endif %}
+  {% if section.blocks.size > 0 %}
+    <div class="collection_slider__outer photo_collection_container">
+      <div class="collection_slider__wrapper photo_collection_list">
+        <div style="white-space: nowrap; text-align: center; width: 100%;">
+          {% for block in section.blocks %}
+            {% assign image_src = block.settings.src %}
+            {% assign avatar_len = block.settings.avatar | size | default: 0 %}
+            {% assign user_name_len = block.settings.user_name | size | default: 0 %}
+            {% assign account_id_len = block.settings.account_id | size | default: 0 %}
+            {% assign link = block.settings.link %}
+            <a class="photo_collection_item swiper-slide" data-account-id="{{ account_id }}" {% unless link.type != 'web' or link.url contains shop.domain %}target="_blank"{% endunless %} {% if link.url %}href="{{link.url}}"{% endif %}>
+              {% if image_src!=blank %}
+                <div class="photo_collection_img lazyload"
+                title="{{ images[image_src].alt | escape }}"
+                data-sizes="auto"
+                data-bgset="{{ images[image_src].src | img_url: '610x' }}"
+                style="background-size:cover;"><i class="sep-font sep-font-instagram"></i></div>
+                {% else %}
+                <div class="photo_collection_img">
+                <i class="sep-font sep-font-instagram"></i>
+                {{ 'image' | placeholder_svg_tag: 'placeholder-svg' }}
+                </div>
+              {% endif %}
+              <div class="photo_collection_user text-left">
+                <div>
+                  {% if avatar_len == 0 %}
+                  <i class="sep-font sep-font-dengluzhuce"></i>
+                  {% else %}
+                  <div class="photo_collection_photo" style="background-image:url({{images[block.settings.avatar].src | img_url: '100x'}})"></div>
+                  {% endif %}
+                </div>
+                <div>
+                  {% if user_name_len == 0 %}
+                    <p class="photo_collection_name">username</p>
+                  {% else %}
+                    <p class="photo_collection_name">{{block.settings.user_name}}</p>
+                  {% endif %}
+                  {% if account_id_len == 0 %}
+                    <p class="photo_collection_id">@account_id</p>
+                  {% else %}
+                    <p class="photo_collection_id">@{{block.settings.account_id}}</p>
+                  {% endif %}
+                </div>
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+      <i data-direction="prev" class="photo_collection_pagination sep-font sep-font-angle-left photo_collection-prev swiper-button-disabled"></i>
+      <i data-direction="next" class="photo_collection_pagination sep-font sep-font-angle-right photo_collection-next"></i>
+    </div>
+  {% endif %}
+  </div>
+{% javascript %}
+  $(function () {
+    var $section = $('[data-section-id=' + {{section.id}} + ']');
+    var $container = $section.find('.photo_collection_list');
+    $(document).on('click', '[data-section-id=' + {{section.id}} + '] .photo_collection_pagination', function () {
+      var distance = $section.find('.photo_collection_list > div > a:first').outerWidth() + 20;
+      $container.stop().animate({
+        scrollLeft: $container.scrollLeft() + ({'prev': -1, 'next': 1}[$(this).data('direction')] * distance)
+      }, { duration: "150", easing: "linear" }
+    );
+    })
+    $container.scroll($.throttle(function () {
+      var direction = ($container[0].scrollWidth - ($container.width() + $container.scrollLeft()) <= 5 && 'next')
+        || ($container.scrollLeft() <= 5 && 'prev') || 'none';
+      $section.find('.photo_collection_pagination[data-direction]')
+        .removeClass('swiper-button-disabled').end()
+        .find('.photo_collection_pagination[data-direction='+direction+']')
+        .addClass('swiper-button-disabled');
+    }, 100))
+  })
+{% endjavascript %}
+<style>
+[data-section-type="photo_collection"].shoplazza-select:before {
+    animation: none !important;
+}
+.photo_collection_pagination{
+  width:43px;
+  height:43px;
+  background:rgba(50,50,50,1);
+  box-shadow:0px 2px 10px 0px rgba(0,0,0,0.11);
+  opacity:0.7;
+  position:absolute;
+  top:50%;
+  margin-top:-21px;
+  text-align:center;
+  line-height:43px;
+  z-index:10;
+  color: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.photo_collection_pagination.sep-font-angle-left{
+  left:36px;
+}
+.photo_collection_pagination.sep-font-angle-right{
+  right:36px;
+}
+.photo_collection_container:hover .photo_collection_pagination{
+  opacity:0.7;
+}
+.photo_collection_container .photo_collection_pagination.swiper-button-disabled {
+    cursor: not-allowed;
+    background: rgba(204, 204, 204, 0.6);
+}
+.photo_collection_container {
+    width: 100%;
+    max-width: none;
+    position: relative;
+    overflow: hidden;
+}
+.photo_collection-section {
+    padding: 80px 0;
+    padding-bottom: 10px;
+}
+
+.photo_collection-section h2 {
+    text-align: center;
+    margin-bottom: 80px;
+}
+.photo_collection_list{
+  display:flex;
+  -ms-overflow-style: none;
+  overflow: -moz-scrollbars-none;
+  overflow-x: auto;
+}
+.photo_collection_list::-webkit-scrollbar { width: 0 !important }
+.photo_collection_item {
+    width: 305px;
+    background: #fff;
+    margin: 0 10px;
+    display: inline-block;
+}
+
+.photo_collection_img {
+    width: 100%;
+    height: 325px;
+    background-color: #F1F1F1;
+    background-position: center;
+    position: relative;
+}
+
+.photo_collection_img i {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    right: 10px;
+    top: 10px;
+    font-size: 20px;
+    line-height: 20px;
+    color: #000;
+    z-index: 5;
+}
+
+.photo_collection_photo{
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.photo_collection_user {
+    padding: 10px 10px 10px 75px;
+    position: relative;
+    height:68px;
+}
+
+.photo_collection_user>div:first-child {
+    width: 48px;
+    height: 48px;
+    background: #BFBFBF;
+    border-radius: 50%;
+    margin-right: 10px;
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+.photo_collection_user>div:first-child i {
+    position: absolute;
+    font-size: 30px;
+    left: 0;
+    bottom: 0;
+    line-height: 48px;
+    text-align: center;
+    width: 48px;
+    height: 48px;
+    overflow: hidden;
+    color: #fff;
+}
+.photo_collection_user>div:first-child img {
+    max-width: 100%;
+    position:relative;
+    z-index:10;
+}
+.photo_collection_name {
+    font-size: 16px;
+    font-family:PingFangSC-Medium,PingFang SC;
+    font-weight:500;
+    color:rgba(85,87,90,1);
+    line-height:22px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0 0  5px;
+    height:22px;
+}
+
+.photo_collection_id {
+    font-size: 14px;
+    font-family:Futura-Medium,Futura;
+    font-weight:500;
+    color:rgba(143,143,145,1);
+    line-height:19px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1 1 auto;
+    margin: 0;
+}
+
+.photo_collection_user>div:first-child i {
+    width: 100%;
+    height: 100%;
+}
+</style>
+{% schema %}
+{
+  "name": "photo_collection",
+  "max_blocks": 9,
+  "min_blocks": 7,
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": {
+        "en-US": "Heading",
+        "zh-CN": "标题"
+      },
+      "default": "Find us on Photo Collection"
+    },
+    {
+      "type": "color",
+      "id": "photo_collection_bg",
+      "label": {
+        "en-US": "Background color",
+        "zh-CN": "背景"
+      },
+      "default": "#F7F7F7"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "banner",
+      "name": {
+        "zh-CN": "图片",
+        "en-US": "Image"
+      },
+      "settings": [
+        {
+          "type": "image_picker",
+          "label": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "id": "src",
+          "info": {
+            "zh-CN": "建议尺寸（宽*高）：610*750px",
+            "en-US": "Recommended resolution (width * height): 610*750px"
+          }
+        },
+        {
+          "type": "url",
+          "id": "link",
+          "label": {
+            "zh-CN": "图片链接",
+            "en-US": "Image link"
+          },
+          "info": ""
+        },
+        {
+          "type": "image_picker",
+          "label": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "id": "avatar",
+          "info": {
+            "zh-CN": "建议尺寸（宽*高）：48*48px",
+            "en-US": "Recommended resolution (width * height): 48*48px"
+          }
+        },
+        {
+          "type": "text",
+          "id": "user_name",
+          "label": {
+            "zh-CN": "用户名",
+            "en-US": "Username"
+          },
+          "placeholder": {
+            "zh-CN": "username",
+            "en-US": "Username"
+          },
+          "default": ""
+        },
+        {
+          "type": "text",
+          "id": "account_id",
+          "label": {
+            "en-US": "Account id",
+            "zh-CN": "账号id"
+          },
+          "placeholder": {
+            "zh-CN": "account_id",
+            "en-US": "Account id"
+          },
+          "default": ""
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "photo_collection",
+      "cname": {
+        "zh-CN": "图片精选",
+        "en-US": "Featured images"
+      },
+      "category": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "ccategory": {
+        "en-US": "Material",
+        "zh-CN": "素材"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "banner",
+          "name": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "settings": {
+            "user_name": "",
+            "account_id": ""
+          }
+        },
+        {
+          "type": "banner",
+          "name": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "settings": {
+            "user_name": "",
+            "account_id": ""
+          }
+        },
+        {
+          "type": "banner",
+          "name": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "settings": {
+            "user_name": "",
+            "account_id": ""
+          }
+        },
+        {
+          "type": "banner",
+          "name": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "settings": {
+            "user_name": "",
+            "account_id": ""
+          }
+        },
+        {
+          "type": "banner",
+          "name": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "settings": {
+            "user_name": "",
+            "account_id": ""
+          }
+        },
+        {
+          "type": "banner",
+          "name": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "settings": {
+            "user_name": "",
+            "account_id": ""
+          }
+        },
+        {
+          "type": "banner",
+          "name": {
+            "zh-CN": "图片",
+            "en-US": "Image"
+          },
+          "settings": {
+            "user_name": "",
+            "account_id": ""
+          }
+        }
+      ],
+      "icon": "oss/operation/cfdec127619d39b153068cd678e843ba.svg"
+    }
+  ]
+}
+{% endschema %}

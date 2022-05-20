@@ -1,0 +1,225 @@
+{% use 'newsletter.css' %}
+<div class="container container-gap">
+  <div class="row">
+  <div class="col-sm-12">
+    <div id="newsletter" class="newsletter text-center">
+      <div class="newsletter_subscribing">
+        {% for block in section.blocks %}
+          {% if block.type == 'heading' and block.settings.title %}
+            <div class="newsletter__title dj_skin_title_font">{{ block.settings.title }}</div>
+          {% endif %}
+          {% if block.type == 'sub_heading' and block.settings.sub_title %}
+            <div class="newsletter__title_sub dj_skin_text">{{ block.settings.sub_title }}</div>
+          {% endif %}
+          {% if block.type == 'form' and block.settings.btn_title %}
+            <div class="newsletter__form">
+              <div class="form-row mx-auto">
+                <div class="col-sm-12 col-md-8 newsletter__input-wrap">
+                  <input id="input_email" type="email" class=" newsletter__input form-control" placeholder="{{ 'i18n.general.newsletter_form.email_placeholder' | t }}">
+                  <div class="text-left invalid-feedback"></div>
+                </div>
+                <div class="col-sm-12 col-md-4 newsletter__btn-wrap">
+                  <input type="button" class="submit_newsletter dj_skin_title_font newsletter__btn btn btn-primary" type="submit" value="{{ block.settings.btn_title }}">
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="newsletter_subscribed">
+        {% for block in section.blocks %}
+          {% if block.type == 'heading' and block.settings.title_thanks != '' %}
+            <div class="newsletter__title dj_skin_title_font">{{ block.settings.title_thanks }}</div>
+          {% endif %}
+          {% if block.type == 'sub_heading' and block.settings.sub_title_thanks != '' %}
+            <div class="newsletter__title_sub dj_skin_text">{{ block.settings.sub_title_thanks }}</div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+
+{% javascript %}
+
+  $(function () {
+    var lan = {{ 'i18n.general.newsletter_form' | t | json }};
+    $("[data-section-type='newsletter']")
+      .on('click', '.submit_newsletter', function(e) {
+        var emailExp = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/g;
+        var newsletterObj = $(this).parents('.newsletter');
+        var emailObj = newsletterObj.find('input[type=email]');
+        var email = emailObj.val();
+        var invalidFeedback = newsletterObj.find('.invalid-feedback');
+        var feedbacks = {
+          is_empty: lan.email_address_empty_warning,
+          not_formatted: lan.email_address_invalid_warning
+        };
+
+        emailObj.removeClass('is-valid is-invalid');
+        invalidFeedback.html("");
+
+        if (email === '') {
+          invalidFeedback.html(feedbacks['is_empty']);
+          emailObj.addClass('is-invalid');
+          return;
+        }
+        if (!emailExp.test(email)) {
+          invalidFeedback.html(feedbacks['not_formatted']);
+          emailObj.addClass('is-invalid');
+          return;
+        }
+        $.ajax({
+          url: '/api/customers/newsletters',
+          type: 'post',
+          dataType: 'text',
+          data: {
+            email: email
+          },
+          success: function(data, textStatus, jqXHR) {
+            if (jqXHR.status === 200) {
+              emailObj.addClass('is-valid');
+              newsletterObj.addClass('newsletter_success');
+            }
+          },
+          error: function(jqXHR) {
+            emailObj.addClass('is-invalid');
+            newsletterObj.removeClass('newsletter_success');
+            invalidFeedback.html(JSON.parse(jqXHR.responseText).errors);
+          }
+        });
+      })
+      .on('keyup', '#input_email', function(e) {
+        if (e.keyCode === 13) {
+          $('[data-section-id="{{section.id}}"] .submit_newsletter').trigger('click');
+        }
+      });
+  })
+{% endjavascript %}
+
+{% schema %}
+{
+  "name": "newsletter",
+  "max_blocks": 3,
+  "settings": [],
+  "blocks": [
+    {
+      "type": "heading",
+      "name": {
+        "zh-CN": "标题",
+        "en-US": "Heading"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": {
+            "en-US": "Heading",
+            "zh-CN": "标题"
+          },
+          "default": "Sign up for our newsletter"
+        },
+        {
+          "type": "text",
+          "id": "title_thanks",
+          "label": {
+            "zh-CN": "感谢订阅标题",
+            "en-US": "Heading"
+          },
+          "default": "Thanks for Subscribing！"
+        }
+      ]
+    },
+    {
+      "type": "sub_heading",
+      "name": {
+        "zh-CN": "副标题",
+        "en-US": "Subheading"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "sub_title",
+          "label": {
+            "en-US": "Subheading",
+            "zh-CN": "副标题"
+          },
+          "default": "Never miss a new season"
+        },
+        {
+          "type": "text",
+          "id": "sub_title_thanks",
+          "label": {
+            "zh-CN": "感谢订阅副标题",
+            "en-US": "Subheading"
+          },
+          "default": "We will send news to your email."
+        }
+      ]
+    },
+    {
+      "type": "form",
+      "name": {
+        "zh-CN": "表单",
+        "en-US": "Email form"
+      },
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "btn_title",
+          "label": {
+            "en-US": "Subscribe button",
+            "zh-CN": "订阅按钮"
+          },
+          "default": "Subscribe"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "newsletter",
+      "cname": {
+        "zh-CN": "邮件订阅",
+        "en-US": "Newsletter"
+      },
+      "category": {
+        "en-US": "Marketing",
+        "zh-CN": "营销"
+      },
+      "ccategory": {
+        "en-US": "Marketing",
+        "zh-CN": "营销"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "heading",
+          "settings": {
+            "title": "Sign up for our newsletter",
+            "title_thanks": "Thanks for Subscribing！"
+          }
+        },
+        {
+          "type": "sub_heading",
+          "settings": {
+            "sub_title": "Never miss a new season",
+            "sub_title_thanks": "We will send news to your email."
+          }
+        },
+        {
+          "type": "form",
+          "settings": {
+            "btn_title": "Subscribe"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

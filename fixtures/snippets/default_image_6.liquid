@@ -1,0 +1,18 @@
+{% comment %}
+  description: 渲染默认图片，适用于需要不同正方形图片(800px x 800px)的假数据，如专辑列表2
+{% endcomment %}
+{% assign index = forloop.index0 | modulo: 6 %}
+{% case index %}
+  {% when "1" %}
+    {% assign defaultImage = "oss/operation/c4556e2a196d8edd8ea2d28de567d5e6.png" %}
+  {% when "2" %}
+    {% assign defaultImage = "oss/operation/6f43d006e0f8203037397b6e08100f56.png" %}
+  {% when "3" %}
+    {% assign defaultImage = "oss/operation/0040b3b6243ae357fd9aa71d946364e7.png" %}
+  {% when "4" %}
+    {% assign defaultImage = "oss/operation/ecfc815e9794b0a8bf59b6aa47837f7b.png" %}
+  {% when "5" %}
+    {% assign defaultImage = "oss/operation/5329e231d22e3d6f5fcde6bac7cc162e.png" %}
+  {% when "0" %}
+    {% assign defaultImage = "oss/operation/2422d705aaab25fc1323bd460f1e50c8.png" %}
+{% endcase %}

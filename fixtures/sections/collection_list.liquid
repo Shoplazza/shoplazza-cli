@@ -1,0 +1,161 @@
+{% use 'collection_list.css' %}
+<div class="container container-gap">{% comment %} 卡片标题 {% endcomment %}
+{% if section.settings.name %}
+  {% include 'card_title', title: section.settings.name %}
+{% endif %}
+
+{% assign grid = section.settings.grid %}
+
+{% case grid %}
+  {% when 2 %}
+    {% assign colMd="col-md-6"%}
+    {% assign col="col-12"%}
+  {% when 3 %}
+    {% assign colMd="col-md-4"%}
+    {% assign col="col-6"%}
+  {% when 4 %}
+    {% assign colMd="col-md-3"%}
+    {% assign col="col-6"%}
+  {% when 5 %}
+    {% assign colMd="col-md-2_4"%}
+    {% assign col="col-6"%}
+  {% else %}
+    {% assign colMd="col-md-3"%}
+    {% assign col="col-6"%}
+{% endcase %}
+
+<div class="row common__product-row collection_list_gap">
+  {% comment %} 渲染C端节点 {% endcomment %}
+  {% for block in section.blocks %}
+    {% include 'default_image_8' %}
+    <div class="{{col}} {{colMd}} common__product-gap">
+      {% include 'collection', collection: collections[block.settings.collection.id], defaultImage, imgSize: '500x' %}
+    </div>
+  {% endfor %}
+  {% comment %} 补充模拟数据 {% endcomment %}
+  {% if shop.env == 1 and section.blocks.size == 0 %}
+    {% for block in (1..4) %}
+      <div class="col-6 col-md-3 common__product-gap">
+        {% include 'collection', collection: default_collection %}
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+</div>
+<style>
+  [data-section-id='{{section.id}}'] .common__mask_title::after {
+    {% assign titleFont = settings.skin_title_font_family %}
+    font-family: {{titleFont.family}},{{titleFont.fallback_families}};
+    font-style:{{titleFont.style}};
+    font-weight:{{titleFont.weight}};
+    color: {{section.settings.collection_title_color | default: '#ffffff'}};
+  }
+</style>
+
+
+{% schema %}
+{
+  "name": "collection_list",
+  "max_blocks": 12,
+  "settings": [
+    {
+      "type": "text",
+      "id": "name",
+      "label": {
+        "en-US": "Heading",
+        "zh-CN": "标题"
+      },
+      "default": "Collection list",
+      "placeholder": "Collection list"
+    },
+    {
+      "type": "range",
+      "label": {
+        "zh-CN": "PC每排专辑数",
+        "en-US": "Show collections per row on desktop"
+      },
+      "id": "grid",
+      "min": 2,
+      "max": 5,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "color",
+      "id": "collection_title_color",
+      "default": "#ffffff",
+      "label": {
+        "zh-CN": "专辑名称颜色",
+        "en-US": "Text color"
+      }
+    },
+    {
+      "type": "header",
+      "content": {
+        "en-US": "Add collection",
+        "zh-CN": "添加专辑"
+      }
+    }
+  ],
+  "blocks": [
+    {
+      "type": "collection",
+      "name": {
+        "en-US": "Collection",
+        "zh-CN": "专辑"
+      },
+      "settings": [
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": {
+            "en-US": "Collection",
+            "zh-CN": "专辑"
+          }
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "collection_list",
+      "cname": {
+        "en-US": "Collection list",
+        "zh-CN": "专辑列表"
+      },
+      "category": {
+        "en-US": "Product",
+        "zh-CN": "商品"
+      },
+      "ccategory": {
+        "en-US": "Product",
+        "zh-CN": "商品"
+      },
+      "display": true,
+      "blocks": [
+        {
+          "type": "collection",
+          "name": "Collection",
+          "settings": {
+            "collection": null
+          }
+        },
+        {
+          "type": "collection",
+          "name": "Collection",
+          "settings": {
+            "collection": null
+          }
+        },
+        {
+          "type": "collection",
+          "name": "Collection",
+          "settings": {
+            "collection": null
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}
