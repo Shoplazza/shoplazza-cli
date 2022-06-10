@@ -1,6 +1,6 @@
 {
   "name": "shoplazza-cli",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "title": "Shoplazza CLI",
   "description": "Shoplazza CLI is a command-line interface tool that helps you build Shoplazza themes. It quickly generates Shoplazza themes. You can also use it to automate many common development tasks.",
   "main": "bin/shoplazza",
