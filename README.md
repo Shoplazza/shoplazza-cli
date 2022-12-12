@@ -10,6 +10,10 @@
 
 Shoplazza CLI is a cross-platform command line tool that you can use to build Shoplazza themes.
 
+## Node Version
+
+use 14.18.2
+
 ## Features
 
 Shoplazza CLI accelerates your theme development process with the following features:
