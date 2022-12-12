@@ -8,6 +8,8 @@ const pkg = require('../package.json');
 const report = require('../lib/report');
 require('../lib/tracing');
 
+const { generateExtension, deployExtension, publishExtension, buildExtension, retry } = require('../lib/app');
+
 Sentry.init({
   dsn: 'https://89964605acaf4db8839f2d5237396d6c@sentry.shoplazza.com/730',
   integrations: [
@@ -32,11 +34,14 @@ program
   .command('login')
   .description('Authenticates and logs you into the specified store with Shoplazza CLI.')
   .option('-s, --store <store>', 'The store domain (Eg: developer.myshoplaza.com)')
+  .option('-p, --partner', 'Log into partner app')
   .action(require('../lib/commands/login').login);
 
 program
   .command('logout')
-  .description('Logs you out of the Shoplazza account.')
+  .description('Logs you out of the Shoplazza account, logs out your store account without any options.')
+  .option('-s, --store', 'Logs out your store account')
+  .option('-p, --partner', 'Logs out your partner account')
   .action(require('../lib/commands/logout'));
 
 program
@@ -103,6 +108,19 @@ theme
   .description(`Deletes a theme from your store.`)
   .option('-t, --theme <theme>', 'The ID of the theme that you want to delete.')
   .action(require('../lib/commands/theme/delete'));
+
+const app = program.command('app').description('Shoplazza app extensions cli');
+
+app.command('generate').command('extension').description('Generate your extension').action(generateExtension);
+app.command('deploy').command('extension').description('Deploy your extension to cdn').action(deployExtension);
+app.command('publish').command('extension').description('Publish your extension').action(publishExtension);
+app.command('build').description('Build your extension').action(buildExtension);
+app
+  .command('retry')
+  .description('Retry to do some tasks.')
+  .option('-p, --partner', 'Retry get and choose your partner list.')
+  .option('-a, --app', 'Retry get and choose your app list.')
+  .action(retry);
 
 program.parse(process.argv);
 !program.args.length && program.help();
