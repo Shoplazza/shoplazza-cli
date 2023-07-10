@@ -20,7 +20,7 @@ Shoplazza CLI accelerates your theme development process with the following feat
 
 - Safely preview, test, and share changes to themes using unpublish themes
 - Hot reload CSS and section changes, or automatically refresh a page on file change, when previewing a theme.
-- Initialize a new theme using LifeStyle as a starting point.
+- Initialize a new theme using Nova 2023 as a starting point.
 - Use workflow tools like Git to work with a team of theme developers.
 - Upload themes to your store.
 - Watch for local changes and upload them automatically to Shoplazza.
