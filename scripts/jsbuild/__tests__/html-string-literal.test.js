@@ -32,3 +32,9 @@ for (const [name, input] of Object.entries(ADVERSARIAL)) {
     assert.equal(roundTrip(input), input);
   });
 }
+
+test('escapes U+2028/U+2029 at the source level (not raw)', () => {
+  const out = htmlToJsStringLiteral('a\u2028b\u2029c');
+  assert.ok(out.includes('\\u2028'), 'output must contain literal \\u2028 escape');
+  assert.ok(out.includes('\\u2029'), 'output must contain literal \\u2029 escape');
+});

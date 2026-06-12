@@ -7,7 +7,7 @@ const { buildFixture } = require('./helpers/build-fixture');
 
 const goldenDir = path.join(__dirname, 'golden');
 
-for (const name of ['basic', 'escaping', 'nested']) {
+for (const name of ['basic', 'escaping', 'nested', 'apiprefix']) {
   test('bundle matches golden: ' + name, () => {
     const expected = fs.readFileSync(path.join(goldenDir, name + '.bundle.js'), 'utf8');
     const actual = buildFixture(name);
