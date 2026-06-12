@@ -38,7 +38,7 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 |--------|---------|-------|
 | **Homebrew** (macOS / Linux) | `brew install Shoplazza/tap/shoplazza-cli` | Recommended. Auto-updates via `brew upgrade`. |
 | **Shell script** (macOS / Linux) | `curl -fsSL https://raw.githubusercontent.com/Shoplazza/shoplazza-cli/main/install.sh \| bash` | Auto-detects OS and architecture. |
-| **npm** | `npm install -g shoplazza-cli` | Requires Node.js `>=14.18.0`. |
+| **npm** | `npm install -g shoplazza-cli` | Requires Node.js `>=16`. |
 | **Download binary** | See [GitHub Releases](https://github.com/Shoplazza/shoplazza-cli/releases) | Manual download for any platform. |
 | **Build from source** | `git clone ... && cd shoplazza-cli && make install` | Requires Go `v1.24`+. Installs to `~/.local/bin`. |
 
@@ -292,25 +292,6 @@ shoplazza schema products.list                # Inspect a method
 Contributions are welcome! If you find a bug or have a feature suggestion, please open an Issue or Pull Request on [GitHub](https://github.com/Shoplazza/shoplazza-cli).
 
 For major changes, please open an issue first to discuss the approach.
-
-### Local Setup
-
-```bash
-# Build
-make build
-
-# Run tests
-make test
-
-# Lint (pre-PR)
-go mod tidy
-go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6 run --new-from-rev=origin/main
-
-# Install locally
-make install
-```
-
-Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`, `ci:`.
 
 ## License
 
