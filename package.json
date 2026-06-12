@@ -1,6 +1,6 @@
 {
   "name": "shoplazza-cli",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "The official CLI for Shoplazza Open Platform",
   "bin": {
     "shoplazza": "scripts/run.js"
@@ -8,8 +8,15 @@
   "scripts": {
     "postinstall": "node scripts/install.js"
   },
-  "os": ["darwin", "linux", "win32"],
-  "cpu": ["x64", "arm64"],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "engines": {
     "node": ">=14.18.0"
   },
