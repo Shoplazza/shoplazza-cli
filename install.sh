@@ -14,6 +14,7 @@ set -euo pipefail
 REPO="Shoplazza/shoplazza-cli"
 BINARY="shoplazza"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+tmp_dir=""
 
 # ── Detect OS ─────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ download() {
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 main() {
-  local os arch version archive_name download_url tmp_dir
+  local os arch version archive_name download_url
 
   os="$(detect_os)"
   arch="$(detect_arch)"
