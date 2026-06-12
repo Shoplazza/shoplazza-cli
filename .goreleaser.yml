@@ -39,6 +39,7 @@ changelog:
       - '^chore:'
 
 release:
+  mode: replace
   github:
     owner: Shoplazza
     name: shoplazza-cli

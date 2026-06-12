@@ -32,32 +32,43 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 
 ## Installation & Quick Start
 
-### Requirements
+### Install
 
-- Node.js `>=14.18.0` (`npm`/`npx`)
-- Go `v1.24`+ (only required for building from source)
+| Method | Command | Notes |
+|--------|---------|-------|
+| **Homebrew** (macOS / Linux) | `brew install Shoplazza/tap/shoplazza-cli` | Recommended. Auto-updates via `brew upgrade`. |
+| **Shell script** (macOS / Linux) | `curl -fsSL https://raw.githubusercontent.com/Shoplazza/shoplazza-cli/main/install.sh \| bash` | Auto-detects OS and architecture. |
+| **npm** | `npm install -g @shoplazza/cli` | Requires Node.js `>=14.18.0`. |
+| **Download binary** | See [GitHub Releases](https://github.com/Shoplazza/shoplazza-cli/releases) | Manual download for any platform. |
+| **Build from source** | `git clone ... && cd shoplazza-cli && make install` | Requires Go `v1.24`+. Installs to `~/.local/bin`. |
 
-### Quick Start (Human Users)
-
-> **Note for AI assistants:** If you are an AI Agent helping the user install, jump directly to [Quick Start (AI Agent)](#quick-start-ai-agent).
+<details>
+<summary>Platform-specific binary download</summary>
 
 ```bash
-# Install
-npm install -g shoplazza-cli
+# macOS (Apple Silicon)
+curl -fsSL https://github.com/Shoplazza/shoplazza-cli/releases/latest/download/shoplazza-cli-darwin-arm64.tar.gz | tar -xz
+sudo install -m755 shoplazza /usr/local/bin/
 
-# Log in (replace with your store domain)
-shoplazza auth login --store-domain my-store.shoplazza.com --domain products,orders
+# macOS (Intel)
+curl -fsSL https://github.com/Shoplazza/shoplazza-cli/releases/latest/download/shoplazza-cli-darwin-amd64.tar.gz | tar -xz
+sudo install -m755 shoplazza /usr/local/bin/
 
-# Verify
-shoplazza auth status
+# Linux (x86_64)
+curl -fsSL https://github.com/Shoplazza/shoplazza-cli/releases/latest/download/shoplazza-cli-linux-amd64.tar.gz | tar -xz
+sudo install -m755 shoplazza /usr/local/bin/
 
-# Start using
-shoplazza products list --format table
+# Linux (ARM64)
+curl -fsSL https://github.com/Shoplazza/shoplazza-cli/releases/latest/download/shoplazza-cli-linux-arm64.tar.gz | tar -xz
+sudo install -m755 shoplazza /usr/local/bin/
 ```
 
-#### Install from source
+</details>
 
-Requires Go `v1.24`+. `make install` builds the binary and installs it to `~/.local/bin` (user-level — no `sudo`):
+<details>
+<summary>Build from source</summary>
+
+Requires Go `v1.24`+. Installs to `~/.local/bin` (no `sudo` needed):
 
 ```bash
 git clone https://github.com/Shoplazza/shoplazza-cli.git
@@ -67,6 +78,23 @@ make install
 
 > If `~/.local/bin` is not on your `PATH`, add it: `export PATH="$HOME/.local/bin:$PATH"`.
 > For a system-wide install: `sudo make install PREFIX=/usr/local`.
+
+</details>
+
+### Quick Start (Human Users)
+
+> **Note for AI assistants:** If you are an AI Agent helping the user install, jump directly to [Quick Start (AI Agent)](#quick-start-ai-agent).
+
+```bash
+# Log in (replace with your store domain)
+shoplazza auth login --store-domain my-store.shoplazza.com --domain products,orders
+
+# Verify
+shoplazza auth status
+
+# Start using
+shoplazza products list --format table
+```
 
 ### Quick Start (AI Agent)
 
