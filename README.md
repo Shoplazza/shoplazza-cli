@@ -38,7 +38,7 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 |--------|---------|-------|
 | **Homebrew** (macOS / Linux) | `brew install Shoplazza/tap/shoplazza-cli` | Recommended. Auto-updates via `brew upgrade`. |
 | **Shell script** (macOS / Linux) | `curl -fsSL https://raw.githubusercontent.com/Shoplazza/shoplazza-cli/main/install.sh \| bash` | Auto-detects OS and architecture. |
-| **npm** | `npm install -g @shoplazza/cli` | Requires Node.js `>=14.18.0`. |
+| **npm** | `npm install -g shoplazza-cli` | Requires Node.js `>=14.18.0`. |
 | **Download binary** | See [GitHub Releases](https://github.com/Shoplazza/shoplazza-cli/releases) | Manual download for any platform. |
 | **Build from source** | `git clone ... && cd shoplazza-cli && make install` | Requires Go `v1.24`+. Installs to `~/.local/bin`. |
 

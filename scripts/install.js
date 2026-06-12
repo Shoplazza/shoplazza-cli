@@ -70,27 +70,28 @@ const downloadURL = `${RELEASE_BASE}/${fileName}`;
 
 function download(url, dest) {
   return new Promise((resolve, reject) => {
-    const proto = url.startsWith('https') ? https : http;
-    const file  = fs.createWriteStream(dest);
-
     function get(u) {
+      const proto = u.startsWith('https') ? https : http;
       proto.get(u, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          // Follow redirects.
-          file.close();
+          res.resume(); // Drain response before following redirect.
           get(res.headers.location);
           return;
         }
         if (res.statusCode !== 200) {
-          file.close();
-          fs.unlinkSync(dest);
+          res.resume();
           reject(new Error(`HTTP ${res.statusCode} for ${u}`));
           return;
         }
+        const file = fs.createWriteStream(dest);
         res.pipe(file);
         file.on('finish', () => file.close(resolve));
+        file.on('error', (err) => {
+          fs.unlink(dest, () => {});
+          reject(err);
+        });
       }).on('error', (err) => {
-        fs.unlinkSync(dest);
+        fs.unlink(dest, () => {});
         reject(err);
       });
     }
