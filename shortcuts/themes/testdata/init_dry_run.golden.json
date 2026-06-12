@@ -1,0 +1,7 @@
+{
+  "action": "clone-template",
+  "dry_run": true,
+  "source": "https://codeload.github.com/Shoplazza/Nova-2023/tar.gz/refs/heads/main",
+  "target": "./my-shop",
+  "theme_dir": "./my-shop"
+}

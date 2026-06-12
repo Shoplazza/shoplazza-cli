@@ -1,0 +1,43 @@
+{
+  "plans": [
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/abc",
+      "query": null
+    },
+    {
+      "body": {
+        "_content_type": "multipart/form-data; boundary=\u003cruntime\u003e",
+        "_kind": "multipart/form-data",
+        "_parts": [
+          {
+            "content_type": "application/zip",
+            "filename": "\u003ctheme\u003e.zip",
+            "name": "file"
+          }
+        ]
+      },
+      "method": "POST",
+      "path": "/openapi/2020-07/themes/upload",
+      "query": {
+        "merchant_theme_id": "",
+        "name": "\u003ctheme_name\u003e",
+        "theme_id": "abc",
+        "version": "\u003ctheme_version\u003e"
+      }
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/task/\u003ctask_id-from-upload\u003e",
+      "query": null
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/abc/doctree",
+      "query": null
+    }
+  ]
+}

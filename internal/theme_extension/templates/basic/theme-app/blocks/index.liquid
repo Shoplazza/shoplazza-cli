@@ -1,0 +1,16 @@
+{% use "{{projectName}}.css" %}
+
+<div id="{{projectName}}" class="container">
+  <h1>{{ 'i18n.initial.title' | t }}</h1>
+  {% include "{{projectName}}" %}
+</div>
+
+{% schema %} 
+{
+  "name": {
+    "en-US": "{{projectName}}(dev)",
+    "zh-CN": "{{projectName}}(开发)"
+  },
+  "settings": []
+}
+{% endschema %}

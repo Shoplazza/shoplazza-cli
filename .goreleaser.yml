@@ -1,0 +1,43 @@
+version: 2
+
+builds:
+  - binary: shoplazza
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X shoplazza-cli-v2/internal/build.Version={{ .Version }}
+      - -X shoplazza-cli-v2/internal/build.Date={{ .Date }}
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - name_template: "shoplazza-cli-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+release:
+  github:
+    owner: Shoplazza
+    name: shoplazza-cli

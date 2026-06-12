@@ -1,0 +1,18 @@
+{% include "{{projectName}}_css" %}
+
+<div id="{{projectName}}" class="container">
+  <h1>{{ 'i18n.initial.title' | t }}</h1>
+  {% include "{{projectName}}" %}
+</div>
+
+{% schema %} 
+{
+  "name": {
+    "en-US": "{{projectName}}(dev)",
+    "zh-CN": "{{projectName}}(开发)"
+  },
+  "icon":"https://assets.shoplazza.com/oss/operation/a425c6e10e32f87a1e7271c9ed9347d8.svg",
+  "target":"body",
+  "settings": []
+}
+{% endschema %}

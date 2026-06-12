@@ -1,299 +1,290 @@
-<p align="center">
-  <h3 align="center">Shoplazza CLI</h3>
-  <p align="center">Shoplazza CLI is a command-line interface tool that helps you build Shoplazza themes. It quickly generates Shoplazza themes. You can also use it to automate many common development tasks.</p>
-  <p align="center">
-    <img src="https://img.shields.io/npm/v/shoplazza-cli">
-  </p>
-</p>
+# shoplazza-cli
 
----
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.24-blue.svg)](https://go.dev/)
+[![npm version](https://img.shields.io/npm/v/shoplazza-cli.svg)](https://www.npmjs.com/package/shoplazza-cli)
 
-Shoplazza CLI is a cross-platform command line tool that you can use to build Shoplazza themes.
+[中文版](./README.zh.md) | [English](./README.md)
 
-## Node Version
+The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — built for humans and AI Agents. Develop apps and themes, manage products, discounts, orders and customers, all from the terminal with structured output designed for AI Agent integration.
 
-use 14.18.2
+[Install](#installation--quick-start) · [Auth](#authentication) · [Development](#development-workflows) · [Commands](#three-layer-command-system) · [Advanced](#advanced-usage) · [Contributing](#contributing)
+
+## Why shoplazza-cli?
+
+- **Agent-Native Design** — Structured JSON output out of the box; AI Agents can operate Shoplazza stores with zero extra setup
+- **E-Commerce Focused** — Products, Discounts, Orders, Customers with full CRUD and 20+ shortcut commands for high-frequency operations
+- **Full Developer Workflow** — App creation, extension scaffolding (checkout / theme / function), local dev server with HMR, one-command deploy; plus theme init, live reload, and packaging
+- **Secure & Controllable** — Input injection protection, OS-native keychain credential storage, token auto-refresh
+- **Three-Layer Architecture** — Shortcuts (human & AI friendly) → API Commands (OpenAPI-synced) → Raw API (full coverage)
+- **Up and Running in 3 Minutes** — Interactive login, from install to first API call in 3 steps
 
 ## Features
 
-Shoplazza CLI accelerates your theme development process with the following features:
+| Domain | Capabilities |
+|--------|-------------|
+| 🛍️ Products | CRUD + shortcuts: `+search`, `+publish`, `+unpublish`, `+create`, `+set-price`, `+stock` |
+| 🏷️ Discounts | CRUD + 8 shortcut creators for automatic & code discounts |
+| 📦 Orders | CRUD + shortcuts: `+search`, `+count`, `+ship`, `+refund`, `+update-tracking` |
+| 👤 Customers | CRUD + shortcuts: `+search`, `+create` |
+| 🎨 Themes | `init`, `serve` (live reload), `pull`, `push`, `package`, `share` |
+| 🧩 App | Full lifecycle: init → extension create → dev → deploy; extensions: checkout, theme, function |
 
-- Safely preview, test, and share changes to themes using unpublish themes
-- Hot reload CSS and section changes, or automatically refresh a page on file change, when previewing a theme.
-- Initialize a new theme using Nova 2023 as a starting point.
-- Use workflow tools like Git to work with a team of theme developers.
-- Upload themes to your store.
-- Watch for local changes and upload them automatically to Shoplazza.
-- Work on Linux, macOS, and Windows.
+## Installation & Quick Start
 
-## Installation [shoplazza-cli](https://www.npmjs.com/package/shoplazza-themekit)
+### Requirements
 
-```terminal
-$ npm install shoplazza-cli -g
+- Node.js `>=14.18.0` (`npm`/`npx`)
+- Go `v1.24`+ (only required for building from source)
+
+### Quick Start (Human Users)
+
+> **Note for AI assistants:** If you are an AI Agent helping the user install, jump directly to [Quick Start (AI Agent)](#quick-start-ai-agent).
+
+```bash
+# Install
+npm install -g shoplazza-cli
+
+# Log in (replace with your store domain)
+shoplazza auth login --store-domain my-store.shoplazza.com --domain products,orders
+
+# Verify
+shoplazza auth status
+
+# Start using
+shoplazza products list --format table
 ```
 
-## Before you start
+#### Install from source
 
-Before you start using Shoplazza CLI to develop themes, make sure that you do the following tasks:
+Requires Go `v1.24`+. `make install` builds the binary and installs it to `~/.local/bin` (user-level — no `sudo`):
 
-- Install [Node.js](https://nodejs.org/en/) (14.14.0 or higher).
-- Install [Git](https://git-scm.com/downloads).
-- Make sure that you have a account with the Manage themes permission for the store that you want to work on, or you're the owner of the store.
-- Note the URL of the store that you want to work on.
-- Make sure that you're connected to the internet. Most Shoplazza CLI commands need an internet connection to run.
-
-## Getting started
-
-### Authenticate
-
-```terminal
-$ shoplazza login --store developer.myshoplaza.com
+```bash
+git clone https://github.com/Shoplazza/shoplazza-cli.git
+cd shoplazza-cli
+make install
 ```
 
-> In your browser window, log into the account that's attached to the store that you want to use for development.
+> If `~/.local/bin` is not on your `PATH`, add it: `export PATH="$HOME/.local/bin:$PATH"`.
+> For a system-wide install: `sudo make install PREFIX=/usr/local`.
 
-### Create a new theme
+### Quick Start (AI Agent)
 
-```terminal
-$ shoplazza theme init
+> Run the login command, extract the authorization URL from output, and send it to the user. The command polls until the user completes OAuth in their browser.
+
+```bash
+npm install -g shoplazza-cli
+shoplazza auth login --store-domain <store-domain> --domain products,orders
+shoplazza auth status
 ```
 
-> Use `shoplazza theme init` to create a new theme on your local machine. This command clones a Git repository to your local machine to use as the starting point for building a theme.
+## Authentication
 
-### Connect to existing theme
+| Command | Description |
+|---------|-------------|
+| `auth login` | Account-only OAuth — opens browser, obtains UAT |
+| `auth login --store-domain <domain>` | OAuth + store token (requires `--scope` or `--domain`) |
+| `auth store use --store-domain <domain>` | Switch current store |
+| `auth logout` | Sign out and remove credentials |
+| `auth status` | Show current auth state |
+| `auth scopes` | List available and granted scopes |
 
-```terminal
-$ shoplazza theme pull
+```bash
+# Interactive login with store
+shoplazza auth login --store-domain my-store.myshoplazza.com --domain products
+
+# UAT fast-path (non-interactive, for CI)
+shoplazza auth login --uat <user-access-token>
+
+# Switch store
+shoplazza auth store use --store-domain another-store.myshoplazza.com
+
+# Check status
+shoplazza auth status
 ```
 
-> Pull the theme onto your local machine using `shoplazza theme pull`. You're prompted to select a theme from the list of themes on the store.
+Access tokens are stored in the OS-native keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service).
 
-### Preview, test, and share your theme
+## Development Workflows
 
-```terminal
-$ shoplazza theme serve
+### App Development
+
+The CLI covers the full app lifecycle: create, configure, develop, and deploy.
+
+```bash
+# 1. Create a new app project (creates a sub-directory)
+shoplazza app init --name "My App" --partner <partner-id>
+
+# 2. Add extensions (theme / checkout / function)
+cd my-app
+shoplazza app extension create --type checkout --name my-checkout
+shoplazza app extension create --type theme --name my-theme --theme-type basic
+shoplazza app extension create --type function --name my-fn
+
+# 3. Local development (dev server + HMR) — store comes from the active app config
+shoplazza app dev
+
+# 4. Deploy all extensions
+shoplazza app deploy
+
+# 5. View deployed versions
+shoplazza app versions
 ```
 
-> After you create or navigate to your theme, you can run `shoplazza theme serve` to interact with the theme in a browser.
+<details>
+<summary>Additional app commands</summary>
 
-### Push your theme to your store
+```bash
+shoplazza app list                              # List apps in your account
+shoplazza app info                              # Print app and extension info
+shoplazza app config use --config alt.toml      # Switch active app config
+shoplazza app config link --client-id <id>      # Link an existing app
 
-```terminal
-$ shoplazza theme push
+# Function extensions (compile/release individually)
+shoplazza app function compile --extension my-fn
+shoplazza app function release --extension my-fn
+shoplazza app function list
 ```
 
-> Use `shoplazza theme push` to upload your local theme files to Shoplazza, overwriting the remote versions.
+</details>
 
-### Publish your theme
+### Theme Development
 
-```terminal
-$ shoplazza theme publish
+The CLI provides a complete theme development workflow with live reload.
+
+```bash
+# 1. Scaffold a new theme from the Nova-2023 template
+shoplazza themes init --name my-theme
+
+# 2. Start the dev server (auto-creates a development theme, live reload)
+cd my-theme
+shoplazza themes serve
+
+# 3. Pull / push / package
+shoplazza themes pull --theme-id <theme-id>
+shoplazza themes push --theme-id <theme-id>
+shoplazza themes package
+
+# 4. Upload as a preview
+shoplazza themes share
 ```
 
-> Use `shoplazza theme publish` to select and publish an unpublished theme from your theme library. If you want to publish your local theme, then you need to run `shoplazza theme push` first.
+## Three-Layer Command System
 
-### Find your theme ID
+The CLI provides three levels of granularity, covering everything from quick operations to fully custom API calls.
 
-```terminal
-$ shoplazza theme list
+### 1. Shortcuts
+
+Prefixed with `+`, designed to be friendly for both humans and AI, with smart defaults and structured output.
+
+```bash
+# Products
+shoplazza products +search --keyword "shirt"
+shoplazza products +publish <product-id>
+
+# Discounts — automatic
+shoplazza discounts +rebate --title "Summer Sale" --percentage 15 --min-amount 100
+shoplazza discounts +flashsale --title "Flash Sale" --percentage 20 --product-ids "123,456"
+
+# Discounts — code-based
+shoplazza discounts +percent-code --code "SAVE20" --percentage 20
+shoplazza discounts +bxgy-code --code "BUY2GET1" --buy-quantity 2 --get-quantity 1
+
+# Orders
+shoplazza orders +ship <order-id>
 ```
 
-> You might want to use a theme's ID to pull, push, publish, or delete a theme using Shoplazza CLI.
+Run `shoplazza <domain> --help` to see all shortcuts for a domain.
 
-## Core commands
+### 2. API Commands
 
-### help
+Auto-generated from OpenAPI metadata — commands mapped 1:1 to platform endpoints.
 
-```terminal
-$ shoplazza help
+```bash
+shoplazza products list
+shoplazza products get <product-id>
+shoplazza products create --data @product.json
+
+shoplazza discounts list
+shoplazza discounts create-discount --data @discount.json
+
+# All domains: products, discounts, orders, customers, billing, shop, themes, webhook
+shoplazza orders list
+shoplazza customers list
 ```
 
-> Lists the available commands and describes what they do.
+### 3. Raw API Calls
 
-### login
+Call any Shoplazza Open Platform endpoint directly for full coverage.
 
-```terminal
-$ shoplazza login --store developer.myshoplaza.com
-
-$ shoplazza login --partner
+```bash
+shoplazza api rest GET /openapi/2022-01/products.json
+shoplazza api rest POST /openapi/2022-01/products.json \
+  --data '{"product": {"title": "New Product", "status": "active"}}'
 ```
 
-> --store: Authenticates and logs you into the specified store with Shoplazza CLI.
-> --partner: Authenticates and logs you into the partner with Shoplazza CLI.
+## Advanced Usage
 
-### logout
+### Common Flags
 
-```terminal
-$ shoplazza logout
+| Flag | Scope | Description |
+|------|-------|-------------|
+| `--format json\|pretty\|table` | All commands | Output format (default: `json`) |
+| `--fields "f1,f2"` | Shortcut commands | Response field projection |
+| `--dry-run` | API & shortcut commands | Preview request without executing |
+| `--jq "expr"` / `-q` | API commands | Filter JSON output with jq expression |
 
-$ shoplazza logout --partner
+### Schema Introspection
+
+Inspect any service's methods, parameters, required scopes, and response shape:
+
+```bash
+shoplazza schema                              # List all services
+shoplazza schema products                     # Inspect a service
+shoplazza schema products.list                # Inspect a method
 ```
 
-> Default to logout your store, logs you out of the Shoplazza account and store, the logout command clears credentials. You need to reauthenticate the next time that you connect to a store.
-> --partner: Clear your partner info, and you need to reauthenticate the next time.
+### Environment Variables
 
+| Variable | Description |
+|----------|-------------|
+| `SHOPLAZZA_UAT` | User Access Token for non-interactive login (equivalent to `--uat`) |
+| `SHOPLAZZA_CLI_AUTH_BASE_URL` | Override auth base URL (default: `https://partners.shoplazza.com`) |
 
-### switch
+## Security & Risk Warnings
 
-```terminal
-$ shoplazza switch --store developer.myshoplaza.com
+> Read Before Use
+
+- **AI Agent Automation Risk** — When AI Agents operate the CLI on your behalf, all API calls carry real consequences (creating products, modifying orders, deleting discounts). Always review the Agent's proposed commands before execution.
+- **Credential Safety** — Tokens are stored in the OS-native keychain. Never share your UAT or store tokens. Rotate credentials immediately if you suspect exposure.
+- **Scope Control** — Use `--scope` or `--domain` to limit the permissions granted during login. Grant only the scopes your workflow requires.
+
+## Contributing
+
+Contributions are welcome! If you find a bug or have a feature suggestion, please open an Issue or Pull Request on [GitHub](https://github.com/Shoplazza/shoplazza-cli).
+
+For major changes, please open an issue first to discuss the approach.
+
+### Local Setup
+
+```bash
+# Build
+make build
+
+# Run tests
+make test
+
+# Lint (pre-PR)
+go mod tidy
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6 run --new-from-rev=origin/main
+
+# Install locally
+make install
 ```
 
-> Switches between stores without logging out and logging in again.
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`, `ci:`.
 
-### store
+## License
 
-```terminal
-$ shoplazza store
-```
-
-> Displays the store that you're currently connected to.
-
-### version
-
-```terminal
-$ shoplazza version
-```
-
-> Displays the version of Shoplazza CLI that you're running.
-
-## Theme commands
-
-### init
-
-```terminal
-$ shoplazza theme init [--name]
-```
-
-> Clones a Git repository to your local machine to use as the starting point for building a theme.
-
-### serve
-
-```terminal
-$ shoplazza theme serve [--theme]
-```
-
-> Uploads the current theme to the store that you're connected to, and returns the preview link.
-
-### list
-
-```terminal
-$ shoplazza theme list
-```
-
-> Lists the themes in your store, along with their IDs and statuses.
-
-### pull
-
-```terminal
-$ shoplazza theme pull [--theme]
-```
-
-> Retrieves theme files from Shoplazza, if no theme is specified, then you're prompted to select the theme to pull from the list of the themes in your store.
-
-### push
-
-```terminal
-$ shoplazza theme push [--theme]
-```
-
-> Uploads your local theme files to Shoplazza, overwriting the remote theme if specified, if no theme is specified, then you're prompted to select the theme to overwrite from the list of the themes in your store.
-
-### share
-
-```terminal
-$ shoplazza theme share
-```
-
-> Uploads your theme as a new, unpublished theme in your theme library. The command return a preview link that you can share with others.
-
-### publish
-
-```terminal
-$ shoplazza theme publish [--theme]
-```
-
-> Publishes an unpublished theme from your theme library, if no theme ID is specified, then you're prompted to select the theme that you want to publish from the list of themes in your store.
-
-### package
-
-```terminal
-$ shoplazza theme package
-```
-
-> Packages your local theme files into a ZIP file that can be uploaded to Shoplazza. The ZIP file uses the name theme_name-theme_version.zip, based on parameters in your `settings_schema.json` file.
-
-### delete
-
-```terminal
-$ shoplazza theme delete [--theme]
-```
-
-> Deletes a theme from your store, if no theme is specified, then you're prompted to select the theme that you want to delete from the list of themes in your store.
-
-## app
-
-### generate
-
-```terminal
-$ shoplazza app generate extension
-```
-
-> Choose Your app type and download template.
-
-### build
-
-```terminal
-$ shoplazza app build
-```
-
-> Minify css / js files and generate manifest.json and zip.
-
-### deploy
-
-```terminal
-$ shoplazza app deploy extension
-```
-
-> Deploy your zip to oss for publish.
-
-### pupblish
-
-```terminal
-$ shoplazza app publish extension
-```
-
-> Choose your extension version and publish to your store.
-
-## Theme Directory
-
-You can run certain theme commands, such as shoplazza theme serve, only if the directory you're using matches the default Shoplazza theme directory structure. This structure represents a buildless theme, or a theme that has already gone through any necessary file transformations. If you use build tools to generate theme files, then you might need to run commands from the directory where the generated files are stored.
-
-The default Shoplazza theme directory structure is as follows:
-
-```terminal
-└── project
-    ├── assets
-    ├── config
-    ├── layout
-    ├── locales
-    ├── sections
-    ├── snippets
-    └── templates
-```
-
-## Support(OS Terminals)
-
-You should expect mostly good support for the CLI below. This does not mean we won't look at issues found on other command line - feel free to report any!
-
-- Mac OS
-  - Terminal.app
-  - iTerm
-- Windows (Known issues):
-  - ConEmu
-  - cmd.exe
-  - Powershell
-  - Cygwin
-- Linux (Ubuntu, openSUSE, Arch Linux, etc):
-  - gnome-terminal (Terminal GNOME)
-  - konsole
+This project is licensed under the **MIT License**.
+When running, it calls the Shoplazza Open Platform APIs. Usage of these APIs is subject to the [Shoplazza Developer Agreement](https://www.shoplazza.dev/).

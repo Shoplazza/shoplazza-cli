@@ -1,0 +1,18 @@
+{
+  "name": "{{projectName}}",
+  "version": "1.0.0",
+  "description": "theme basic extension",
+  "main": "null",
+  "scripts": {
+    "start": "shoplazza te serve",
+    "build": "shoplazza te build",
+    "deploy": "shoplazza te deploy",
+    "versions": "shoplazza te versions",
+    "list": "shoplazza te list",
+    "connect": "shoplazza te connect",
+    "release": "shoplazza te release"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

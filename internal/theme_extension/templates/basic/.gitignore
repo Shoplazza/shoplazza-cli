@@ -1,0 +1,14 @@
+.idea
+.history
+dist
+*node_modules
+*.DS_Store
+.log
+*.swo
+*.swp
+dll
+styleguide
+.nyc_output
+coverage
+dump.rdb
+dragon*.config.js

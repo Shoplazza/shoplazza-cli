@@ -1,0 +1,16 @@
+{
+  "plans": [
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/abc",
+      "query": null
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2020-07/themes/abc/download",
+      "query": null
+    }
+  ]
+}

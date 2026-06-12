@@ -1,0 +1,31 @@
+{
+  "plans": [
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2020-07/shop",
+      "query": null
+    },
+    {
+      "body": {
+        "_content_type": "multipart/form-data; boundary=\u003cruntime\u003e",
+        "_kind": "multipart/form-data",
+        "_parts": [
+          {
+            "content_type": "application/zip",
+            "filename": "\u003ctheme\u003e.zip",
+            "name": "file"
+          }
+        ]
+      },
+      "method": "POST",
+      "path": "/openapi/2020-07/themes/upload",
+      "query": {
+        "merchant_theme_id": "",
+        "name": "X",
+        "theme_id": "",
+        "version": "1.0"
+      }
+    }
+  ]
+}

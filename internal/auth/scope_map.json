@@ -1,0 +1,76 @@
+{
+  "products": {
+    "scope": "product",
+    "children": {
+      "images":      { "scope": "product" },
+      "variants":    { "scope": "product" },
+      "categories":  { "scope": "product" },
+      "collections": { "scope": "collection" },
+      "collects":    { "scope": "collection" },
+      "comments":    { "scope": "comments" },
+      "inventory":   { "scope": "inventory" },
+      "locations":   { "scope": "product" },
+      "suppliers":   { "scope": "product" },
+      "procurement": { "scope": "product" },
+      "gift-cards":  { "scope": "gift_cards" }
+    }
+  },
+
+  "orders": {
+    "scope": "order",
+    "children": {
+      "post-sales":        { "scope": "order" },
+      "risks":             { "scope": "order" },
+      "refunds":           { "scope": "order" },
+      "transactions":      { "scope": "order" },
+      "fulfillments":      { "scope": "order" },
+      "tracking-carriers": { "scope": null },
+      "shipping-schemas":  { "scope": null }
+    }
+  },
+
+  "customers": {
+    "scope": "customer",
+    "children": {
+      "addresses": { "scope": "customer" }
+    }
+  },
+
+  "discounts": {
+    "scope": "price_rules",
+    "children": {
+      "coupons": { "scope": "price_rules" }
+    }
+  },
+
+  "billing": {
+    "children": {
+      "one-time-charges":  { "scope": null },
+      "recurring-charges": { "scope": null },
+      "usage-charges":     { "scope": null },
+      "transactions":      { "scope": null }
+    }
+  },
+
+  "shop": {
+    "children": {
+      "info":                  { "scope": "shop" },
+      "articles":              { "scope": "collection" },
+      "blogs":                 { "scope": "collection" },
+      "pages":                 { "scope": "shop_navigation" },
+      "redirects":             { "scope": "shop_navigation" },
+      "files":                 { "scope": null },
+      "metafields-shop":       { "scope": null },
+      "metafields-resource":   { "scope": null },
+      "metafields-definition": { "scope": null },
+      "analytics":             { "scope": null },
+      "carrier-services":      { "scope": "product" }
+    }
+  },
+
+  "themes": { "scope": "themes" },
+
+  "checkout": { "scope": "themes" },
+
+  "webhook": { "scope": null }
+}
