@@ -20,7 +20,8 @@ archives:
   - name_template: "shoplazza-cli-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
       - README.md
       - LICENSE
@@ -41,3 +42,16 @@ release:
   github:
     owner: Shoplazza
     name: shoplazza-cli
+
+brews:
+  - repository:
+      owner: Shoplazza
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/Shoplazza/shoplazza-cli"
+    description: "The official CLI for Shoplazza Open Platform"
+    license: "MIT"
+    install: |
+      bin.install "shoplazza"
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/shoplazza --version")

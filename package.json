@@ -1,5 +1,5 @@
 {
-  "name": "shoplazza-cli",
+  "name": "@shoplazza/cli",
   "version": "2.0.0",
   "description": "The official CLI for Shoplazza Open Platform",
   "bin": {
