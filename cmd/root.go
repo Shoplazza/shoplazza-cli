@@ -81,6 +81,8 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 	var pendingUpdate *updatecheck.Info
 	if !isUpdateCheckSkippedCommand(os.Args[1:]) {
 		pendingUpdate = updatecheck.CheckCached(build.Version)
+		// Fire-and-forget: on fast-exiting commands the process may end before this
+		// finishes — that's fine, it refreshes the cache for the next run (no latency).
 		go updatecheck.RefreshCache(build.Version)
 	}
 

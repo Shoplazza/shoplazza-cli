@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -112,5 +113,23 @@ func TestRefreshCache_StaleFetches(t *testing.T) {
 	s, err := loadState()
 	if err != nil || s == nil || s.LatestVersion != "9.9.9" {
 		t.Fatalf("缓存未更新: %+v err=%v", s, err)
+	}
+}
+
+func TestCheckCached_SkipsInCI(t *testing.T) {
+	dir := setup(t)
+	writeCache(t, dir, state{LatestVersion: "2.5.0", CheckedAt: time.Now().Unix()})
+	t.Setenv("CI", "true")
+	if info := CheckCached("2.0.0"); info != nil {
+		t.Fatalf("got %+v want nil (CI env should skip)", info)
+	}
+}
+
+func TestInfoMessage(t *testing.T) {
+	msg := (&Info{Current: "2.0.0", Latest: "2.5.0"}).Message()
+	for _, want := range []string{"2.5.0", "2.0.0", "shoplazza update"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("Message()=%q missing %q", msg, want)
+		}
 	}
 }
