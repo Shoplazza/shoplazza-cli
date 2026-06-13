@@ -42,7 +42,10 @@
   "files": [
     "scripts/install.js",
     "scripts/run.js",
-    "scripts/jsbuild/",
+    "scripts/jsbuild/index.js",
+    "scripts/jsbuild/vite.config.js",
+    "scripts/jsbuild/dev/",
+    "scripts/jsbuild/plugin/",
     "CHANGELOG.md"
   ]
 }

@@ -19,6 +19,16 @@ set -euo pipefail
 
 if [[ $# -ge 1 ]]; then
     VERSION="$1"
+    if command -v node &>/dev/null; then
+        PKG_VERSION=$(node -p "require('./package.json').version")
+        if [[ "${VERSION#v}" != "${PKG_VERSION#v}" ]]; then
+            echo "Error: version '${VERSION#v}' does not match package.json version '${PKG_VERSION}'." >&2
+            echo "  Bump package.json first, or omit the argument to use the package.json version." >&2
+            exit 1
+        fi
+    else
+        echo "warning: node not found — skipping package.json version consistency check." >&2
+    fi
 else
     # 从 package.json 读取
     if ! command -v node &>/dev/null; then
