@@ -22,3 +22,21 @@ func TestDisplayVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestDisplayDate(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"2026-06-12T08:38:20Z", "2026-06-12"},      // RFC3339 UTC → day precision
+		{"2026-06-12T08:38:20+08:00", "2026-06-12"}, // RFC3339 with offset
+		{"unknown", "unknown"},                      // default fallback (unparseable)
+		{"", ""},                                    // empty fallback
+	}
+	for _, c := range cases {
+		old := Date
+		Date = c.in
+		got := DisplayDate()
+		Date = old
+		if got != c.want {
+			t.Errorf("DisplayDate(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
