@@ -22,6 +22,7 @@ import (
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/output"
 	"shoplazza-cli-v2/internal/registry"
+	"shoplazza-cli-v2/internal/updatecheck"
 	"shoplazza-cli-v2/shortcuts"
 
 	"github.com/spf13/cobra"
@@ -75,9 +76,24 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 	// Ctrl-C force-kills even if the command ignores ctx.
 	go func() { <-ctx.Done(); stop() }()
 
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
+	// 自动更新检测(仅真人交互)。同步读缓存(零延迟),后台 goroutine 刷新供下次。
+	// 跳过 update/completion 命令,避免边升级边提示、避免污染补全输出。
+	var pendingUpdate *updatecheck.Info
+	if !isUpdateCheckSkippedCommand(os.Args[1:]) {
+		pendingUpdate = updatecheck.CheckCached(build.Version)
+		go updatecheck.RefreshCache(build.Version)
+	}
+
+	execErr := rootCmd.ExecuteContext(ctx)
+
+	// 命令输出之后,真人交互时往 stderr 打一行提示(成功/失败路径都打,绝不碰 stdout)。
+	if pendingUpdate != nil && stderrIsTTY() {
+		fmt.Fprintln(os.Stderr, "\n"+pendingUpdate.Message())
+	}
+
+	if execErr != nil {
 		var exitErr *output.ExitError
-		if errors.As(err, &exitErr) {
+		if errors.As(execErr, &exitErr) {
 			output.WriteErrorEnvelope(os.Stderr, exitErr)
 			return exitErr.Code
 		}
@@ -85,7 +101,7 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 		if failing, _, ferr := rootCmd.Find(os.Args[1:]); ferr == nil && failing != nil {
 			_ = failing.Usage()
 		}
-		fmt.Fprintln(os.Stderr, "Error:", err.Error())
+		fmt.Fprintln(os.Stderr, "Error:", execErr.Error())
 
 		return output.ExitValidation
 	}
