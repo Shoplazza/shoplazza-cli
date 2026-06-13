@@ -52,7 +52,7 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
-	rootCmd.SetVersionTemplate(fmt.Sprintf("shoplazza version %s (%s)\n", build.DisplayVersion(), build.Date))
+	rootCmd.SetVersionTemplate(fmt.Sprintf("shoplazza version %s (%s)\n", build.DisplayVersion(), build.DisplayDate()))
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
