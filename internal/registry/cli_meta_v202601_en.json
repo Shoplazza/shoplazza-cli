@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-06-11T06:54:22Z",
+  "generated_at": "2026-06-17T02:43:22Z",
   "modules": [
     {
       "name": "billing",
@@ -9079,6 +9079,36 @@
               "in": "query",
               "type": "string",
               "description": "Filter themes by published status. \"0\" for unpublished, \"1\" for published."
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "type": "string",
+              "description": "Cursor for pagination. Use the cursor returned in the previous response to retrieve the next page."
+            },
+            {
+              "name": "page_size",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Number of themes to return per page. Range: 1-250. Default is 10.",
+              "minimum": 1,
+              "maximum": 250
+            },
+            {
+              "name": "ids",
+              "in": "query",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "List of theme IDs to filter by. Only themes matching the given IDs are returned."
+            },
+            {
+              "name": "contain_ext_theme",
+              "in": "query",
+              "type": "boolean",
+              "description": "Whether to include extension themes in the returned results."
             }
           ],
           "response_schema": "v202506.ListThemeResponse"
@@ -12255,6 +12285,11 @@
           "format": "int32"
         },
         {
+          "name": "add_payment_info_uv",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
           "name": "begin_checkout_pv",
           "type": "integer",
           "format": "int32"
@@ -15119,6 +15154,14 @@
             "type": "object",
             "schema": "v202506.Theme"
           }
+        },
+        {
+          "name": "cursor",
+          "type": "string"
+        },
+        {
+          "name": "has_more",
+          "type": "boolean"
         }
       ]
     },
@@ -23208,7 +23251,7 @@
           "type": "string"
         },
         {
-          "name": "layer",
+          "name": "discount_layer",
           "type": "object",
           "schema": "v202601.response.DiscountLayerResp"
         },
