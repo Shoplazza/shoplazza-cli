@@ -11,7 +11,7 @@ func TestIsUpdateCheckSkippedCommand(t *testing.T) {
 	}
 	for _, args := range skipped {
 		if !isUpdateCheckSkippedCommand(args) {
-			t.Errorf("args %v 应被跳过", args)
+			t.Errorf("args %v should be skipped", args)
 		}
 	}
 	notSkipped := [][]string{
@@ -22,7 +22,7 @@ func TestIsUpdateCheckSkippedCommand(t *testing.T) {
 	}
 	for _, args := range notSkipped {
 		if isUpdateCheckSkippedCommand(args) {
-			t.Errorf("args %v 不应被跳过", args)
+			t.Errorf("args %v should not be skipped", args)
 		}
 	}
 }

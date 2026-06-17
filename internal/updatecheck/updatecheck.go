@@ -13,16 +13,16 @@ const (
 	stateFile = "update-check.json"
 )
 
-// osUserConfigDir 在测试中可覆盖。
+// osUserConfigDir is overridable in tests.
 var osUserConfigDir = os.UserConfigDir
 
-// Info 描述一次可用更新。
+// Info describes an available update.
 type Info struct {
 	Current string
 	Latest  string
 }
 
-// Message 返回单行 stderr 提示文案。
+// Message returns a single-line stderr notice string.
 func (i *Info) Message() string {
 	return fmt.Sprintf("⚡ shoplazza-cli %s is available (current %s) — run 'shoplazza update'", i.Latest, i.Current)
 }
@@ -71,7 +71,7 @@ func saveState(s *state) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-// CheckCached 只读本地缓存(零网络)。当不跳过、缓存有 latest 且 latest 比 current 新时返回 Info。
+// CheckCached reads the local cache only (no network). Returns Info when not skipped, the cache has a latest version, and it is newer than current.
 func CheckCached(currentVersion string) *Info {
 	if shouldSkip(currentVersion) {
 		return nil
@@ -86,14 +86,14 @@ func CheckCached(currentVersion string) *Info {
 	return &Info{Current: currentVersion, Latest: s.LatestVersion}
 }
 
-// RefreshCache 在缓存过期(>24h)时联网抓取最新版并写回;新鲜或跳过时 no-op。
-// 任何错误静默。可从 goroutine 调用。
+// RefreshCache fetches the latest version over the network and writes it back when the cache is stale (>24h); no-op when fresh or skipped.
+// All errors are silenced. Safe to call from a goroutine.
 func RefreshCache(currentVersion string) {
 	if shouldSkip(currentVersion) {
 		return
 	}
 	if s, err := loadState(); err == nil && s != nil && time.Since(time.Unix(s.CheckedAt, 0)) < cacheTTL {
-		return // 新鲜
+		return // fresh
 	}
 	latest, err := fetchLatest()
 	if err != nil {

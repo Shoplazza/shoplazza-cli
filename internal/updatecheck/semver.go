@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// IsNewer 报告 a 是否比 b 新。版本号是纯 "X.Y.Z" 三段数字(可带 v 前缀)。
-// a 不可解析→false(无法确认更新);b 不可解析→true(本地版本视为过时)。
+// IsNewer reports whether version a is newer than b. Versions are strict "X.Y.Z" three numeric parts (optional v prefix).
+// a unparseable -> false (cannot confirm update); b unparseable -> true (local version treated as stale).
 func IsNewer(a, b string) bool {
 	ap := parseVersion(a)
 	bp := parseVersion(b)
@@ -24,9 +24,9 @@ func IsNewer(a, b string) bool {
 	return false
 }
 
-// parseVersion 解析 "X.Y.Z"(可带 v 前缀)为 [major, minor, patch]。
-// 任何其它形式(dev / git-describe 构建、prerelease、段数不对、非数字)都返回 nil,
-// 调用方据此视为"非 release"。
+// parseVersion parses "X.Y.Z" (optional v prefix) into [major, minor, patch].
+// Any other form (dev/git-describe builds, prerelease, wrong number of parts, non-numeric) returns nil,
+// which the caller treats as a non-released version.
 func parseVersion(v string) *[3]int {
 	parts := strings.Split(strings.TrimPrefix(v, "v"), ".")
 	if len(parts) != 3 {
@@ -43,8 +43,8 @@ func parseVersion(v string) *[3]int {
 	return &out
 }
 
-// isReleaseVersion 报告 v 是否为已发布版本(纯 X.Y.Z,可带 v 前缀)。
-// dev / git-describe 构建及其它任何非纯三段数字的字符串都解析失败,视为非 release。
+// isReleaseVersion reports whether v is a released version (strict X.Y.Z, optional v prefix).
+// dev/git-describe builds and any other non-three-numeric-part strings fail to parse and are treated as non-release.
 func isReleaseVersion(v string) bool {
 	return parseVersion(v) != nil
 }

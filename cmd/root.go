@@ -76,8 +76,9 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 	// Ctrl-C force-kills even if the command ignores ctx.
 	go func() { <-ctx.Done(); stop() }()
 
-	// 自动更新检测(仅真人交互)。同步读缓存(零延迟),后台 goroutine 刷新供下次。
-	// 跳过 update/completion 命令,避免边升级边提示、避免污染补全输出。
+	// Auto update check (interactive use only). Read the cache synchronously (zero latency),
+	// refresh in a background goroutine for the next run.
+	// Skip update/completion commands to avoid nagging mid-update and avoid corrupting completion output.
 	var pendingUpdate *updatecheck.Info
 	if !isUpdateCheckSkippedCommand(os.Args[1:]) {
 		pendingUpdate = updatecheck.CheckCached(build.Version)
@@ -88,7 +89,8 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 
 	execErr := rootCmd.ExecuteContext(ctx)
 
-	// 命令输出之后,真人交互时往 stderr 打一行提示(成功/失败路径都打,绝不碰 stdout)。
+	// After the command output, print a one-line notice to stderr for interactive use
+	// (printed on both success and failure paths — never touches stdout).
 	if pendingUpdate != nil && stderrIsTTY() {
 		fmt.Fprintln(os.Stderr, "\n"+pendingUpdate.Message())
 	}

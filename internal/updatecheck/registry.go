@@ -13,10 +13,10 @@ const (
 	maxBody      = 256 << 10 // 256 KB
 )
 
-// registryURL 是 npm dist-tag latest 端点。测试中可覆盖。
+// registryURL is the npm dist-tag latest endpoint. Overridable in tests.
 var registryURL = "https://registry.npmjs.org/shoplazza-cli/latest"
 
-// DefaultClient 覆盖 HTTP client(测试用)。nil → 带超时的默认 client。
+// DefaultClient overrides the HTTP client (for tests). nil -> default client with timeout.
 var DefaultClient *http.Client
 
 func httpClient() *http.Client {
@@ -30,7 +30,7 @@ type npmLatestResponse struct {
 	Version string `json:"version"`
 }
 
-// fetchLatest 请求 npm registry latest 端点,返回版本字符串。
+// fetchLatest requests the npm registry latest endpoint and returns the version string.
 func fetchLatest() (string, error) {
 	resp, err := httpClient().Get(registryURL)
 	if err != nil {

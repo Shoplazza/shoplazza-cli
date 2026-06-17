@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// setup 把配置目录重定向到临时目录,并清空会触发跳过的环境变量。
+// setup redirects the config directory to a temp dir and clears env vars that trigger skip.
 func setup(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -80,7 +80,7 @@ func TestCheckCached_SkipsDevVersion(t *testing.T) {
 
 func TestRefreshCache_FreshIsNoop(t *testing.T) {
 	dir := setup(t)
-	writeCache(t, dir, state{LatestVersion: "1.0.0", CheckedAt: time.Now().Unix()}) // 新鲜
+	writeCache(t, dir, state{LatestVersion: "1.0.0", CheckedAt: time.Now().Unix()}) // fresh
 	hit := false
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hit = true
@@ -93,13 +93,13 @@ func TestRefreshCache_FreshIsNoop(t *testing.T) {
 
 	RefreshCache("2.0.0")
 	if hit {
-		t.Error("RefreshCache 在缓存新鲜时仍联网")
+		t.Error("RefreshCache hit the network despite a fresh cache")
 	}
 }
 
 func TestRefreshCache_StaleFetches(t *testing.T) {
 	dir := setup(t)
-	writeCache(t, dir, state{LatestVersion: "1.0.0", CheckedAt: time.Now().Add(-48 * time.Hour).Unix()}) // 过期
+	writeCache(t, dir, state{LatestVersion: "1.0.0", CheckedAt: time.Now().Add(-48 * time.Hour).Unix()}) // stale
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"version":"9.9.9"}`))
 	}))
@@ -112,7 +112,7 @@ func TestRefreshCache_StaleFetches(t *testing.T) {
 
 	s, err := loadState()
 	if err != nil || s == nil || s.LatestVersion != "9.9.9" {
-		t.Fatalf("缓存未更新: %+v err=%v", s, err)
+		t.Fatalf("cache not updated: %+v err=%v", s, err)
 	}
 }
 
