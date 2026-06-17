@@ -173,6 +173,16 @@ func TestRebatePlan_OrderTargetSuccess(t *testing.T) {
 	}
 }
 
+// --target=order with a product scope is rejected by the API; catch it locally.
+func TestRebatePlan_OrderTargetWithScopeErrors(t *testing.T) {
+	for _, scope := range []string{"products", "collections", "variants"} {
+		in := newPlanInput(t, "rebate", rebateFlags(), map[string]string{"target": "order", "tiers": "100:10", scope: "id1,id2"})
+		if _, err := rebateShortcut.Plan(in); err == nil {
+			t.Errorf("--target=order with --%s should error locally (avoid server 422 'selection is invalid')", scope)
+		}
+	}
+}
+
 // ── searchShortcut ────────────────────────────────────────────────────────────
 
 func searchFlags() map[string]string {

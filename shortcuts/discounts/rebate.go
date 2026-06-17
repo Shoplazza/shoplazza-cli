@@ -73,6 +73,10 @@ var rebateShortcut = common.Shortcut{
 		if exclude && target == "order" {
 			return common.PlannedRequest{}, output.ErrValidation("--exclude only applies to --target=product (order-level rebate has no exclude option)")
 		}
+		// Order-level rebate covers the whole order; a product scope is rejected by the API.
+		if target == "order" && (len(productIDs) > 0 || len(collectionIDs) > 0 || len(variantIDs) > 0) {
+			return common.PlannedRequest{}, output.ErrValidation("--target=order applies to the whole order; remove %s (or use --target=product to limit the rebate to specific items)", defaultScopeNames().scopeList())
+		}
 		// --target=product needs an explicit product set: the backend rejects
 		// entitled_product.selection=all for a product-level rebate (returns 422),
 		// so "all products" must be expressed via --target=order. This target-specific

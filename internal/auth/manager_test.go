@@ -367,6 +367,24 @@ func TestCurrentStatus_NotLoggedIn(t *testing.T) {
 	}
 }
 
+// granted_scopes must always serialize as [] when empty, never omitted.
+func TestCurrentStatus_GrantedScopesAlwaysPresent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	defer srv.Close()
+	mgr := newTestManager(t, srv)
+	status, err := mgr.CurrentStatus()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(status)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"granted_scopes":[]`) {
+		t.Errorf("granted_scopes must serialize as [] when empty (not null/omitted); got %s", b)
+	}
+}
+
 // Regression: when the prewarmed store_token echoes a domain different from
 // the one the caller requested, the store token must still be keyed by the
 // current store so AccessTokenReady hits the cache instead of re-exchanging on
