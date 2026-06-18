@@ -2,15 +2,15 @@ package auth
 
 import "time"
 
-// statusFromState copies the granted-scopes slice so callers can't mutate
-// internal state.
+// statusFromState copies the granted-scopes slice (non-nil so it serializes as
+// [] not null) to keep callers from mutating internal state.
 func statusFromState(state AuthState) Status {
 	st := Status{
 		LoggedIn:      state.UAT != "",
 		Account:       state.Account,
 		UserID:        state.UserID,
 		CurrentStore:  state.CurrentStore,
-		GrantedScopes: append([]string(nil), state.GrantedScopes...),
+		GrantedScopes: append([]string{}, state.GrantedScopes...),
 		UATAvailable:  state.UAT != "",
 		UATExpiresAt:  state.UATExpiresAt,
 	}

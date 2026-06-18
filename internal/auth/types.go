@@ -84,7 +84,7 @@ type Status struct {
 	Account       string                 `json:"account,omitempty"`
 	UserID        string                 `json:"user_id,omitempty"`
 	CurrentStore  string                 `json:"current_store,omitempty"`
-	GrantedScopes []string               `json:"granted_scopes,omitempty"`
+	GrantedScopes []string               `json:"granted_scopes"`
 	UATAvailable  bool                   `json:"uat_available"`
 	UATExpiresAt  string                 `json:"uat_expires_at,omitempty"`
 	Stores        map[string]StoreStatus `json:"stores,omitempty"`

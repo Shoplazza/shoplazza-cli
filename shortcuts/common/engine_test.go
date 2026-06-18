@@ -55,6 +55,56 @@ func TestEngine_MountSetsUseShortArgs(t *testing.T) {
 	}
 }
 
+// Shortcuts take only flags: a stray positional arg (the "spaces not commas"
+// mistake) is rejected with a quoting/comma hint, while a single quoted value
+// containing a space is one token and passes.
+func TestEngine_PositionalArgValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		args    []string
+		wantErr bool
+	}{
+		{"stray positional arg rejected", []string{"+thing", "--dry-run", "--variants", "a", "b"}, true},
+		{"quoted spaced value allowed", []string{"+thing", "--dry-run", "--name", "Summer Sale"}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			parent := &cobra.Command{Use: "svc"}
+			parent.PersistentFlags().Bool("dry-run", false, "")
+			parent.PersistentFlags().String("format", "json", "")
+			s := common.Shortcut{
+				Service: "svc",
+				Command: "+thing",
+				Use:     "+thing",
+				Short:   "do a thing",
+				Flags: []common.Flag{
+					{Name: "variants", Type: common.FlagString},
+					{Name: "name", Type: common.FlagString},
+				},
+				Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
+					return common.PlannedRequest{Method: "GET", Path: "/x"}, nil
+				},
+			}
+			common.Mount(s, parent, newFakeFactory(t))
+			parent.SetArgs(c.args)
+			err := parent.Execute()
+			if !c.wantErr {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("expected error for stray positional argument")
+			}
+			msg := strings.ToLower(err.Error())
+			if !strings.Contains(msg, "quote") || !strings.Contains(msg, "comma") {
+				t.Errorf("error should hint at quoting and comma separation; got %v", err)
+			}
+		})
+	}
+}
+
 func TestEngine_DryRunRendersPlannedRequestEnvelope(t *testing.T) {
 	parent := &cobra.Command{Use: "svc"}
 	parent.PersistentFlags().Bool("dry-run", false, "")

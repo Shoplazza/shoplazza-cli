@@ -13,16 +13,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// noPositionalArgs rejects stray positional args with a comma-separation hint —
+// the common case is "--variants a b" where only "a" binds and "b" is dropped.
+func noPositionalArgs(_ *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		return output.ErrValidation("unexpected argument %q; this command takes only flags. Quote values containing spaces (--name \"a b\") or comma-separate multiple values (--variants a,b,c)", args[0])
+	}
+	return nil
+}
+
 // Mount registers s as a cobra subcommand under parent.
 //
 // It panics at mount time if a Flag declaration's Default is incompatible with
 // its Type, surfacing declaration bugs early.
 func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
+	// Shortcuts take only flags; reject stray positional args unless one opts in.
+	args := s.Args
+	if args == nil {
+		args = noPositionalArgs
+	}
 	cmd := &cobra.Command{
 		Use:   s.Use,
 		Short: s.Short,
 		Long:  s.Long,
-		Args:  s.Args,
+		Args:  args,
 	}
 	if s.AuthFree {
 		// Purely local command: the auth gate honors this annotation.

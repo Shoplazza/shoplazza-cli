@@ -22,6 +22,7 @@ import (
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/output"
 	"shoplazza-cli-v2/internal/registry"
+	"shoplazza-cli-v2/internal/updatecheck"
 	"shoplazza-cli-v2/shortcuts"
 
 	"github.com/spf13/cobra"
@@ -51,7 +52,7 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
-	rootCmd.SetVersionTemplate(fmt.Sprintf("shoplazza version %s (%s)\n", build.DisplayVersion(), build.Date))
+	rootCmd.SetVersionTemplate(fmt.Sprintf("shoplazza version %s (%s)\n", build.DisplayVersion(), build.DisplayDate()))
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
@@ -75,9 +76,28 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 	// Ctrl-C force-kills even if the command ignores ctx.
 	go func() { <-ctx.Done(); stop() }()
 
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
+	// Auto update check (interactive use only). Read the cache synchronously (zero latency),
+	// refresh in a background goroutine for the next run.
+	// Skip update/completion commands to avoid nagging mid-update and avoid corrupting completion output.
+	var pendingUpdate *updatecheck.Info
+	if !isUpdateCheckSkippedCommand(os.Args[1:]) {
+		pendingUpdate = updatecheck.CheckCached(build.Version)
+		// Fire-and-forget: on fast-exiting commands the process may end before this
+		// finishes — that's fine, it refreshes the cache for the next run (no latency).
+		go updatecheck.RefreshCache(build.Version)
+	}
+
+	execErr := rootCmd.ExecuteContext(ctx)
+
+	// After the command output, print a one-line notice to stderr for interactive use
+	// (printed on both success and failure paths — never touches stdout).
+	if pendingUpdate != nil && stderrIsTTY() {
+		fmt.Fprintln(os.Stderr, "\n"+pendingUpdate.Message())
+	}
+
+	if execErr != nil {
 		var exitErr *output.ExitError
-		if errors.As(err, &exitErr) {
+		if errors.As(execErr, &exitErr) {
 			output.WriteErrorEnvelope(os.Stderr, exitErr)
 			return exitErr.Code
 		}
@@ -85,7 +105,7 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 		if failing, _, ferr := rootCmd.Find(os.Args[1:]); ferr == nil && failing != nil {
 			_ = failing.Usage()
 		}
-		fmt.Fprintln(os.Stderr, "Error:", err.Error())
+		fmt.Fprintln(os.Stderr, "Error:", execErr.Error())
 
 		return output.ExitValidation
 	}
