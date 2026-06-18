@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const j = require('jscodeshift');
+const acorn = require('acorn');
+const MagicString = require('magic-string');
+const { htmlToJsStringLiteral } = require('./html-string-literal');
 
 const EXTENSION_RENDER_FN_NAME = 'extend';
 const HTML_FILE_PATH_KEY = 'component';
@@ -10,48 +12,67 @@ const ASTNodeType = {
   OBJECT_EXPRESSION: 'ObjectExpression',
   IDENTIFIER: 'Identifier',
   IMPORT_DEFAULT_SPECIFIER: 'ImportDefaultSpecifier',
-  IMPORT_DECLARATION: 'ImportDeclaration'
+  IMPORT_DECLARATION: 'ImportDeclaration',
+  FUNCTION_DECLARATION: 'FunctionDeclaration'
 };
-const findRenderFnList = (code) => {
+
+const parseModule = (code) => acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'module' });
+
+// Minimal pre-order ESTree walker (avoids an acorn-walk dependency). Visits every
+// AST node in document order; non-node values (positions, primitives, null) are skipped.
+const walk = (node, visit) => {
+  if (!node || typeof node.type !== 'string') return;
+  visit(node);
+  for (const key in node) {
+    if (key === 'start' || key === 'end' || key === 'loc' || key === 'range') continue;
+    const child = node[key];
+    if (Array.isArray(child)) {
+      for (let i = 0; i < child.length; i++) walk(child[i], visit);
+    } else if (child && typeof child === 'object') {
+      walk(child, visit);
+    }
+  }
+};
+
+const findRenderFnList = (ast) => {
   const renderFnList = [];
 
-  j(code)
-    .find(j.CallExpression)
-    .forEach((astNode) => {
-      if (astNode?.value?.callee?.name === EXTENSION_RENDER_FN_NAME) {
-        const objectExpressionNode = astNode?.value?.arguments?.find(
-          (args) => args.type === ASTNodeType.OBJECT_EXPRESSION
+  walk(ast, (node) => {
+    if (node.type === ASTNodeType.CALL_EXPRESSION && node.callee && node.callee.name === EXTENSION_RENDER_FN_NAME) {
+      const objectExpressionNode = (node.arguments || []).find(
+        (args) => args.type === ASTNodeType.OBJECT_EXPRESSION
+      );
+      if (objectExpressionNode) {
+        const componentProp = (objectExpressionNode.properties || []).find(
+          (prop) => prop && prop.key && prop.key.name === HTML_FILE_PATH_KEY
         );
-        if (objectExpressionNode) {
-          const componentProp = objectExpressionNode?.properties?.find(
-            (prop) => prop?.key?.name === HTML_FILE_PATH_KEY
-          );
 
-          const name = componentProp?.value?.callee?.name;
-          name && renderFnList.push(name);
-        }
+        const name = componentProp && componentProp.value && componentProp.value.callee && componentProp.value.callee.name;
+        name && renderFnList.push(name);
       }
-    });
+    }
+  });
 
   return renderFnList;
 };
 
-const findImportDeclareStatementNodeList = (code) => {
+const findImportDeclareStatementNodeList = (ast) => {
   const importDeclareStatementList = [];
 
-  j(code)
-    .find(j.ImportDeclaration)
-    .forEach((importStatementNode) => {
-      const importDefaultSpecifier = importStatementNode?.value?.specifiers?.find(
-        (specifierNode) => specifierNode?.type === ASTNodeType.IMPORT_DEFAULT_SPECIFIER
+  walk(ast, (node) => {
+    if (node.type === ASTNodeType.IMPORT_DECLARATION) {
+      const importDefaultSpecifier = (node.specifiers || []).find(
+        (specifierNode) => specifierNode && specifierNode.type === ASTNodeType.IMPORT_DEFAULT_SPECIFIER
       )?.local?.name;
-      const importPath = importStatementNode?.value?.source?.value;
+      const importPath = node.source && node.source.value;
 
       importDefaultSpecifier &&
         importPath &&
         typeof importPath === 'string' &&
-        importDeclareStatementList.push({ importDefaultSpecifier, importPath });
-    });
+        // node is retained so the import statement can be removed by source range.
+        importDeclareStatementList.push({ importDefaultSpecifier, importPath, node });
+    }
+  });
 
   return importDeclareStatementList;
 };
@@ -114,28 +135,14 @@ const handleHtmlDeps = (htmlStr, curPath) => {
 
 const strMinify = (code) => code.split('\n').filter(Boolean).join('');
 
-const createTemplateLiteral = (code) => j.stringLiteral(code);
-
-const removeImportDeclareStatment = (code, specifiers) => {
-  return j(code)
-    .find(j.Program)
-    .forEach((program) => {
-      const body = program?.value?.body || [];
-      if (body.length > 0) {
-        const index = body.findIndex(
-          (node) =>
-            node?.type === ASTNodeType.IMPORT_DECLARATION &&
-            !!node?.specifiers?.find(
-              (specifier) =>
-                specifier?.type === ASTNodeType.IMPORT_DEFAULT_SPECIFIER &&
-                specifiers.includes(specifier?.local?.name || '')
-            )
-        );
-        if (index > -1) program.value.body.splice(index, 1);
-      }
-    })
-    .toSource();
+const removeImportDeclareStatment = (magicString, importDeclareStatementList, specifiers) => {
+  for (const stat of importDeclareStatementList) {
+    if (specifiers.includes(stat.importDefaultSpecifier)) {
+      magicString.remove(stat.node.start, stat.node.end);
+    }
+  }
 };
+
 module.exports = {
   vitePluginTransformExtensionHtml: () => {
     return {
@@ -147,57 +154,61 @@ module.exports = {
           return code;
         }
 
-        const renderFnList = findRenderFnList(code);
-        const importDeclareStatementList = findImportDeclareStatementNodeList(code);
+        const ast = parseModule(code);
+        const renderFnList = findRenderFnList(ast);
+        const importDeclareStatementList = findImportDeclareStatementNodeList(ast);
 
+        const magicString = new MagicString(code);
         const removedImportSpecifiers = [];
 
-        const returnStatementChangedCode = j(code)
-          .find(j.FunctionDeclaration)
-          .forEach((functionDeclareNode) => {
-            const fnName = functionDeclareNode?.value?.id?.name || '';
-            if (!renderFnList.includes(fnName)) return;
+        walk(ast, (functionDeclareNode) => {
+          if (functionDeclareNode.type !== ASTNodeType.FUNCTION_DECLARATION) return;
 
-            const returnStatment = functionDeclareNode?.value?.body?.body?.find(
-              (node) => node.type === ASTNodeType.RETURN_STATMENT
-            );
+          const fnName = (functionDeclareNode.id && functionDeclareNode.id.name) || '';
+          if (!renderFnList.includes(fnName)) return;
 
-            const isIdentifierReturnType = returnStatment?.argument?.type === ASTNodeType.IDENTIFIER;
-            if (!isIdentifierReturnType) return;
+          const returnStatment = (functionDeclareNode.body && functionDeclareNode.body.body || []).find(
+            (node) => node.type === ASTNodeType.RETURN_STATMENT
+          );
 
-            const identifierName = returnStatment?.argument?.name;
-            const htmlFilePathNode = importDeclareStatementList.find(
-              (stat) => stat.importDefaultSpecifier === identifierName
-            );
+          const isIdentifierReturnType = returnStatment?.argument?.type === ASTNodeType.IDENTIFIER;
+          if (!isIdentifierReturnType) return;
 
-            if (htmlFilePathNode) {
-              try {
-                const absolutePath = path.resolve(path.dirname(srcPath), htmlFilePathNode.importPath);
-                cachedHtmlStr[absolutePath] = '';
-                const htmlStr = readFile(absolutePath);
+          const identifierName = returnStatment?.argument?.name;
+          const htmlFilePathNode = importDeclareStatementList.find(
+            (stat) => stat.importDefaultSpecifier === identifierName
+          );
 
-                let result = handleHtmlDeps(htmlStr, srcPath);
-                cachedHtmlStr = {};
+          if (htmlFilePathNode) {
+            try {
+              const absolutePath = path.resolve(path.dirname(srcPath), htmlFilePathNode.importPath);
+              cachedHtmlStr[absolutePath] = '';
+              const htmlStr = readFile(absolutePath);
 
-                result = strMinify(result);
-                result = addExtensionApiPrefix(result);
-                const templateLiteral = createTemplateLiteral(result);
+              let result = handleHtmlDeps(htmlStr, srcPath);
+              cachedHtmlStr = {};
 
-                returnStatment.argument = templateLiteral;
+              result = strMinify(result);
+              result = addExtensionApiPrefix(result);
 
-                removedImportSpecifiers.push(identifierName);
-              } catch (e) {
-                console.error(e);
-              }
+              // Replace the returned identifier (e.g. `return tpl`) with the inlined
+              // HTML as a JS string literal, leaving the rest of the source untouched.
+              magicString.update(
+                returnStatment.argument.start,
+                returnStatment.argument.end,
+                htmlToJsStringLiteral(result)
+              );
+
+              removedImportSpecifiers.push(identifierName);
+            } catch (e) {
+              console.error(e);
             }
-          })
-          .toSource();
+          }
+        });
 
-        const importStatementRemovedCode = removeImportDeclareStatment(
-          returnStatementChangedCode,
-          removedImportSpecifiers
-        );
-        return importStatementRemovedCode;
+        removeImportDeclareStatment(magicString, importDeclareStatementList, removedImportSpecifiers);
+
+        return magicString.toString();
       },
       buildEnd: () => {
         console.log('transform html end');
