@@ -37,12 +37,12 @@ func PlanUpdateVariant(variantID string, body map[string]any) common.PlannedRequ
 	return common.PlannedRequest{Method: "PUT", Path: variantsBase + "/" + variantID, Body: body}
 }
 
-func PlanListVariantsByProductSKU(productID, sku string) common.PlannedRequest {
-	return common.PlannedRequest{
-		Method: "GET",
-		Path:   productsBase + "/" + productID + "/variants",
-		Query:  map[string]any{"sku": sku},
-	}
+func PlanGetVariant(variantID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: variantsBase + "/" + variantID}
+}
+
+func PlanListVariantsBySKU(sku string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: productsBase + "/sku/" + sku + "/variants"}
 }
 
 // Inventory base paths.

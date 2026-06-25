@@ -80,14 +80,17 @@ func TestProductPlanUpdateVariant_Shape(t *testing.T) {
 	}
 }
 
-func TestProductPlanListVariantsByProductSKU_Shape(t *testing.T) {
-	p := PlanListVariantsByProductSKU("p-1", "SKU-X")
-	if p.Method != "GET" || !strings.HasSuffix(p.Path, "/products/p-1/variants") {
-		t.Errorf("PlanListVariantsByProductSKU: got Method=%q Path=%q", p.Method, p.Path)
+func TestProductPlanGetVariant_Shape(t *testing.T) {
+	p := PlanGetVariant("v-1")
+	if p.Method != "GET" || !strings.HasSuffix(p.Path, "/variants/v-1") {
+		t.Errorf("PlanGetVariant: got Method=%q Path=%q", p.Method, p.Path)
 	}
-	skus, _ := p.Query["sku"].(string)
-	if skus != "SKU-X" {
-		t.Errorf("sku query param: got %v want SKU-X", p.Query["sku"])
+}
+
+func TestProductPlanListVariantsBySKU_Shape(t *testing.T) {
+	p := PlanListVariantsBySKU("SKU-X")
+	if p.Method != "GET" || !strings.HasSuffix(p.Path, "/products/sku/SKU-X/variants") {
+		t.Errorf("PlanListVariantsBySKU: got Method=%q Path=%q", p.Method, p.Path)
 	}
 }
 
