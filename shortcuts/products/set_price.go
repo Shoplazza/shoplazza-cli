@@ -148,8 +148,14 @@ func resolveSingleVariant(resp map[string]any, sku string) (string, error) {
 		}
 		return id, nil
 	default:
-		return "", output.ErrValidation("SKU %q matches %d variants; use --variant-id to target one, or --all to update them all:\n%s",
-			sku, len(matches), formatCandidates(matches))
+		ids := make([]string, 0, len(matches))
+		for _, m := range matches {
+			if id, _ := m["id"].(string); id != "" {
+				ids = append(ids, id)
+			}
+		}
+		return "", output.ErrValidation("SKU %q matches %d variants", sku, len(matches)).
+			WithHint(fmt.Sprintf("use --variant-id to target one of [%s], or --all to update them all", strings.Join(ids, ", ")))
 	}
 }
 
@@ -169,20 +175,4 @@ func variantsMatchingSKU(resp map[string]any, sku string) []map[string]any {
 		}
 	}
 	return out
-}
-
-// formatCandidates renders one "  <id>  <options>  price <price>" line per variant.
-func formatCandidates(variants []map[string]any) string {
-	var b strings.Builder
-	for _, m := range variants {
-		id, _ := m["id"].(string)
-		var opts []string
-		for _, k := range []string{"option1", "option2", "option3"} {
-			if s, _ := m[k].(string); s != "" {
-				opts = append(opts, s)
-			}
-		}
-		fmt.Fprintf(&b, "  %s  %s  price %v\n", id, strings.Join(opts, " / "), m["price"])
-	}
-	return strings.TrimRight(b.String(), "\n")
 }
