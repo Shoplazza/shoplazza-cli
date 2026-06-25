@@ -1,13 +1,10 @@
 package products
 
-import (
-	"shoplazza-cli-v2/shortcuts/common"
-	"shoplazza-cli-v2/shortcuts/products/collections"
-)
+import "shoplazza-cli-v2/shortcuts/common"
 
-// Shortcuts returns all product shortcut commands (including the `products collections` subcommand group).
+// Shortcuts returns all product shortcut commands.
 func Shortcuts() []common.Shortcut {
-	out := []common.Shortcut{
+	return []common.Shortcut{
 		searchShortcut,
 		countShortcut,
 		publishShortcutValue,
@@ -16,6 +13,4 @@ func Shortcuts() []common.Shortcut {
 		setPriceShortcut,
 		stockShortcut,
 	}
-	out = append(out, collections.Shortcuts()...)
-	return out
 }
