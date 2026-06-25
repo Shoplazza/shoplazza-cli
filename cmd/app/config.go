@@ -96,6 +96,9 @@ func runConfigLink(ctx context.Context, d *app.Dashboard, p *project.Project, o 
 	set := map[string]any{"client_id": ref.ClientID, "partner_id": ref.PartnerID}
 	if len(ref.Scopes) > 0 {
 		set["scopes"] = strings.Join(ref.Scopes, " ")
+	} else if existing, _ := p.ReadConfig(configName); existing.Scopes == "" {
+		// No scopes from the dashboard or the target config: write the template default.
+		set["scopes"] = project.DefaultScopes
 	}
 	if err := p.UpdateConfig(configName, set); err != nil {
 		// An invalid --config name surfaces as the validation error it is;

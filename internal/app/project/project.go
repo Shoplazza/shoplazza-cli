@@ -33,6 +33,11 @@ type Config struct {
 	Scopes string `toml:"scopes,omitempty"`
 }
 
+// DefaultScopes is the scope string the app template ships. `app config link`
+// writes it when neither the Dashboard nor the target config supplies scopes,
+// so a linked config isn't left without any (matching `app init`).
+const DefaultScopes = "read_customer write_cart_transform"
+
 type state struct {
 	ActiveConfig string `json:"active_config"`
 	ClientID     string `json:"client_id,omitempty"`
