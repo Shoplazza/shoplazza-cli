@@ -17,6 +17,8 @@ import (
 // --adjust N: direct PUT /inventory_levels with stock_adjustment=N (N must be > 0; the API rejects 0 and negatives).
 // --set N: client-side simulation — GET the current level, compute delta = N - current, then PUT, since the
 // /set endpoint behaves as add (not set). Decrement (N < current) is rejected because the API has no decrement primitive.
+// Verified 2026-06 against staging: POST /inventory_levels/set ADDS despite its "Set" name, and PUT /inventory_levels
+// rejects stock_adjustment ≤ 0 — so neither endpoint can reduce stock. Do not "fix" this by trusting the registry doc.
 var stockShortcut = common.Shortcut{
 	Service: "products",
 	Command: "+stock",
@@ -24,7 +26,7 @@ var stockShortcut = common.Shortcut{
 	Short:   "Set or adjust variant inventory level",
 	Flags: []common.Flag{
 		{Name: "variant-id", Type: common.FlagString, Required: true, Description: "Variant ID (required)."},
-		{Name: "set", Type: common.FlagInt, Description: "Set inventory to an absolute value (≥ 0; mutex with --adjust). Implemented client-side as GET current + PUT delta; decrement is rejected because the API does not support negative stock_adjustment."},
+		{Name: "set", Type: common.FlagInt, Description: "Set inventory to an absolute target (≥ 0; increase only — stock cannot be reduced). Mutually exclusive with --adjust."},
 		{Name: "adjust", Type: common.FlagInt, Description: "Stock delta to add (> 0; the API rejects 0 and negative values). Mutex with --set."},
 		{Name: "location-id", Type: common.FlagString, Description: "Location ID (defaults to default location)."},
 	},

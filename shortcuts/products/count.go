@@ -11,13 +11,15 @@ var countShortcut = common.Shortcut{
 	Use:     "+count",
 	Short:   "Quickly count products",
 	Flags: []common.Flag{
-		{Name: "published", Type: common.FlagString, Description: "Filter by published status.", Completions: []string{"true", "false"}},
-		{Name: "vendor", Type: common.FlagString, Description: "Filter by vendor name."},
+		{Name: "published", Type: common.FlagString, Description: "Filter by published status: published, unpublished, any (true/false also accepted).", Completions: []string{"published", "unpublished", "any"}},
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
+		ps, err := normalizePublishedStatus(in.Flags.GetString("published"))
+		if err != nil {
+			return common.PlannedRequest{}, err
+		}
 		q := map[string]any{}
-		cmdutil.AddString(q, "published_status", in.Flags.GetString("published"))
-		cmdutil.AddString(q, "vendor", in.Flags.GetString("vendor"))
+		cmdutil.AddString(q, "published_status", ps)
 		return PlanCount(q), nil
 	},
 }

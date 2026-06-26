@@ -64,10 +64,6 @@ func PlanDefaultLocation() common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: locationsBase + "/default"}
 }
 
-func PlanSetInventoryLevel(body map[string]any) common.PlannedRequest {
-	return common.PlannedRequest{Method: "POST", Path: inventoryLevelsBase + "/set", Body: body}
-}
-
 func PlanAdjustInventoryLevel(body map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "PUT", Path: inventoryLevelsBase, Body: body}
 }
