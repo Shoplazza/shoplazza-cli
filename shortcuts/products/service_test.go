@@ -80,14 +80,17 @@ func TestProductPlanUpdateVariant_Shape(t *testing.T) {
 	}
 }
 
-func TestProductPlanListVariantsByProductSKU_Shape(t *testing.T) {
-	p := PlanListVariantsByProductSKU("p-1", "SKU-X")
-	if p.Method != "GET" || !strings.HasSuffix(p.Path, "/products/p-1/variants") {
-		t.Errorf("PlanListVariantsByProductSKU: got Method=%q Path=%q", p.Method, p.Path)
+func TestProductPlanGetVariant_Shape(t *testing.T) {
+	p := PlanGetVariant("v-1")
+	if p.Method != "GET" || !strings.HasSuffix(p.Path, "/variants/v-1") {
+		t.Errorf("PlanGetVariant: got Method=%q Path=%q", p.Method, p.Path)
 	}
-	skus, _ := p.Query["sku"].(string)
-	if skus != "SKU-X" {
-		t.Errorf("sku query param: got %v want SKU-X", p.Query["sku"])
+}
+
+func TestProductPlanListVariantsBySKU_Shape(t *testing.T) {
+	p := PlanListVariantsBySKU("SKU-X")
+	if p.Method != "GET" || !strings.HasSuffix(p.Path, "/products/sku/SKU-X/variants") {
+		t.Errorf("PlanListVariantsBySKU: got Method=%q Path=%q", p.Method, p.Path)
 	}
 }
 
@@ -102,14 +105,6 @@ func TestProductPlanDefaultLocation_Shape(t *testing.T) {
 	p := PlanDefaultLocation()
 	if p.Method != "GET" || !strings.HasSuffix(p.Path, "/locations/default") {
 		t.Errorf("PlanDefaultLocation: got Method=%q Path=%q", p.Method, p.Path)
-	}
-}
-
-func TestProductPlanSetInventoryLevel_Shape(t *testing.T) {
-	body := map[string]any{"stock": 10}
-	p := PlanSetInventoryLevel(body)
-	if p.Method != "POST" || !strings.HasSuffix(p.Path, "/inventory_levels/set") {
-		t.Errorf("PlanSetInventoryLevel: got Method=%q Path=%q", p.Method, p.Path)
 	}
 }
 
@@ -141,7 +136,7 @@ func TestProductPlanGetInventoryLevel_Shape(t *testing.T) {
 var uuidRE = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 func TestGenerateUniqueToken_IsUUIDv4(t *testing.T) {
-	got := generateUniqueToken("create")
+	got := generateUniqueToken()
 	if !uuidRE.MatchString(got) {
 		t.Errorf("generateUniqueToken = %q, not a valid UUIDv4", got)
 	}
@@ -149,8 +144,8 @@ func TestGenerateUniqueToken_IsUUIDv4(t *testing.T) {
 
 func TestGenerateUniqueToken_Unique(t *testing.T) {
 	seen := map[string]bool{}
-	for i := 0; i < 50; i++ {
-		tok := generateUniqueToken("create")
+	for range 50 {
+		tok := generateUniqueToken()
 		if seen[tok] {
 			t.Fatalf("generateUniqueToken produced duplicate: %q", tok)
 		}

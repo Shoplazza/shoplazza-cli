@@ -139,6 +139,66 @@ func TestRunConfigLink_CreateNew(t *testing.T) {
 	}
 }
 
+// When the Dashboard returns no scopes and the target config has none, link
+// fills the template default (mirrors `app init`).
+func TestRunConfigLink_EmptyScopes_FillsTemplateDefault(t *testing.T) {
+	root := t.TempDir()
+	d := dashFor(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/partners"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"app": map[string]any{"client_id": "cid_new", "id": 2, "name": "DevApp", "scopes": []string{}}}})
+		default:
+			t.Fatalf("unexpected path %s %s", r.Method, r.URL.Path)
+		}
+	})
+	p, _ := project.Open(root)
+	var buf bytes.Buffer
+	if err := runConfigLink(context.Background(), d, p, linkOpts{Create: true, Name: "DevApp", ConfigName: "dev"}, &buf, "json", ""); err != nil {
+		t.Fatalf("runConfigLink: %v", err)
+	}
+	cfg, err := p.ReadConfig("shoplazza.app.dev.toml")
+	if err != nil {
+		t.Fatalf("read written config: %v", err)
+	}
+	if cfg.Scopes != project.DefaultScopes {
+		t.Errorf("empty scopes should fall back to template default; got %q want %q", cfg.Scopes, project.DefaultScopes)
+	}
+}
+
+// Empty Dashboard scopes must NOT overwrite scopes already in the target config.
+func TestRunConfigLink_EmptyScopes_PreservesExisting(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "shoplazza.app.dev.toml"),
+		[]byte("client_id = \"old\"\nscopes = \"read_product\"\n"), 0o644)
+	d := dashFor(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/partners"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"app": map[string]any{"client_id": "cid_new", "id": 2, "name": "DevApp", "scopes": []string{}}}})
+		default:
+			t.Fatalf("unexpected path %s %s", r.Method, r.URL.Path)
+		}
+	})
+	p, _ := project.Open(root)
+	var buf bytes.Buffer
+	if err := runConfigLink(context.Background(), d, p, linkOpts{Create: true, Name: "DevApp", ConfigName: "dev"}, &buf, "json", ""); err != nil {
+		t.Fatalf("runConfigLink: %v", err)
+	}
+	cfg, _ := p.ReadConfig("shoplazza.app.dev.toml")
+	if cfg.Scopes != "read_product" {
+		t.Errorf("must not clobber existing scopes; got %q want read_product", cfg.Scopes)
+	}
+}
+
 func TestRunConfigLink_NoSelector_Validation(t *testing.T) {
 	root := t.TempDir()
 	d := dashFor(t, func(w http.ResponseWriter, r *http.Request) {})

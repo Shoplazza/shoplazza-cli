@@ -22,7 +22,7 @@ var createShortcut = common.Shortcut{
 		{Name: "compare-price", Type: common.FlagString, Description: "Compare-at price."},
 		{Name: "sku", Type: common.FlagString, Description: "SKU."},
 		{Name: "stock", Type: common.FlagInt, Description: "Stock quantity (enables inventory tracking)."},
-		{Name: "stock-policy", Type: common.FlagString, Default: "deny", Description: "Inventory policy when stock=0.",
+		{Name: "stock-policy", Type: common.FlagString, Default: "deny", Description: "Inventory policy when stock=0: continue, deny, auto_unpublished.",
 			Completions: []string{"continue", "deny", "auto_unpublished"}},
 		{Name: "tags", Type: common.FlagStringSlice, Description: "Tags (comma-separated)."},
 		{Name: "published", Type: common.FlagBool, Description: "Publish on create (default: draft)."},
@@ -59,7 +59,7 @@ var createShortcut = common.Shortcut{
 			"inventory_tracking":       stockTracked,
 			"images":                   []map[string]any{{"src": in.Flags.GetString("image")}},
 			"variants":                 []map[string]any{variant},
-			"unique_token":             generateUniqueToken(in.Tool),
+			"unique_token":             generateUniqueToken(),
 		}
 		if stockTracked {
 			product["inventory_policy"] = in.Flags.GetString("stock-policy")
@@ -76,7 +76,7 @@ var createShortcut = common.Shortcut{
 }
 
 // generateUniqueToken returns a random v4 UUID used as the idempotency token (the API requires a UUID).
-func generateUniqueToken(_ string) string {
+func generateUniqueToken() string {
 	var b [16]byte
 	_, _ = rand.Read(b[:])
 	b[6] = (b[6] & 0x0f) | 0x40 // version 4

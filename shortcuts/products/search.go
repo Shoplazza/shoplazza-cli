@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"shoplazza-cli-v2/internal/cmdutil"
+	"shoplazza-cli-v2/internal/output"
 	"shoplazza-cli-v2/shortcuts/common"
 )
 
@@ -13,11 +14,10 @@ var searchShortcut = common.Shortcut{
 	Use:     "+search",
 	Short:   "Quickly search products",
 	Flags: []common.Flag{
-		{Name: "keyword", Type: common.FlagString, Description: "Filter by product title or SKU."},
-		{Name: "published", Type: common.FlagString, Description: "Filter by published status (true|false).", Completions: []string{"true", "false"}},
-		{Name: "vendor", Type: common.FlagString, Description: "Filter by vendor name."},
+		{Name: "keyword", Type: common.FlagString, Description: "Filter by product title."},
+		{Name: "published", Type: common.FlagString, Description: "Filter by published status: published, unpublished, any (true/false also accepted).", Completions: []string{"published", "unpublished", "any"}},
+		{Name: "vendor", Type: common.FlagString, Description: "Filter by vendor name (exact match)."},
 		{Name: "collection-id", Type: common.FlagString, Description: "Filter by collection ID."},
-		{Name: "tags", Type: common.FlagStringSlice, Description: "Filter by tags (comma-separated)."},
 		common.PageLimitFlag(),
 		common.FieldsFlag(),
 	},
@@ -26,14 +26,17 @@ var searchShortcut = common.Shortcut{
 		if err != nil {
 			return common.PlannedRequest{}, err
 		}
+		ps, err := normalizePublishedStatus(in.Flags.GetString("published"))
+		if err != nil {
+			return common.PlannedRequest{}, err
+		}
 		q := map[string]any{}
 		cmdutil.AddString(q, "title", in.Flags.GetString("keyword"))
-		cmdutil.AddString(q, "published_status", in.Flags.GetString("published"))
-		cmdutil.AddString(q, "vendor", in.Flags.GetString("vendor"))
-		cmdutil.AddString(q, "collection_id", in.Flags.GetString("collection-id"))
-		if tags := in.Flags.GetStringSlice("tags"); len(tags) > 0 {
-			q["tags"] = strings.Join(tags, ",")
+		cmdutil.AddString(q, "published_status", ps)
+		if v := strings.TrimSpace(in.Flags.GetString("vendor")); v != "" {
+			q["vendors"] = []string{v} // API param is `vendors` (array), not `vendor`.
 		}
+		cmdutil.AddString(q, "collection_id", in.Flags.GetString("collection-id"))
 		if pl > 0 {
 			q["per_page"] = pl
 		}
@@ -42,4 +45,22 @@ var searchShortcut = common.Shortcut{
 		}
 		return PlanList(q), nil
 	},
+}
+
+// normalizePublishedStatus maps --published to the API's published_status enum
+// (published|unpublished|any). true/false are accepted as aliases; empty means
+// no filter.
+func normalizePublishedStatus(v string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "":
+		return "", nil
+	case "true", "published":
+		return "published", nil
+	case "false", "unpublished":
+		return "unpublished", nil
+	case "any":
+		return "any", nil
+	default:
+		return "", output.ErrValidation("--published must be one of published|unpublished|any (or true/false), got %q", v)
+	}
 }
