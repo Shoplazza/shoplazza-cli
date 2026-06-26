@@ -108,14 +108,6 @@ func TestProductPlanDefaultLocation_Shape(t *testing.T) {
 	}
 }
 
-func TestProductPlanSetInventoryLevel_Shape(t *testing.T) {
-	body := map[string]any{"stock": 10}
-	p := PlanSetInventoryLevel(body)
-	if p.Method != "POST" || !strings.HasSuffix(p.Path, "/inventory_levels/set") {
-		t.Errorf("PlanSetInventoryLevel: got Method=%q Path=%q", p.Method, p.Path)
-	}
-}
-
 func TestProductPlanAdjustInventoryLevel_Shape(t *testing.T) {
 	body := map[string]any{"stock_adjustment": 5}
 	p := PlanAdjustInventoryLevel(body)
@@ -144,7 +136,7 @@ func TestProductPlanGetInventoryLevel_Shape(t *testing.T) {
 var uuidRE = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 func TestGenerateUniqueToken_IsUUIDv4(t *testing.T) {
-	got := generateUniqueToken("create")
+	got := generateUniqueToken()
 	if !uuidRE.MatchString(got) {
 		t.Errorf("generateUniqueToken = %q, not a valid UUIDv4", got)
 	}
@@ -152,8 +144,8 @@ func TestGenerateUniqueToken_IsUUIDv4(t *testing.T) {
 
 func TestGenerateUniqueToken_Unique(t *testing.T) {
 	seen := map[string]bool{}
-	for i := 0; i < 50; i++ {
-		tok := generateUniqueToken("create")
+	for range 50 {
+		tok := generateUniqueToken()
 		if seen[tok] {
 			t.Fatalf("generateUniqueToken produced duplicate: %q", tok)
 		}

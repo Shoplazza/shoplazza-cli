@@ -59,7 +59,7 @@ var createShortcut = common.Shortcut{
 			"inventory_tracking":       stockTracked,
 			"images":                   []map[string]any{{"src": in.Flags.GetString("image")}},
 			"variants":                 []map[string]any{variant},
-			"unique_token":             generateUniqueToken(in.Tool),
+			"unique_token":             generateUniqueToken(),
 		}
 		if stockTracked {
 			product["inventory_policy"] = in.Flags.GetString("stock-policy")
@@ -76,7 +76,7 @@ var createShortcut = common.Shortcut{
 }
 
 // generateUniqueToken returns a random v4 UUID used as the idempotency token (the API requires a UUID).
-func generateUniqueToken(_ string) string {
+func generateUniqueToken() string {
 	var b [16]byte
 	_, _ = rand.Read(b[:])
 	b[6] = (b[6] & 0x0f) | 0x40 // version 4
