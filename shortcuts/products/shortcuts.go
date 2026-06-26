@@ -12,5 +12,6 @@ func Shortcuts() []common.Shortcut {
 		createShortcut,
 		setPriceShortcut,
 		stockShortcut,
+		tagShortcut,
 	}
 }
