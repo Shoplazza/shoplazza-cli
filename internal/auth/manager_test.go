@@ -421,6 +421,9 @@ func TestCurrentStatus_GrantedScopesAlwaysPresent(t *testing.T) {
 	if !strings.Contains(string(b), `"granted_scopes":[]`) {
 		t.Errorf("granted_scopes must serialize as [] when empty (not null/omitted); got %s", b)
 	}
+	if !strings.Contains(string(b), `"current_store":""`) {
+		t.Errorf("current_store must serialize as \"\" when empty (not omitted); got %s", b)
+	}
 }
 
 // Regression: when the prewarmed store_token echoes a domain different from
