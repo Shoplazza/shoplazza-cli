@@ -1,5 +1,55 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **`app deploy` v1 extension compatibility** — recognizes legacy `extension.config.json` extensions, handles the nested `theme-app/` theme layout, warns when an extension's config names a different app than the deploy target, and migrates v1 configs to `shoplazza.extension.toml` on deploy (marking the old JSON deprecated rather than deleting it).
+- `app config link` now auto-activates the linked config — no separate `app config use` step needed.
+
+### Changed
+- `theme-extension connect` no longer needs `--partner`: it derives the app's partner from `--client-id` (consistent with `theme-extension release` and `app config link`). The `--partner` flag was removed.
+- `auth status` / `auth login` always include `current_store` (empty `""` when no store is selected), consistent with `granted_scopes`.
+
+### Fixed
+- `auth login --store-domain` now validates the store at login: an invalid or inaccessible store yields a clear warning and is not set as the current store, instead of surfacing later as a confusing `404 store_not_found`. Login itself still succeeds.
+- `auth login` no longer prints the store warning twice (stderr summary only, not repeated in the JSON).
+
+## 2.0.3 - 2026-06-26
+
+Products shortcut hardening.
+
+### Added
+- **`products +tag`** — add, remove, or replace a product's tags without clobbering the others (`--add` / `--remove` / `--set`).
+
+### Changed
+- **`products +set-price` redesigned** — target by `--variant-id` (exact) or `--sku`; a SKU that matches multiple variants is refused with the candidates listed, `--all` updates every matching variant, and giving both cross-checks that they agree. The old `--product-id` was removed. Prevents the previous silent mass price update.
+- `app config link` writes the template default scopes (`read_customer write_cart_transform`) when neither the Dashboard nor the config supplies any (matching `app init`).
+- Removed the redundant `products collections +create` shortcut — the generated `products collections create` already accepts `product_ids` inline.
+
+### Fixed
+- **`products +search` / `+count` filters** — `--published` sends the correct `published`/`unpublished`/`any` enum (`true`/`false` accepted as aliases, invalid values error); `+search --vendor` uses the correct `vendors` param; removed flags the endpoints don't support (`+search --tags`, `+count --vendor`), which were previously ignored silently.
+
+### Notes
+- `products +stock`: verified against staging that the inventory API only adds and cannot reduce stock, so `--set` correctly refuses a decrease. Behavior unchanged.
+
+## 2.0.2 - 2026-06-18
+
+### Added
+- **Automatic update check** — the CLI checks npm for a newer version in the background and notes it on stderr; `shoplazza update` now checks first, shows live progress, and reports the before/after version. Skipped in CI.
+- Version output now includes the build date.
+
+### Changed
+- Checkout build toolchain: replaced the deprecated `jscodeshift` dependency with `acorn` + `magic-string` in the HTML-inline step (smaller install, fewer transitive deps); bundle output verified unchanged via golden tests.
+
+### Fixed
+- `auth status` always shows `granted_scopes` (`[]` when empty) instead of omitting the field.
+- `discounts +rebate` rejects combining `--target order` with product-scope flags locally, with a clear error instead of an opaque server 422.
+- Shortcut commands reject stray positional args (catching space-separated-instead-of-comma mistakes) with a helpful hint.
+
+## 2.0.1 - 2026-06-12
+
+Maintenance release (packaging); no functional changes.
+
 ## 2.0.0 - 2026-06-12
 
 First public release of the v2 CLI — a full rewrite in Go (the previous v1 was JavaScript).
