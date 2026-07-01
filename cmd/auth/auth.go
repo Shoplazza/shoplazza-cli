@@ -121,17 +121,14 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "  UAT: %s\n", result.UAT)
 
-			out := map[string]any{
+			// Store warning is shown in the stderr summary only, not echoed in the JSON.
+			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,
 				"action": "login",
 				"flow":   result.Flow,
 				"uat":    result.UAT,
 				"status": result.Status,
-			}
-			if result.StoreWarning != "" {
-				out["store_warning"] = result.StoreWarning
-			}
-			return output.PrintJSON(cmd.OutOrStdout(), out)
+			})
 		},
 	}
 
