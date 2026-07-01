@@ -25,6 +25,19 @@ func warnWriter(f *cmdutil.Factory) io.Writer {
 	return os.Stderr
 }
 
+// reconcileExtensionApps warns and drops the extension id when a v1 config's
+// owning app (AppID) differs from the deploy target, so it's created fresh.
+func reconcileExtensionApps(w io.Writer, locals []app.LocalExt, activeClientID string) []app.LocalExt {
+	for i := range locals {
+		if locals[i].AppID != "" && locals[i].AppID != activeClientID {
+			fmt.Fprintf(w, "warning: extension %q was created under app %s; deploying to %s creates it as a NEW extension here (its old id is ignored)\n",
+				locals[i].Name, locals[i].AppID, activeClientID)
+			locals[i].ExtensionID = ""
+		}
+	}
+	return locals
+}
+
 // requireLogin is the light app gate: only verifies "logged in (has UAT)".
 // It does NOT require a current store (unlike cmdutil.RequireAuth).
 func requireLogin(ctx context.Context, f *cmdutil.Factory) error {

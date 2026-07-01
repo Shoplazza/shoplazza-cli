@@ -110,6 +110,9 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			fmt.Fprintf(f.IOStreams.ErrOut, "\nOK: Login successful!\n")
+			if result.StoreWarning != "" {
+				fmt.Fprintf(f.IOStreams.ErrOut, "  warning: %s\n", result.StoreWarning)
+			}
 			if result.Status.CurrentStore != "" {
 				fmt.Fprintf(f.IOStreams.ErrOut, "  Current store: %s\n", result.Status.CurrentStore)
 			}
@@ -118,13 +121,17 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "  UAT: %s\n", result.UAT)
 
-			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
+			out := map[string]any{
 				"ok":     true,
 				"action": "login",
 				"flow":   result.Flow,
 				"uat":    result.UAT,
 				"status": result.Status,
-			})
+			}
+			if result.StoreWarning != "" {
+				out["store_warning"] = result.StoreWarning
+			}
+			return output.PrintJSON(cmd.OutOrStdout(), out)
 		},
 	}
 

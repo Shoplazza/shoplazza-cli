@@ -111,6 +111,13 @@ func TestRunConfigLink_LinkExisting(t *testing.T) {
 	if cfg.PartnerID != "p1" {
 		t.Fatalf("partner_id not persisted into config: got %q, want p1", cfg.PartnerID)
 	}
+	// link auto-activates the linked config.
+	if active, _ := p.ActiveConfigName(); active != "shoplazza.app.prod.toml" {
+		t.Fatalf("link should activate the config, got active=%q", active)
+	}
+	if !strings.Contains(buf.String(), "active_config") {
+		t.Fatalf("output should report active_config, got %s", buf.String())
+	}
 }
 
 func TestRunConfigLink_CreateNew(t *testing.T) {
@@ -136,6 +143,9 @@ func TestRunConfigLink_CreateNew(t *testing.T) {
 	}
 	if _, statErr := os.Stat(filepath.Join(root, "shoplazza.app.dev.toml")); statErr != nil {
 		t.Fatalf("config file not written: %v", statErr)
+	}
+	if active, _ := p.ActiveConfigName(); active != "shoplazza.app.dev.toml" {
+		t.Fatalf("create+link should activate the config, got active=%q", active)
 	}
 }
 

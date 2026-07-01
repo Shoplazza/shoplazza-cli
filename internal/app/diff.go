@@ -15,6 +15,7 @@ type LocalExt struct {
 	Type        string
 	Version     string // optional; from the extension toml. Diff ignores it.
 	ExtensionID string // optional; set once known
+	AppID       string // v1 extension.config.json `appId`; empty for v2. Diff ignores it.
 }
 
 // Pair maps a local extension to its remote counterpart. Remote is nil when the
