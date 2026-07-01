@@ -109,7 +109,11 @@ func runConfigLink(ctx context.Context, d *app.Dashboard, p *project.Project, o 
 		}
 		return output.ErrInternal("failed to write %s: %v", configName, err)
 	}
-	return output.PrintBody(w, map[string]any{"config": configName, "client_id": ref.ClientID, "partner_id": ref.PartnerID}, format, jq)
+	// Linking implies "use this app now" — activate it (client_id already validated).
+	if err := p.SetActiveConfig(configName, ref.ClientID); err != nil {
+		return output.ErrInternal("failed to write app-state: %v", err)
+	}
+	return output.PrintBody(w, map[string]any{"config": configName, "active_config": configName, "client_id": ref.ClientID, "partner_id": ref.PartnerID}, format, jq)
 }
 
 // configFileForName maps a config name segment to its toml filename
