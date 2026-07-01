@@ -450,3 +450,35 @@ func TestEnsurePartnerID(t *testing.T) {
 		t.Fatalf("unresolvable partner: ex=%v (want validation error)", ex)
 	}
 }
+
+func TestReconcileExtensionApps(t *testing.T) {
+	// Mismatch: warns and drops the cross-app id so it deploys as new.
+	var buf bytes.Buffer
+	got := reconcileExtensionApps(&buf, []app.LocalExt{
+		{Name: "preorder", Type: "theme", ExtensionID: "657", AppID: "app_ff"},
+	}, "app_xuxu")
+	if got[0].ExtensionID != "" {
+		t.Errorf("cross-app id should be dropped, got %q", got[0].ExtensionID)
+	}
+	if !strings.Contains(buf.String(), "preorder") || !strings.Contains(buf.String(), "app_ff") {
+		t.Errorf("expected a cross-app warning naming the extension and its app, got %q", buf.String())
+	}
+
+	// Same app: keep the id, no warning.
+	buf.Reset()
+	got = reconcileExtensionApps(&buf, []app.LocalExt{
+		{Name: "co", ExtensionID: "777", AppID: "app_xuxu"},
+	}, "app_xuxu")
+	if got[0].ExtensionID != "777" || buf.Len() != 0 {
+		t.Errorf("same-app should keep id and not warn; id=%q warn=%q", got[0].ExtensionID, buf.String())
+	}
+
+	// v2 toml (no AppID): unchanged, no warning.
+	buf.Reset()
+	got = reconcileExtensionApps(&buf, []app.LocalExt{
+		{Name: "v2", ExtensionID: "999"},
+	}, "app_xuxu")
+	if got[0].ExtensionID != "999" || buf.Len() != 0 {
+		t.Errorf("v2 ext should be untouched; id=%q warn=%q", got[0].ExtensionID, buf.String())
+	}
+}
