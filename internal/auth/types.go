@@ -95,6 +95,9 @@ type LoginResult struct {
 	UAT          string
 	AuthorizeURL string // non-empty for web flow
 	Status       Status
+	// StoreWarning is set when a requested --store-domain fails validation at
+	// login; login still succeeds but the store is not set as current.
+	StoreWarning string
 }
 
 // ── HTTP request / response types ────────────────────────────────────────────
