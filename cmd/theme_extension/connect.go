@@ -10,7 +10,7 @@ import (
 )
 
 func newCmdConnect(f *cmdutil.Factory) *cobra.Command {
-	var clientID, partner, path string
+	var clientID, path string
 	var cfg te.Config // validated by PreRunE; RunE reuses it (no lossy re-read)
 	cmd := &cobra.Command{
 		Use:   "connect",
@@ -32,13 +32,15 @@ func newCmdConnect(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			partners, err := d.GetPartners(ctx)
+			// client_id uniquely identifies the app; derive its partner via /info
+			// (same as te release / app config link) — no --partner needed.
+			info, err := d.GetCompleteInfo(ctx, clientID)
 			if err != nil {
 				return apiError(err)
 			}
-			pid, err := selectPartner(partners.Partners, partner)
-			if err != nil {
-				return err
+			pid := string(info.Partner.ID)
+			if pid == "" {
+				return output.ErrInternal("could not resolve the app's partner from client_id %s", clientID)
 			}
 			appCfg, err := d.GetAppConfig(ctx, pid, clientID) // yields client_secret (not persisted) + partner_id
 			if err != nil {
@@ -54,9 +56,8 @@ func newCmdConnect(f *cmdutil.Factory) *cobra.Command {
 			if cErr := app.ConnectTheme(ctx, pc, cfg.Name, cfg.ExtensionID, app.ThemeConnectionPathStandalone); cErr != nil {
 				return cErr
 			}
-			// Persist the binding (client_id + its validated partner) so release
-			// knows the app AND can skip the partner lookup entirely. pid was
-			// validated above (selectPartner + GetAppConfig under that partner).
+			// Persist the binding (client_id + its partner) so release knows the app
+			// and can skip the partner lookup.
 			cfg.ClientID = clientID
 			cfg.PartnerID = pid
 			if wErr := te.WriteConfig(path, cfg); wErr != nil {
@@ -66,7 +67,6 @@ func newCmdConnect(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&clientID, "client-id", "", "App client_id to link (required)")
-	cmd.Flags().StringVar(&partner, "partner", "", "Partner id (auto-selected if you have only one)")
 	cmd.Flags().StringVar(&path, "path", ".", "te project root")
 	return cmd
 }
