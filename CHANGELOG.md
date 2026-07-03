@@ -1,14 +1,16 @@
 # Changelog
 
-## [Unreleased]
+## 2.0.4 - 2026-07-03
 
 ### Added
 - **`app deploy` v1 extension compatibility** — recognizes legacy `extension.config.json` extensions, handles the nested `theme-app/` theme layout, warns when an extension's config names a different app than the deploy target, and migrates v1 configs to `shoplazza.extension.toml` on deploy (marking the old JSON deprecated rather than deleting it).
 - `app config link` now auto-activates the linked config — no separate `app config use` step needed.
+- Analytics endpoints gain a `filter_crawler_type` param to exclude known bot/crawler traffic from statistics (`no_filter_crawler` default / `official_crawler`).
 
 ### Changed
 - `theme-extension connect` no longer needs `--partner`: it derives the app's partner from `--client-id` (consistent with `theme-extension release` and `app config link`). The `--partner` flag was removed.
 - `auth status` / `auth login` always include `current_store` (empty `""` when no store is selected), consistent with `granted_scopes`.
+- Clearer analytics param descriptions — `begin_time`/`end_time` spell out the string Unix-timestamp format, and the `filter`/`filters` params document their operator/value rules and supported keys.
 
 ### Fixed
 - `auth login --store-domain` now validates the store at login: an invalid or inaccessible store yields a clear warning and is not set as the current store, instead of surfacing later as a confusing `404 store_not_found`. Login itself still succeeds.
