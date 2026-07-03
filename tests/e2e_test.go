@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 // apiEnv returns the environment variables needed to run module commands in
@@ -247,11 +249,13 @@ func TestErrorOutput_IsJSONEnvelope(t *testing.T) {
 
 func TestAuthStatus_NotLoggedIn(t *testing.T) {
 	bin := buildBinary(t)
-	// Use isolated config dir so we don't read real auth state.
-	tmpHome := t.TempDir()
+	// Isolate the config dir so we don't read real auth state. runCLI passes
+	// os.Environ() to the subprocess, so t.Setenv-based isolation covers the
+	// Windows %AppData% path too (HOME/XDG alone would not).
+	testenv.IsolateConfigDir(t)
 	env := []string{
-		"HOME=" + tmpHome,
-		"XDG_CONFIG_HOME=" + filepath.Join(tmpHome, ".config"),
+		"SHOPLAZZA_ACCESS_TOKEN=",
+		"SHOPLAZZA_UAT=",
 	}
 
 	stdout, _, code := runCLI(t, bin, env, "auth", "status")
@@ -289,10 +293,8 @@ func TestAuthLogin_UATPath_MockServer(t *testing.T) {
 	defer srv.Close()
 
 	bin := buildBinary(t)
-	tmpHome := t.TempDir()
+	tmpHome := testenv.IsolateConfigDir(t)
 	env := []string{
-		"HOME=" + tmpHome,
-		"XDG_CONFIG_HOME=" + filepath.Join(tmpHome, ".config"),
 		"SHOPLAZZA_CLI_AUTH_BASE_URL=" + srv.URL,
 	}
 
@@ -363,10 +365,8 @@ func TestAuthLogin_DomainNormalization(t *testing.T) {
 			defer srv.Close()
 
 			bin := buildBinary(t)
-			tmpHome := t.TempDir()
+			tmpHome := testenv.IsolateConfigDir(t)
 			env := []string{
-				"HOME=" + tmpHome,
-				"XDG_CONFIG_HOME=" + filepath.Join(tmpHome, ".config"),
 				"SHOPLAZZA_CLI_AUTH_BASE_URL=" + srv.URL,
 			}
 

@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 	"time"
 
@@ -91,45 +90,30 @@ func TestLogout_AlreadyLoggedOut(t *testing.T) {
 	}
 }
 
-var testSafeNameRe = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
-
-// keychainFile mirrors internal/keychain layout:
-// <UserConfigDir>/shoplazza-cli/keychain/<service>_<safeName>.enc
-// where safeName replaces every char outside [a-zA-Z0-9._-] with "_".
-func keychainFile(t *testing.T, account string) string {
-	t.Helper()
-	cfgDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatalf("UserConfigDir: %v", err)
-	}
-	safe := testSafeNameRe.ReplaceAllString(account, "_")
-	return filepath.Join(cfgDir, "shoplazza-cli", "keychain", "shoplazza-cli_"+safe+".enc")
-}
-
+// TestKeychainKeyNaming asserts the auth key conventions behaviorally instead
+// of mirroring keychain's private sanitization regex: distinct account keys
+// must land in distinct files, and each must round-trip through Get.
 func TestKeychainKeyNaming(t *testing.T) {
 	testenv.IsolateConfigDir(t)
 
-	cases := map[string]string{
-		"uat":                keychainFile(t, "uat"),
-		"partner":            keychainFile(t, "partner"),
-		"store:my-store.com": keychainFile(t, "store:my-store.com"),
-		"app:cid_123":        keychainFile(t, "app:cid_123"),
-	}
-	for account := range cases {
+	accounts := []string{"uat", "partner", "store:my-store.com", "app:cid_123"}
+	for _, account := range accounts {
 		if err := keychain.Set(keychain.ShoplazzaCliService, account, "tok_"+account); err != nil {
 			t.Fatalf("Set(%q): %v", account, err)
 		}
 	}
-	seen := map[string]bool{}
-	for account, want := range cases {
-		if _, err := os.Stat(want); err != nil {
-			t.Errorf("expected file for %q at %s: %v", account, want, err)
-		}
-		if seen[want] {
-			t.Errorf("file collision for %q at %s", account, want)
-		}
-		seen[want] = true
-		// Account-level keys must NOT carry a suffix; resource-level keys must.
+	cfgDir, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatalf("UserConfigDir: %v", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(cfgDir, "shoplazza-cli", "keychain"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != len(accounts) {
+		t.Errorf("want %d distinct keychain files, got %d", len(accounts), len(entries))
+	}
+	for _, account := range accounts {
 		got, err := keychain.Get(keychain.ShoplazzaCliService, account)
 		if err != nil || got != "tok_"+account {
 			t.Errorf("Get(%q) = %q, %v; want tok_%s", account, got, err, account)

@@ -7,8 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
-	"sync/atomic"
 	"time"
 
 	"shoplazza-cli-v2/internal/client"
@@ -17,10 +15,6 @@ import (
 	"shoplazza-cli-v2/internal/theme/pack"
 	"shoplazza-cli-v2/shortcuts/common"
 )
-
-// tempZipSeq guarantees tempZipPath uniqueness even when two calls land in the
-// same clock tick — time.Now() resolution is coarse on Windows.
-var tempZipSeq atomic.Uint64
 
 // pullMaxUnpackSize caps the cumulative extracted bytes from a pulled zip.
 // 200 MB matches the default in internal/theme/pack, declared explicitly here
@@ -80,7 +74,7 @@ var pullShortcut = common.Shortcut{
 
 		// Step 2: stream the download to a uniquely-named tmp zip, kept on
 		// failure so users can retry the unpack manually. Errors raised before
-		// os.Create succeeds must not mention the tmp path (no file exists yet).
+		// createTempZip succeeds must not mention the tmp path (no file exists yet).
 		dlStep := prog.Begin("[pull] downloading theme files")
 		reader, err := common.SendStream(ctx, in.Client, download)
 		if err != nil {
@@ -88,12 +82,12 @@ var pullShortcut = common.Shortcut{
 			return common.ExecResult{}, classifyPullDownloadErr(err, themeID)
 		}
 		defer reader.Close()
-		tmpZip := tempZipPath(themeID)
-		out, err := os.Create(tmpZip)
+		out, err := createTempZip(themeID)
 		if err != nil {
 			dlStep.Fail()
 			return common.ExecResult{}, theme.ErrLocalIO("create tmp zip", err)
 		}
+		tmpZip := out.Name()
 		written, copyErr := io.Copy(out, reader)
 		// A failed Close means buffered bytes never hit the disk — the zip
 		// is corrupt even when Copy reported success, so it must fail the
@@ -158,14 +152,12 @@ var pullShortcut = common.Shortcut{
 	},
 }
 
-// tempZipPath builds a uniquely-named tmp path for the streamed download.
-// pid + UnixNano avoids collisions across parallel or sequential calls. The
-// id component is sanitized so the path is safe even if a caller bypasses the
-// flag-level theme-id validation.
-func tempZipPath(themeID string) string {
-	name := fmt.Sprintf("shoplazza-theme-%s-%d-%d-%d.zip",
-		sanitizeFileComponent(themeID), os.Getpid(), time.Now().UnixNano(), tempZipSeq.Add(1))
-	return filepath.Join(os.TempDir(), name)
+// createTempZip creates a uniquely-named tmp file for the streamed download
+// (os.CreateTemp is collision-proof via O_EXCL). The id component is sanitized
+// because CreateTemp rejects separators in the pattern rather than escaping
+// them — and so the name stays safe if a caller bypasses flag-level validation.
+func createTempZip(themeID string) (*os.File, error) {
+	return os.CreateTemp("", "shoplazza-theme-"+sanitizeFileComponent(themeID)+"-*.zip")
 }
 
 // extractStringField looks up `key` (a string field) at the root of resp,
