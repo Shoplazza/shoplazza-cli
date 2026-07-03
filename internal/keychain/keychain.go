@@ -33,7 +33,9 @@ const (
 // ErrNotFound is returned by Get when the requested secret does not exist.
 var ErrNotFound = errors.New("keychain: item not found")
 
-var safeNameRe = regexp.MustCompile(`[^a-zA-Z0-9._:-]`)
+// ':' is excluded on purpose — it's illegal in Windows filenames, and account
+// names carry a "store:"/"app:" prefix.
+var safeNameRe = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
 
 // safeFileName converts an account key to a safe file name.
 func safeFileName(account string) string {

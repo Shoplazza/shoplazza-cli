@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **Windows login/keychain failure** — resource-scoped tokens (`store:<domain>`, `app:<clientID>`) were written to files whose names kept the `:`, which is illegal in Windows filenames; login/store selection failed with `keychain Set: rename: … The parameter is incorrect.`. The `:` is now sanitized to `_`, so the on-disk name is valid on all platforms. (Existing entries on macOS/Linux are re-created on next login.)
+
 ## 2.0.4 - 2026-07-03
 
 ### Added

@@ -90,11 +90,11 @@ func TestLogout_AlreadyLoggedOut(t *testing.T) {
 	}
 }
 
-var testSafeNameRe = regexp.MustCompile(`[^a-zA-Z0-9._:-]`)
+var testSafeNameRe = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
 
 // keychainFile mirrors internal/keychain layout:
 // <UserConfigDir>/shoplazza-cli/keychain/<service>_<safeName>.enc
-// where safeName replaces every char outside [a-zA-Z0-9._:-] with "_".
+// where safeName replaces every char outside [a-zA-Z0-9._-] with "_".
 func keychainFile(t *testing.T, account string) string {
 	t.Helper()
 	cfgDir, err := os.UserConfigDir()
