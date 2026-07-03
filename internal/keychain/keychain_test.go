@@ -3,21 +3,17 @@ package keychain_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"shoplazza-cli-v2/internal/keychain"
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 // usesTempDir redirects the OS config dir to a temp directory for the test.
 func usesTempDir(t *testing.T) {
 	t.Helper()
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	// macOS uses ~/Library/..., but os.UserConfigDir on macOS reads
-	// $HOME/Library/Application Support. On Linux it reads $XDG_CONFIG_HOME or $HOME/.config.
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
-	// Unset any leftover env that might point to a real config dir.
-	t.Setenv("AppData", "")
+	testenv.IsolateConfigDir(t)
 }
 
 func TestGetSetRemove(t *testing.T) {
@@ -89,6 +85,9 @@ func TestSetOverwrite(t *testing.T) {
 }
 
 func TestMasterKeyFilePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX file-mode bits (0600) are not meaningful on Windows")
+	}
 	usesTempDir(t)
 
 	// Trigger master key creation via Set.
@@ -111,6 +110,9 @@ func TestMasterKeyFilePermissions(t *testing.T) {
 }
 
 func TestEncryptedFilePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX file-mode bits (0600) are not meaningful on Windows")
+	}
 	usesTempDir(t)
 
 	if err := keychain.Set(keychain.ShoplazzaCliService, "token", "mytoken"); err != nil {

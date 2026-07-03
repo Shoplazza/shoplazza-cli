@@ -18,15 +18,14 @@ import (
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
 	"shoplazza-cli-v2/internal/output"
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 func TestRequireLogin_NotLoggedIn(t *testing.T) {
 	// Isolate config + keychain to a temp dir so the result does NOT depend on
 	// whether the developer running the test is logged in. The keychain reads
 	// os.UserConfigDir(), driven by HOME / XDG_CONFIG_HOME.
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
+	testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
 
 	f := &cmdutil.Factory{Config: core.CliConfig{}, AuthClient: client.New("http://unused")}
@@ -44,9 +43,7 @@ func TestRequireLogin_NotLoggedIn(t *testing.T) {
 // SetBearerToken on the shared client — credential bleed to any subsequent use
 // of f.AuthClient (e.g. auth calls).
 func TestDashboardClient_DoesNotMutateAuthClient(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
+	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
 
 	// Seed UAT + partner token in the isolated keychain so PartnerToken() succeeds.
@@ -79,9 +76,7 @@ func TestDashboardClient_DoesNotMutateAuthClient(t *testing.T) {
 // login gate. Returns the isolated dir (for ConfigPath).
 func seedLoginKeychain(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
+	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
 	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_1"); err != nil {
 		t.Fatalf("keychain Set uat: %v", err)
@@ -224,9 +219,7 @@ func TestDashboardClient_WarnsOnUserIDFailure(t *testing.T) {
 // no UAT in the session) is treated as a resolution failure with the same
 // actionable hint, instead of flowing an empty store_id to the backend.
 func TestResolveStoreID_EmptyWithNilError(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
+	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
 	f := &cmdutil.Factory{
 		Config:     core.CliConfig{},

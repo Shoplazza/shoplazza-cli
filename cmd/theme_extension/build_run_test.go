@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -147,6 +148,9 @@ func TestBuild_MissingThemeAppIsValidation(t *testing.T) {
 }
 
 func TestBuild_UnreadableThemeAppIsInternal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0000 does not make a dir unreadable on Windows")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("permission checks don't bind for root")
 	}

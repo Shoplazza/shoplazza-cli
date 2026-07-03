@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"shoplazza-cli-v2/internal/cmdutil"
@@ -65,6 +66,9 @@ func TestCreate_TraversalNeverTouchesParent(t *testing.T) {
 // search permission) means "already exists" is unproven — internal error, no
 // scaffold attempt.
 func TestCreate_StatFailureIsInternal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0000 does not deny access on Windows, so the stat can't fail")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("permission checks don't bind for root")
 	}

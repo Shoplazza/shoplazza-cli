@@ -13,13 +13,12 @@ import (
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
 	"shoplazza-cli-v2/internal/output"
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 func tempFactory(t *testing.T, srvURL string, cfg core.CliConfig) *Factory {
 	t.Helper()
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
-	t.Setenv("HOME", dir)
+	dir := testenv.IsolateConfigDir(t)
 	return &Factory{
 		ConfigPath: filepath.Join(dir, "config.json"),
 		Config:     cfg,

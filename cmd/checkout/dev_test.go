@@ -6,6 +6,7 @@ import (
 	"io"
 	"os/exec"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -61,6 +62,9 @@ func TestClassifyDevExit_NonZeroExitIsInternal(t *testing.T) {
 }
 
 func TestClassifyDevExit_SignaledIsCleanStop(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("signal-driven exit (WaitStatus.Signaled) is a POSIX concept")
+	}
 	if exitErr := checkout.ClassifyDevExit(waitErrFrom(t, "kill -TERM $$"), nil); exitErr != nil {
 		t.Fatalf("signal-driven exit (forwarded Ctrl-C/SIGTERM) must not be a CLI failure, got %v", exitErr)
 	}

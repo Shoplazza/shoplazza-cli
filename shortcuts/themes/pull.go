@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"shoplazza-cli-v2/internal/client"
@@ -16,6 +17,10 @@ import (
 	"shoplazza-cli-v2/internal/theme/pack"
 	"shoplazza-cli-v2/shortcuts/common"
 )
+
+// tempZipSeq guarantees tempZipPath uniqueness even when two calls land in the
+// same clock tick — time.Now() resolution is coarse on Windows.
+var tempZipSeq atomic.Uint64
 
 // pullMaxUnpackSize caps the cumulative extracted bytes from a pulled zip.
 // 200 MB matches the default in internal/theme/pack, declared explicitly here
@@ -158,8 +163,8 @@ var pullShortcut = common.Shortcut{
 // id component is sanitized so the path is safe even if a caller bypasses the
 // flag-level theme-id validation.
 func tempZipPath(themeID string) string {
-	name := fmt.Sprintf("shoplazza-theme-%s-%d-%d.zip",
-		sanitizeFileComponent(themeID), os.Getpid(), time.Now().UnixNano())
+	name := fmt.Sprintf("shoplazza-theme-%s-%d-%d-%d.zip",
+		sanitizeFileComponent(themeID), os.Getpid(), time.Now().UnixNano(), tempZipSeq.Add(1))
 	return filepath.Join(os.TempDir(), name)
 }
 

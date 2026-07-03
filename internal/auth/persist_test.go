@@ -15,6 +15,7 @@ import (
 	"shoplazza-cli-v2/internal/client"
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 func meOnlyServer(t *testing.T) *httptest.Server {
@@ -106,9 +107,7 @@ func keychainFile(t *testing.T, account string) string {
 }
 
 func TestKeychainKeyNaming(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
-	t.Setenv("HOME", dir)
+	testenv.IsolateConfigDir(t)
 
 	cases := map[string]string{
 		"uat":                keychainFile(t, "uat"),

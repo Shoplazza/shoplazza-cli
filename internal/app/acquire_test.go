@@ -12,13 +12,12 @@ import (
 	"shoplazza-cli-v2/internal/client"
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 func TestEnsureAppToken_FetchesSecretThenMints(t *testing.T) {
 	// Isolate config + keychain to temp (HOME/XDG drive os.UserConfigDir).
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
+	dir := testenv.IsolateConfigDir(t)
 	// Seed a UAT so AppTokenReady's logged-in gate passes.
 	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_1"); err != nil {
 		t.Fatal(err)

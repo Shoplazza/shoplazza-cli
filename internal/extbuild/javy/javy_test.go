@@ -105,8 +105,9 @@ func TestBuild_RunsJavyAndNamesByHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
-	if string(content) != "fake-wasm" {
-		t.Fatalf("file content = %q, want %q", string(content), "fake-wasm")
+	// TrimSpace: the Windows .bat shim's `echo` appends a CRLF the POSIX shim doesn't.
+	if got := strings.TrimSpace(string(content)); got != "fake-wasm" {
+		t.Fatalf("file content = %q, want %q", got, "fake-wasm")
 	}
 }
 

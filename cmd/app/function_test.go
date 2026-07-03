@@ -15,6 +15,7 @@ import (
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
 	"shoplazza-cli-v2/internal/output"
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 func TestExtractFunctionsHandlesNesting(t *testing.T) {
@@ -108,9 +109,7 @@ func TestFunctionCompileMissingEntry(t *testing.T) {
 func TestFunctionListNoCurrentApp(t *testing.T) {
 	// Isolate keychain to a temp dir and seed UAT + partner token so requireLogin
 	// passes — the test checks the no-current-app branch, not the auth gate.
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
+	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
 	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_1"); err != nil {
 		t.Fatalf("keychain Set uat: %v", err)

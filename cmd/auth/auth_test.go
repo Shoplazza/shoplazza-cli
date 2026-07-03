@@ -16,13 +16,12 @@ import (
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/output"
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 func tempAuthFactory(t *testing.T, srvURL string) (*cmdutil.Factory, *bytes.Buffer) {
 	t.Helper()
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
-	t.Setenv("HOME", dir)
+	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
 	t.Setenv("SHOPLAZZA_UAT", "")
 	out := &bytes.Buffer{}

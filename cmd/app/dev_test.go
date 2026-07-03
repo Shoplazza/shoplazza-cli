@@ -3,6 +3,7 @@ package appcmd
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -125,12 +126,16 @@ func TestUpsertDotEnvCreatesAndAppends(t *testing.T) {
 	if !strings.Contains(s, "NGROK_AUTHTOKEN=tok") || !strings.Contains(s, "NGROK_DOMAIN=x.ngrok.app") {
 		t.Fatalf("create+append failed:\n%s", s)
 	}
-	fi, err := os.Stat(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fi.Mode().Perm() != 0o600 {
-		t.Fatalf("secret file perms = %v, want 0600", fi.Mode().Perm())
+	// The .env holds secrets, so it must be written 0600 (POSIX file mode;
+	// Windows has no equivalent permission bits).
+	if runtime.GOOS != "windows" {
+		fi, err := os.Stat(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fi.Mode().Perm() != 0o600 {
+			t.Fatalf("secret file perms = %v, want 0600", fi.Mode().Perm())
+		}
 	}
 }
 

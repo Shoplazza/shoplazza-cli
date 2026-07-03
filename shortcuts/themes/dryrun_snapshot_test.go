@@ -110,9 +110,10 @@ func TestSnapshot_PackageDryRun(t *testing.T) {
 	if execErr != nil {
 		t.Fatalf("Execute err: %v", execErr)
 	}
-	// Normalise the absolute tmp path so the snapshot is deterministic.
+	// Normalise the absolute tmp path (and the OS path separator) so the snapshot
+	// is deterministic across machines and platforms.
 	if zp, ok := res.Body["zip_path"].(string); ok {
-		res.Body["zip_path"] = strings.ReplaceAll(zp, dir, "<TMP>")
+		res.Body["zip_path"] = filepath.ToSlash(strings.ReplaceAll(zp, dir, "<TMP>"))
 	}
 	snapshot(t, "package_dry_run", res.Body)
 }

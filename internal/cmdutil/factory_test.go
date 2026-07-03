@@ -1,15 +1,14 @@
 package cmdutil
 
 import (
-	"path/filepath"
 	"testing"
+
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 func TestDefaultFactory_AuthBaseURL_FixedDefault(t *testing.T) {
 	t.Setenv("SHOPLAZZA_CLI_AUTH_BASE_URL", "")
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
+	testenv.IsolateConfigDir(t)
 
 	f := NewDefaultFactory()
 	if f.AuthClient == nil {
@@ -27,9 +26,7 @@ func TestDefaultFactory_AuthBaseURL_EnvOverride(t *testing.T) {
 	// proves the env var wins — using the default value here would make the
 	// test pass even if the override code were removed.
 	t.Setenv("SHOPLAZZA_CLI_AUTH_BASE_URL", "https://partners.example.com")
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
+	testenv.IsolateConfigDir(t)
 
 	f := NewDefaultFactory()
 	if f.AuthClient.BaseURL != "https://partners.example.com" {
