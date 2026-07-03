@@ -78,6 +78,9 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 			if scanErr != nil {
 				return scanErr
 			}
+			// v1-compat: warn + drop ids for extensions whose legacy config names a
+			// different app than the one being deployed to.
+			locals = reconcileExtensionApps(warnWriter(f), locals, cid)
 
 			res, ex := app.Deploy(ctx, app.DeployDeps{
 				Dashboard:   d,

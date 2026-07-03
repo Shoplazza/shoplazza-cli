@@ -88,6 +88,46 @@ func TestThemeZipName_Deterministic_SameContent(t *testing.T) {
 	}
 }
 
+// TestBuildArtifactFor_Theme_V1NestedLayout: a v1 extension nests the theme
+// content under theme-app/ (alongside extension.config.json). The zip must root
+// the CONTENT at theme-app/ (so the backend finds theme-app/assets-manifest.json),
+// not double-nest it (theme-app/theme-app/...) or include the v1 metadata.
+func TestBuildArtifactFor_Theme_V1NestedLayout(t *testing.T) {
+	root := t.TempDir()
+	extDir := filepath.Join(root, "extensions", "preorder")
+	themeApp := filepath.Join(extDir, "theme-app")
+	os.MkdirAll(filepath.Join(themeApp, "blocks"), 0o755)
+	os.WriteFile(filepath.Join(themeApp, "assets-manifest.json"), []byte("{}"), 0o644)
+	os.WriteFile(filepath.Join(themeApp, "blocks", "a.liquid"), []byte("x"), 0o644)
+	// v1 metadata at the extension root — must NOT end up in the theme bundle.
+	os.WriteFile(filepath.Join(extDir, "extension.config.json"), []byte("{}"), 0o644)
+
+	got, exitErr := BuildArtifactFor(context.Background(), root, LocalExt{
+		Dir: "preorder", Name: "preorder", Type: "theme",
+	}, false)
+	if exitErr != nil {
+		t.Fatalf("BuildArtifactFor: %v", exitErr)
+	}
+	zr, err := zip.OpenReader(got)
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	defer zr.Close()
+	found := map[string]bool{}
+	for _, f := range zr.File {
+		found[f.Name] = true
+	}
+	if !found["theme-app/assets-manifest.json"] || !found["theme-app/blocks/a.liquid"] {
+		t.Fatalf("content must be rooted at theme-app/: %v", found)
+	}
+	if found["theme-app/theme-app/assets-manifest.json"] {
+		t.Fatalf("must not double-nest theme-app/: %v", found)
+	}
+	if found["theme-app/extension.config.json"] {
+		t.Fatalf("v1 metadata must not be bundled: %v", found)
+	}
+}
+
 func TestBuildArtifactFor_UnknownType_Errors(t *testing.T) {
 	_, exitErr := BuildArtifactFor(context.Background(), t.TempDir(), LocalExt{
 		Dir: "myext", Name: "myext", Type: "unknown-type",

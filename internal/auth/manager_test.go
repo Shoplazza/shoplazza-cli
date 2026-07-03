@@ -37,9 +37,10 @@ func newTestManager(t *testing.T, srv *httptest.Server) *internalauth.Manager {
 }
 
 type brokerOpts struct {
-	pendingPolls int
-	okBody       map[string]any
-	storeAT      map[string]any
+	pendingPolls  int
+	okBody        map[string]any
+	storeAT       map[string]any
+	storeATStatus int // when non-zero and != 200, store-at responds with this status
 }
 
 // brokerServer mocks the auth backend for the interactive web flow: pending → ok,
@@ -62,6 +63,11 @@ func brokerServer(t *testing.T, opts brokerOpts) *httptest.Server {
 		case r.URL.Path == "/api/saiga/cli/auth/me":
 			json.NewEncoder(w).Encode(map[string]any{"user_id": "u1", "account": "alice@example.com"})
 		case r.URL.Path == "/api/saiga/cli/auth/exchange/store-at":
+			if opts.storeATStatus != 0 && opts.storeATStatus != http.StatusOK {
+				w.WriteHeader(opts.storeATStatus)
+				w.Write([]byte(`{"code":"store_not_found","errors":["store not found"]}`))
+				return
+			}
 			json.NewEncoder(w).Encode(opts.storeAT)
 		default:
 			t.Errorf("unexpected path: %s", r.URL.Path)
@@ -126,9 +132,12 @@ func TestLogin_WithStoreDomain_PrewarmsStoreToken(t *testing.T) {
 	}
 }
 
-func TestLogin_WithStoreDomain_PrewarmMissing_StillSetsCurrentStore(t *testing.T) {
+// When the session omits a prewarmed store_token, login validates the store via
+// an explicit store-at exchange; a valid store gets set + its token cached.
+func TestLogin_WithStoreDomain_PrewarmMissing_ValidatesViaExchange(t *testing.T) {
 	srv := brokerServer(t, brokerOpts{
-		okBody: map[string]any{"status": "ok", "uat": "uat_s", "account": "a@x.com"}, // no store_token
+		okBody:  map[string]any{"status": "ok", "uat": "uat_s", "account": "a@x.com"}, // no store_token
+		storeAT: map[string]any{"access_token": "at_validated", "store_id": "7", "store_domain": "my-store.com", "granted_scopes": []string{"read_product"}, "at_expires_at": "2099-01-01T00:00:00Z"},
 	})
 	defer srv.Close()
 	mgr := newTestManager(t, srv)
@@ -137,12 +146,41 @@ func TestLogin_WithStoreDomain_PrewarmMissing_StillSetsCurrentStore(t *testing.T
 	if err != nil {
 		t.Fatalf("Login: %v", err)
 	}
-	if res.Status.CurrentStore != "my-store.com" {
-		t.Errorf("current store should be set even when prewarm omits store_token; got %q", res.Status.CurrentStore)
+	if res.Status.CurrentStore != "my-store.com" || res.StoreWarning != "" {
+		t.Errorf("valid store should be set with no warning; current=%q warn=%q", res.Status.CurrentStore, res.StoreWarning)
 	}
 	st, _ := mgr.LoadState()
-	if _, ok := st.Stores["my-store.com"]; ok {
-		t.Errorf("no store token expected when prewarm omitted it")
+	if st.Stores["my-store.com"].Token != "at_validated" {
+		t.Errorf("validated store token should be cached, got %q", st.Stores["my-store.com"].Token)
+	}
+}
+
+// A bad/inaccessible --store-domain (store-at 404) does not fail login: it warns
+// and leaves the store unset, and the bad domain is never persisted.
+func TestLogin_WithStoreDomain_ValidationFails_WarnsAndUnsets(t *testing.T) {
+	srv := brokerServer(t, brokerOpts{
+		okBody:        map[string]any{"status": "ok", "uat": "uat_s", "account": "a@x.com"}, // no store_token
+		storeATStatus: http.StatusNotFound,
+	})
+	defer srv.Close()
+	mgr := newTestManager(t, srv)
+
+	res, err := mgr.Login(context.Background(), "bad-store.com", nil, "", 5*time.Second, time.Millisecond, nil)
+	if err != nil {
+		t.Fatalf("login should still succeed on a bad store: %v", err)
+	}
+	if res.Status.CurrentStore != "" {
+		t.Errorf("bad store must not be set as current, got %q", res.Status.CurrentStore)
+	}
+	if !strings.Contains(res.StoreWarning, "bad-store.com") {
+		t.Errorf("expected a store warning naming the domain, got %q", res.StoreWarning)
+	}
+	st, _ := mgr.LoadState()
+	if st.CurrentStore != "" || len(st.Stores) != 0 {
+		t.Errorf("bad store must not be persisted: current=%q stores=%v", st.CurrentStore, st.Stores)
+	}
+	if st.UAT != "uat_s" {
+		t.Errorf("login (UAT) should still persist, got %q", st.UAT)
 	}
 }
 
@@ -382,6 +420,9 @@ func TestCurrentStatus_GrantedScopesAlwaysPresent(t *testing.T) {
 	}
 	if !strings.Contains(string(b), `"granted_scopes":[]`) {
 		t.Errorf("granted_scopes must serialize as [] when empty (not null/omitted); got %s", b)
+	}
+	if !strings.Contains(string(b), `"current_store":""`) {
+		t.Errorf("current_store must serialize as \"\" when empty (not omitted); got %s", b)
 	}
 }
 

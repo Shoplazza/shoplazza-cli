@@ -154,6 +154,11 @@ func BuildArtifactFor(ctx context.Context, projectRoot string, l LocalExt, debug
 		return buildCheckout(ctx, projectRoot, l.Dir, debug)
 	case "theme":
 		src := filepath.Join(projectRoot, "extensions", l.Dir)
+		// v1 nests theme content under theme-app/; zip that subdir so the archive
+		// isn't double-nested (theme-app/theme-app/...). v2 (flat) has no such subdir.
+		if sub := filepath.Join(src, "theme-app"); isDir(sub) {
+			src = sub
+		}
 		// Content/time-unique name (v1 parity) — a static name collides with the
 		// overwrite-forbidden OSS object and silently reuses a stale artifact.
 		zipName, nErr := themeZipName(src, l.Name)
@@ -178,6 +183,12 @@ func BuildArtifactFor(ctx context.Context, projectRoot string, l LocalExt, debug
 	default:
 		return "", output.ErrValidation("unknown extension type %q in %s", l.Type, l.Dir)
 	}
+}
+
+// isDir reports whether path exists and is a directory.
+func isDir(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.IsDir()
 }
 
 // functionEntryPath returns the JS entry for a function extension:

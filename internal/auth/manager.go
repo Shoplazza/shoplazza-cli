@@ -71,14 +71,35 @@ func (m *Manager) Login(ctx context.Context, storeDomain string, scopes []string
 			continue
 		case "ok":
 			state := stateFromPoll(pollRes, storeDomain)
+			warning := ""
+			// Validate the requested store now (post-consent) unless the session
+			// pre-warmed its token; a bad store is reported, not set as current.
+			if storeDomain != "" && pollRes.StoreToken == nil {
+				if block, sErr := m.exchangeStoreAT(ctx, pollRes.UAT, storeDomain); sErr != nil {
+					state.CurrentStore = ""
+					warning = storeValidationWarning(storeDomain, sErr)
+				} else {
+					applyStoreToken(&state, block, storeDomain)
+				}
+			}
 			if err := m.persistState(state); err != nil {
 				return LoginResult{Flow: "web", AuthorizeURL: session.AuthorizeURL}, err
 			}
-			return LoginResult{Flow: "web", UAT: pollRes.UAT, AuthorizeURL: session.AuthorizeURL, Status: statusFromState(state)}, nil
+			return LoginResult{Flow: "web", UAT: pollRes.UAT, AuthorizeURL: session.AuthorizeURL, Status: statusFromState(state), StoreWarning: warning}, nil
 		default:
 			return LoginResult{Flow: "web", AuthorizeURL: session.AuthorizeURL}, errors.New("unexpected session status: " + pollRes.Status)
 		}
 	}
+}
+
+// storeValidationWarning renders the login-time message for a store that failed
+// validation. A 404 means the domain doesn't exist or isn't accessible.
+func storeValidationWarning(domain string, err error) string {
+	var he *client.HTTPError
+	if errors.As(err, &he) && he.StatusCode == 404 {
+		return fmt.Sprintf("store %q not found or not accessible — not set as current store", domain)
+	}
+	return fmt.Sprintf("could not validate store %q (%v) — not set as current store", domain, err)
 }
 
 // applyStoreToken records a freshly minted store token in state, keyed by the

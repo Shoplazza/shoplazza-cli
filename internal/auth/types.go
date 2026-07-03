@@ -83,7 +83,7 @@ type Status struct {
 	LoggedIn      bool                   `json:"logged_in"`
 	Account       string                 `json:"account,omitempty"`
 	UserID        string                 `json:"user_id,omitempty"`
-	CurrentStore  string                 `json:"current_store,omitempty"`
+	CurrentStore  string                 `json:"current_store"` // always present ("" when no store), like granted_scopes
 	GrantedScopes []string               `json:"granted_scopes"`
 	UATAvailable  bool                   `json:"uat_available"`
 	UATExpiresAt  string                 `json:"uat_expires_at,omitempty"`
@@ -95,6 +95,9 @@ type LoginResult struct {
 	UAT          string
 	AuthorizeURL string // non-empty for web flow
 	Status       Status
+	// StoreWarning is set when a requested --store-domain fails validation at
+	// login; login still succeeds but the store is not set as current.
+	StoreWarning string
 }
 
 // ── HTTP request / response types ────────────────────────────────────────────

@@ -284,9 +284,16 @@ func buildUploadUpsert(ctx context.Context, deps DeployDeps) ([]DeployedExt, str
 		// Persist the server-issued id into the extension toml so the NEXT
 		// dev/deploy id-matches instead of re-creating (v1 deploy.js:156 /
 		// dev.js:154). Only on change — the common update path stays write-free.
-		if got := deployed[len(deployed)-1].ExtensionID; got != "" && got != p.Local.ExtensionID && deps.ProjectRoot != "" {
-			if wErr := WriteBackExtensionVersion(deps.ProjectRoot, p.Local.Dir, got, ""); wErr != nil {
-				return nil, "", wrapExtErr(p.Local, output.ErrInternal("upsert succeeded but writing back extension id failed: %v", wErr))
+		if got := deployed[len(deployed)-1].ExtensionID; got != "" && deps.ProjectRoot != "" {
+			if got != p.Local.ExtensionID {
+				if wErr := WriteBackExtensionVersion(deps.ProjectRoot, p.Local.Dir, got, ""); wErr != nil {
+					return nil, "", wrapExtErr(p.Local, output.ErrInternal("upsert succeeded but writing back extension id failed: %v", wErr))
+				}
+			}
+			// v1-compat: migrate a legacy extension.config.json to a v2 toml. No-op otherwise.
+			ext := deployed[len(deployed)-1]
+			if mErr := MigrateV1Extension(deps.ProjectRoot, p.Local.Dir, got, ext.Name, ext.Type, ext.Version); mErr != nil {
+				return nil, "", wrapExtErr(p.Local, output.ErrInternal("upsert succeeded but migrating v1 config failed: %v", mErr))
 			}
 		}
 	}

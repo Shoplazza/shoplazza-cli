@@ -16,9 +16,7 @@ import (
 //
 // --adjust N: direct PUT /inventory_levels with stock_adjustment=N (N must be > 0; the API rejects 0 and negatives).
 // --set N: client-side simulation — GET the current level, compute delta = N - current, then PUT, since the
-// /set endpoint behaves as add (not set). Decrement (N < current) is rejected because the API has no decrement primitive.
-// Verified 2026-06 against staging: POST /inventory_levels/set ADDS despite its "Set" name, and PUT /inventory_levels
-// rejects stock_adjustment ≤ 0 — so neither endpoint can reduce stock. Do not "fix" this by trusting the registry doc.
+// /set endpoint behaves as add (not set). Decrement (N < current) is rejected: the API has no decrement primitive.
 var stockShortcut = common.Shortcut{
 	Service: "products",
 	Command: "+stock",

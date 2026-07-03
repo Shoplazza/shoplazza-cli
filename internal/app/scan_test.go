@@ -66,6 +66,77 @@ func TestScanLocalExtensions_DirWithoutToml_Skipped(t *testing.T) {
 	}
 }
 
+// TestScanLocalExtensions_V1Fallback: a dir with only the legacy v1
+// extension.config.json (no v2 toml) is read and mapped to LocalExt, so v1
+// projects deploy without a manual migration.
+func TestScanLocalExtensions_V1Fallback(t *testing.T) {
+	root := t.TempDir()
+	extDir := filepath.Join(root, "extensions", "preorder")
+	if err := os.MkdirAll(extDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	v1 := `{"extensionId":"657218221862028613","appId":"app_x","partnerId":"3665","extensionName":"preorder","version":"1.0.0","type":"theme","subtype":"basic"}`
+	if err := os.WriteFile(filepath.Join(extDir, "extension.config.json"), []byte(v1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	locals, err := ScanLocalExtensions(root)
+	if err != nil {
+		t.Fatalf("ScanLocalExtensions: %v", err)
+	}
+	if len(locals) != 1 {
+		t.Fatalf("locals = %+v, want 1", locals)
+	}
+	got := locals[0]
+	if got.ExtensionID != "657218221862028613" || got.Name != "preorder" || got.Type != "theme" || got.Version != "1.0.0" || got.AppID != "app_x" {
+		t.Fatalf("v1 mapping wrong: %+v", got)
+	}
+}
+
+// TestScanLocalExtensions_V2TomlWinsOverV1: when both formats are present, the
+// v2 toml is authoritative and the v1 json is ignored.
+func TestScanLocalExtensions_V2TomlWinsOverV1(t *testing.T) {
+	root := t.TempDir()
+	extDir := filepath.Join(root, "extensions", "co")
+	if err := os.MkdirAll(extDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(extDir, "shoplazza.extension.toml"),
+		[]byte("id = \"v2id\"\nname = \"co\"\ntype = \"checkout\"\nversion = \"2.0.0\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(extDir, "extension.config.json"),
+		[]byte(`{"extensionId":"v1id","extensionName":"co","type":"checkout","version":"1.0.0"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	locals, err := ScanLocalExtensions(root)
+	if err != nil {
+		t.Fatalf("ScanLocalExtensions: %v", err)
+	}
+	if len(locals) != 1 || locals[0].ExtensionID != "v2id" || locals[0].AppID != "" {
+		t.Fatalf("toml should win: %+v", locals)
+	}
+}
+
+// TestScanLocalExtensions_V1Malformed_Validation: a present but unparseable v1
+// json surfaces as a validation error naming the file, like the toml path.
+func TestScanLocalExtensions_V1Malformed_Validation(t *testing.T) {
+	root := t.TempDir()
+	extDir := filepath.Join(root, "extensions", "bad")
+	if err := os.MkdirAll(extDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(extDir, "extension.config.json"), []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ScanLocalExtensions(root)
+	if err == nil {
+		t.Fatal("expected validation error for malformed v1 config")
+	}
+	if err.Code != output.ExitValidation || !strings.Contains(err.Error(), "extensions/bad/extension.config.json") {
+		t.Fatalf("error should name the v1 file as validation, got %q (code %d)", err.Error(), err.Code)
+	}
+}
+
 // TestScanLocalExtensions_MalformedToml_Validation: a present but
 // unparseable extension toml must surface as a validation error naming the
 // file — silently skipping it made deploy/dev quietly ignore the extension.

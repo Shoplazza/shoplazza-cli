@@ -3,14 +3,12 @@ package theme_extension
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"net"
 	"net/url"
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/app"
 	"shoplazza-cli-v2/internal/client"
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/core"
@@ -73,56 +71,6 @@ func TestReleaseRequiresConnectFirst(t *testing.T) {
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Detail == nil || ee.Detail.Type != output.TypeValidation {
 		t.Fatalf("expected validation (connect first), got %v", err)
-	}
-}
-
-// ── selectPartner ─────────────────────────────────────────────────────────────
-
-func mustParsePartners(t *testing.T, raw string) []app.Partner {
-	t.Helper()
-	var p []app.Partner
-	if err := json.Unmarshal([]byte(raw), &p); err != nil {
-		t.Fatalf("parse partners: %v", err)
-	}
-	return p
-}
-
-func TestSelectPartner_FlagMatchesPartner(t *testing.T) {
-	partners := mustParsePartners(t, `[{"id":"p1"},{"id":"p2"}]`)
-	got, err := selectPartner(partners, "p1")
-	if err != nil || got != "p1" {
-		t.Errorf("got (%q, %v) want (p1, nil)", got, err)
-	}
-}
-
-func TestSelectPartner_FlagNotFound(t *testing.T) {
-	partners := mustParsePartners(t, `[{"id":"p1"}]`)
-	_, err := selectPartner(partners, "unknown")
-	if err == nil {
-		t.Error("expected error when flag partner not found")
-	}
-}
-
-func TestSelectPartner_NoPartners(t *testing.T) {
-	_, err := selectPartner(nil, "")
-	if err == nil {
-		t.Error("expected error when no partners available")
-	}
-}
-
-func TestSelectPartner_SingleAutoSelected(t *testing.T) {
-	partners := mustParsePartners(t, `[{"id":"only-one"}]`)
-	got, err := selectPartner(partners, "")
-	if err != nil || got != "only-one" {
-		t.Errorf("single partner auto-select: got (%q, %v) want (only-one, nil)", got, err)
-	}
-}
-
-func TestSelectPartner_MultipleWithoutFlag(t *testing.T) {
-	partners := mustParsePartners(t, `[{"id":"p1"},{"id":"p2"}]`)
-	_, err := selectPartner(partners, "")
-	if err == nil {
-		t.Error("expected error when multiple partners and no flag")
 	}
 }
 

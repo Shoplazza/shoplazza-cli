@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-06-17T02:43:22Z",
+  "generated_at": "2026-07-03T02:40:28Z",
   "modules": [
     {
       "name": "billing",
@@ -6376,14 +6376,14 @@
                 "name": "begin_time",
                 "type": "string",
                 "required": true,
-                "description": "Start time as Unix timestamp in seconds.",
+                "description": "Start time, a Unix timestamp in seconds passed as a string, e.g. \"1748736000\".",
                 "min_length": 1
               },
               {
                 "name": "end_time",
                 "type": "string",
                 "required": true,
-                "description": "End time as Unix timestamp in seconds.",
+                "description": "End time, a Unix timestamp in seconds passed as a string, e.g. \"1781481600\". Should be greater than begin_time.",
                 "min_length": 1
               },
               {
@@ -6429,7 +6429,12 @@
               {
                 "name": "filters",
                 "type": "string",
-                "description": "JSON filter object, e.g. {\"land_url_path\": {\"operator\": \"like\", \"value\": \"/\"}}."
+                "description": "Advanced filter conditions as a JSON string, expressed as a nested filter tree: - Array node `[ ... ]`: its children are combined with OR. - Object node `{ ... }`: its entries are combined with AND. - Leaf node: {\"operator\": \"...\", \"value\": ...} attached under a filter key. The `value` type to send depends on the operator (operators are case-insensitive): - `in`, `not in`             -\u003e value is an ARRAY, e.g. [\"a\", \"b\"]. A scalar will NOT match, so always send an array for these operators. - `like`, `not like`         -\u003e value is a STRING, e.g. \"google\" - `=`, `\u003e`, `\u003e=`, `\u003c`, `\u003c=`  -\u003e value is a SCALAR (string or number), e.g. 10 value is auto-converted to the target field type. Common keys: `land_url_path`, `last_template_name` (page type), `last_referrer_show`. Unknown keys or unsupported operators are silently ignored, so a filter \"not taking effect\" usually means a mistyped key/operator. e.g. AND: {\"land_url_path\": {\"operator\": \"like\", \"value\": \"/\"}} OR : [{\"last_referrer_show\": {\"operator\": \"like\", \"value\": \"google\"}}, {\"last_referrer_show\": {\"operator\": \"like\", \"value\": \"facebook\"}}]"
+              },
+              {
+                "name": "filter_crawler_type",
+                "type": "string",
+                "description": "Crawler-filtering policy that controls whether bot/crawler traffic is excluded from the statistics. Values: - `no_filter_crawler`: do not filter; count all traffic (default). - `official_crawler`: exclude known crawlers/bots."
               }
             ]
           },
@@ -6456,14 +6461,14 @@
                 "name": "begin_time",
                 "type": "string",
                 "required": true,
-                "description": "Start time as Unix timestamp in seconds.",
+                "description": "Start time, a Unix timestamp in seconds passed as a string, e.g. \"1748736000\".",
                 "min_length": 1
               },
               {
                 "name": "end_time",
                 "type": "string",
                 "required": true,
-                "description": "End time as Unix timestamp in seconds.",
+                "description": "End time, a Unix timestamp in seconds passed as a string, e.g. \"1781481600\". Should be greater than begin_time.",
                 "min_length": 1
               },
               {
@@ -6570,6 +6575,11 @@
                 "name": "created_at_max_at",
                 "type": "string",
                 "description": "Maximum product creation time, e.g. \"2026-04-04 00:00:00\"."
+              },
+              {
+                "name": "filter_crawler_type",
+                "type": "string",
+                "description": "Crawler-filtering policy that controls whether bot/crawler traffic is excluded from the statistics. Values: - `no_filter_crawler`: do not filter; count all traffic (default). - `official_crawler`: exclude known crawlers/bots."
               }
             ]
           },
@@ -6602,14 +6612,14 @@
                 "name": "begin_time",
                 "type": "string",
                 "required": true,
-                "description": "The starting timestamp (in seconds) for retrieving analysis data. Must be a valid Unix timestamp and less than end_time. Typically set to the start of the day (00:00) in the relevant timezone.",
+                "description": "Start time for retrieving analysis data: a Unix timestamp in seconds, passed as a string (e.g. \"1748736000\"). Must be less than end_time; typically the start of the day (00:00) in the relevant timezone.",
                 "min_length": 1
               },
               {
                 "name": "end_time",
                 "type": "string",
                 "required": true,
-                "description": "The ending timestamp (in seconds) for retrieving analysis data. Must be a valid Unix timestamp and greater than begin_time. Typically set to the start of the following day (00:00) in the relevant timezone.",
+                "description": "End time for retrieving analysis data: a Unix timestamp in seconds, passed as a string (e.g. \"1781481600\"). Must be greater than begin_time; typically the start of the following day (00:00) in the relevant timezone.",
                 "min_length": 1
               },
               {
@@ -6660,12 +6670,17 @@
               {
                 "name": "filter",
                 "type": "string",
-                "description": "e.g. {\"spu\": {\"operator\": \"in\", \"value\": [\"spu1\"]}} Advanced filter conditions in JSON format. Only takes effect when search_model is \"advanced\"."
+                "description": "Advanced filter conditions as a JSON string. Only takes effect when `search_model` is \"advanced\". A flat JSON object that maps each filter key to a leaf {\"operator\": \"...\", \"value\": ...}; multiple keys are combined with AND (this endpoint does not support OR groups). The `value` type to send depends on the operator (operators are case-insensitive): - `in`, `not in`             -\u003e value is an ARRAY of strings, e.g. [\"SPU001\", \"SPU002\"] - `like`, `not like`         -\u003e value is a STRING, e.g. \"shirt\" - `=`, `\u003e`, `\u003e=`, `\u003c`, `\u003c=`  -\u003e value is a SCALAR (string or number), e.g. 10 Key -\u003e expected value: list keys (`spu`, `sku`, `product_id`, `title`, `tag_list`) use the array form; range keys (`price_min`/`price_max`, `cost_price_min`/`cost_price_max`, `compare_at_price_min`/`compare_at_price_max`, `created_at_min`/`created_at_max`, `updated_at_min`/`updated_at_max`) use a scalar; boolean keys (`published`, `sub_category`) use \"true\"/\"false\"; other keys (`collection_id`, `keyword`, `vendor`, `category`, `product_note`, `sales_platform`) use a string. Unknown keys are silently ignored (the request still returns 200), so a filter \"not taking effect\" usually means a mistyped key. e.g. {\"spu\": {\"operator\": \"in\", \"value\": [\"SPU001\", \"SPU002\"]}}"
               },
               {
                 "name": "with_impression",
                 "type": "boolean",
                 "description": "Whether to include impression data in the response."
+              },
+              {
+                "name": "filter_crawler_type",
+                "type": "string",
+                "description": "Crawler-filtering policy that controls whether bot/crawler traffic is excluded from the statistics. Values: - `no_filter_crawler`: do not filter; count all traffic (default). - `official_crawler`: exclude known crawlers/bots."
               }
             ]
           },
@@ -6692,14 +6707,14 @@
                 "name": "begin_time",
                 "type": "string",
                 "required": true,
-                "description": "Start time as Unix timestamp in seconds.",
+                "description": "Start time, a Unix timestamp in seconds passed as a string, e.g. \"1748736000\".",
                 "min_length": 1
               },
               {
                 "name": "end_time",
                 "type": "string",
                 "required": true,
-                "description": "End time as Unix timestamp in seconds.",
+                "description": "End time, a Unix timestamp in seconds passed as a string, e.g. \"1781481600\". Should be greater than begin_time.",
                 "min_length": 1
               },
               {
@@ -6744,7 +6759,12 @@
                   "type": "object",
                   "schema": "v202506.UTMFilter"
                 },
-                "description": "Optional filters to narrow results by UTM dimension values."
+                "description": "Optional list of structured filters to narrow results by UTM dimension values. Entries in the list are combined with AND. e.g. [{\"title\": \"utm_medium\", \"prerequisite\": \"includes\", \"values\": [\"123\"]}]"
+              },
+              {
+                "name": "filter_crawler_type",
+                "type": "string",
+                "description": "Crawler-filtering policy that controls whether bot/crawler traffic is excluded from the statistics. Values: - `no_filter_crawler`: do not filter; count all traffic (default). - `official_crawler`: exclude known crawlers/bots."
               }
             ]
           },
@@ -6771,14 +6791,14 @@
                 "name": "begin_time",
                 "type": "string",
                 "required": true,
-                "description": "Begin time.",
+                "description": "Start time, a Unix timestamp in seconds passed as a string, e.g. \"1748736000\".",
                 "min_length": 1
               },
               {
                 "name": "end_time",
                 "type": "string",
                 "required": true,
-                "description": "End time.",
+                "description": "End time, a Unix timestamp in seconds passed as a string, e.g. \"1781481600\". Should be greater than begin_time.",
                 "min_length": 1
               },
               {
@@ -6840,7 +6860,7 @@
                 "items": {
                   "type": "string"
                 },
-                "description": "Filters for analysis, such as UTM source or country code."
+                "description": "Simple equality filters, keyed by dimension name with the exact value to match, e.g. {\"country_code\": \"US\"}. Each entry is an exact-match condition and multiple entries are combined with AND. Only keys within the supported `dimension` set take effect; unknown keys are ignored."
               }
             ]
           },
@@ -11015,9 +11035,7 @@
         },
         {
           "name": "tracking_number",
-          "type": "string",
-          "required": true,
-          "min_length": 1
+          "type": "string"
         },
         {
           "name": "tracking_company",

@@ -110,6 +110,9 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			fmt.Fprintf(f.IOStreams.ErrOut, "\nOK: Login successful!\n")
+			if result.StoreWarning != "" {
+				fmt.Fprintf(f.IOStreams.ErrOut, "  warning: %s\n", result.StoreWarning)
+			}
 			if result.Status.CurrentStore != "" {
 				fmt.Fprintf(f.IOStreams.ErrOut, "  Current store: %s\n", result.Status.CurrentStore)
 			}
@@ -118,6 +121,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "  UAT: %s\n", result.UAT)
 
+			// Store warning is shown in the stderr summary only, not echoed in the JSON.
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,
 				"action": "login",
