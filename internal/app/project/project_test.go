@@ -3,6 +3,7 @@ package project
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -45,14 +46,21 @@ func TestUseConfig_PersistsActivePointer(t *testing.T) {
 }
 
 func TestResolve(t *testing.T) {
-	if got := Resolve("/work", "."); got != "/work" {
-		t.Fatalf("Resolve(/work,.) = %q", got)
+	// Resolve returns OS-native paths, so build the expectations with filepath
+	// rather than hard-coding forward slashes (which fail on Windows).
+	cwd := filepath.FromSlash("/work")
+	if got := Resolve(cwd, "."); got != cwd {
+		t.Fatalf("Resolve(%q,.) = %q, want %q", cwd, got, cwd)
 	}
-	if got := Resolve("/work", "sub"); got != "/work/sub" {
-		t.Fatalf("Resolve(/work,sub) = %q", got)
+	if got, want := Resolve(cwd, "sub"), filepath.Join(cwd, "sub"); got != want {
+		t.Fatalf("Resolve(%q,sub) = %q, want %q", cwd, got, want)
 	}
-	if got := Resolve("/work", "/abs"); got != "/abs" {
-		t.Fatalf("Resolve abs = %q", got)
+	abs := filepath.FromSlash("/abs")
+	if runtime.GOOS == "windows" {
+		abs = `C:\abs`
+	}
+	if got := Resolve(cwd, abs); got != abs {
+		t.Fatalf("Resolve abs = %q, want %q", got, abs)
 	}
 }
 
@@ -135,9 +143,9 @@ func TestOpen_EmptyRoot_Errors(t *testing.T) {
 
 func TestResolve_EmptyPath(t *testing.T) {
 	// Empty path defaults to "."
-	got := Resolve("/work", "")
-	if got != "/work" {
-		t.Errorf("Resolve with empty path = %q, want /work", got)
+	cwd := filepath.FromSlash("/work")
+	if got := Resolve(cwd, ""); got != cwd {
+		t.Errorf("Resolve with empty path = %q, want %q", got, cwd)
 	}
 }
 

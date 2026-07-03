@@ -1,0 +1,3 @@
+# Normalize all text files to LF in the working tree on every platform.
+# Keeps golden-file tests byte-identical on Windows CI (no CRLF surprises).
+* text=auto eol=lf

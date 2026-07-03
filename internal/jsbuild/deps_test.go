@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -11,12 +12,18 @@ import (
 )
 
 // fakeNpm puts a stub `npm` on PATH that records its args and cwd to logPath,
-// then runs extra shell commands (e.g. "mkdir node_modules" or "exit 1").
+// then runs extra commands (e.g. "exit 1"). On Windows the stub must be a
+// `npm.cmd` so exec.LookPath resolves it (via PATHEXT) instead of the runner's
+// real npm.
 func fakeNpm(t *testing.T, logPath, extra string) {
 	t.Helper()
 	bin := t.TempDir()
-	script := "#!/bin/sh\necho \"$@\" > " + logPath + "\npwd >> " + logPath + "\n" + extra + "\n"
-	if err := os.WriteFile(filepath.Join(bin, "npm"), []byte(script), 0o755); err != nil {
+	name, script := "npm", "#!/bin/sh\necho \"$@\" > "+logPath+"\npwd >> "+logPath+"\n"+extra+"\n"
+	if runtime.GOOS == "windows" {
+		name = "npm.cmd"
+		script = "@echo off\r\necho %* > \"" + logPath + "\"\r\ncd >> \"" + logPath + "\"\r\n" + extra + "\r\n"
+	}
+	if err := os.WriteFile(filepath.Join(bin, name), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin)

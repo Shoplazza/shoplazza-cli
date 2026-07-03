@@ -237,32 +237,42 @@ func TestPull_HTTPErrorRetainsTmpZip(t *testing.T) {
 	}
 }
 
-func TestPull_TempZipPathUnique(t *testing.T) {
-	a := tempZipPath("theme-x")
-	b := tempZipPath("theme-x")
-	if a == b {
-		t.Errorf("tempZipPath should be unique across calls; got duplicate: %s", a)
+func TestPull_CreateTempZipUnique(t *testing.T) {
+	a, err := createTempZip("theme-x")
+	if err != nil {
+		t.Fatal(err)
 	}
-	// Confirm same theme-id appears in both paths (sanity).
-	if !strings.Contains(a, "theme-x") || !strings.Contains(b, "theme-x") {
-		t.Errorf("themeID not embedded in tmp path: a=%s b=%s", a, b)
+	defer os.Remove(a.Name())
+	a.Close()
+	b, err := createTempZip("theme-x")
+	if err != nil {
+		t.Fatal(err)
 	}
-	// Different theme IDs must also produce different paths.
-	c := tempZipPath("theme-y")
-	if c == a {
-		t.Errorf("distinct theme IDs collided: a=%s c=%s", a, c)
+	defer os.Remove(b.Name())
+	b.Close()
+	if a.Name() == b.Name() {
+		t.Errorf("createTempZip should be unique across calls; got duplicate: %s", a.Name())
+	}
+	// Confirm the theme-id appears in both paths (sanity).
+	if !strings.Contains(a.Name(), "theme-x") || !strings.Contains(b.Name(), "theme-x") {
+		t.Errorf("themeID not embedded in tmp path: a=%s b=%s", a.Name(), b.Name())
 	}
 }
 
-// TestPull_TempZipPathSanitizesID: even if the flag-level theme-id validation
-// is bypassed, tempZipPath itself must not splice separators into the path.
-func TestPull_TempZipPathSanitizesID(t *testing.T) {
-	p := tempZipPath("../../etc/passwd")
-	dir := filepath.Dir(p)
-	if dir != filepath.Clean(os.TempDir()) {
+// TestPull_CreateTempZipSanitizesID: even if the flag-level theme-id validation
+// is bypassed, createTempZip itself must not splice separators into the path.
+func TestPull_CreateTempZipSanitizesID(t *testing.T) {
+	f, err := createTempZip("../../etc/passwd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := f.Name()
+	f.Close()
+	defer os.Remove(p)
+	if filepath.Dir(p) != filepath.Clean(os.TempDir()) {
 		t.Errorf("tmp zip escaped the tmp dir: %s", p)
 	}
-	if strings.Contains(filepath.Base(p), "/") || strings.Contains(filepath.Base(p), "\\") {
+	if strings.ContainsAny(filepath.Base(p), `/\`) {
 		t.Errorf("separators survived sanitization: %s", p)
 	}
 }

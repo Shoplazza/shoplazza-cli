@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"shoplazza-cli-v2/internal/output"
@@ -276,12 +277,15 @@ func TestEnsure_TgzExtractsNamedBinary(t *testing.T) {
 	if string(got) != payload {
 		t.Fatalf("got %q, want %q", string(got), payload)
 	}
-	// The extracted binary must be executable.
-	fi, statErr := os.Stat(p)
-	if statErr != nil {
-		t.Fatalf("Stat: %v", statErr)
-	}
-	if fi.Mode().Perm()&0o100 == 0 {
-		t.Fatalf("extracted binary not executable: mode %v", fi.Mode())
+	// The extracted binary must be executable (POSIX file mode; Windows has no
+	// executable bit).
+	if runtime.GOOS != "windows" {
+		fi, statErr := os.Stat(p)
+		if statErr != nil {
+			t.Fatalf("Stat: %v", statErr)
+		}
+		if fi.Mode().Perm()&0o100 == 0 {
+			t.Fatalf("extracted binary not executable: mode %v", fi.Mode())
+		}
 	}
 }

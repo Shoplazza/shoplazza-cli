@@ -12,6 +12,7 @@ import (
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/output"
 	"shoplazza-cli-v2/internal/registry"
+	"shoplazza-cli-v2/internal/testenv"
 	"shoplazza-cli-v2/shortcuts/common"
 
 	"github.com/spf13/cobra"
@@ -22,10 +23,8 @@ import (
 // Mirrors tempFactory in internal/cmdutil/require_auth_test.go.
 func notLoggedInFactory(t *testing.T) *cmdutil.Factory {
 	t.Helper()
-	dir := t.TempDir()
+	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
-	t.Setenv("HOME", dir)
 	out := &strings.Builder{}
 	return &cmdutil.Factory{
 		IOStreams:  cmdutil.IOStreams{In: strings.NewReader(""), Out: out, ErrOut: &strings.Builder{}},

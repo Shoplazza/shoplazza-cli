@@ -3,6 +3,7 @@ package keychain_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"shoplazza-cli-v2/internal/keychain"
@@ -110,6 +111,35 @@ func TestSet_MultipleAccounts(t *testing.T) {
 		}
 		if got != a.secret {
 			t.Errorf("Get(%q) = %q, want %q", a.account, got, a.secret)
+		}
+	}
+}
+
+// ── Windows-illegal characters in the on-disk filename ───────────────────────
+
+// The "store:"/"app:" prefix must not leave a ':' in the .enc filename — it's
+// illegal on Windows and breaks Set with "The parameter is incorrect."
+func TestSet_FileNameIsWindowsSafe(t *testing.T) {
+	usesTempDir(t)
+
+	account := "store:ceshi1.myshoplazza.com"
+	if err := keychain.Set(keychain.ShoplazzaCliService, account, "tok"); err != nil {
+		t.Fatalf("Set(%q): %v", account, err)
+	}
+
+	cfgDir, err := os.UserConfigDir()
+	if err != nil {
+		t.Skip("cannot determine UserConfigDir:", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(cfgDir, "shoplazza-cli", "keychain"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Characters Windows forbids in a path component.
+	const reserved = `<>:"/\|?*`
+	for _, e := range entries {
+		if i := strings.IndexAny(e.Name(), reserved); i >= 0 {
+			t.Errorf("keychain file %q contains %q, illegal in a Windows filename", e.Name(), e.Name()[i])
 		}
 	}
 }

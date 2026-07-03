@@ -45,22 +45,33 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 <details>
 <summary>Platform-specific binary download</summary>
 
+Release archives are versioned (`shoplazza-cli-<version>-<os>-<arch>`), so resolve the latest tag first — or grab your platform's archive straight from the [releases page](https://github.com/Shoplazza/shoplazza-cli/releases/latest).
+
+**macOS / Linux**
+
 ```bash
+# Resolve the latest version (or set VERSION=x.y.z yourself):
+VERSION=$(curl -fsSL https://api.github.com/repos/Shoplazza/shoplazza-cli/releases/latest \
+  | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/')
+BASE="https://github.com/Shoplazza/shoplazza-cli/releases/download/v${VERSION}"
+
 # macOS (Apple Silicon)
-curl -fsSL https://github.com/Shoplazza/shoplazza-cli/releases/latest/download/shoplazza-cli-darwin-arm64.tar.gz | tar -xz
-sudo install -m755 shoplazza /usr/local/bin/
+curl -fsSL "${BASE}/shoplazza-cli-${VERSION}-darwin-arm64.tar.gz" | tar -xz
+# macOS (Intel):  ${BASE}/shoplazza-cli-${VERSION}-darwin-amd64.tar.gz
+# Linux (x86_64): ${BASE}/shoplazza-cli-${VERSION}-linux-amd64.tar.gz
+# Linux (ARM64):  ${BASE}/shoplazza-cli-${VERSION}-linux-arm64.tar.gz
 
-# macOS (Intel)
-curl -fsSL https://github.com/Shoplazza/shoplazza-cli/releases/latest/download/shoplazza-cli-darwin-amd64.tar.gz | tar -xz
 sudo install -m755 shoplazza /usr/local/bin/
+```
 
-# Linux (x86_64)
-curl -fsSL https://github.com/Shoplazza/shoplazza-cli/releases/latest/download/shoplazza-cli-linux-amd64.tar.gz | tar -xz
-sudo install -m755 shoplazza /usr/local/bin/
+**Windows (PowerShell)**
 
-# Linux (ARM64)
-curl -fsSL https://github.com/Shoplazza/shoplazza-cli/releases/latest/download/shoplazza-cli-linux-arm64.tar.gz | tar -xz
-sudo install -m755 shoplazza /usr/local/bin/
+```powershell
+$V = (Invoke-RestMethod https://api.github.com/repos/Shoplazza/shoplazza-cli/releases/latest).tag_name.TrimStart('v')
+# arm64: swap windows-amd64 for windows-arm64
+Invoke-WebRequest "https://github.com/Shoplazza/shoplazza-cli/releases/download/v$V/shoplazza-cli-$V-windows-amd64.zip" -OutFile shoplazza.zip
+Expand-Archive shoplazza.zip -DestinationPath .
+# Move shoplazza.exe to a directory on your PATH.
 ```
 
 </details>

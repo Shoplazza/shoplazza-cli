@@ -15,14 +15,13 @@ import (
 	"shoplazza-cli-v2/internal/client"
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 // setupTempConfig redirects auth/config/keychain paths to a temp dir.
 func setupTempConfig(t *testing.T) (configPath, authPath string) {
 	t.Helper()
-	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
-	t.Setenv("HOME", dir)
+	dir := testenv.IsolateConfigDir(t)
 	configPath = filepath.Join(dir, "config.json")
 	authPath = filepath.Join(dir, "auth.json")
 	return configPath, authPath
