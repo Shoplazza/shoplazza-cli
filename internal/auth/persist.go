@@ -23,11 +23,26 @@ func storeKcKey(domain string) string { return "store:" + domain }
 func appKcKey(clientID string) string { return "app:" + clientID }
 
 func (m *Manager) persistState(state AuthState) error {
+	// A login/refresh that carries no partner token must not silently drop an
+	// existing one for the SAME account. A routine store-scoped login (whose poll
+	// returns no partner_token) or a --uat refresh would otherwise cost you your
+	// partner session and force an interactive re-login for every app command.
+	// Preserve it here; it is only cleared on an account switch (below — else
+	// LoadState would resurrect another account's partner token) or on explicit
+	// logout (Logout removes it directly).
+	partner, partnerExpiresAt := state.Partner, state.PartnerExpiresAt
+	if partner == "" {
+		if prev, err := loadAuthMeta(m.AuthPath); err == nil && prev.Account != "" && prev.Account == state.Account {
+			if existing, gerr := keychain.Get(keychain.ShoplazzaCliService, kcPartner); gerr == nil && existing != "" {
+				partner, partnerExpiresAt = existing, prev.PartnerExpiresAt
+			}
+		}
+	}
 	meta := authMeta{
 		Account:          state.Account,
 		UserID:           state.UserID,
 		UATExpiresAt:     state.UATExpiresAt,
-		PartnerExpiresAt: state.PartnerExpiresAt,
+		PartnerExpiresAt: partnerExpiresAt,
 		GrantedScopes:    state.GrantedScopes,
 		Stores:           map[string]StoreTokenMeta{},
 		Apps:             map[string]AppTokenMeta{},
@@ -46,16 +61,14 @@ func (m *Manager) persistState(state AuthState) error {
 			return err
 		}
 	}
-	if state.Partner != "" {
-		if err := keychain.Set(keychain.ShoplazzaCliService, kcPartner, state.Partner); err != nil {
+	if partner != "" {
+		if err := keychain.Set(keychain.ShoplazzaCliService, kcPartner, partner); err != nil {
 			return err
 		}
 	} else {
-		// A login that yields no partner token (e.g. --uat, or a failed
-		// best-effort mint) must not leave a stale partner credential behind:
-		// LoadState reads kcPartner unconditionally, so a lingering entry would be
-		// resurrected. Store-token operations (UseStore/RefreshAccessToken)
-		// LoadState first, so a genuinely-present partner is preserved, not dropped.
+		// Empty here means either a first login with no partner token, or an
+		// account switch — drop any lingering entry so LoadState can't resurrect
+		// a different account's partner token.
 		_ = keychain.Remove(keychain.ShoplazzaCliService, kcPartner)
 	}
 	for dom, s := range state.Stores {

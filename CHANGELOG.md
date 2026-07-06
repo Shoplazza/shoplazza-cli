@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- **`auth login --domain app`** now expands to the app-extension development scopes — `read_themes write_themes` (plus `read_shop`, which the themes module implies for theme previews) — covering themes, checkout, and theme-extension uploads. Previously it granted the app template's install scopes (`read_customer write_cart_transform`).
+
+### Fixed
+- **Partner token no longer dropped by routine logins** — a store-scoped or `--uat` login of the same account carries no partner token, but it used to wipe the stored one, forcing an interactive re-login for every `app` command. It is now preserved for the same account and cleared only on an account switch or explicit logout.
+
 ## 2.0.5 - 2026-07-03
 
 ### Added
