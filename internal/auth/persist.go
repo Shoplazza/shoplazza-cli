@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
@@ -32,7 +33,9 @@ func (m *Manager) persistState(state AuthState) error {
 	// logout (Logout removes it directly).
 	partner, partnerExpiresAt := state.Partner, state.PartnerExpiresAt
 	if partner == "" {
-		if prev, err := loadAuthMeta(m.AuthPath); err == nil && prev.Account != "" && prev.Account == state.Account {
+		// Match case-insensitively: poll and Me may echo the same email in
+		// different casing, and a mismatch would wrongly wipe a valid token.
+		if prev, err := loadAuthMeta(m.AuthPath); err == nil && prev.Account != "" && strings.EqualFold(prev.Account, state.Account) {
 			if existing, gerr := keychain.Get(keychain.ShoplazzaCliService, kcPartner); gerr == nil && existing != "" {
 				partner, partnerExpiresAt = existing, prev.PartnerExpiresAt
 			}

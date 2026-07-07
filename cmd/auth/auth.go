@@ -159,13 +159,13 @@ func expandLoginDomains(domains []string) ([]string, error) {
 	var appScopes []string
 	for _, d := range domains {
 		if d == "app" {
-			for _, sub := range []string{"themes", "checkout"} {
-				s, err := internalauth.ExpandDomain(sub)
-				if err != nil {
-					return nil, err
-				}
-				appScopes = append(appScopes, s...)
+			// themes, checkout, and theme-extension uploads all authorize via the
+			// themes scope, so that single domain covers app-extension development.
+			s, err := internalauth.ExpandDomain("themes")
+			if err != nil {
+				return nil, err
 			}
+			appScopes = append(appScopes, s...)
 			continue
 		}
 		rest = append(rest, d)
