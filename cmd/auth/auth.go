@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/internal/app/project"
 	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/output"
@@ -152,15 +151,21 @@ func domainFlagHelp() string {
 
 // expandLoginDomains expands --domain values into OAuth scopes. Beyond the
 // API-module domains handled by internalauth.ExpandDomains, it accepts the
-// alias "app": the scopes a scaffolded app requests by default
-// (project.DefaultScopes), so `auth login -s <store> --domain app` grants a
-// test store exactly what the app template ships with.
+// alias "app": the scopes app-extension development needs. themes, checkout,
+// and theme-extension uploads all authorize via the themes scope, so
+// `auth login -s <store> --domain app` grants read_themes + write_themes.
 func expandLoginDomains(domains []string) ([]string, error) {
 	rest := make([]string, 0, len(domains))
 	var appScopes []string
 	for _, d := range domains {
 		if d == "app" {
-			appScopes = strings.Fields(project.DefaultScopes)
+			// themes, checkout, and theme-extension uploads all authorize via the
+			// themes scope, so that single domain covers app-extension development.
+			s, err := internalauth.ExpandDomain("themes")
+			if err != nil {
+				return nil, err
+			}
+			appScopes = append(appScopes, s...)
 			continue
 		}
 		rest = append(rest, d)
@@ -169,7 +174,7 @@ func expandLoginDomains(domains []string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(scopes, appScopes...), nil
+	return internalauth.DedupePreserveOrder(append(scopes, appScopes...)), nil
 }
 
 func newCmdLogout(f *cmdutil.Factory) *cobra.Command {

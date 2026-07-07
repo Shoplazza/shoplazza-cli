@@ -19,14 +19,15 @@ func containsAll(got []string, want ...string) bool {
 	return true
 }
 
-// --domain app expands to the app template's default install scopes.
+// --domain app expands to the app-extension development scopes: themes,
+// checkout, and theme-extension uploads all authorize via the themes scope.
 func TestExpandLoginDomains_AppAlias(t *testing.T) {
 	got, err := expandLoginDomains([]string{"app"})
 	if err != nil {
 		t.Fatalf("expandLoginDomains([app]): %v", err)
 	}
-	if !containsAll(got, "read_customer", "write_cart_transform") {
-		t.Fatalf("--domain app = %v, want read_customer + write_cart_transform", got)
+	if !containsAll(got, "read_themes", "write_themes") {
+		t.Fatalf("--domain app = %v, want read_themes + write_themes", got)
 	}
 }
 
@@ -49,7 +50,7 @@ func TestExpandLoginDomains_AppPlusModule(t *testing.T) {
 		t.Fatalf("expandLoginDomains([app,products]): %v", err)
 	}
 	prod, _ := internalauth.ExpandDomains([]string{"products"})
-	want := append([]string{"read_customer", "write_cart_transform"}, prod...)
+	want := append([]string{"read_themes", "write_themes"}, prod...)
 	if !containsAll(got, want...) {
 		t.Fatalf("--domain app,products = %v, want union %v", got, want)
 	}

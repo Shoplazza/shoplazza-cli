@@ -522,10 +522,11 @@ func TestE2E_Login_StoreUse_Refresh_Logout(t *testing.T) {
 }
 
 // A non-interactive `auth login --uat` cannot obtain a partner token (those are
-// only minted at interactive consent). It must not leave a stale partner
-// token from a prior interactive login behind — LoadState reads the partner
-// keychain entry unconditionally, so a lingering entry would be resurrected.
-func TestLoginUAT_ClearsStalePartnerToken(t *testing.T) {
+// only minted at interactive consent). For the SAME account it must PRESERVE an
+// existing partner token from a prior interactive login rather than wiping it —
+// otherwise a routine re-login would force a fresh interactive consent for every
+// app command. (An account switch still clears it; see persistState.)
+func TestLoginUAT_PreservesPartnerTokenSameAccount(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -553,21 +554,21 @@ func TestLoginUAT_ClearsStalePartnerToken(t *testing.T) {
 		t.Fatalf("setup: expected partner token after interactive login, got %q", st.Partner)
 	}
 
-	// 2. Non-interactive --uat re-login produces no partner token.
+	// 2. Non-interactive --uat re-login of the SAME account produces no partner token.
 	if _, err := mgr.Login(context.Background(), "", nil, "uat_injected", 5*time.Second, time.Millisecond, nil); err != nil {
 		t.Fatalf("uat login: %v", err)
 	}
 
-	// 3. The stale partner token must not be resurrected by LoadState...
+	// 3. The same account's partner token is preserved (not wiped), so app
+	// commands keep working without a fresh interactive login.
 	st, err := mgr.LoadState()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Partner != "" {
-		t.Errorf("stale partner token resurrected after --uat re-login: %q", st.Partner)
+	if st.Partner != "pt_stale" {
+		t.Errorf("partner token should be preserved across a same-account --uat re-login, got %q", st.Partner)
 	}
-	// ...and must be gone from the keychain entirely.
-	if got, _ := keychain.Get(keychain.ShoplazzaCliService, "partner"); got != "" {
-		t.Errorf("partner keychain entry should be removed when login yields no partner, got %q", got)
+	if got, _ := keychain.Get(keychain.ShoplazzaCliService, "partner"); got != "pt_stale" {
+		t.Errorf("partner keychain entry should be preserved for the same account, got %q", got)
 	}
 }
