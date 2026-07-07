@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-06T10:22:47Z",
+  "generated_at": "2026-07-07T07:14:29Z",
   "modules": [
     {
       "name": "billing",
@@ -6345,6 +6345,10 @@
           "summary": "Manage a store's languages: add, enable, disable, publish to markets, and delete.",
           "description": "Store languages are the locales available in a merchant's store. Each language can be enabled\n(visible to storefront visitors) or disabled, and can be published to one or more markets.\nNewly added languages are disabled by default and must be enabled before they take effect.\nProvides endpoints to list languages with their market relations, add languages, enable or\ndisable them, publish them to markets, and delete them. Deleting only removes configuration;\nthe translation corpus is retained."
         },
+        "markets": {
+          "summary": "Manage a store's markets: their lifecycle, domain, pricing, tax, status, default language, and product assignment.",
+          "description": "A market represents a set of countries a merchant sells to, with its own currency, pricing,\ndomain and language configuration. Each country belongs to exactly one market, and the primary\nmarket is protected: it cannot be deleted and, except for its tax-inclusive setting, cannot be\nmodified.\nProvides endpoints to list and retrieve markets, create and update them, change domain, price,\ntax and status settings, set the default language, delete a market, and manage which products\na market sells along with market-specific fixed prices."
+        },
         "metafields-definition": {
           "summary": "Define and manage metafield schemas that extend resource objects with custom data.",
           "description": "Metafield definitions describe the schema of metafields attached to a given owner resource,\nincluding namespace, key, value type, and validation, so that merchants and apps can store\ncustom data in a consistent, typed way.\nProvides endpoints to create, update, get, list, delete metafield definitions, and to count\ndefinitions or their associated metafields by owner resource or group."
@@ -7735,47 +7739,6 @@
           "response_schema": "v202601.ListSupportedLanguagesResponse"
         },
         {
-          "id": "market-products-delete",
-          "command_path": [
-            "market",
-            "delete-product"
-          ],
-          "summary": "Delete market products",
-          "description": "Remove products from a market so the market stops selling them.",
-          "hidden": false,
-          "http": {
-            "method": "DELETE",
-            "path": "/openapi/2026-01/markets/{id}/products",
-            "body": "*"
-          },
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Market ID.",
-              "min_length": 1
-            }
-          ],
-          "body": {
-            "required": true,
-            "fields": [
-              {
-                "name": "product_ids",
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "required": true,
-                "description": "Product IDs to remove from this market.",
-                "min_length": 1
-              }
-            ]
-          },
-          "response_schema": "v202601.DeleteMarketProductsResponse"
-        },
-        {
           "id": "market-products-add",
           "command_path": [
             "markets",
@@ -7884,6 +7847,47 @@
             }
           ],
           "response_schema": "v202601.DeleteMarketResponse"
+        },
+        {
+          "id": "market-products-delete",
+          "command_path": [
+            "markets",
+            "delete-product"
+          ],
+          "summary": "Delete market products",
+          "description": "Remove products from a market so the market stops selling them.",
+          "hidden": false,
+          "http": {
+            "method": "DELETE",
+            "path": "/openapi/2026-01/markets/{id}/products",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Market ID.",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "product_ids",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "required": true,
+                "description": "Product IDs to remove from this market.",
+                "min_length": 1
+              }
+            ]
+          },
+          "response_schema": "v202601.DeleteMarketProductsResponse"
         },
         {
           "id": "market-detail",
