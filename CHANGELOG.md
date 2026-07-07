@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## 2.0.6 - 2026-07-07
 
 ### Changed
 - **`auth login --domain app`** now expands to the app-extension development scopes — `read_themes write_themes` (plus `read_shop`, which the themes module implies for theme previews) — covering themes, checkout, and theme-extension uploads. Previously it granted the app template's install scopes (`read_customer write_cart_transform`).
