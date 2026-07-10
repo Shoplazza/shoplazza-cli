@@ -481,7 +481,7 @@ func TestShortcut_Rebate_VariantsScope(t *testing.T) {
 
 func TestShortcut_Rebate_ScopeMutexRejected(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token"},
+	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+rebate",
 		"--target", "product",
 		"--tiers", "3:20",
@@ -499,7 +499,7 @@ func TestShortcut_Rebate_ScopeMutexRejected(t *testing.T) {
 
 func TestShortcut_Rebate_LimitOrderWithPercentTypeRejected(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token"},
+	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+rebate",
 		"--target", "order",
 		"--tiers", "100:10",
@@ -678,7 +678,7 @@ func TestShortcut_Flashsale_CollectionsScope(t *testing.T) {
 
 func TestShortcut_Flashsale_ScopeMutexRejected(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token"},
+	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+flashsale",
 		"--value", "30", "--type", "percent",
 		"--variants", "v1",
@@ -754,7 +754,7 @@ func TestShortcut_Flashsale_RuleFieldsConfigurable(t *testing.T) {
 // each demands a value > 0.
 func TestShortcut_Flashsale_LimitUserMustBePositive(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token"},
+	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+flashsale",
 		"--value", "30", "--type", "percent",
 		"--limit-user-product", "0",
@@ -772,7 +772,7 @@ func TestShortcut_Flashsale_LimitUserMustBePositive(t *testing.T) {
 // follow_stock=discount, and 0 is rejected up-front.
 func TestShortcut_Flashsale_StockMustBePositive(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token"},
+	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+flashsale",
 		"--value", "30", "--type", "percent",
 		"--stock", "0",
@@ -947,7 +947,7 @@ func TestShortcut_MnDiscount_CollectionsScope(t *testing.T) {
 
 func TestShortcut_MnDiscount_ScopeMutexRejected(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token"},
+	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+mn-discount",
 		"--tiers", "3:50",
 		"--products", "gid_a",
@@ -963,7 +963,7 @@ func TestShortcut_MnDiscount_ScopeMutexRejected(t *testing.T) {
 
 func TestShortcut_MnDiscount_InvalidProductOrder(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token"},
+	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+mn-discount",
 		"--tiers", "3:50",
 		"--price-sort", "foo",
@@ -978,7 +978,7 @@ func TestShortcut_MnDiscount_InvalidProductOrder(t *testing.T) {
 
 func TestShortcut_MnDiscount_InvalidCombines(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token"},
+	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+mn-discount",
 		"--tiers", "3:50",
 		"--combines", "foo",
@@ -1242,7 +1242,7 @@ func TestShortcut_BxgyCode_GetOff(t *testing.T) {
 // both --get-percent and --get-off rejects with ExitValidation.
 func TestShortcut_BxgyCode_GetDiscountAndGetOffMutex(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token"},
+	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+bxgy-code",
 		"--products", "gid_a", "--buy-quantity", "1",
 		"--get-products", "gid_b", "--get-quantity", "1",
@@ -1279,7 +1279,7 @@ func stdout(_ *testing.T) string { return "" }
 // selection=all for product-level rebate.
 func TestDiscountsRebate_ProductTarget_RequiresScope(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token"},
+	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+rebate",
 		"--target", "product",
 		"--tiers", "3:20",

@@ -13,6 +13,7 @@ import (
 
 	cmdauth "shoplazza-cli-v2/cmd/auth"
 	"shoplazza-cli-v2/internal/cmdutil"
+	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
 	"shoplazza-cli-v2/internal/output"
 )
@@ -63,7 +64,7 @@ func TestStoreUse_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read config.json: %v", err)
 	}
-	if !strings.Contains(string(cfgData), `"store_domain": "my-store.com"`) {
+	if !strings.Contains(string(cfgData), `"storeDomain": "my-store.com"`) {
 		t.Errorf("config.json should persist current store; got: %s", cfgData)
 	}
 }
@@ -144,6 +145,88 @@ func TestStoreUse_StoreNotFound404(t *testing.T) {
 	// ...but no scope hint: re-authorizing can't fix a wrong store domain.
 	if ee.Detail.Hint != "" {
 		t.Errorf("expected no hint for store-not-found, got %q", ee.Detail.Hint)
+	}
+}
+
+// The scope check runs AFTER the store-token exchange (UseStore), against the
+// fresh per-store grant — the exchange succeeds but its granted set doesn't
+// cover the requested scope, so the command rejects. No v2 profile is created
+// or activated (asserted below). The legacy cfg.StoreDomain write has been
+// removed, so a rejected request no longer changes the current-store context.
+func TestStoreUse_ScopeNotGranted_Errors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/saiga/cli/auth/exchange/store-at" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "at_use", "store_domain": "my-store.com",
+				"at_expires_at":  "2099-01-01T00:00:00Z",
+				"granted_scopes": []string{"read_product"},
+			})
+		}
+	}))
+	defer srv.Close()
+
+	f, out := tempAuthFactory(t, srv.URL)
+	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
+		t.Fatal(err)
+	}
+
+	err := execAuth(t, f, out, "store", "use", "--store-domain", "my-store.com", "--scope", "write_product")
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Detail == nil {
+		t.Fatalf("expected an ExitError for an out-of-grant scope, got %v", err)
+	}
+	if ee.Detail.Type != output.TypeValidation {
+		t.Errorf("type = %q, want validation", ee.Detail.Type)
+	}
+
+	// The post-check must still block the v2 profile sync before it upserts anything.
+	cfg, cErr := core.LoadConfig(f.ConfigPath)
+	if cErr == nil && (len(cfg.Profiles) != 0 || cfg.CurrentProfile != "") {
+		t.Errorf("no profile should be created/activated for an out-of-grant scope request, got profiles=%+v current=%q",
+			cfg.Profiles, cfg.CurrentProfile)
+	}
+}
+
+// Regression for the bug fix-pass-2 introduced: after an account-only login
+// (no --store-domain), f.Config.Account().GrantedScopes is empty, so a
+// pre-exchange check against it would reject every --scope. The post-exchange
+// check against newStatus.GrantedScopes must succeed instead.
+func TestStoreUse_AfterAccountOnlyLogin_ScopeSubset_Succeeds(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/saiga/cli/auth/me":
+			json.NewEncoder(w).Encode(map[string]any{"account": "alice@example.com"})
+		case "/api/saiga/cli/auth/exchange/store-at":
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "at_use", "store_domain": "my-store.com",
+				"at_expires_at":  "2099-01-01T00:00:00Z",
+				"granted_scopes": []string{"read_product", "write_product"},
+			})
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	f, out := tempAuthFactory(t, srv.URL)
+	// Account-only login: no --store-domain, so GrantedScopes stays empty.
+	if err := execAuth(t, f, out, "login", "--uat", "uat_test", "--scope", "read_product"); err != nil {
+		t.Fatalf("account-only login: %v", err)
+	}
+
+	out.Reset()
+	if err := execAuth(t, f, out, "store", "use", "--store-domain", "my-store.com", "--scope", "read_product"); err != nil {
+		t.Fatalf("store use --scope after account-only login should succeed: %v", err)
+	}
+	var env map[string]any
+	if err := json.Unmarshal(out.Bytes(), &env); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	status, _ := env["status"].(map[string]any)
+	if status["current_store"] != "my-store.com" {
+		t.Errorf("status.current_store = %v", status["current_store"])
 	}
 }
 

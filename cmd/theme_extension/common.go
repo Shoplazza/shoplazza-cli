@@ -51,19 +51,43 @@ func normalizeStoreDomain(s string) string {
 // resolveStore mirrors cmd/checkout's resolveStore (private there) so every te
 // store-side command shares one resolution. override flag > current store; both
 // empty → validation. Emptiness is judged AFTER normalization so values like
-// "https://" cannot slip through.
+// "https://" cannot slip through. The current-store fallback goes through
+// CurrentStoreDomain() (current profile's domain, legacy field otherwise).
 func resolveStore(f *cmdutil.Factory, override string) (string, *output.ExitError) {
 	if s := normalizeStoreDomain(override); s != "" {
 		return s, nil
 	} else if override != "" {
 		return "", output.ErrValidation("invalid --store-domain %q", override)
 	}
-	if s := normalizeStoreDomain(f.Config.StoreDomain); s != "" {
+	if s := normalizeStoreDomain(f.Config.CurrentStoreDomain()); s != "" {
 		return s, nil
 	}
 	return "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,
 		"no current store selected",
 		"run 'shoplazza auth store use --store-domain <domain>' or pass --store-domain")
+}
+
+// storeTokenFor returns (token, domain) for override: an override matching a
+// profile → that profile's credentials (AccessTokenReadyForProfile, cached/
+// persisted); an unmatched override → an ephemeral exchange (te -s ad-hoc,
+// v1 semantics, ZERO persistence — never creates a profile or writes a
+// token); no override → the current profile's credentials.
+func storeTokenFor(ctx context.Context, f *cmdutil.Factory, override string) (string, string, error) {
+	mgr := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
+	if s := normalizeStoreDomain(override); s != "" {
+		if p := f.Config.FindProfileByStore(s); p != nil {
+			tok, err := mgr.AccessTokenReadyForProfile(ctx, f.ConfigPath, *p)
+			return tok, s, err
+		}
+		tok, err := mgr.ExchangeEphemeral(ctx, s) // v1 ad-hoc semantics, ZERO persistence
+		return tok, s, err
+	}
+	p, err := cmdutil.ResolveProfile(f, nil)
+	if err != nil {
+		return "", "", err
+	}
+	tok, terr := mgr.AccessTokenReadyForProfile(ctx, f.ConfigPath, *p)
+	return tok, p.StoreDomain, terr
 }
 
 // requireLogin is the light gate (logged-in, no current store required) — copy
@@ -85,35 +109,50 @@ func requireLogin(ctx context.Context, f *cmdutil.Factory) error {
 	return nil
 }
 
-// storeClient builds a store-openapi/OSS client (store:<domain> token). With
-// SHOPLAZZA_ACCESS_TOKEN set, the env token is used directly (no login state) —
-// base URL is SHOPLAZZA_CLI_API_BASE_URL when set, else https://<storeDomain>
-// (mirrors cmdutil.NewDefaultFactory's wiring).
-func storeClient(ctx context.Context, f *cmdutil.Factory, storeDomain string) (*client.Client, error) {
+// storeClient builds a store-openapi/OSS client (store:<domain> token) for
+// override (te -s), or the current profile's store when override is empty —
+// routed through storeTokenFor, so an override matching a profile uses its
+// credentials and an unmatched override mints an ephemeral, unpersisted
+// token. Returns the resolved domain alongside the client since several
+// callers display it (serve's banner, deploy's "enabled_in"). With
+// SHOPLAZZA_ACCESS_TOKEN set, the env token is used directly (no login
+// state) — base URL is SHOPLAZZA_CLI_API_BASE_URL when set, else
+// https://<domain> (mirrors cmdutil.NewDefaultFactory's wiring).
+func storeClient(ctx context.Context, f *cmdutil.Factory, override string) (*client.Client, string, error) {
+	domain, sErr := resolveStore(f, override)
+	if sErr != nil {
+		return nil, "", sErr
+	}
 	if tok := os.Getenv(envAccessToken); tok != "" {
 		base := os.Getenv("SHOPLAZZA_CLI_API_BASE_URL")
 		if base == "" {
-			base = "https://" + storeDomain
+			base = "https://" + domain
 		}
 		c := client.New(base)
 		c.SetBearerToken(tok)
-		return c, nil
+		return c, domain, nil
 	}
-	mgr := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
-	tok, err := mgr.AccessTokenReady(ctx, storeDomain)
-	if err != nil {
-		return nil, storeTokenError(err)
+	tok, domain, tErr := storeTokenFor(ctx, f, override)
+	if tErr != nil {
+		return nil, "", storeTokenError(tErr)
 	}
-	c := client.New("https://" + storeDomain)
+	c := client.New("https://" + domain)
 	c.SetBearerToken(tok)
-	return c, nil
+	return c, domain, nil
 }
 
-// storeTokenError classifies a failed store-token mint: a non-2xx exchange
-// response keeps its server message + status (auth-class with a re-login hint,
-// mirroring cmdutil.RequireAuth); a wire failure is network-class (exit 3
-// would misdirect the user to re-login); anything else is a plain auth error.
+// storeTokenError classifies a failed store-token mint. storeTokenFor's "no
+// profile configured" / ResolveProfile failures already carry the right
+// envelope (type + hint) and pass through unchanged; a non-2xx exchange
+// response keeps its server message + status (auth-class with a re-login
+// hint, mirroring cmdutil.RequireAuth); a wire failure is network-class
+// (exit 3 would misdirect the user to re-login); anything else is a plain
+// auth error.
 func storeTokenError(err error) *output.ExitError {
+	var already *output.ExitError
+	if errors.As(err, &already) {
+		return already
+	}
 	const hint = "run 'shoplazza auth login' to re-authenticate"
 	var he *client.HTTPError
 	if errors.As(err, &he) {

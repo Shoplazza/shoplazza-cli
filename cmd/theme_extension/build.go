@@ -44,11 +44,7 @@ func newCmdBuild(f *cmdutil.Factory) *cobra.Command {
 				// corrupt file still holds the extension_id.
 				return output.ErrValidation("%v", err)
 			}
-			domain, sErr := resolveStore(f, storeDomain)
-			if sErr != nil {
-				return sErr
-			}
-			store, cErr := storeClient(ctx, f, domain)
+			store, _, cErr := storeClient(ctx, f, storeDomain)
 			if cErr != nil {
 				return cErr
 			}

@@ -16,11 +16,7 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			domain, sErr := resolveStore(f, storeDomain)
-			if sErr != nil {
-				return sErr
-			}
-			store, cErr := storeClient(ctx, f, domain)
+			store, _, cErr := storeClient(ctx, f, storeDomain)
 			if cErr != nil {
 				return cErr
 			}

@@ -15,6 +15,7 @@ import (
 	"shoplazza-cli-v2/cmd/completion"
 	"shoplazza-cli-v2/cmd/doctor"
 	"shoplazza-cli-v2/cmd/dynamic"
+	"shoplazza-cli-v2/cmd/profile"
 	"shoplazza-cli-v2/cmd/schema"
 	"shoplazza-cli-v2/cmd/theme_extension"
 	"shoplazza-cli-v2/cmd/update"
@@ -57,13 +58,18 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
 	RegisterGlobalFlags(rootCmd.PersistentFlags())
+	// --profile completes from configured profile names (best-effort: a
+	// registration failure here would only affect shell completion, never
+	// command execution).
+	_ = rootCmd.RegisterFlagCompletionFunc("profile", cmdutil.ProfileNameCompletionFunc(factory))
 	rootCmd.AddCommand(auth.NewCmdAuth(factory))
 	rootCmd.AddCommand(appcmd.NewCmdApp(factory))
 	rootCmd.AddCommand(checkout.NewCmdCheckout(factory))
 	rootCmd.AddCommand(theme_extension.NewCmdThemeExtension(factory))
 	rootCmd.AddCommand(api.NewCmdAPI(factory))
+	rootCmd.AddCommand(profile.NewCmdProfile(factory))
 	rootCmd.AddCommand(schema.NewCmdSchema(spec))
-	rootCmd.AddCommand(doctor.NewCmdDoctor())
+	rootCmd.AddCommand(doctor.NewCmdDoctor(factory))
 	rootCmd.AddCommand(completion.NewCmdCompletion(factory))
 	rootCmd.AddCommand(update.NewCmdUpdate(factory))
 	dynamic.RegisterCommands(rootCmd, spec, factory)

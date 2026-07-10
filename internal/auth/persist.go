@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
 )
 
@@ -87,16 +86,6 @@ func (m *Manager) persistState(state AuthState) error {
 				return err
 			}
 		}
-	}
-	cfg := m.Config
-	// Pure-account login (no store) leaves CurrentStore == "" → do NOT clobber an
-	// existing current store. Only logout clears it (see Logout).
-	if state.CurrentStore != "" {
-		cfg.StoreDomain = state.CurrentStore
-		if err := core.SaveConfig(m.ConfigPath, cfg); err != nil {
-			return err
-		}
-		m.Config = cfg
 	}
 	return nil
 }

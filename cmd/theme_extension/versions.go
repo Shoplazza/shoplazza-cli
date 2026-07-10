@@ -21,12 +21,8 @@ func newCmdVersions(f *cmdutil.Factory) *cobra.Command {
 				return exErr
 			}
 			// versions always targets the current store (no --store-domain flag);
-			// resolveStore("") falls back to f.Config.StoreDomain.
-			domain, sErr := resolveStore(f, "")
-			if sErr != nil {
-				return sErr
-			}
-			store, cErr := storeClient(ctx, f, domain)
+			// storeClient("") falls back to the current profile's store.
+			store, _, cErr := storeClient(ctx, f, "")
 			if cErr != nil {
 				return cErr
 			}

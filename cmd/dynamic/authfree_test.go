@@ -18,18 +18,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// notLoggedInFactory builds a Factory with a fresh (empty) keychain and no
-// SHOPLAZZA_ACCESS_TOKEN, so cmdutil.RequireAuth reports "not logged in".
-// Mirrors tempFactory in internal/cmdutil/require_auth_test.go.
+// notLoggedInFactory builds a Factory with a resolvable profile but a fresh
+// (empty) keychain and no SHOPLAZZA_ACCESS_TOKEN, so cmdutil.RequireAuth
+// resolves the profile but fails to mint its token, reporting "not logged
+// in". Mirrors tempFactory in internal/cmdutil/require_auth_test.go.
 func notLoggedInFactory(t *testing.T) *cmdutil.Factory {
 	t.Helper()
 	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
 	out := &strings.Builder{}
+	cfg := core.CliConfig{ConfigVersion: 2, CurrentProfile: "us",
+		Profiles: []core.ProfileConfig{{Name: "us", Account: "a@co.com", StoreDomain: "us.myshoplazza.com"}}}
 	return &cmdutil.Factory{
 		IOStreams:  cmdutil.IOStreams{In: strings.NewReader(""), Out: out, ErrOut: &strings.Builder{}},
 		ConfigPath: filepath.Join(dir, "config.json"),
-		Config:     core.CliConfig{},
+		Config:     cfg,
 		Client:     client.New("http://127.0.0.1:1"),
 		AuthClient: client.New("http://127.0.0.1:1"),
 	}

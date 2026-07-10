@@ -121,6 +121,31 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "  UAT: %s\n", result.UAT)
 
+			// If the requested --store-domain failed live validation, don't create
+			// or activate a profile for it (result.Status.CurrentStore is already "").
+			storeArg := normalizedStore
+			if result.StoreWarning != "" {
+				storeArg = ""
+			}
+			// GrantedScopes is only populated by a store-token exchange; an
+			// account-only login never touches it, so only validate when a store
+			// exchange actually happened.
+			// The v1 store exchange (login here, or UseStore in store.go) already
+			// ran by this point; both login and 'store use' leave that v1 side
+			// effect in place on a rejected --scope. T15 only removed the v1
+			// store-domain config-field write; persistState's auth.json /
+			// legacy-keychain writes and StoreIDFor's v1 exchange still happen —
+			// just no longer read by v2 request paths (app deploy/dev's
+			// resolveStoreID now resolves from the profile instead).
+			if storeArg != "" {
+				if err := cmdutil.ValidateScopeSubset(scope, result.Status.GrantedScopes); err != nil {
+					return err
+				}
+			}
+			if err := SyncAfterLogin(f, result, storeArg, scope, f.IOStreams.ErrOut); err != nil {
+				return output.ErrInternal("failed to sync profile state: %v", err)
+			}
+
 			// Store warning is shown in the stderr summary only, not echoed in the JSON.
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,
@@ -187,6 +212,9 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return output.Errorf(output.ExitAPI, output.TypeAuth, "logout failed: %s", err.Error())
 			}
+			if err := wipeV2OnLogout(f); err != nil {
+				return output.ErrInternal("failed to clear profile state: %v", err)
+			}
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,
 				"action": "logout",
@@ -197,17 +225,61 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "status",
-		Short: "Show current authentication status",
+		Use:         "status",
+		Short:       "Show current authentication status",
+		Annotations: map[string]string{cmdutil.AnnotationAuthFree: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
 			status, err := manager.CurrentStatus()
 			if err != nil {
 				return output.Errorf(output.ExitInternal, output.TypeInternal, "failed to read auth state: %s", err.Error())
 			}
-			return output.PrintJSON(cmd.OutOrStdout(), status)
+
+			out := map[string]any{
+				"logged_in":      status.LoggedIn,
+				"account":        status.Account,
+				"user_id":        status.UserID,
+				"current_store":  status.CurrentStore,
+				"granted_scopes": status.GrantedScopes,
+				"uat_available":  status.UATAvailable,
+				"uat_expires_at": status.UATExpiresAt,
+			}
+			if len(status.Stores) > 0 {
+				out["stores"] = status.Stores
+			}
+			addProfileStatus(out, f)
+
+			return output.PrintBody(cmd.OutOrStdout(), out, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
 	}
+}
+
+// addProfileStatus fills the v2 status fields for the current profile —
+// {account, profile, store, storeId, scopes, tokenStatus, tokenExpiry}.
+// Auth-free: local config + on-disk profile meta only, no network/Gate.
+func addProfileStatus(out map[string]any, f *cmdutil.Factory) {
+	out["profile"] = f.Config.CurrentProfile
+
+	account := out["account"]
+	var store, storeID, tokenExpiry string
+	var scopes []string
+	if p := f.Config.Current(); p != nil {
+		account = p.Account
+		store = p.StoreDomain
+		storeID = p.StoreID
+		scopes = p.Scopes
+		meta, _ := internalauth.LoadProfileMeta(internalauth.AuthDir(f.ConfigPath), strings.ToLower(p.Name))
+		if storeID == "" {
+			storeID = meta.StoreID
+		}
+		tokenExpiry = meta.ExpiresAt
+	}
+	out["account"] = account
+	out["store"] = store
+	out["storeId"] = storeID
+	out["scopes"] = scopes
+	out["tokenStatus"] = internalauth.TokenStatus(tokenExpiry)
+	out["tokenExpiry"] = tokenExpiry
 }
 
 // parseStoreDomain splits "https://store.myshoplazza.com/" into ("https",
@@ -235,7 +307,7 @@ func newCmdScopes(f *cmdutil.Factory) *cobra.Command {
 				return output.Errorf(output.ExitInternal, output.TypeInternal, "failed to read auth state: %s", err.Error())
 			}
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
-				"current_store":    manager.Config.StoreDomain,
+				"current_store":    manager.Config.CurrentStoreDomain(),
 				"granted_scopes":   state.GrantedScopes,
 				"supported_scopes": internalauth.SupportedScopes(),
 			})
