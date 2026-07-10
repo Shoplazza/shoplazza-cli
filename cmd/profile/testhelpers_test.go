@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/client"
@@ -76,4 +77,46 @@ func runCmdErr(t *testing.T, f *cmdutil.Factory, args ...string) error {
 		t.Fatalf("cmd %v: expected an error, got none", args)
 	}
 	return err
+}
+
+// seedTwoProfiles seeds a factory with two profiles (named a, b) bound to
+// the fixture account, current=a, previous unset. It persists to disk since
+// lifecycle commands read config fresh from f.ConfigPath under the lock.
+func seedTwoProfiles(t *testing.T, a, b string) *cmdutil.Factory {
+	t.Helper()
+	f := newTestFactory(t, "")
+	f.Config.Profiles = []core.ProfileConfig{
+		{Name: a, Account: "alice@co.com", StoreDomain: a + ".myshoplazza.com", Scopes: []string{"read_product", "write_product"}},
+		{Name: b, Account: "alice@co.com", StoreDomain: b + ".myshoplazza.com", Scopes: []string{"read_product", "write_product"}},
+	}
+	f.Config.CurrentProfile = a
+	if err := core.SaveConfig(f.ConfigPath, f.Config); err != nil {
+		t.Fatalf("seed profiles: %v", err)
+	}
+	return f
+}
+
+// seedProfileToken persists a profile's cached store access token: the
+// keychain entry plus its ProfileMeta (expiry), matching what a real
+// exchange would have written.
+func seedProfileToken(t *testing.T, authDir, name, token string, expiresAt time.Time) {
+	t.Helper()
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(name), token); err != nil {
+		t.Fatalf("seed profile token: %v", err)
+	}
+	if err := internalauth.SaveProfileMeta(authDir, strings.ToLower(name), internalauth.ProfileMeta{
+		ExpiresAt: expiresAt.Format(time.RFC3339),
+	}); err != nil {
+		t.Fatalf("seed profile meta: %v", err)
+	}
+}
+
+// setPreviousProfile overrides the persisted previousProfile pointer for
+// tests that need a specific one pre-set (seedTwoProfiles leaves it empty).
+func setPreviousProfile(t *testing.T, f *cmdutil.Factory, name string) {
+	t.Helper()
+	f.Config.PreviousProfile = name
+	if err := core.SaveConfig(f.ConfigPath, f.Config); err != nil {
+		t.Fatalf("set previous profile: %v", err)
+	}
 }
