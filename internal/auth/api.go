@@ -28,12 +28,19 @@ func (m *Manager) me(ctx context.Context, uat string) (meResponse, error) {
 	return resp, err
 }
 
-// exchangeStoreAT mints a store token for storeDomain. The CLI only supplies
-// store_domain; the server resolves (store_id, slug).
+// exchangeStoreAT mints a store token for storeDomain with a full scope grant.
+// The CLI only supplies store_domain; the server resolves (store_id, slug).
 func (m *Manager) exchangeStoreAT(ctx context.Context, uat, storeDomain string) (storeATBlock, error) {
+	return m.exchangeStoreATScoped(ctx, uat, storeDomain, nil)
+}
+
+// exchangeStoreATScoped mints a store token for storeDomain, optionally
+// requesting a scope subset. A nil/empty scopes omits the field so the server
+// grants the account's full scope set (unchanged behavior for exchangeStoreAT).
+func (m *Manager) exchangeStoreATScoped(ctx context.Context, uat, storeDomain string, scopes []string) (storeATBlock, error) {
 	var resp storeATBlock
 	err := m.Client.PostJSON(ctx, "/api/saiga/cli/auth/exchange/store-at",
-		exchangeStoreATRequest{UAT: uat, StoreDomain: storeDomain}, &resp)
+		exchangeStoreATRequest{UAT: uat, StoreDomain: storeDomain, Scopes: scopes}, &resp)
 	return resp, err
 }
 
