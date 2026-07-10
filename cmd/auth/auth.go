@@ -130,6 +130,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			// GrantedScopes is only populated by a store-token exchange; an
 			// account-only login never touches it, so only validate when a store
 			// exchange actually happened.
+			// v1 store exchange already ran; residual legacy side effect on rejection is cleaned up in T15 (removes v1 write paths).
 			if storeArg != "" {
 				if err := cmdutil.ValidateScopeSubset(scope, result.Status.GrantedScopes); err != nil {
 					return err

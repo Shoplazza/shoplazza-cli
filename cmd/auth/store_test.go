@@ -148,18 +148,21 @@ func TestStoreUse_StoreNotFound404(t *testing.T) {
 	}
 }
 
-// UseStore always performs a store exchange, so the granted scopes it returns
-// must gate the requested --scope before anything is persisted.
+// The scope check must run BEFORE the store-token exchange (UseStore), so a
+// rejected --scope never mints/persists a v1 store token or touches the v1
+// cfg.StoreDomain — this test also seeds a real server handler for the
+// exchange endpoint and asserts it is never hit.
 func TestStoreUse_ScopeNotGranted_Errors(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/api/saiga/cli/auth/exchange/store-at" {
-			json.NewEncoder(w).Encode(map[string]any{
-				"access_token": "at_use", "store_domain": "my-store.com",
-				"at_expires_at":  "2099-01-01T00:00:00Z",
-				"granted_scopes": []string{"read_product"},
-			})
+			t.Errorf("store-at exchange must not be called when --scope is rejected pre-exchange")
 		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"access_token": "at_use", "store_domain": "my-store.com",
+			"at_expires_at":  "2099-01-01T00:00:00Z",
+			"granted_scopes": []string{"read_product"},
+		})
 	}))
 	defer srv.Close()
 
@@ -167,6 +170,13 @@ func TestStoreUse_ScopeNotGranted_Errors(t *testing.T) {
 	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
 		t.Fatal(err)
 	}
+	// Seed a logged-in account with a known granted-scope set so the pre-check
+	// (validated against f.Config.Account().GrantedScopes) has something to reject.
+	f.Config.Accounts = []core.AccountConfig{{Name: "alice@co.com", GrantedScopes: []string{"read_product"}}}
+	if err := core.SaveConfig(f.ConfigPath, f.Config); err != nil {
+		t.Fatal(err)
+	}
+
 	err := execAuth(t, f, out, "store", "use", "--store-domain", "my-store.com", "--scope", "write_product")
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Detail == nil {
@@ -181,6 +191,16 @@ func TestStoreUse_ScopeNotGranted_Errors(t *testing.T) {
 	if cErr == nil && (len(cfg.Profiles) != 0 || cfg.CurrentProfile != "") {
 		t.Errorf("no profile should be created/activated for an out-of-grant scope request, got profiles=%+v current=%q",
 			cfg.Profiles, cfg.CurrentProfile)
+	}
+	// The v1 side effects (persistState) must not have run either: the
+	// rejected store must not become the legacy current store...
+	if cErr == nil && cfg.StoreDomain != "" {
+		t.Errorf("v1 cfg.StoreDomain must stay empty for a rejected store, got %q", cfg.StoreDomain)
+	}
+	// ...and no v1 store token ("store:<domain>", see internal/auth/persist.go
+	// storeKcKey) should have been cached in keychain.
+	if tok, _ := keychain.Get(keychain.ShoplazzaCliService, "store:my-store.com"); tok != "" {
+		t.Errorf("v1 store token must not be minted for a rejected --scope, got %q", tok)
 	}
 }
 

@@ -206,3 +206,31 @@ func TestLogin_StoreValidationFailed_NoProfileCreated(t *testing.T) {
 			cfg.Profiles, cfg.CurrentProfile)
 	}
 }
+
+// Login's --scope check can only run AFTER manager.Login: granted scopes come
+// back from the exchange, not known up front. This exercises that post-login
+// validation path (storeArg != "" branch in cmd/auth/auth.go).
+func TestLogin_StoreScopeNotGranted_Errors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/saiga/cli/auth/me":
+			json.NewEncoder(w).Encode(map[string]any{"account": "a@x.com"})
+		case "/api/saiga/cli/auth/exchange/store-at":
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "at_x", "store_domain": "my-store.com",
+				"at_expires_at":  "2099-01-01T00:00:00Z",
+				"granted_scopes": []string{"read_product"},
+			})
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	f, _ := tempAuthFactory(t, srv.URL)
+	typ, err := execAuthErrType(t, f, "login", "--store-domain", "my-store.com", "--uat", "uat_x", "--scope", "write_product")
+	if err == nil || typ != output.TypeValidation {
+		t.Errorf("expected type=validation for an out-of-grant --scope, got type=%q err=%v", typ, err)
+	}
+}
