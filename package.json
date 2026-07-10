@@ -1,6 +1,6 @@
 {
   "name": "shoplazza-cli",
-  "version": "2.0.6",
+  "version": "2.1.0",
   "description": "The official CLI for Shoplazza Open Platform",
   "bin": {
     "shoplazza": "scripts/run.js"
