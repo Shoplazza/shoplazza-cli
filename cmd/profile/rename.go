@@ -37,23 +37,33 @@ func newCmdRename(f *cmdutil.Factory) *cobra.Command {
 				}
 				oldName := p.Name
 
-				// Move the cached store token, if any.
-				oldKey := internalauth.ProfileStoreKey(oldName)
-				if tok, gerr := keychain.Get(keychain.ShoplazzaCliService, oldKey); gerr == nil && tok != "" {
-					if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(to), tok); err != nil {
-						return output.ErrInternal("failed to move keychain entry: %v", err)
+				// Case-only/identical renames share the same on-disk keys
+				// (ProfileStoreKey/profileMetaPath both lowercase the name):
+				// oldKey == newKey, so a blind Set-then-Remove would delete
+				// what was just written. Skip the move entirely; only the
+				// Name field (and pointers below) need to change.
+				if !strings.EqualFold(oldName, to) {
+					// Move the auth metadata file before the keychain entry:
+					// if SaveProfileMeta fails, the keychain entry is still
+					// under oldKey (self-heals on next use). Moving the
+					// keychain first risks orphaning it under newKey with no
+					// profile referencing it if the meta step then failed.
+					authDir := internalauth.AuthDir(f.ConfigPath)
+					oldLower := strings.ToLower(oldName)
+					if meta, merr := internalauth.LoadProfileMeta(authDir, oldLower); merr == nil && meta.ExpiresAt != "" {
+						if err := internalauth.SaveProfileMeta(authDir, strings.ToLower(to), meta); err != nil {
+							return output.ErrInternal("failed to move profile metadata: %v", err)
+						}
+						_ = internalauth.RemoveProfileMeta(authDir, oldLower)
 					}
-					_ = keychain.Remove(keychain.ShoplazzaCliService, oldKey)
-				}
 
-				// Move the auth metadata file, if any.
-				authDir := internalauth.AuthDir(f.ConfigPath)
-				oldLower := strings.ToLower(oldName)
-				if meta, merr := internalauth.LoadProfileMeta(authDir, oldLower); merr == nil && meta.ExpiresAt != "" {
-					if err := internalauth.SaveProfileMeta(authDir, strings.ToLower(to), meta); err != nil {
-						return output.ErrInternal("failed to move profile metadata: %v", err)
+					oldKey := internalauth.ProfileStoreKey(oldName)
+					if tok, gerr := keychain.Get(keychain.ShoplazzaCliService, oldKey); gerr == nil && tok != "" {
+						if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(to), tok); err != nil {
+							return output.ErrInternal("failed to move keychain entry: %v", err)
+						}
+						_ = keychain.Remove(keychain.ShoplazzaCliService, oldKey)
 					}
-					_ = internalauth.RemoveProfileMeta(authDir, oldLower)
 				}
 
 				p.Name = to

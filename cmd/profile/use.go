@@ -24,6 +24,22 @@ func newCmdUse(f *cmdutil.Factory) *cobra.Command {
 				return output.ErrValidation("--name or --previous is required")
 			}
 
+			// Pre-lock check: if we're already on the resolved target, skip
+			// the locked read-modify-write entirely — nothing to persist.
+			if cfg, lerr := core.LoadConfig(f.ConfigPath); lerr == nil {
+				want := name
+				if previous {
+					want = cfg.PreviousProfile
+				}
+				if p := cfg.FindProfile(want); p != nil && strings.EqualFold(cfg.CurrentProfile, p.Name) {
+					return output.PrintBody(cmd.OutOrStdout(), map[string]any{
+						"ok":     true,
+						"action": "profile_use",
+						"name":   p.Name,
+					}, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
+				}
+			}
+
 			var target string
 			err := core.UpdateConfig(f.ConfigPath, core.ConfigLockTimeout, func(c *core.CliConfig) error {
 				target = name

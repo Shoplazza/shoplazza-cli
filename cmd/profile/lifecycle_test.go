@@ -43,6 +43,9 @@ func TestUpdate_ScopeChange_ClearsToken(t *testing.T) {
 	if got := cfg.FindProfile("us").Scopes; len(got) != 1 || got[0] != "read_product" {
 		t.Fatalf("scopes: %v", got)
 	}
+	if m, _ := internalauth.LoadProfileMeta(internalauth.AuthDir(f.ConfigPath), "us"); m.ExpiresAt != "" {
+		t.Fatalf("old meta must be cleared, got %+v", m)
+	}
 }
 
 func TestRemove_CurrentAndPointers(t *testing.T) {
@@ -99,6 +102,22 @@ func TestRename_CaseOnly_Allowed(t *testing.T) {
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if cfg.FindProfile("US").Name != "US" {
 		t.Fatalf("%+v", cfg)
+	}
+}
+
+// Case-only renames must preserve the cached token: since ProfileStoreKey
+// and the meta path both lowercase the name, oldKey == newKey here, so a
+// blind Set-then-Remove would delete what was just written.
+func TestRename_CaseOnly_PreservesToken(t *testing.T) {
+	f := seedTwoProfiles(t, "us", "cn")
+	seedProfileToken(t, internalauth.AuthDir(f.ConfigPath), "us", "at-1", time.Now().Add(time.Hour))
+	runCmd(t, f, "rename", "--from", "us", "--to", "US")
+	cfg, _ := core.LoadConfig(f.ConfigPath)
+	if cfg.FindProfile("US").Name != "US" {
+		t.Fatalf("%+v", cfg)
+	}
+	if v, err := keychain.Get(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey("US")); err != nil || v != "at-1" {
+		t.Fatalf("token must survive case-only rename, got v=%q err=%v", v, err)
 	}
 }
 
