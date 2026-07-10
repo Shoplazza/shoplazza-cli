@@ -15,10 +15,13 @@ const (
 	kcPartner = "partner"
 )
 
-// storeKcKey / appKcKey build the resource-scoped keychain account names.
-// Account-level tokens (uat, partner) use the bare kind as the account name;
-// resource-level tokens carry a "<kind>:<id>" suffix so one host can hold
-// many stores / apps without collision.
+// storeKcKey / appKcKey build the resource-scoped keychain account names for
+// store/app tokens: a "<kind>:<id>" suffix lets one host hold many stores /
+// apps without collision. Account-level tokens (uat, partner) are written under
+// BOTH the legacy bare keys (kcUAT/kcPartner — read by LoadState and the v1
+// store/app flows) AND the v2 AccountUATKey/AccountPartnerKey namespace (read by
+// the profile Gate) during the v1→v2 transition, so login persists exactly what
+// every reader looks up. Unifying on the v2 keys alone is follow-up T15 cleanup.
 func storeKcKey(domain string) string { return "store:" + domain }
 func appKcKey(clientID string) string { return "app:" + clientID }
 
@@ -35,7 +38,7 @@ func (m *Manager) persistState(state AuthState) error {
 		// Match case-insensitively: poll and Me may echo the same email in
 		// different casing, and a mismatch would wrongly wipe a valid token.
 		if prev, err := loadAuthMeta(m.AuthPath); err == nil && prev.Account != "" && strings.EqualFold(prev.Account, state.Account) {
-			if existing, gerr := keychain.Get(keychain.ShoplazzaCliService, kcPartner); gerr == nil && existing != "" {
+			if existing, gerr := keychain.Get(keychain.ShoplazzaCliService, AccountPartnerKey(state.Account)); gerr == nil && existing != "" {
 				partner, partnerExpiresAt = existing, prev.PartnerExpiresAt
 			}
 		}
@@ -59,18 +62,25 @@ func (m *Manager) persistState(state AuthState) error {
 		return err
 	}
 	if state.UAT != "" {
+		if err := keychain.Set(keychain.ShoplazzaCliService, AccountUATKey(state.Account), state.UAT); err != nil {
+			return err
+		}
 		if err := keychain.Set(keychain.ShoplazzaCliService, kcUAT, state.UAT); err != nil {
 			return err
 		}
 	}
 	if partner != "" {
+		if err := keychain.Set(keychain.ShoplazzaCliService, AccountPartnerKey(state.Account), partner); err != nil {
+			return err
+		}
 		if err := keychain.Set(keychain.ShoplazzaCliService, kcPartner, partner); err != nil {
 			return err
 		}
 	} else {
 		// Empty here means either a first login with no partner token, or an
-		// account switch — drop any lingering entry so LoadState can't resurrect
-		// a different account's partner token.
+		// account switch — drop any lingering entry so a subsequent LoadState
+		// can't resurrect a different account's partner token.
+		_ = keychain.Remove(keychain.ShoplazzaCliService, AccountPartnerKey(state.Account))
 		_ = keychain.Remove(keychain.ShoplazzaCliService, kcPartner)
 	}
 	for dom, s := range state.Stores {

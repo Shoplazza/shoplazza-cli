@@ -90,8 +90,10 @@ func TestParseSaigaAuthError(t *testing.T) {
 }
 
 // TestStoreAppKcKey guards the keychain key contract from the package-internal
-// side: the account-level kind constants must not drift (old on-disk keys would
-// be orphaned) and the resource-scoped builders must keep their prefixes.
+// side: resource-scoped store/app builders keep their "<kind>:<id>" prefix, the
+// legacy account-kind constants must not drift (v1 on-disk keys would be
+// orphaned), and the v2 account builders keep the namespaced format the profile
+// Gate reads — drift there silently re-opens the login/Gate split (BUG-01).
 func TestStoreAppKcKey(t *testing.T) {
 	if got := storeKcKey("my-store.com"); got != "store:my-store.com" {
 		t.Errorf("storeKcKey = %q", got)
@@ -101,5 +103,11 @@ func TestStoreAppKcKey(t *testing.T) {
 	}
 	if kcUAT != "uat" || kcPartner != "partner" {
 		t.Errorf("account-level kinds drifted: kcUAT=%q kcPartner=%q", kcUAT, kcPartner)
+	}
+	if got := AccountUATKey("Alice@Co.com"); got != "account:alice@co.com:uat" {
+		t.Errorf("AccountUATKey = %q", got)
+	}
+	if got := AccountPartnerKey("Alice@Co.com"); got != "account:alice@co.com:partner" {
+		t.Errorf("AccountPartnerKey = %q", got)
 	}
 }
