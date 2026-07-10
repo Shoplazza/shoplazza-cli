@@ -72,7 +72,7 @@ func newCmdRest(f *cmdutil.Factory) *cobra.Command {
 		Long:  apiRestLong,
 		Args:  cobra.ExactArgs(2),
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			return cmdutil.RequireAuth(cmd.Context(), f)
+			return cmdutil.RequireAuth(cmd.Context(), f, cmd)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			format := cmdutil.GetFormat(cmd)

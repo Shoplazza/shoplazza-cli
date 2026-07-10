@@ -55,6 +55,7 @@ func TestIntegration_DynamicOrdersList(t *testing.T) {
 	defer srv.Close()
 	f, out := factoryAt(t, srv)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
+	t.Setenv("SHOPLAZZA_CLI_API_BASE_URL", srv.URL) // gate still needs an explicit store target
 
 	spec := &registry.Spec{Modules: []registry.Module{{
 		Name: "orders",
@@ -197,6 +198,7 @@ func TestIntegration_ProductsDiscountsViaSpec(t *testing.T) {
 	}))
 	defer srv.Close()
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
+	t.Setenv("SHOPLAZZA_CLI_API_BASE_URL", srv.URL) // gate still needs an explicit store target
 
 	spec := &registry.Spec{Modules: []registry.Module{
 		{Name: "products", Commands: []registry.Command{
@@ -236,6 +238,7 @@ func TestIntegration_DryRunNoBackendHit(t *testing.T) {
 	defer srv.Close()
 	f, out := factoryAt(t, srv)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
+	t.Setenv("SHOPLAZZA_CLI_API_BASE_URL", srv.URL) // gate still needs an explicit store target
 
 	spec := &registry.Spec{Modules: []registry.Module{{
 		Name: "orders",

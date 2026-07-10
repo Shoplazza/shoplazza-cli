@@ -94,6 +94,12 @@ func New(baseURL string) *Client {
 	}
 }
 
+// SetBaseURL updates the target base URL (e.g. once the auth gate resolves
+// the store domain). Trailing slashes are stripped, matching New.
+func (c *Client) SetBaseURL(u string) {
+	c.BaseURL = strings.TrimRight(u, "/")
+}
+
 // ResolveURL resolves a request path against the configured base URL.
 func (c *Client) ResolveURL(rawPath string) string {
 	cleanPath := "/" + strings.TrimLeft(rawPath, "/")
