@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.1.0 - 2026-07-10
+## 2.0.7 - 2026-07-10
 
 ### Added
 - **Multi-tenant profiles** — persisted per-store execution contexts. One logged-in account can manage many stores and switch between them without re-authenticating. New `shoplazza profile` command group: `add`, `list`, `show`, `use` (with a `--previous` toggle), `update`, `rename`, `remove`. Select a profile per invocation with `--profile` or `SHOPLAZZA_CLI_PROFILE`; resolution order is flag → env → current profile.
@@ -13,6 +13,9 @@
 
 ### Removed
 - The v1 single-store config fields (`store_domain`, `current_account`), superseded by profiles (handled transparently by the auto-migration).
+
+### Fixed
+- **First store command after a fresh login no longer fails with `no UAT available`** — login now persists the account token under the keychain key the profile execution path reads (as well as the legacy key the older store/app flows read), so `login → any store command` works end-to-end.
 
 ## 2.0.6 - 2026-07-07
 
