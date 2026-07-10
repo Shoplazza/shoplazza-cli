@@ -38,12 +38,8 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			// deploy always targets the current store (no --store-domain flag);
-			// resolveStore("") falls back to f.Config.StoreDomain.
-			domain, sErr := resolveStore(f, "")
-			if sErr != nil {
-				return sErr
-			}
-			store, cErr := storeClient(ctx, f, domain)
+			// storeClient("") falls back to the current profile's store.
+			store, domain, cErr := storeClient(ctx, f, "")
 			if cErr != nil {
 				return cErr
 			}

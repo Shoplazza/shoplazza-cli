@@ -151,16 +151,19 @@ func TestRequireLogin_EnvTokenBypass(t *testing.T) {
 func TestStoreClient_EnvTokenBypass(t *testing.T) {
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "tok_env")
 	t.Setenv("SHOPLAZZA_CLI_API_BASE_URL", "")
-	c, err := storeClient(context.Background(), &cmdutil.Factory{}, "shop.myshoplaza.com")
+	c, domain, err := storeClient(context.Background(), &cmdutil.Factory{}, "shop.myshoplaza.com")
 	if err != nil {
 		t.Fatalf("storeClient with env token: %v", err)
+	}
+	if domain != "shop.myshoplaza.com" {
+		t.Fatalf("domain = %q, want shop.myshoplaza.com", domain)
 	}
 	if c.BaseURL != "https://shop.myshoplaza.com" {
 		t.Fatalf("base URL = %q, want https://shop.myshoplaza.com", c.BaseURL)
 	}
 	// explicit API base overrides the store-domain default (factory parity)
 	t.Setenv("SHOPLAZZA_CLI_API_BASE_URL", "http://127.0.0.1:9999")
-	c, err = storeClient(context.Background(), &cmdutil.Factory{}, "shop.myshoplaza.com")
+	c, _, err = storeClient(context.Background(), &cmdutil.Factory{}, "shop.myshoplaza.com")
 	if err != nil {
 		t.Fatalf("storeClient with env base: %v", err)
 	}
