@@ -146,8 +146,9 @@ type meResponse struct {
 }
 
 type exchangeStoreATRequest struct {
-	UAT         string `json:"uat"`
-	StoreDomain string `json:"store_domain"`
+	UAT         string   `json:"uat"`
+	StoreDomain string   `json:"store_domain"`
+	Scopes      []string `json:"scopes,omitempty"`
 }
 
 // exchangeAppATRequest is the ExchangeAppAT payload. client_secret + partner_id
