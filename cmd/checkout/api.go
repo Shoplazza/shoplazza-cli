@@ -30,7 +30,7 @@ func addDryRunFlag(cmd *cobra.Command) {
 // --store-domain override.
 func authPreRun(f *cmdutil.Factory) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
-		return cmdutil.RequireAuth(cmd.Context(), f)
+		return cmdutil.RequireAuth(cmd.Context(), f, cmd)
 	}
 }
 

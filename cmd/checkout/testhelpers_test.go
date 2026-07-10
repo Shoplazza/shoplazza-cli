@@ -30,6 +30,7 @@ func writeCheckoutVersionList(w http.ResponseWriter, version, id string) {
 func tempCheckoutFactory(t *testing.T, srvURL string) (*cmdutil.Factory, *bytes.Buffer) {
 	t.Helper()
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "test-token") // RequireAuth fast-path (CI bypass)
+	t.Setenv("SHOPLAZZA_CLI_API_BASE_URL", srvURL)   // gate still needs an explicit store target
 	out := &bytes.Buffer{}
 	cl := client.New(srvURL)
 	cl.SetBearerToken("test-token")
