@@ -275,9 +275,12 @@ func TestUseStore_ExchangesAndSetsCurrent(t *testing.T) {
 	if st.CurrentStore != "b.com" {
 		t.Errorf("current store = %q", st.CurrentStore)
 	}
+	// The store token cache is Manager's to persist; "current store" is a v2
+	// profile-layer concern now owned by SyncAfterLogin (cmd/auth), not Manager —
+	// covered by cmd/auth's TestStoreUse_Success.
 	loaded, _ := mgr.LoadState()
-	if loaded.Stores["b.com"].Token != "at_use" || loaded.CurrentStore != "b.com" {
-		t.Errorf("persisted store/current wrong: %+v", loaded)
+	if loaded.Stores["b.com"].Token != "at_use" {
+		t.Errorf("persisted store token wrong: %+v", loaded)
 	}
 }
 

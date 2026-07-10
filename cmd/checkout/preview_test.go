@@ -94,8 +94,8 @@ func TestPreview_InvalidStoreDomainIsValidation(t *testing.T) {
 		})
 	}))
 	defer srv.Close()
-	f, out := tempCheckoutFactory(t, srv.URL) // client base = srv, store domain separate
-	f.Config.StoreDomain = "bad domain.com"   // space → url.Parse fails
+	f, out := tempCheckoutFactory(t, srv.URL)           // client base = srv, store domain separate
+	f.Config.Profiles[0].StoreDomain = "bad domain.com" // space → url.Parse fails
 	err := execCheckout(t, f, out, "preview", "--extension-id", "E1", "--version", "1.0")
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Detail.Type != output.TypeValidation {
@@ -118,7 +118,7 @@ func TestPreview_BuildsURLFromCurrentStore(t *testing.T) {
 		})
 	}))
 	defer srv.Close()
-	f, out := tempCheckoutFactory(t, srv.URL) // Config.StoreDomain = test-store.myshoplaza.com
+	f, out := tempCheckoutFactory(t, srv.URL) // current profile's store domain = test-store.myshoplaza.com
 	if err := execCheckout(t, f, out, "preview", "--extension-id", "E1", "--version", "1.0"); err != nil {
 		t.Fatalf("preview: %v", err)
 	}

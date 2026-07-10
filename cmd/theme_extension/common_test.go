@@ -22,7 +22,7 @@ func TestResolveStore(t *testing.T) {
 		t.Fatalf("override: %q %v", s, err)
 	}
 	// current store fallback
-	f := &cmdutil.Factory{Config: core.CliConfig{StoreDomain: "cur.myshoplaza.com"}}
+	f := &cmdutil.Factory{Config: currentStoreConfig("cur.myshoplaza.com")}
 	if s, err := resolveStore(f, ""); err != nil || s != "cur.myshoplaza.com" {
 		t.Fatalf("current: %q %v", s, err)
 	}
@@ -36,13 +36,21 @@ func TestResolveStore(t *testing.T) {
 	if s, err := resolveStore(&cmdutil.Factory{Config: core.CliConfig{}}, "https://ovr.myshoplaza.com/"); err != nil || s != "ovr.myshoplaza.com" {
 		t.Fatalf("scheme override: %q %v", s, err)
 	}
-	f = &cmdutil.Factory{Config: core.CliConfig{StoreDomain: "HTTP://cur.myshoplaza.com"}}
+	f = &cmdutil.Factory{Config: currentStoreConfig("HTTP://cur.myshoplaza.com")}
 	if s, err := resolveStore(f, ""); err != nil || s != "cur.myshoplaza.com" {
 		t.Fatalf("scheme current: %q %v", s, err)
 	}
 	// a flag that normalizes to nothing must not slip through as "no override"
 	if _, err := resolveStore(&cmdutil.Factory{Config: core.CliConfig{}}, "https://"); err == nil || err.Detail.Type != output.TypeValidation {
 		t.Fatalf("expected validation for useless override, got %v", err)
+	}
+}
+
+// currentStoreConfig builds a v2 CliConfig whose CurrentStoreDomain() resolves to domain.
+func currentStoreConfig(domain string) core.CliConfig {
+	return core.CliConfig{
+		CurrentProfile: "p",
+		Profiles:       []core.ProfileConfig{{Name: "p", StoreDomain: domain}},
 	}
 }
 

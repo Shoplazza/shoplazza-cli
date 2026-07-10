@@ -196,12 +196,6 @@ func (m *Manager) Logout() (Status, error) {
 	if err := removeAuthMeta(m.AuthPath); err != nil {
 		return Status{}, err
 	}
-	cfg := m.Config
-	cfg.StoreDomain = ""
-	if err := core.SaveConfig(m.ConfigPath, cfg); err != nil {
-		return Status{}, err
-	}
-	m.Config = cfg
 	return Status{}, nil
 }
 
@@ -228,7 +222,7 @@ func (m *Manager) LoadState() (AuthState, error) {
 		GrantedScopes:    meta.GrantedScopes,
 		Stores:           map[string]StoreState{},
 		Apps:             map[string]AppState{},
-		CurrentStore:     m.Config.StoreDomain,
+		CurrentStore:     m.Config.CurrentStoreDomain(),
 	}
 	// Propagate genuine read/decrypt failures for UAT/partner: swallowing them
 	// makes a corrupted keychain look like "not logged in". The per-store/app

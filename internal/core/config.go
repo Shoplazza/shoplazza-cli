@@ -17,9 +17,6 @@ type CliConfig struct {
 	PreviousProfile string          `json:"previousProfile,omitempty"`
 	Accounts        []AccountConfig `json:"accounts,omitempty"`
 	Profiles        []ProfileConfig `json:"profiles,omitempty"`
-	// legacy v1 字段，T15 删除；过渡期只读不写
-	CurrentAccount string `json:"current_account,omitempty"`
-	StoreDomain    string `json:"store_domain,omitempty"`
 }
 
 // AccountConfig stores a saved auth account.
@@ -103,14 +100,13 @@ func (c *CliConfig) Account() *AccountConfig {
 	return &c.Accounts[0]
 }
 
-// CurrentStoreDomain bridges v1 consumers during the transition: prefer the
-// current profile's domain, fall back to the legacy top-level field. T15
-// removes the fallback together with the legacy fields.
+// CurrentStoreDomain returns the current profile's store domain, or "" if
+// no profile is selected.
 func (c *CliConfig) CurrentStoreDomain() string {
 	if p := c.Current(); p != nil {
 		return p.StoreDomain
 	}
-	return c.StoreDomain
+	return ""
 }
 
 // RuntimeContext carries resolved runtime state for a command execution.

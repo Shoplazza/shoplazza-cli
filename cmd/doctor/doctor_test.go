@@ -100,7 +100,7 @@ func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 // warns rather than fails (directories are created lazily).
 func TestDoctorCheck_V1MissingDirs_Warns(t *testing.T) {
 	f, configPath := newTestFactory(t)
-	cfg := core.CliConfig{CurrentAccount: "alice@co.com", StoreDomain: "us.myshoplazza.com"} // v1 shape, ConfigVersion 0
+	cfg := core.CliConfig{} // unmigrated: ConfigVersion 0, no profiles
 	if err := core.SaveConfig(configPath, cfg); err != nil {
 		t.Fatalf("seed config: %v", err)
 	}

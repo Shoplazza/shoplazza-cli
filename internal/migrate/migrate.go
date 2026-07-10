@@ -51,10 +51,10 @@ func Run(configPath string) error {
 	if cfg.ConfigVersion >= 2 {
 		return nil
 	}
-	return doMigrate(configPath, cfg)
+	return doMigrate(configPath)
 }
 
-func doMigrate(configPath string, v1 core.CliConfig) error {
+func doMigrate(configPath string) error {
 	dir := filepath.Dir(configPath)
 	out := core.CliConfig{ConfigVersion: 2}
 
@@ -81,9 +81,10 @@ func doMigrate(configPath string, v1 core.CliConfig) error {
 			return err
 		}
 		// 4) 当前店 → 唯一 Profile（不迁 token；其余店丢弃）
-		if v1.StoreDomain != "" {
-			name := core.DeriveProfileName(v1.StoreDomain, func(string) bool { return false })
-			out.Profiles = []core.ProfileConfig{{Name: name, Account: email, StoreDomain: v1.StoreDomain}}
+		// v1 的 store_domain 已从 core.CliConfig 删除（T15），直接读原始 JSON
+		if storeDomain := readLegacyStoreDomain(configPath); storeDomain != "" {
+			name := core.DeriveProfileName(storeDomain, func(string) bool { return false })
+			out.Profiles = []core.ProfileConfig{{Name: name, Account: email, StoreDomain: storeDomain}}
 			out.CurrentProfile = name
 		}
 	}
@@ -95,6 +96,22 @@ func doMigrate(configPath string, v1 core.CliConfig) error {
 		}
 	}
 	return core.SaveConfig(configPath, out)
+}
+
+// readLegacyStoreDomain reads the v1 config.json's store_domain field
+// directly, since core.CliConfig no longer carries it (T15).
+func readLegacyStoreDomain(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var v1 struct {
+		StoreDomain string `json:"store_domain"`
+	}
+	if json.Unmarshal(data, &v1) != nil {
+		return ""
+	}
+	return v1.StoreDomain
 }
 
 func readLegacyAuthMeta(path string) (legacyAuthMeta, bool) {

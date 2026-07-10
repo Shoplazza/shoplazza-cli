@@ -23,7 +23,7 @@ func TestLoadConfig_MissingFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("missing file should return empty config, got: %v", err)
 	}
-	if cfg.CurrentAccount != "" || cfg.StoreDomain != "" {
+	if cfg.CurrentProfile != "" || len(cfg.Profiles) != 0 {
 		t.Errorf("missing file: got non-empty config %+v", cfg)
 	}
 }
@@ -31,7 +31,7 @@ func TestLoadConfig_MissingFile(t *testing.T) {
 func TestSaveAndLoadConfig_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	want := CliConfig{CurrentAccount: "acct-1", StoreDomain: "shop.myshoplaza.com"}
+	want := CliConfig{CurrentProfile: "us", Profiles: []ProfileConfig{{Name: "us", StoreDomain: "shop.myshoplaza.com"}}}
 	if err := SaveConfig(path, want); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestSaveAndLoadConfig_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
-	if got.CurrentAccount != want.CurrentAccount || got.StoreDomain != want.StoreDomain {
+	if got.CurrentProfile != want.CurrentProfile || len(got.Profiles) != 1 || got.Profiles[0].StoreDomain != want.Profiles[0].StoreDomain {
 		t.Errorf("round-trip mismatch: got %+v want %+v", got, want)
 	}
 }
@@ -47,7 +47,7 @@ func TestSaveAndLoadConfig_RoundTrip(t *testing.T) {
 func TestSaveConfig_CreatesParentDir(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "sub", "dir", "config.json")
-	if err := SaveConfig(path, CliConfig{CurrentAccount: "x"}); err != nil {
+	if err := SaveConfig(path, CliConfig{CurrentProfile: "x"}); err != nil {
 		t.Fatalf("SaveConfig with nested path: %v", err)
 	}
 	if _, err := os.Stat(path); err != nil {
@@ -58,7 +58,7 @@ func TestSaveConfig_CreatesParentDir(t *testing.T) {
 func TestRemoveConfig_ExistingFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	_ = SaveConfig(path, CliConfig{CurrentAccount: "x"})
+	_ = SaveConfig(path, CliConfig{CurrentProfile: "x"})
 	if err := RemoveConfig(path); err != nil {
 		t.Fatalf("RemoveConfig: %v", err)
 	}
@@ -110,15 +110,15 @@ func TestSaveConfig_EmptyPath_UsesDefaultPath(t *testing.T) {
 			_ = os.Remove(defaultPath)
 		}
 	}()
-	if err := SaveConfig("", CliConfig{CurrentAccount: "test-acct"}); err != nil {
+	if err := SaveConfig("", CliConfig{CurrentProfile: "test-acct"}); err != nil {
 		t.Fatalf("SaveConfig with empty path: %v", err)
 	}
 	loaded, err := LoadConfig(defaultPath)
 	if err != nil {
 		t.Fatalf("LoadConfig after save: %v", err)
 	}
-	if loaded.CurrentAccount != "test-acct" {
-		t.Errorf("got %q want test-acct", loaded.CurrentAccount)
+	if loaded.CurrentProfile != "test-acct" {
+		t.Errorf("got %q want test-acct", loaded.CurrentProfile)
 	}
 }
 
@@ -172,15 +172,18 @@ func TestFindProfile_CaseInsensitive(t *testing.T) {
 	}
 }
 
-func TestCurrentStoreDomain_BridgesLegacy(t *testing.T) {
-	v1 := CliConfig{StoreDomain: "old.myshoplazza.com"}
-	if v1.CurrentStoreDomain() != "old.myshoplazza.com" {
-		t.Fatal("legacy fallback")
+func TestCurrentStoreDomain_NoProfile(t *testing.T) {
+	c := CliConfig{}
+	if c.CurrentStoreDomain() != "" {
+		t.Fatal("no current profile → empty")
 	}
-	v2 := CliConfig{CurrentProfile: "us",
+}
+
+func TestCurrentStoreDomain_UsesCurrentProfile(t *testing.T) {
+	c := CliConfig{CurrentProfile: "us",
 		Profiles: []ProfileConfig{{Name: "us", StoreDomain: "us.myshoplazza.com"}}}
-	if v2.CurrentStoreDomain() != "us.myshoplazza.com" {
-		t.Fatal("profile wins")
+	if c.CurrentStoreDomain() != "us.myshoplazza.com" {
+		t.Fatal("must return current profile's store domain")
 	}
 }
 

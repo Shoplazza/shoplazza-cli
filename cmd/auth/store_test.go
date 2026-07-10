@@ -64,7 +64,7 @@ func TestStoreUse_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read config.json: %v", err)
 	}
-	if !strings.Contains(string(cfgData), `"store_domain": "my-store.com"`) {
+	if !strings.Contains(string(cfgData), `"storeDomain": "my-store.com"`) {
 		t.Errorf("config.json should persist current store; got: %s", cfgData)
 	}
 }
