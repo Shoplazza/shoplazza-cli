@@ -3,6 +3,7 @@ package auth
 import (
 	"bytes"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -135,6 +136,12 @@ func TestSync_ScopeNarrowing_TrimsWithOneWarning(t *testing.T) {
 // profiles and credentials are gone, the new account is installed alone.
 func TestSync_AccountSwitch_CascadeWipes(t *testing.T) {
 	f := seedLoggedInWithProfiles(t, "alice@co.com", "us")
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountPartnerKey("alice@co.com"), "partner-seed"); err != nil {
+		t.Fatalf("seed alice partner token: %v", err)
+	}
+	if err := internalauth.SaveAccountMeta(authDir(f), "alice@co.com", internalauth.AccountMeta{UserID: "u1"}); err != nil {
+		t.Fatalf("seed alice account meta: %v", err)
+	}
 	_ = SyncAfterLogin(f, loginResultFor("bob@co.com", allScopes), "", nil, io.Discard)
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if len(cfg.Profiles) != 0 || cfg.Account().Name != "bob@co.com" {
@@ -142,6 +149,13 @@ func TestSync_AccountSwitch_CascadeWipes(t *testing.T) {
 	}
 	if v, err := keychain.Get(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com")); err != nil || v != "" {
 		t.Fatalf("alice credentials must be removed, got v=%q err=%v", v, err)
+	}
+	if v, err := keychain.Get(keychain.ShoplazzaCliService, internalauth.AccountPartnerKey("alice@co.com")); err != nil || v != "" {
+		t.Fatalf("alice partner token must be removed, got v=%q err=%v", v, err)
+	}
+	metaPath := filepath.Join(authDir(f), "_accounts", "alice@co.com.json")
+	if _, err := os.Stat(metaPath); !os.IsNotExist(err) {
+		t.Fatalf("alice account meta file must be removed, err=%v", err)
 	}
 }
 
@@ -174,6 +188,16 @@ func TestSync_ScopeSubset_IgnoresPrewarmToken(t *testing.T) {
 	_ = SyncAfterLogin(f, res, "us.myshoplazza.com", []string{"read_product"}, io.Discard)
 	if v, err := keychain.Get(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey("us")); err != nil || v != "" {
 		t.Fatalf("SyncAfterLogin must never write a profile store token, got v=%q err=%v", v, err)
+	}
+}
+
+// equalFoldSlice is a set comparison: order and case must not matter.
+func TestEqualFoldSlice_OrderAndCaseInsensitive(t *testing.T) {
+	if !equalFoldSlice([]string{"Read_Product", "write_product"}, []string{"write_Product", "read_product"}) {
+		t.Fatal("same scopes in different order/case must compare equal")
+	}
+	if equalFoldSlice([]string{"read_product"}, []string{"read_product", "write_product"}) {
+		t.Fatal("different-length sets must not compare equal")
 	}
 }
 

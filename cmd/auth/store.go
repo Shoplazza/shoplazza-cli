@@ -69,6 +69,10 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 				}
 				return output.Errorf(output.ExitAuth, output.TypeAuth, "failed to obtain store token: %s", err.Error())
 			}
+			// UseStore always performs a store exchange, so GrantedScopes is populated here.
+			if err := cmdutil.ValidateScopeSubset(scope, newStatus.GrantedScopes); err != nil {
+				return err
+			}
 			if err := SyncAfterLogin(f, internalauth.LoginResult{Status: newStatus}, normalized, scope, f.IOStreams.ErrOut); err != nil {
 				return output.ErrInternal("failed to sync profile state: %v", err)
 			}

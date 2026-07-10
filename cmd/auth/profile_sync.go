@@ -111,14 +111,21 @@ func intersect(a, granted []string) (trimmed []string, changed bool) {
 	return trimmed, len(trimmed) != len(a)
 }
 
-// equalFoldSlice reports whether a and b hold the same scopes in the same
-// order, compared case-insensitively.
+// equalFoldSlice reports whether a and b hold the same multiset of scopes,
+// compared case-insensitively and independent of order.
 func equalFoldSlice(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	for i := range a {
-		if !strings.EqualFold(a[i], b[i]) {
+	count := make(map[string]int, len(a))
+	for _, s := range a {
+		count[strings.ToLower(s)]++
+	}
+	for _, s := range b {
+		count[strings.ToLower(s)]--
+	}
+	for _, c := range count {
+		if c != 0 {
 			return false
 		}
 	}

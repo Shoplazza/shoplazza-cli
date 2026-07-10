@@ -121,10 +121,21 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "  UAT: %s\n", result.UAT)
 
-			if err := cmdutil.ValidateScopeSubset(scope, result.Status.GrantedScopes); err != nil {
-				return err
+			// If the requested --store-domain failed live validation, don't create
+			// or activate a profile for it (result.Status.CurrentStore is already "").
+			storeArg := normalizedStore
+			if result.StoreWarning != "" {
+				storeArg = ""
 			}
-			if err := SyncAfterLogin(f, result, normalizedStore, scope, f.IOStreams.ErrOut); err != nil {
+			// GrantedScopes is only populated by a store-token exchange; an
+			// account-only login never touches it, so only validate when a store
+			// exchange actually happened.
+			if storeArg != "" {
+				if err := cmdutil.ValidateScopeSubset(scope, result.Status.GrantedScopes); err != nil {
+					return err
+				}
+			}
+			if err := SyncAfterLogin(f, result, storeArg, scope, f.IOStreams.ErrOut); err != nil {
 				return output.ErrInternal("failed to sync profile state: %v", err)
 			}
 

@@ -13,6 +13,7 @@ import (
 
 	cmdauth "shoplazza-cli-v2/cmd/auth"
 	"shoplazza-cli-v2/internal/cmdutil"
+	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
 	"shoplazza-cli-v2/internal/output"
 )
@@ -144,6 +145,42 @@ func TestStoreUse_StoreNotFound404(t *testing.T) {
 	// ...but no scope hint: re-authorizing can't fix a wrong store domain.
 	if ee.Detail.Hint != "" {
 		t.Errorf("expected no hint for store-not-found, got %q", ee.Detail.Hint)
+	}
+}
+
+// UseStore always performs a store exchange, so the granted scopes it returns
+// must gate the requested --scope before anything is persisted.
+func TestStoreUse_ScopeNotGranted_Errors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/saiga/cli/auth/exchange/store-at" {
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "at_use", "store_domain": "my-store.com",
+				"at_expires_at":  "2099-01-01T00:00:00Z",
+				"granted_scopes": []string{"read_product"},
+			})
+		}
+	}))
+	defer srv.Close()
+
+	f, out := tempAuthFactory(t, srv.URL)
+	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
+		t.Fatal(err)
+	}
+	err := execAuth(t, f, out, "store", "use", "--store-domain", "my-store.com", "--scope", "write_product")
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Detail == nil {
+		t.Fatalf("expected an ExitError for an out-of-grant scope, got %v", err)
+	}
+	if ee.Detail.Type != output.TypeValidation {
+		t.Errorf("type = %q, want validation", ee.Detail.Type)
+	}
+
+	// The scope-gate must block the v2 profile sync before it upserts anything.
+	cfg, cErr := core.LoadConfig(f.ConfigPath)
+	if cErr == nil && (len(cfg.Profiles) != 0 || cfg.CurrentProfile != "") {
+		t.Errorf("no profile should be created/activated for an out-of-grant scope request, got profiles=%+v current=%q",
+			cfg.Profiles, cfg.CurrentProfile)
 	}
 }
 
