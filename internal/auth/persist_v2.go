@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // AccountUATKey / AccountPartnerKey / ProfileStoreKey build namespaced
@@ -81,6 +82,21 @@ func RemoveProfileMeta(authDir, name string) error {
 		return err
 	}
 	return nil
+}
+
+// TokenStatus classifies a profile's cached access token from its meta
+// ExpiresAt: empty means no token has been minted yet ("absent"); an
+// unparsable or past timestamp is "expired"; otherwise "valid". Shared by
+// 'profile show' and 'auth status' so both report the same tri-state.
+func TokenStatus(expiresAt string) string {
+	if expiresAt == "" {
+		return "absent"
+	}
+	t, err := time.Parse(time.RFC3339, expiresAt)
+	if err != nil || !time.Now().Before(t) {
+		return "expired"
+	}
+	return "valid"
 }
 
 func RemoveAccountMeta(authDir, email string) error {

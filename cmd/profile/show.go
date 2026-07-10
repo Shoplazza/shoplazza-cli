@@ -2,7 +2,6 @@ package profile
 
 import (
 	"strings"
-	"time"
 
 	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/cmdutil"
@@ -46,26 +45,11 @@ func newCmdShow(f *cmdutil.Factory) *cobra.Command {
 				"storeId":     storeID,
 				"scopes":      p.Scopes,
 				"current":     strings.EqualFold(p.Name, f.Config.CurrentProfile),
-				"tokenStatus": tokenStatus(meta.ExpiresAt),
+				"tokenStatus": internalauth.TokenStatus(meta.ExpiresAt),
 				"tokenExpiry": meta.ExpiresAt,
 			}, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Profile to show (defaults to the current profile)")
 	return cmd
-}
-
-// tokenStatus classifies a profile's cached access token from its meta
-// ExpiresAt: empty means no token has been minted yet ("absent"); an
-// unparsable or past timestamp is treated as "expired" (same convention as
-// internal/auth's isNearExpiry); otherwise "valid".
-func tokenStatus(expiresAt string) string {
-	if expiresAt == "" {
-		return "absent"
-	}
-	t, err := time.Parse(time.RFC3339, expiresAt)
-	if err != nil || !time.Now().Before(t) {
-		return "expired"
-	}
-	return "valid"
 }

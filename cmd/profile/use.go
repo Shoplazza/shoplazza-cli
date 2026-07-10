@@ -76,5 +76,6 @@ func newCmdUse(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Profile to switch to")
 	cmd.Flags().BoolVar(&previous, "previous", false, "Switch back to the previously-current profile")
 	cmd.MarkFlagsMutuallyExclusive("name", "previous")
+	_ = cmd.RegisterFlagCompletionFunc("name", cmdutil.ProfileNameCompletionFunc(f))
 	return cmd
 }
