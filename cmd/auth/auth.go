@@ -121,6 +121,13 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "  UAT: %s\n", result.UAT)
 
+			if err := cmdutil.ValidateScopeSubset(scope, result.Status.GrantedScopes); err != nil {
+				return err
+			}
+			if err := SyncAfterLogin(f, result, normalizedStore, scope, f.IOStreams.ErrOut); err != nil {
+				return output.ErrInternal("failed to sync profile state: %v", err)
+			}
+
 			// Store warning is shown in the stderr summary only, not echoed in the JSON.
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,
@@ -186,6 +193,9 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 			_, err := manager.Logout()
 			if err != nil {
 				return output.Errorf(output.ExitAPI, output.TypeAuth, "logout failed: %s", err.Error())
+			}
+			if err := wipeV2OnLogout(f); err != nil {
+				return output.ErrInternal("failed to clear profile state: %v", err)
 			}
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,

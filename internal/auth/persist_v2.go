@@ -83,6 +83,14 @@ func RemoveProfileMeta(authDir, name string) error {
 	return nil
 }
 
+func RemoveAccountMeta(authDir, email string) error {
+	err := os.Remove(accountMetaPath(authDir, email))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
 // loadJSON reads and decodes path into v; missing file leaves v at its zero value.
 func loadJSON(path string, v any) error {
 	data, err := os.ReadFile(path)

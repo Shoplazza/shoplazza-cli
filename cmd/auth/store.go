@@ -22,7 +22,10 @@ func newCmdStore(f *cmdutil.Factory) *cobra.Command {
 }
 
 func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
-	var storeDomain string
+	var (
+		storeDomain string
+		scope       []string
+	)
 	cmd := &cobra.Command{
 		Use:   "use",
 		Short: "Request a store token and set it as the current store",
@@ -66,6 +69,9 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 				}
 				return output.Errorf(output.ExitAuth, output.TypeAuth, "failed to obtain store token: %s", err.Error())
 			}
+			if err := SyncAfterLogin(f, internalauth.LoginResult{Status: newStatus}, normalized, scope, f.IOStreams.ErrOut); err != nil {
+				return output.ErrInternal("failed to sync profile state: %v", err)
+			}
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,
 				"action": "store_use",
@@ -74,5 +80,6 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&storeDomain, "store-domain", "s", "", "Store hostname to switch to (e.g. my-store.myshoplazza.com). Required.")
+	cmd.Flags().StringSliceVar(&scope, "scope", nil, "Scopes to request for this store's profile (must be a subset of the account's granted scopes); empty keeps/grants the full set")
 	return cmd
 }

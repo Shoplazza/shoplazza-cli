@@ -34,7 +34,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 				if acct != nil {
 					granted = acct.GrantedScopes
 				}
-				if err := validateScopeSubset(scopes, granted); err != nil {
+				if err := cmdutil.ValidateScopeSubset(scopes, granted); err != nil {
 					return err
 				}
 				p.Scopes = scopes
