@@ -132,8 +132,11 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			// exchange actually happened.
 			// The v1 store exchange (login here, or UseStore in store.go) already
 			// ran by this point; both login and 'store use' leave that v1 side
-			// effect in place on a rejected --scope. Cleaned up by T15 (removes
-			// v1 write paths).
+			// effect in place on a rejected --scope. T15 only removed the v1
+			// store-domain config-field write; persistState's auth.json /
+			// legacy-keychain writes and StoreIDFor's v1 exchange still happen —
+			// just no longer read by v2 request paths (app deploy/dev's
+			// resolveStoreID now resolves from the profile instead).
 			if storeArg != "" {
 				if err := cmdutil.ValidateScopeSubset(scope, result.Status.GrantedScopes); err != nil {
 					return err

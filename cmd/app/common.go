@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 
 	"shoplazza-cli-v2/internal/app"
 	"shoplazza-cli-v2/internal/app/project"
@@ -148,9 +149,10 @@ func openProject(path string) (*project.Project, error) {
 	return project.Open(project.Resolve(cwd, path))
 }
 
-// resolveTargetStore resolves the target store for deploy/dev: the current store
-// (config.json.store_domain), which empty is a validation error. deploy/dev no
-// longer take a --store-domain override — they always target the current store.
+// resolveTargetStore resolves the target store for deploy/dev: the current
+// store (the current profile's storeDomain, via CurrentStoreDomain()), which
+// empty is a validation error. deploy/dev no longer take a --store-domain
+// override — they always target the current store.
 func resolveTargetStore(current string) (string, error) {
 	if current != "" {
 		return current, nil
@@ -178,11 +180,23 @@ func apiError(err error) *output.ExitError {
 
 // resolveStoreID resolves the numeric store id for targetStore (sent as
 // ?store_id on version/generate — without it the backend defaults to store 0
-// and 500s). A hard StoreIDFor error is surfaced via apiError; an EMPTY id with
+// and 500s). Resolved from the v2 profile (config StoreID, then cached
+// ProfileMeta) so a limited-scope profile never shadow-mints a full-grant v1
+// store token via StoreIDFor's eager exchange+persistState. Only an ad-hoc
+// target with neither a matching profile nor cached meta falls back to the
+// v1 path. A hard StoreIDFor error is surfaced via apiError; an EMPTY id with
 // a nil error (StoreIDFor returns ("", nil) when the session has no UAT or the
 // refresh didn't capture a store_id) is treated as the same resolution failure
 // rather than being passed through to a confusing backend 500.
 func resolveStoreID(ctx context.Context, f *cmdutil.Factory, targetStore string) (string, error) {
+	if p := f.Config.FindProfileByStore(targetStore); p != nil {
+		if p.StoreID != "" {
+			return p.StoreID, nil
+		}
+		if meta, _ := internalauth.LoadProfileMeta(internalauth.AuthDir(f.ConfigPath), strings.ToLower(p.Name)); meta.StoreID != "" {
+			return meta.StoreID, nil
+		}
+	}
 	storeID, err := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient).StoreIDFor(ctx, targetStore)
 	if err != nil {
 		return "", apiError(err).WithHint("could not resolve store id for " + targetStore + " — run 'shoplazza auth login' if your session expired")

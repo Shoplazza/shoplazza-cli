@@ -17,7 +17,13 @@ import (
 // so tests can lower it to exercise the lock-timeout degrade path.
 var profileLockTimeout = 5 * time.Second
 
-// profileLockPath returns the per-profile lock file path under configPath's locks dir.
+// profileLockPath returns the per-profile lock file path under configPath's
+// locks dir. Accepted race: profile-admin ops (update/remove/rename, and
+// profile_sync) clear/move a profile's cached token+meta under config.lock
+// only, not this per-profile lock — a concurrent mint can interleave with an
+// admin clear and leave a stale token cached until expiry. Self-heals (next
+// mint re-checks/re-exchanges); nesting this lock inside config.lock
+// everywhere isn't worth the complexity for that window.
 func profileLockPath(configPath, name string) string {
 	return filepath.Join(core.LocksDir(configPath), "profile_"+strings.ToLower(name)+".lock")
 }

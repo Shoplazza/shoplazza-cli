@@ -45,7 +45,7 @@ type AuthState struct {
 	GrantedScopes    []string // account-level; mirror of store-AT passthrough
 	Stores           map[string]StoreState
 	Apps             map[string]AppState
-	CurrentStore     string // from config.json.store_domain
+	CurrentStore     string // from the current profile's storeDomain (CliConfig.CurrentStoreDomain())
 }
 
 // StoreTokenMeta is the on-disk metadata for one store (no token).

@@ -66,7 +66,7 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 
 			err := core.UpdateConfig(f.ConfigPath, core.ConfigLockTimeout, func(c *core.CliConfig) error {
 				if c.FindProfile(name) != nil {
-					return fmt.Errorf("profile %q already exists", name)
+					return output.ErrValidation("profile %q already exists (names are case-insensitive)", name)
 				}
 				c.Profiles = append(c.Profiles, p)
 				if useFlag || len(c.Profiles) == 1 {
@@ -76,6 +76,10 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 				return nil
 			})
 			if err != nil {
+				var exitErr *output.ExitError
+				if errors.As(err, &exitErr) {
+					return exitErr
+				}
 				return output.ErrInternal("failed to save profile: %v", err)
 			}
 			return output.PrintBody(cmd.OutOrStdout(), map[string]any{

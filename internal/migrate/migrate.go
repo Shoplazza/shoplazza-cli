@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
 	"shoplazza-cli-v2/internal/lockfile"
@@ -65,12 +66,12 @@ func doMigrate(configPath string) error {
 		out.Accounts = []core.AccountConfig{{Name: email, GrantedScopes: meta.GrantedScopes}}
 		// 2) keychain：只迁 uat/partner（GetLegacy → Set 新命名；缺失容忍）
 		if v, err := keychain.GetLegacy(keychain.ShoplazzaCliService, "uat"); err == nil && v != "" {
-			if err := keychain.Set(keychain.ShoplazzaCliService, "account:"+email+":uat", v); err != nil {
+			if err := keychain.Set(keychain.ShoplazzaCliService, auth.AccountUATKey(email), v); err != nil {
 				return err
 			}
 		}
 		if v, err := keychain.GetLegacy(keychain.ShoplazzaCliService, "partner"); err == nil && v != "" {
-			if err := keychain.Set(keychain.ShoplazzaCliService, "account:"+email+":partner", v); err != nil {
+			if err := keychain.Set(keychain.ShoplazzaCliService, auth.AccountPartnerKey(email), v); err != nil {
 				return err
 			}
 		}

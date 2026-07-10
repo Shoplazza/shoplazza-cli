@@ -248,6 +248,94 @@ func TestResolveStoreID_EmptyWithNilError(t *testing.T) {
 	}
 }
 
+// TestResolveStoreID_FromProfileConfig_NoV1Exchange is the merge-blocker
+// regression: with a profile bound to the target store whose StoreID is
+// already populated in config.json, resolveStoreID must return it directly
+// rather than shadow-minting a full-scope v1 store token (StoreIDFor's
+// exchange+persistState side effect) behind a limited-scope profile's back.
+func TestResolveStoreID_FromProfileConfig_NoV1Exchange(t *testing.T) {
+	dir := testenv.IsolateConfigDir(t)
+	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	// A logged-in account (legacy UAT) so the old code path COULD reach the
+	// v1 exchange if it were still consulted.
+	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
+		t.Fatalf("keychain Set uat: %v", err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected network call %s — resolveStoreID must resolve from the profile, not the v1 exchange", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	f := &cmdutil.Factory{
+		Config: core.CliConfig{
+			CurrentProfile: "demo",
+			Profiles: []core.ProfileConfig{
+				{Name: "demo", Account: "alice@co.com", StoreDomain: "demo.myshoplazza.com", StoreID: "12345", Scopes: []string{"read_product"}},
+			},
+		},
+		ConfigPath: filepath.Join(dir, "config.json"),
+		AuthClient: client.New(srv.URL),
+	}
+
+	got, err := resolveStoreID(context.Background(), f, "demo.myshoplazza.com")
+	if err != nil {
+		t.Fatalf("resolveStoreID: %v", err)
+	}
+	if got != "12345" {
+		t.Fatalf("storeID = %q, want %q", got, "12345")
+	}
+	if tok, _ := keychain.Get(keychain.ShoplazzaCliService, "store:demo.myshoplazza.com"); tok != "" {
+		t.Fatalf("a v1 store:<domain> keychain entry should not have been created, got %q", tok)
+	}
+}
+
+// TestResolveStoreID_FromProfileMeta_NoV1Exchange covers the second lookup
+// tier: the profile's config StoreID is empty (e.g. added before the id was
+// backfilled), but ProfileMeta (auth/<name>.json, populated by every
+// profile-scoped exchange) already has it. Still must not touch the v1 path.
+func TestResolveStoreID_FromProfileMeta_NoV1Exchange(t *testing.T) {
+	dir := testenv.IsolateConfigDir(t)
+	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
+		t.Fatalf("keychain Set uat: %v", err)
+	}
+
+	configPath := filepath.Join(dir, "config.json")
+	if err := internalauth.SaveProfileMeta(internalauth.AuthDir(configPath), "demo", internalauth.ProfileMeta{StoreID: "67890"}); err != nil {
+		t.Fatalf("SaveProfileMeta: %v", err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected network call %s — resolveStoreID must resolve from profile meta, not the v1 exchange", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	f := &cmdutil.Factory{
+		Config: core.CliConfig{
+			CurrentProfile: "demo",
+			Profiles: []core.ProfileConfig{
+				{Name: "demo", Account: "alice@co.com", StoreDomain: "demo.myshoplazza.com", Scopes: []string{"read_product"}},
+			},
+		},
+		ConfigPath: configPath,
+		AuthClient: client.New(srv.URL),
+	}
+
+	got, err := resolveStoreID(context.Background(), f, "demo.myshoplazza.com")
+	if err != nil {
+		t.Fatalf("resolveStoreID: %v", err)
+	}
+	if got != "67890" {
+		t.Fatalf("storeID = %q, want %q", got, "67890")
+	}
+	if tok, _ := keychain.Get(keychain.ShoplazzaCliService, "store:demo.myshoplazza.com"); tok != "" {
+		t.Fatalf("a v1 store:<domain> keychain entry should not have been created, got %q", tok)
+	}
+}
+
 // TestLeafCommands_RejectPositionalArgs: leaf commands carry cobra.NoArgs, so a
 // stray positional arg fails fast instead of being silently ignored.
 func TestLeafCommands_RejectPositionalArgs(t *testing.T) {
