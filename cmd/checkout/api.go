@@ -52,9 +52,10 @@ func normalizeStoreDomain(s string) string {
 
 // resolveStore returns the current store domain (normalized), or a validation
 // error if none is selected. Checkout commands act on the current store; there
-// is no per-command override.
+// is no per-command override. Credentials are already injected by the auth
+// gate (RequireAuth) — this only resolves the domain for display/derivation.
 func resolveStore(f *cmdutil.Factory) (string, *output.ExitError) {
-	if s := normalizeStoreDomain(f.Config.StoreDomain); s != "" {
+	if s := normalizeStoreDomain(f.Config.CurrentStoreDomain()); s != "" {
 		return s, nil
 	}
 	return "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,

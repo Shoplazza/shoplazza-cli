@@ -78,12 +78,7 @@ func newCmdRelease(f *cmdutil.Factory) *cobra.Command {
 			// is a store-openapi call (store-token), so build a store client for it;
 			// the publish below still goes through the app token.
 			verStep := prog.Begin("[release] fetching version list")
-			domain, sErr := resolveStore(f, "")
-			if sErr != nil {
-				verStep.Fail()
-				return sErr
-			}
-			store, scErr := storeClient(ctx, f, domain)
+			store, _, scErr := storeClient(ctx, f, "")
 			if scErr != nil {
 				verStep.Fail()
 				return scErr

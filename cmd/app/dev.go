@@ -63,7 +63,7 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 				return ex
 			}
 
-			targetStore, err := resolveTargetStore(f.Config.StoreDomain)
+			targetStore, err := resolveTargetStore(f.Config.CurrentStoreDomain())
 			if err != nil {
 				return err
 			}

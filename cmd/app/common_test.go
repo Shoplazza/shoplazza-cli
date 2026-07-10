@@ -13,6 +13,7 @@ import (
 
 	"shoplazza-cli-v2/internal/app"
 	"shoplazza-cli-v2/internal/app/project"
+	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/client"
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/core"
@@ -73,7 +74,9 @@ func TestDashboardClient_DoesNotMutateAuthClient(t *testing.T) {
 
 // seedLoginKeychain isolates HOME/keychain to a temp dir and seeds UAT +
 // partner token so requireLogin/dashboardClient-style helpers get past the
-// login gate. Returns the isolated dir (for ConfigPath).
+// login gate. Also seeds a v2 account UAT (storeTokenForDomain's
+// ExchangeEphemeral path reads Config.Accounts, not the legacy "uat" key).
+// Returns the isolated dir (for ConfigPath).
 func seedLoginKeychain(t *testing.T) string {
 	t.Helper()
 	dir := testenv.IsolateConfigDir(t)
@@ -83,6 +86,9 @@ func seedLoginKeychain(t *testing.T) string {
 	}
 	if err := keychain.Set(keychain.ShoplazzaCliService, "partner", "ptok_1"); err != nil {
 		t.Fatalf("keychain Set partner: %v", err)
+	}
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_1"); err != nil {
+		t.Fatalf("keychain Set account uat: %v", err)
 	}
 	return dir
 }
@@ -131,7 +137,7 @@ func TestApiError_HTTPError_CarriesEndpoint(t *testing.T) {
 func TestStoreClient_NetError_RoutesToErrNetwork(t *testing.T) {
 	dir := seedLoginKeychain(t)
 	f := &cmdutil.Factory{
-		Config:     core.CliConfig{},
+		Config:     core.CliConfig{Accounts: []core.AccountConfig{{Name: "alice@co.com"}}},
 		ConfigPath: filepath.Join(dir, "config.json"),
 		AuthClient: client.New(deadServerURL(t)),
 	}
@@ -155,7 +161,7 @@ func TestStoreClient_AuthRejection_StaysAuth(t *testing.T) {
 	}))
 	defer srv.Close()
 	f := &cmdutil.Factory{
-		Config:     core.CliConfig{},
+		Config:     core.CliConfig{Accounts: []core.AccountConfig{{Name: "alice@co.com"}}},
 		ConfigPath: filepath.Join(dir, "config.json"),
 		AuthClient: client.New(srv.URL),
 	}

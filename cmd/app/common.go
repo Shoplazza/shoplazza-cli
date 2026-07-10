@@ -77,22 +77,33 @@ func dashboardClient(ctx context.Context, f *cmdutil.Factory) (*app.Dashboard, e
 	// Access-Token carries the current STORE token, forwarded verbatim to
 	// downstream store-openapi calls (e.g. generate's theme-version lookup).
 	// Best-effort: partner-level commands with no current store just omit it.
-	if f.Config.StoreDomain != "" {
-		if stok, sErr := mgr.AccessTokenReady(ctx, f.Config.StoreDomain); sErr == nil && stok != "" {
+	if domain := f.Config.CurrentStoreDomain(); domain != "" {
+		if stok, sErr := storeTokenForDomain(ctx, f, mgr, domain); sErr == nil && stok != "" {
 			c.SetBearerToken(stok)
 		} else if sErr != nil {
 			fmt.Fprintf(warnWriter(f), "warning: could not mint a store token for %s (store-scoped Dashboard calls may 403): %v\n",
-				f.Config.StoreDomain, sErr)
+				domain, sErr)
 		}
 	}
 	return app.NewDashboard(c, tok), nil
+}
+
+// storeTokenForDomain mints a store token for domain: a profile bound to it
+// uses AccessTokenReadyForProfile (cached/persisted credentials); otherwise
+// an ephemeral, unpersisted exchange (mirrors theme_extension's storeTokenFor
+// ad-hoc path — a legacy-only current store with no matching profile yet).
+func storeTokenForDomain(ctx context.Context, f *cmdutil.Factory, mgr *internalauth.Manager, domain string) (string, error) {
+	if p := f.Config.FindProfileByStore(domain); p != nil {
+		return mgr.AccessTokenReadyForProfile(ctx, f.ConfigPath, *p)
+	}
+	return mgr.ExchangeEphemeral(ctx, domain)
 }
 
 // storeClient builds a store-openapi/OSS client (store:<domain> token) for the
 // resolved target store.
 func storeClient(ctx context.Context, f *cmdutil.Factory, storeDomain string) (*client.Client, error) {
 	mgr := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
-	tok, err := mgr.AccessTokenReady(ctx, storeDomain)
+	tok, err := storeTokenForDomain(ctx, f, mgr, storeDomain)
 	if err != nil {
 		// A token mint that died on the wire is a network problem, not an auth
 		// one — exit 3 would misdirect the user to re-login.
