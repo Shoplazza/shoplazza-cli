@@ -187,6 +187,8 @@ func (m *Manager) Logout() (Status, error) {
 	}
 	_ = keychain.Remove(keychain.ShoplazzaCliService, kcUAT)
 	_ = keychain.Remove(keychain.ShoplazzaCliService, kcPartner)
+	_ = keychain.Remove(keychain.ShoplazzaCliService, AccountUATKey(state.Account))
+	_ = keychain.Remove(keychain.ShoplazzaCliService, AccountPartnerKey(state.Account))
 	for dom := range state.Stores { // auth.json map is the authoritative removal list
 		_ = keychain.Remove(keychain.ShoplazzaCliService, storeKcKey(dom))
 	}
