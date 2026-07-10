@@ -203,8 +203,11 @@ func TestDashboardClient_WarnsOnUserIDFailure(t *testing.T) {
 	dir := seedLoginKeychain(t)
 	var errBuf bytes.Buffer
 	f := &cmdutil.Factory{
-		IOStreams:  cmdutil.IOStreams{ErrOut: &errBuf},
-		Config:     core.CliConfig{StoreDomain: "demo.myshoplazza.com"},
+		IOStreams: cmdutil.IOStreams{ErrOut: &errBuf},
+		Config: core.CliConfig{
+			CurrentProfile: "demo",
+			Profiles:       []core.ProfileConfig{{Name: "demo", Account: "alice@co.com", StoreDomain: "demo.myshoplazza.com"}},
+		},
 		ConfigPath: filepath.Join(dir, "config.json"),
 		AuthClient: client.New(deadServerURL(t)), // Me + store-token exchange both die on the wire
 	}

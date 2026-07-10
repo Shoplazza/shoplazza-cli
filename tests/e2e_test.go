@@ -387,8 +387,8 @@ func TestAuthLogin_DomainNormalization(t *testing.T) {
 				t.Fatalf("read config.json: %v", err)
 			}
 			content := string(data)
-			if !strings.Contains(content, `"store_domain": "`+tc.want+`"`) {
-				t.Errorf("config.json store_domain mismatch\nwant: %q\ngot: %s", tc.want, content)
+			if !strings.Contains(content, `"storeDomain": "`+tc.want+`"`) {
+				t.Errorf("config.json storeDomain mismatch\nwant: %q\ngot: %s", tc.want, content)
 			}
 			if strings.Contains(content, "https://e2e") || strings.Contains(content, "http://e2e") {
 				t.Error("store_domain must not contain URL scheme")

@@ -64,7 +64,7 @@ func TestStoreUse_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read config.json: %v", err)
 	}
-	if !strings.Contains(string(cfgData), `"store_domain": "my-store.com"`) {
+	if !strings.Contains(string(cfgData), `"storeDomain": "my-store.com"`) {
 		t.Errorf("config.json should persist current store; got: %s", cfgData)
 	}
 }
@@ -149,11 +149,10 @@ func TestStoreUse_StoreNotFound404(t *testing.T) {
 }
 
 // The scope check runs AFTER the store-token exchange (UseStore), against the
-// fresh per-store grant — the exchange always succeeds and the granted set
-// simply doesn't cover the requested scope. The v1 exchange side effects
-// (cfg.StoreDomain + cached store token) do land before the rejection; that's
-// an accepted transition artifact tracked for cleanup by T15 (removes v1
-// write paths), same as the equivalent login-time case.
+// fresh per-store grant — the exchange succeeds but its granted set doesn't
+// cover the requested scope, so the command rejects. No v2 profile is created
+// or activated (asserted below). The legacy cfg.StoreDomain write has been
+// removed, so a rejected request no longer changes the current-store context.
 func TestStoreUse_ScopeNotGranted_Errors(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/saiga/cli/auth/exchange/store-at" {

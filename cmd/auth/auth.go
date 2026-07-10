@@ -304,7 +304,7 @@ func newCmdScopes(f *cmdutil.Factory) *cobra.Command {
 				return output.Errorf(output.ExitInternal, output.TypeInternal, "failed to read auth state: %s", err.Error())
 			}
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
-				"current_store":    manager.Config.StoreDomain,
+				"current_store":    manager.Config.CurrentStoreDomain(),
 				"granted_scopes":   state.GrantedScopes,
 				"supported_scopes": internalauth.SupportedScopes(),
 			})
