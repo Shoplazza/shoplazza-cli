@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -131,5 +132,68 @@ func TestRemoveConfig_EmptyPath(t *testing.T) {
 	_ = os.Remove(defaultPath)
 	if err := RemoveConfig(""); err != nil {
 		t.Fatalf("RemoveConfig with empty path on missing file: %v", err)
+	}
+}
+
+func TestValidateProfileName(t *testing.T) {
+	valid := []string{"us", "cn-staging", "a.b_c-1", strings.Repeat("a", 64)}
+	invalid := []string{"", ".hidden", "-flag", "_x", strings.Repeat("a", 65),
+		"has space", "汉字", "a:b", "con", "NUL", "com3", "Lpt9"}
+	for _, n := range valid {
+		if err := ValidateProfileName(n); err != nil {
+			t.Errorf("%q should be valid: %v", n, err)
+		}
+	}
+	for _, n := range invalid {
+		if err := ValidateProfileName(n); err == nil {
+			t.Errorf("%q should be rejected", n)
+		}
+	}
+}
+
+func TestDeriveProfileName(t *testing.T) {
+	taken := map[string]bool{"us": true}
+	isTaken := func(n string) bool { return taken[strings.ToLower(n)] }
+	if got := DeriveProfileName("cn.myshoplazza.com", isTaken); got != "cn" {
+		t.Fatalf("got %q", got)
+	}
+	if got := DeriveProfileName("us.myshoplazza.com", isTaken); got != "us-2" {
+		t.Fatalf("conflict suffix: got %q", got)
+	}
+	if got := DeriveProfileName("shop.example.com", isTaken); got != "shop.example.com" {
+		t.Fatalf("custom domain keeps full host: got %q", got)
+	}
+}
+
+func TestFindProfile_CaseInsensitive(t *testing.T) {
+	c := CliConfig{Profiles: []ProfileConfig{{Name: "prod-us", StoreDomain: "us.myshoplazza.com"}}}
+	if c.FindProfile("Prod-US") == nil || c.FindProfileByStore("US.myshoplazza.com") == nil {
+		t.Fatal("lookup must be case-insensitive")
+	}
+}
+
+func TestCurrentStoreDomain_BridgesLegacy(t *testing.T) {
+	v1 := CliConfig{StoreDomain: "old.myshoplazza.com"}
+	if v1.CurrentStoreDomain() != "old.myshoplazza.com" {
+		t.Fatal("legacy fallback")
+	}
+	v2 := CliConfig{CurrentProfile: "us",
+		Profiles: []ProfileConfig{{Name: "us", StoreDomain: "us.myshoplazza.com"}}}
+	if v2.CurrentStoreDomain() != "us.myshoplazza.com" {
+		t.Fatal("profile wins")
+	}
+}
+
+func TestSaveConfig_Atomic(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.json")
+	if err := SaveConfig(p, CliConfig{ConfigVersion: 2}); err != nil {
+		t.Fatal(err)
+	}
+	// 目录里不残留 .tmp
+	entries, _ := os.ReadDir(filepath.Dir(p))
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".tmp") {
+			t.Fatalf("tmp leak: %s", e.Name())
+		}
 	}
 }
