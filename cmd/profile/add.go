@@ -46,7 +46,7 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 			if f.Config.FindProfile(name) != nil {
 				return output.ErrValidation("profile %q already exists (names are case-insensitive)", name)
 			}
-			if err := validateScopeSubset(scopes, acct.GrantedScopes); err != nil {
+			if err := cmdutil.ValidateScopeSubset(scopes, acct.GrantedScopes); err != nil {
 				return err
 			}
 
@@ -92,22 +92,6 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringSliceVar(&scopes, "scope", nil, "Scopes to request for this profile (must be a subset of the account's granted scopes); empty grants the account's full scope set")
 	cmd.Flags().BoolVar(&useFlag, "use", false, "Set this profile as current after adding it")
 	return cmd
-}
-
-// validateScopeSubset errors when want ⊄ granted (case-sensitive scope names).
-func validateScopeSubset(want, granted []string) error {
-	set := make(map[string]struct{}, len(granted))
-	for _, s := range granted {
-		set[s] = struct{}{}
-	}
-	for _, s := range want {
-		if _, ok := set[s]; !ok {
-			return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-				fmt.Sprintf("scope %q is not granted to this account", s),
-				"re-run 'shoplazza auth login' with the scopes you need (see 'shoplazza auth scopes')")
-		}
-	}
-	return nil
 }
 
 // translateExchangeErr classifies an ExchangeForProfile failure: 404 means the

@@ -121,6 +121,28 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "  UAT: %s\n", result.UAT)
 
+			// If the requested --store-domain failed live validation, don't create
+			// or activate a profile for it (result.Status.CurrentStore is already "").
+			storeArg := normalizedStore
+			if result.StoreWarning != "" {
+				storeArg = ""
+			}
+			// GrantedScopes is only populated by a store-token exchange; an
+			// account-only login never touches it, so only validate when a store
+			// exchange actually happened.
+			// The v1 store exchange (login here, or UseStore in store.go) already
+			// ran by this point; both login and 'store use' leave that v1 side
+			// effect in place on a rejected --scope. Cleaned up by T15 (removes
+			// v1 write paths).
+			if storeArg != "" {
+				if err := cmdutil.ValidateScopeSubset(scope, result.Status.GrantedScopes); err != nil {
+					return err
+				}
+			}
+			if err := SyncAfterLogin(f, result, storeArg, scope, f.IOStreams.ErrOut); err != nil {
+				return output.ErrInternal("failed to sync profile state: %v", err)
+			}
+
 			// Store warning is shown in the stderr summary only, not echoed in the JSON.
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,
@@ -186,6 +208,9 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 			_, err := manager.Logout()
 			if err != nil {
 				return output.Errorf(output.ExitAPI, output.TypeAuth, "logout failed: %s", err.Error())
+			}
+			if err := wipeV2OnLogout(f); err != nil {
+				return output.ErrInternal("failed to clear profile state: %v", err)
 			}
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,
