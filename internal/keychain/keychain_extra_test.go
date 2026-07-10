@@ -14,32 +14,24 @@ import (
 func TestGet_CorruptedMasterKey(t *testing.T) {
 	usesTempDir(t)
 
+	// Create a real entry first (also creates a valid master key), so Get
+	// has something to decrypt once the key below is corrupted.
+	const account = "access_token"
+	if err := keychain.Set(keychain.ShoplazzaCliService, account, "val"); err != nil {
+		t.Fatalf("setup Set: %v", err)
+	}
+
 	cfgDir, err := os.UserConfigDir()
 	if err != nil {
 		t.Skip("cannot determine UserConfigDir:", err)
 	}
-	base := filepath.Join(cfgDir, "shoplazza-cli")
-	if err := os.MkdirAll(base, 0o700); err != nil {
-		t.Fatal(err)
-	}
-
-	// Write a master key with wrong length (not 32 bytes).
-	keyPath := filepath.Join(base, "keychain.key")
+	// Overwrite the master key with wrong length (not 32 bytes).
+	keyPath := filepath.Join(cfgDir, "shoplazza-cli", "keychain.key")
 	if err := os.WriteFile(keyPath, []byte("tooshort"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	// Also write a dummy encrypted file so Get tries to read the key.
-	kcDir := filepath.Join(base, "keychain")
-	if err := os.MkdirAll(kcDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	encPath := filepath.Join(kcDir, keychain.ShoplazzaCliService+"_access_token.enc")
-	if err := os.WriteFile(encPath, make([]byte, 50), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = keychain.Get(keychain.ShoplazzaCliService, "access_token")
+	_, err = keychain.Get(keychain.ShoplazzaCliService, account)
 	if err == nil {
 		t.Error("expected error for corrupted master key, got nil")
 	}
@@ -50,8 +42,10 @@ func TestGet_CorruptedMasterKey(t *testing.T) {
 func TestGet_CorruptedCiphertext(t *testing.T) {
 	usesTempDir(t)
 
-	// First create a valid master key via Set.
-	if err := keychain.Set(keychain.ShoplazzaCliService, "setup", "val"); err != nil {
+	// Create a real entry so its hashed filename exists on disk, then
+	// overwrite that file's contents with too-short ciphertext.
+	const account = "corrupted_account"
+	if err := keychain.Set(keychain.ShoplazzaCliService, account, "val"); err != nil {
 		t.Fatalf("setup Set: %v", err)
 	}
 
@@ -60,15 +54,21 @@ func TestGet_CorruptedCiphertext(t *testing.T) {
 		t.Skip("cannot determine UserConfigDir:", err)
 	}
 	kcDir := filepath.Join(cfgDir, "shoplazza-cli", "keychain")
+	entries, err := os.ReadDir(kcDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry in fresh keychain dir, got %d", len(entries))
+	}
 
 	// Overwrite with a ciphertext that is too short (< 28 bytes = 12 IV + 16 GCM tag).
-	name := keychain.ShoplazzaCliService + "_corrupted_account.enc"
-	encPath := filepath.Join(kcDir, name)
+	encPath := filepath.Join(kcDir, entries[0].Name())
 	if err := os.WriteFile(encPath, []byte("tooshort"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = keychain.Get(keychain.ShoplazzaCliService, "corrupted_account")
+	_, err = keychain.Get(keychain.ShoplazzaCliService, account)
 	if err == nil {
 		t.Error("expected error for too-short ciphertext, got nil")
 	}
