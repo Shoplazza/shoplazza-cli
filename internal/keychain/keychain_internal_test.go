@@ -23,24 +23,8 @@ func usesTempDir(t *testing.T) {
 // service+"_"+safeFileName(account), raw (non-JSON) plaintext.
 func writeLegacyEntry(t *testing.T, service, account, secret string) {
 	t.Helper()
-	key, err := getMasterKey(true)
-	if err != nil {
-		t.Fatalf("writeLegacyEntry: getMasterKey: %v", err)
-	}
-	dir, err := keychainDir()
-	if err != nil {
-		t.Fatalf("writeLegacyEntry: keychainDir: %v", err)
-	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		t.Fatalf("writeLegacyEntry: mkdir: %v", err)
-	}
-	ciphertext, err := encrypt(secret, key)
-	if err != nil {
-		t.Fatalf("writeLegacyEntry: encrypt: %v", err)
-	}
-	path := filepath.Join(dir, service+"_"+safeFileName(account))
-	if err := os.WriteFile(path, ciphertext, 0o600); err != nil {
-		t.Fatalf("writeLegacyEntry: write: %v", err)
+	if err := SetLegacy(service, account, secret); err != nil {
+		t.Fatalf("writeLegacyEntry: %v", err)
 	}
 }
 

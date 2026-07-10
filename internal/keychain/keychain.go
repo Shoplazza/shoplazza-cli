@@ -283,3 +283,29 @@ func GetLegacy(service, account string) (string, error) {
 	}
 	return decrypt(data, key)
 }
+
+// SetLegacy writes an entry using the pre-v2 sanitized filename and raw
+// (non-JSON) plaintext format that GetLegacy reads. Test-support only: it
+// exists so migration tests outside this package can build v1 keychain
+// fixtures; never used on the hot path.
+func SetLegacy(service, account, value string) error {
+	dir, err := keychainDir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("keychain SetLegacy: mkdir: %w", err)
+	}
+	key, err := getMasterKey(true)
+	if err != nil {
+		return fmt.Errorf("keychain SetLegacy: %w", err)
+	}
+	ciphertext, err := encrypt(value, key)
+	if err != nil {
+		return fmt.Errorf("keychain SetLegacy: encrypt: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, service+"_"+safeFileName(account)), ciphertext, 0o600); err != nil {
+		return fmt.Errorf("keychain SetLegacy: write: %w", err)
+	}
+	return nil
+}
