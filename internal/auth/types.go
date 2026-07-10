@@ -38,8 +38,8 @@ type AppState struct {
 type AuthState struct {
 	Account          string
 	UserID           string // login user id (poll/me user_id) — sent as login-user-id header
-	UAT              string // keychain "uat" — never serialized
-	Partner          string // keychain "partner" — never serialized
+	UAT              string // keychain AccountUATKey(account) — never serialized
+	Partner          string // keychain AccountPartnerKey(account) — never serialized
 	UATExpiresAt     string
 	PartnerExpiresAt string
 	GrantedScopes    []string // account-level; mirror of store-AT passthrough

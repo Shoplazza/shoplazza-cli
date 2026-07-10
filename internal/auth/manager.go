@@ -185,8 +185,6 @@ func (m *Manager) Logout() (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
-	_ = keychain.Remove(keychain.ShoplazzaCliService, kcUAT)
-	_ = keychain.Remove(keychain.ShoplazzaCliService, kcPartner)
 	_ = keychain.Remove(keychain.ShoplazzaCliService, AccountUATKey(state.Account))
 	_ = keychain.Remove(keychain.ShoplazzaCliService, AccountPartnerKey(state.Account))
 	for dom := range state.Stores { // auth.json map is the authoritative removal list
@@ -216,8 +214,17 @@ func (m *Manager) LoadState() (AuthState, error) {
 	if err != nil {
 		return AuthState{}, err
 	}
+	// The account keys the v2 credential lookups. auth.json is the canonical
+	// source (persistState writes it alongside the UAT); fall back to the v2
+	// config's account when auth.json is absent (e.g. before it is written).
+	account := meta.Account
+	if account == "" {
+		if a := m.Config.Account(); a != nil {
+			account = a.Name
+		}
+	}
 	state := AuthState{
-		Account:          meta.Account,
+		Account:          account,
 		UserID:           meta.UserID,
 		UATExpiresAt:     meta.UATExpiresAt,
 		PartnerExpiresAt: meta.PartnerExpiresAt,
@@ -229,12 +236,12 @@ func (m *Manager) LoadState() (AuthState, error) {
 	// Propagate genuine read/decrypt failures for UAT/partner: swallowing them
 	// makes a corrupted keychain look like "not logged in". The per-store/app
 	// loops below stay tolerant — a missing/corrupt token self-heals via re-mint.
-	uat, err := keychain.Get(keychain.ShoplazzaCliService, kcUAT)
+	uat, err := keychain.Get(keychain.ShoplazzaCliService, AccountUATKey(account))
 	if err != nil {
 		return AuthState{}, fmt.Errorf("reading UAT from keychain (it may be corrupted): %w", err)
 	}
 	state.UAT = uat
-	partner, err := keychain.Get(keychain.ShoplazzaCliService, kcPartner)
+	partner, err := keychain.Get(keychain.ShoplazzaCliService, AccountPartnerKey(account))
 	if err != nil {
 		return AuthState{}, fmt.Errorf("reading partner token from keychain (it may be corrupted): %w", err)
 	}
@@ -335,8 +342,9 @@ func (m *Manager) AppTokenReady(ctx context.Context, clientID, clientSecret, par
 	return block.AccessToken, nil
 }
 
-// PartnerToken returns the account-level partner token (keychain "partner",
-// minted at login). Empty string means "not available" — caller maps that to a
+// PartnerToken returns the account-level partner token (keychain
+// AccountPartnerKey, minted at login). Empty string means "not available" —
+// caller maps that to a
 // re-login auth error.
 func (m *Manager) PartnerToken() (string, error) {
 	state, err := m.LoadState()

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	cmdauth "shoplazza-cli-v2/cmd/auth"
+	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
@@ -46,7 +47,8 @@ func TestStoreUse_Success(t *testing.T) {
 	defer srv.Close()
 
 	f, out := tempAuthFactory(t, srv.URL)
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
+	f.Config.Accounts = []core.AccountConfig{{Name: "alice@example.com"}}
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@example.com"), "uat_seed"); err != nil {
 		t.Fatal(err)
 	}
 	if err := execAuth(t, f, out, "store", "use", "--store-domain", "my-store.com"); err != nil {
@@ -80,7 +82,8 @@ func TestStoreUse_ScopesRequired422(t *testing.T) {
 	defer srv.Close()
 
 	f, _ := tempAuthFactory(t, srv.URL)
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
+	f.Config.Accounts = []core.AccountConfig{{Name: "alice@example.com"}}
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@example.com"), "uat_seed"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -120,7 +123,8 @@ func TestStoreUse_StoreNotFound404(t *testing.T) {
 	defer srv.Close()
 
 	f, _ := tempAuthFactory(t, srv.URL)
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
+	f.Config.Accounts = []core.AccountConfig{{Name: "alice@example.com"}}
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@example.com"), "uat_seed"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -167,7 +171,8 @@ func TestStoreUse_ScopeNotGranted_Errors(t *testing.T) {
 	defer srv.Close()
 
 	f, out := tempAuthFactory(t, srv.URL)
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
+	f.Config.Accounts = []core.AccountConfig{{Name: "alice@example.com"}}
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@example.com"), "uat_seed"); err != nil {
 		t.Fatal(err)
 	}
 

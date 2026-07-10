@@ -48,15 +48,15 @@ func TestDashboardClient_DoesNotMutateAuthClient(t *testing.T) {
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
 
 	// Seed UAT + partner token in the isolated keychain so PartnerToken() succeeds.
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_1"); err != nil {
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_1"); err != nil {
 		t.Fatalf("keychain Set uat: %v", err)
 	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, "partner", "ptok_1"); err != nil {
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountPartnerKey("alice@co.com"), "ptok_1"); err != nil {
 		t.Fatalf("keychain Set partner: %v", err)
 	}
 
 	f := &cmdutil.Factory{
-		Config:     core.CliConfig{},
+		Config:     core.CliConfig{Accounts: []core.AccountConfig{{Name: "alice@co.com"}}},
 		ConfigPath: filepath.Join(dir, "config.json"),
 		AuthClient: client.New("https://partners.example.com"),
 	}
@@ -72,23 +72,22 @@ func TestDashboardClient_DoesNotMutateAuthClient(t *testing.T) {
 	}
 }
 
-// seedLoginKeychain isolates HOME/keychain to a temp dir and seeds UAT +
-// partner token so requireLogin/dashboardClient-style helpers get past the
-// login gate. Also seeds a v2 account UAT (storeTokenForDomain's
-// ExchangeEphemeral path reads Config.Accounts, not the legacy "uat" key).
-// Returns the isolated dir (for ConfigPath).
+// seedLoginKeychain isolates HOME/keychain to a temp dir and seeds the v2
+// account UAT + partner token (keyed to "alice@co.com") so
+// requireLogin/dashboardClient-style helpers get past the login gate.
+// Callers must give their Factory's Config a matching
+// Accounts: []core.AccountConfig{{Name: "alice@co.com"}} (or an equivalent
+// auth.json) so LoadState resolves the same account. Returns the isolated
+// dir (for ConfigPath).
 func seedLoginKeychain(t *testing.T) string {
 	t.Helper()
 	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_1"); err != nil {
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_1"); err != nil {
 		t.Fatalf("keychain Set uat: %v", err)
 	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, "partner", "ptok_1"); err != nil {
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountPartnerKey("alice@co.com"), "ptok_1"); err != nil {
 		t.Fatalf("keychain Set partner: %v", err)
-	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_1"); err != nil {
-		t.Fatalf("keychain Set account uat: %v", err)
 	}
 	return dir
 }
@@ -181,7 +180,7 @@ func TestPartnerOpenapiClient_NetError_RoutesToErrNetwork(t *testing.T) {
 	dir := seedLoginKeychain(t)
 	dead := deadServerURL(t)
 	f := &cmdutil.Factory{
-		Config:     core.CliConfig{},
+		Config:     core.CliConfig{Accounts: []core.AccountConfig{{Name: "alice@co.com"}}},
 		ConfigPath: filepath.Join(dir, "config.json"),
 		AuthClient: client.New(dead),
 	}
@@ -205,6 +204,7 @@ func TestDashboardClient_WarnsOnUserIDFailure(t *testing.T) {
 	f := &cmdutil.Factory{
 		IOStreams: cmdutil.IOStreams{ErrOut: &errBuf},
 		Config: core.CliConfig{
+			Accounts:       []core.AccountConfig{{Name: "alice@co.com"}},
 			CurrentProfile: "demo",
 			Profiles:       []core.ProfileConfig{{Name: "demo", Account: "alice@co.com", StoreDomain: "demo.myshoplazza.com"}},
 		},
@@ -256,9 +256,9 @@ func TestResolveStoreID_EmptyWithNilError(t *testing.T) {
 func TestResolveStoreID_FromProfileConfig_NoV1Exchange(t *testing.T) {
 	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
-	// A logged-in account (legacy UAT) so the old code path COULD reach the
-	// v1 exchange if it were still consulted.
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
+	// A logged-in account so the old code path COULD reach the v1 exchange if
+	// it were still consulted.
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_seed"); err != nil {
 		t.Fatalf("keychain Set uat: %v", err)
 	}
 
@@ -298,7 +298,7 @@ func TestResolveStoreID_FromProfileConfig_NoV1Exchange(t *testing.T) {
 func TestResolveStoreID_FromProfileMeta_NoV1Exchange(t *testing.T) {
 	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_seed"); err != nil {
 		t.Fatalf("keychain Set uat: %v", err)
 	}
 
