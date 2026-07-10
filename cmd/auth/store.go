@@ -48,20 +48,6 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 					"not logged in",
 					"Run 'shoplazza auth login' to authenticate first")
 			}
-			// Validate --scope against the account's granted scopes BEFORE the
-			// exchange: UseStore persists v1 side effects (cfg.StoreDomain + a
-			// cached store token), so a rejected scope must fail before that runs.
-			if len(scope) > 0 {
-				acct := f.Config.Account()
-				if acct == nil {
-					return output.ErrWithHint(output.ExitAuth, output.TypeAuth,
-						"not logged in",
-						"Run 'shoplazza auth login' to authenticate first")
-				}
-				if err := cmdutil.ValidateScopeSubset(scope, acct.GrantedScopes); err != nil {
-					return err
-				}
-			}
 			newStatus, err := manager.UseStore(cmd.Context(), normalized)
 			if err != nil {
 				var httpErr *client.HTTPError
@@ -82,6 +68,13 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 					return output.ErrAPIAuthHint(httpErr.StatusCode, httpErr.Body, hint)
 				}
 				return output.Errorf(output.ExitAuth, output.TypeAuth, "failed to obtain store token: %s", err.Error())
+			}
+			// Validate --scope against THIS store's fresh grant (UseStore always
+			// exchanges, so newStatus.GrantedScopes is ground-truth, unlike the
+			// account-level GrantedScopes which SyncAfterLogin overwrites per-store
+			// and which is empty after an account-only login).
+			if err := cmdutil.ValidateScopeSubset(scope, newStatus.GrantedScopes); err != nil {
+				return err
 			}
 			if err := SyncAfterLogin(f, internalauth.LoginResult{Status: newStatus}, normalized, scope, f.IOStreams.ErrOut); err != nil {
 				return output.ErrInternal("failed to sync profile state: %v", err)

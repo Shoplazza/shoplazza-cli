@@ -148,32 +148,27 @@ func TestStoreUse_StoreNotFound404(t *testing.T) {
 	}
 }
 
-// The scope check must run BEFORE the store-token exchange (UseStore), so a
-// rejected --scope never mints/persists a v1 store token or touches the v1
-// cfg.StoreDomain — this test also seeds a real server handler for the
-// exchange endpoint and asserts it is never hit.
+// The scope check runs AFTER the store-token exchange (UseStore), against the
+// fresh per-store grant — the exchange always succeeds and the granted set
+// simply doesn't cover the requested scope. The v1 exchange side effects
+// (cfg.StoreDomain + cached store token) do land before the rejection; that's
+// an accepted transition artifact tracked for cleanup by T15 (removes v1
+// write paths), same as the equivalent login-time case.
 func TestStoreUse_ScopeNotGranted_Errors(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/saiga/cli/auth/exchange/store-at" {
-			t.Errorf("store-at exchange must not be called when --scope is rejected pre-exchange")
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "at_use", "store_domain": "my-store.com",
+				"at_expires_at":  "2099-01-01T00:00:00Z",
+				"granted_scopes": []string{"read_product"},
+			})
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
-			"access_token": "at_use", "store_domain": "my-store.com",
-			"at_expires_at":  "2099-01-01T00:00:00Z",
-			"granted_scopes": []string{"read_product"},
-		})
 	}))
 	defer srv.Close()
 
 	f, out := tempAuthFactory(t, srv.URL)
 	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_seed"); err != nil {
-		t.Fatal(err)
-	}
-	// Seed a logged-in account with a known granted-scope set so the pre-check
-	// (validated against f.Config.Account().GrantedScopes) has something to reject.
-	f.Config.Accounts = []core.AccountConfig{{Name: "alice@co.com", GrantedScopes: []string{"read_product"}}}
-	if err := core.SaveConfig(f.ConfigPath, f.Config); err != nil {
 		t.Fatal(err)
 	}
 
@@ -186,21 +181,53 @@ func TestStoreUse_ScopeNotGranted_Errors(t *testing.T) {
 		t.Errorf("type = %q, want validation", ee.Detail.Type)
 	}
 
-	// The scope-gate must block the v2 profile sync before it upserts anything.
+	// The post-check must still block the v2 profile sync before it upserts anything.
 	cfg, cErr := core.LoadConfig(f.ConfigPath)
 	if cErr == nil && (len(cfg.Profiles) != 0 || cfg.CurrentProfile != "") {
 		t.Errorf("no profile should be created/activated for an out-of-grant scope request, got profiles=%+v current=%q",
 			cfg.Profiles, cfg.CurrentProfile)
 	}
-	// The v1 side effects (persistState) must not have run either: the
-	// rejected store must not become the legacy current store...
-	if cErr == nil && cfg.StoreDomain != "" {
-		t.Errorf("v1 cfg.StoreDomain must stay empty for a rejected store, got %q", cfg.StoreDomain)
+}
+
+// Regression for the bug fix-pass-2 introduced: after an account-only login
+// (no --store-domain), f.Config.Account().GrantedScopes is empty, so a
+// pre-exchange check against it would reject every --scope. The post-exchange
+// check against newStatus.GrantedScopes must succeed instead.
+func TestStoreUse_AfterAccountOnlyLogin_ScopeSubset_Succeeds(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/saiga/cli/auth/me":
+			json.NewEncoder(w).Encode(map[string]any{"account": "alice@example.com"})
+		case "/api/saiga/cli/auth/exchange/store-at":
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "at_use", "store_domain": "my-store.com",
+				"at_expires_at":  "2099-01-01T00:00:00Z",
+				"granted_scopes": []string{"read_product", "write_product"},
+			})
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	f, out := tempAuthFactory(t, srv.URL)
+	// Account-only login: no --store-domain, so GrantedScopes stays empty.
+	if err := execAuth(t, f, out, "login", "--uat", "uat_test", "--scope", "read_product"); err != nil {
+		t.Fatalf("account-only login: %v", err)
 	}
-	// ...and no v1 store token ("store:<domain>", see internal/auth/persist.go
-	// storeKcKey) should have been cached in keychain.
-	if tok, _ := keychain.Get(keychain.ShoplazzaCliService, "store:my-store.com"); tok != "" {
-		t.Errorf("v1 store token must not be minted for a rejected --scope, got %q", tok)
+
+	out.Reset()
+	if err := execAuth(t, f, out, "store", "use", "--store-domain", "my-store.com", "--scope", "read_product"); err != nil {
+		t.Fatalf("store use --scope after account-only login should succeed: %v", err)
+	}
+	var env map[string]any
+	if err := json.Unmarshal(out.Bytes(), &env); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	status, _ := env["status"].(map[string]any)
+	if status["current_store"] != "my-store.com" {
+		t.Errorf("status.current_store = %v", status["current_store"])
 	}
 }
 
