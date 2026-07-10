@@ -62,6 +62,13 @@ func DeriveProfileName(domain string, taken func(string) bool) string {
 	if strings.HasSuffix(domain, ".myshoplazza.com") {
 		base = strings.TrimSuffix(domain, ".myshoplazza.com")
 	}
+	// A subdomain that is a Windows-reserved device name (con/nul/com3…) or is
+	// otherwise not a valid profile name must not become one verbatim: the
+	// auto-created profile's meta file would be unusable. Suffix to make it valid
+	// while keeping it recognizable.
+	if ValidateProfileName(base) != nil {
+		base += "-store"
+	}
 	name := base
 	for i := 2; taken(name); i++ {
 		name = fmt.Sprintf("%s-%d", base, i)

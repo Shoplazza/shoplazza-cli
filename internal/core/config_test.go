@@ -165,6 +165,20 @@ func TestDeriveProfileName(t *testing.T) {
 	}
 }
 
+// A store subdomain that is a Windows-reserved device name (e.g. "con") must not
+// derive to that bare name — the auto-created profile's meta file (con.json) is
+// unusable on Windows. The derived name must always pass ValidateProfileName.
+func TestDeriveProfileName_ReservedNameStaysValid(t *testing.T) {
+	notTaken := func(string) bool { return false }
+	got := DeriveProfileName("con.myshoplazza.com", notTaken)
+	if got == "con" {
+		t.Fatalf("derived name must not be the bare reserved word %q", got)
+	}
+	if err := ValidateProfileName(got); err != nil {
+		t.Fatalf("derived name %q must be a valid profile name, got: %v", got, err)
+	}
+}
+
 func TestFindProfile_CaseInsensitive(t *testing.T) {
 	c := CliConfig{Profiles: []ProfileConfig{{Name: "prod-us", StoreDomain: "us.myshoplazza.com"}}}
 	if c.FindProfile("Prod-US") == nil || c.FindProfileByStore("US.myshoplazza.com") == nil {
