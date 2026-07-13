@@ -108,7 +108,7 @@ func TestAppSlot_RoundTripAndLogoutCleanup(t *testing.T) {
 	if err := os.WriteFile(authPath, []byte(authJSON), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_x"); err != nil {
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("a@x.com"), "uat_x"); err != nil {
 		t.Fatal(err)
 	}
 	if err := keychain.Set(keychain.ShoplazzaCliService, "app:cid_42", "app_tok_secret"); err != nil {

@@ -42,10 +42,9 @@ var teAllScopes = []string{"read_product", "write_product"}
 // already logged in (uat seeded in keychain) and one profile per storeName,
 // each bound to "<name>.myshoplazza.com". Local copy of cmd/auth's helper of
 // the same name (unexported, cross-package) — same pattern, no AuthClient set
-// (callers point it at their own exchange stub). Also seeds the legacy
-// keychain "uat" entry: te's requireLogin gate still checks v1 CurrentStatus
-// (state.UAT), which a real `auth login` always populates alongside the v2
-// account/profile state (Manager.Login → persistState, then SyncAfterLogin).
+// (callers point it at their own exchange stub). te's requireLogin gate reads
+// CurrentStatus (state.UAT) via the same v2 AccountUATKey, so seeding it here
+// covers both the login gate and the account/profile state.
 func seedLoggedInWithProfiles(t *testing.T, email string, storeNames ...string) *cmdutil.Factory {
 	t.Helper()
 	dir := testenv.IsolateConfigDir(t)
@@ -70,9 +69,6 @@ func seedLoggedInWithProfiles(t *testing.T, email string, storeNames ...string) 
 	}
 	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey(email), "uat-seed"); err != nil {
 		t.Fatalf("seed account uat: %v", err)
-	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat-seed"); err != nil {
-		t.Fatalf("seed legacy uat: %v", err)
 	}
 
 	return &cmdutil.Factory{

@@ -10,18 +10,16 @@ import (
 	"shoplazza-cli-v2/internal/keychain"
 )
 
-const (
-	kcUAT     = "uat"
-	kcPartner = "partner"
-)
-
 // storeKcKey / appKcKey build the resource-scoped keychain account names for
 // store/app tokens: a "<kind>:<id>" suffix lets one host hold many stores /
-// apps without collision. Account-level tokens (uat, partner) are written under
-// BOTH the legacy bare keys (kcUAT/kcPartner — read by LoadState and the v1
-// store/app flows) AND the v2 AccountUATKey/AccountPartnerKey namespace (read by
-// the profile Gate) during the v1→v2 transition, so login persists exactly what
-// every reader looks up. Unifying on the v2 keys alone is follow-up T15 cleanup.
+// apps without collision. These remain the v1 eager-exchange cache still read
+// by AccessTokenReady/UseStore/StoreIDFor/AppTokenReady; migrating store tokens
+// onto the v2 ProfileStoreKey (per-profile) model is a separate change.
+//
+// Account-level tokens (uat, partner) are stored ONLY under the v2
+// AccountUATKey/AccountPartnerKey namespace — a single source of truth read by
+// both LoadState and the profile Gate (previously they were also mirrored to
+// legacy bare "uat"/"partner" keys; that transition bridge is now removed).
 func storeKcKey(domain string) string { return "store:" + domain }
 func appKcKey(clientID string) string { return "app:" + clientID }
 
@@ -65,23 +63,17 @@ func (m *Manager) persistState(state AuthState) error {
 		if err := keychain.Set(keychain.ShoplazzaCliService, AccountUATKey(state.Account), state.UAT); err != nil {
 			return err
 		}
-		if err := keychain.Set(keychain.ShoplazzaCliService, kcUAT, state.UAT); err != nil {
-			return err
-		}
 	}
 	if partner != "" {
 		if err := keychain.Set(keychain.ShoplazzaCliService, AccountPartnerKey(state.Account), partner); err != nil {
 			return err
 		}
-		if err := keychain.Set(keychain.ShoplazzaCliService, kcPartner, partner); err != nil {
-			return err
-		}
 	} else {
-		// Empty here means either a first login with no partner token, or an
-		// account switch — drop any lingering entry so a subsequent LoadState
-		// can't resurrect a different account's partner token.
+		// Empty here means a first login with no partner token, or an account
+		// switch — drop any lingering entry for THIS account so a later read
+		// can't resurrect a stale partner token. (Cross-account cleanup on a
+		// switch is SyncAfterLogin/wipeAccount's job at the command layer.)
 		_ = keychain.Remove(keychain.ShoplazzaCliService, AccountPartnerKey(state.Account))
-		_ = keychain.Remove(keychain.ShoplazzaCliService, kcPartner)
 	}
 	for dom, s := range state.Stores {
 		if s.Token != "" {

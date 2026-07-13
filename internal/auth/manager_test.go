@@ -571,7 +571,7 @@ func TestLoginUAT_PreservesPartnerTokenSameAccount(t *testing.T) {
 	if st.Partner != "pt_stale" {
 		t.Errorf("partner token should be preserved across a same-account --uat re-login, got %q", st.Partner)
 	}
-	if got, _ := keychain.Get(keychain.ShoplazzaCliService, "partner"); got != "pt_stale" {
+	if got, _ := keychain.Get(keychain.ShoplazzaCliService, internalauth.AccountPartnerKey("a@x.com")); got != "pt_stale" {
 		t.Errorf("partner keychain entry should be preserved for the same account, got %q", got)
 	}
 }
