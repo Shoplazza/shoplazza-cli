@@ -1,6 +1,8 @@
 package core
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -183,7 +185,7 @@ func SaveConfig(path string, cfg CliConfig) error {
 		return err
 	}
 
-	tmp := path + ".tmp"
+	tmp := path + "." + randHex() + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
@@ -192,6 +194,15 @@ func SaveConfig(path string, cfg CliConfig) error {
 		return err
 	}
 	return nil
+}
+
+// randHex returns 8 random hex bytes for temporary file suffixes (mirrors
+// internal/auth's and internal/keychain's unexported helpers — a local copy
+// avoids a cross-package reach-in for one tiny function).
+func randHex() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 // RemoveConfig deletes the persisted config file if it exists.
