@@ -24,6 +24,10 @@ func newCmdRename(f *cmdutil.Factory) *cobra.Command {
 			if err := core.ValidateProfileName(to); err != nil {
 				return output.ErrValidation("%s", err.Error())
 			}
+			from, ferr := currentOrNamed(f, from)
+			if ferr != nil {
+				return ferr
+			}
 
 			err := core.UpdateConfig(f.ConfigPath, core.ConfigLockTimeout, func(c *core.CliConfig) error {
 				p := c.FindProfile(from)
@@ -86,7 +90,7 @@ func newCmdRename(f *cmdutil.Factory) *cobra.Command {
 			}, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
 	}
-	cmd.Flags().StringVar(&from, "from", "", "Existing profile name (required)")
+	cmd.Flags().StringVar(&from, "from", "", "Existing profile name (defaults to the current profile)")
 	cmd.Flags().StringVar(&to, "to", "", "New profile name (required)")
 	return cmd
 }

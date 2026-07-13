@@ -17,23 +17,9 @@ func newCmdInfo(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show a profile's details (defaults to the current profile)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			target := name
-			if target == "" {
-				target = f.Config.CurrentProfile
-			}
-			if target == "" {
-				if len(f.Config.Profiles) == 0 {
-					return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-						"no profiles configured",
-						"run 'shoplazza auth login -s <store-domain>' or 'shoplazza profile add --name <name> --store-domain <domain>' to create one")
-				}
-				names := make([]string, 0, len(f.Config.Profiles))
-				for _, p := range f.Config.Profiles {
-					names = append(names, p.Name)
-				}
-				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					"no current profile set",
-					"run 'shoplazza profile use <name>' (available: "+strings.Join(names, ", ")+")")
+			target, err := currentOrNamed(f, name)
+			if err != nil {
+				return err
 			}
 			p := f.Config.FindProfile(target)
 			if p == nil {

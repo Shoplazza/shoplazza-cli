@@ -128,3 +128,29 @@ func TestRename_ToExistingDifferentProfile_Errors(t *testing.T) {
 		t.Fatalf("want already-exists error, got %v", err)
 	}
 }
+
+func TestRename_DefaultsToCurrent(t *testing.T) {
+	f := seedTwoProfiles(t, "us", "cn") // current=us
+	runCmd(t, f, "rename", "--to", "prod-us")
+	cfg, _ := core.LoadConfig(f.ConfigPath)
+	if cfg.FindProfile("prod-us") == nil || cfg.CurrentProfile != "prod-us" {
+		t.Fatalf("rename without --from must target the current profile: %+v", cfg)
+	}
+}
+
+func TestUpdate_DefaultsToCurrent(t *testing.T) {
+	f := seedTwoProfiles(t, "us", "cn") // current=us
+	runCmd(t, f, "update", "--scope", "read_product")
+	cfg, _ := core.LoadConfig(f.ConfigPath)
+	if got := cfg.FindProfile("us").Scopes; len(got) != 1 || got[0] != "read_product" {
+		t.Fatalf("update without --name must target the current profile, scopes: %v", got)
+	}
+}
+
+func TestRename_NoProfiles_Hint(t *testing.T) {
+	f := newTestFactory(t, "")
+	err := runCmdErr(t, f, "rename", "--to", "x")
+	if !strings.Contains(err.Error(), "no profiles configured") {
+		t.Fatalf("want no-profiles hint, got %v", err)
+	}
+}
