@@ -9,14 +9,14 @@ import (
 	"shoplazza-cli-v2/internal/core"
 )
 
-func TestProfileShow_DefaultsToCurrent_TokenAbsent(t *testing.T) {
+func TestProfileInfo_DefaultsToCurrent_TokenAbsent(t *testing.T) {
 	f := newTestFactory(t, "")
 	f.Config.Profiles = []core.ProfileConfig{
 		{Name: "us", Account: "alice@co.com", StoreDomain: "us.myshoplazza.com", StoreID: "1"},
 	}
 	f.Config.CurrentProfile = "us"
 
-	out := runCmd(t, f, "show")
+	out := runCmd(t, f, "info")
 
 	var got map[string]any
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
@@ -28,9 +28,15 @@ func TestProfileShow_DefaultsToCurrent_TokenAbsent(t *testing.T) {
 	if got["tokenStatus"] != "absent" {
 		t.Errorf("tokenStatus = %v, want absent (no meta written)", got["tokenStatus"])
 	}
+	// No narrowing and no minted token: scopes defaults to the account's full
+	// granted set, never a bare null.
+	scopes, ok := got["scopes"].([]any)
+	if !ok || len(scopes) != 2 || scopes[0] != "read_product" || scopes[1] != "write_product" {
+		t.Errorf("scopes = %v, want the account's full [read_product write_product]", got["scopes"])
+	}
 }
 
-func TestProfileShow_ByName_ExpiredToken(t *testing.T) {
+func TestProfileInfo_ByName_ExpiredToken_ScopesFromGrant(t *testing.T) {
 	f := newTestFactory(t, "")
 	f.Config.Profiles = []core.ProfileConfig{
 		{Name: "cn", Account: "alice@co.com", StoreDomain: "cn.myshoplazza.com"},
@@ -40,11 +46,12 @@ func TestProfileShow_ByName_ExpiredToken(t *testing.T) {
 	authDir := internalauth.AuthDir(f.ConfigPath)
 	if err := internalauth.SaveProfileMeta(authDir, "cn", internalauth.ProfileMeta{
 		StoreID: "2", ExpiresAt: time.Now().Add(-time.Hour).Format(time.RFC3339),
+		GrantedScopes: []string{"read_product", "write_product"},
 	}); err != nil {
 		t.Fatalf("seed meta: %v", err)
 	}
 
-	out := runCmd(t, f, "show", "--name", "cn")
+	out := runCmd(t, f, "info", "--name", "cn")
 
 	var got map[string]any
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
@@ -59,18 +66,23 @@ func TestProfileShow_ByName_ExpiredToken(t *testing.T) {
 	if got["storeId"] != "2" {
 		t.Errorf("storeId = %v, want fallback to meta's 2", got["storeId"])
 	}
+	// A minted token: scopes reflects the exchange's granted set from meta.
+	scopes, ok := got["scopes"].([]any)
+	if !ok || len(scopes) != 2 || scopes[0] != "read_product" || scopes[1] != "write_product" {
+		t.Errorf("scopes = %v, want [read_product write_product] from meta", got["scopes"])
+	}
 }
 
-func TestProfileShow_NoCurrentNoName_Errors(t *testing.T) {
+func TestProfileInfo_NoCurrentNoName_Errors(t *testing.T) {
 	f := newTestFactory(t, "")
-	if err := runCmdErr(t, f, "show"); err == nil {
+	if err := runCmdErr(t, f, "info"); err == nil {
 		t.Fatal("expected an error when no current profile and no --name")
 	}
 }
 
-func TestProfileShow_UnknownName_Errors(t *testing.T) {
+func TestProfileInfo_UnknownName_Errors(t *testing.T) {
 	f := newTestFactory(t, "")
-	if err := runCmdErr(t, f, "show", "--name", "ghost"); err == nil {
+	if err := runCmdErr(t, f, "info", "--name", "ghost"); err == nil {
 		t.Fatal("expected an error for unknown profile name")
 	}
 }
