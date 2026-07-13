@@ -256,20 +256,18 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 }
 
 // addProfileStatus fills the v2 status fields for the current profile —
-// {account, profile, store_domain, store_id, scopes, token_status}. Details
-// (expiry, per-store breakdown) live in 'profile info'.
+// {account, profile, store_domain, store_id, token_status}. Scope and expiry
+// details live in 'profile info' / 'profile list'.
 // Auth-free: local config + on-disk profile meta only, no network/Gate.
 func addProfileStatus(out map[string]any, f *cmdutil.Factory) {
 	out["profile"] = f.Config.CurrentProfile
 
 	account := out["account"]
 	var store, storeID, tokenExpiry string
-	var scopes []string
 	if p := f.Config.Current(); p != nil {
 		account = p.Account
 		store = p.StoreDomain
 		storeID = p.StoreID
-		scopes = p.Scopes
 		meta, _ := internalauth.LoadProfileMeta(internalauth.AuthDir(f.ConfigPath), strings.ToLower(p.Name))
 		if storeID == "" {
 			storeID = meta.StoreID
@@ -279,7 +277,6 @@ func addProfileStatus(out map[string]any, f *cmdutil.Factory) {
 	out["account"] = account
 	out["store_domain"] = store
 	out["store_id"] = storeID
-	out["scopes"] = scopes
 	out["token_status"] = internalauth.TokenStatus(tokenExpiry)
 }
 
