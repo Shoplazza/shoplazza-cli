@@ -42,7 +42,7 @@ func (m *Manager) ExchangeForProfile(ctx context.Context, authDir string, p core
 }
 
 // ExchangeEphemeral mints a token for an arbitrary owned domain WITHOUT any
-// persistence (te -s ad-hoc, tech design §4.2).
+// persistence (te -s ad-hoc).
 func (m *Manager) ExchangeEphemeral(ctx context.Context, storeDomain string) (string, error) {
 	acct := m.Config.Account()
 	if acct == nil {

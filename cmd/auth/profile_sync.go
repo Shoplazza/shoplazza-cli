@@ -11,7 +11,7 @@ import (
 	"shoplazza-cli-v2/internal/keychain"
 )
 
-// SyncAfterLogin applies §5.1 after a successful login/store-use: same-account
+// SyncAfterLogin reconciles profile state after a successful login/store-use: same-account
 // re-login keeps profiles but clears their cached store tokens (trimming any
 // scope narrowed by re-login, with one stderr warning per trimmed profile);
 // an account switch cascade-wipes the old account's profiles and credentials;

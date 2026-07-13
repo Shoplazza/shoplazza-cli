@@ -18,12 +18,11 @@ import (
 var profileLockTimeout = 5 * time.Second
 
 // profileLockPath returns the per-profile lock file path under configPath's
-// locks dir. Accepted race: profile-admin ops (update/remove/rename, and
-// profile_sync) clear/move a profile's cached token+meta under config.lock
-// only, not this per-profile lock — a concurrent mint can interleave with an
-// admin clear and leave a stale token cached until expiry. Self-heals (next
-// mint re-checks/re-exchanges); nesting this lock inside config.lock
-// everywhere isn't worth the complexity for that window.
+// locks dir. Accepted race: profile-admin ops (update/remove/rename,
+// profile_sync) clear/move a profile's token+meta under config.lock only, not
+// this lock, so a concurrent mint can leave a stale token cached until expiry.
+// Self-heals on the next mint; nesting the two locks isn't worth the
+// complexity for that window.
 func profileLockPath(configPath, name string) string {
 	return filepath.Join(core.LocksDir(configPath), "profile_"+strings.ToLower(name)+".lock")
 }
@@ -44,8 +43,8 @@ func (m *Manager) cachedProfileToken(authDir string, p core.ProfileConfig) (stri
 
 // AccessTokenReadyForProfile returns a valid store AT for p, minting under a
 // per-profile flock when absent/near expiry. Lock timeout degrades to a
-// direct exchange (§6.1 — correctness-safe: redundant minting is harmless,
-// hanging forever is not).
+// direct exchange (correctness-safe: redundant minting is harmless, hanging
+// forever is not).
 func (m *Manager) AccessTokenReadyForProfile(ctx context.Context, configPath string, p core.ProfileConfig) (string, error) {
 	authDir := AuthDir(configPath)
 	if tok, ok := m.cachedProfileToken(authDir, p); ok {

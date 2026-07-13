@@ -7,7 +7,7 @@ import (
 	"shoplazza-cli-v2/internal/lockfile"
 )
 
-// ConfigLockTimeout is the §6.1 config.lock wait budget; on timeout callers
+// ConfigLockTimeout is the config.lock wait budget; on timeout callers
 // fail loudly rather than hang.
 const ConfigLockTimeout = 5 * time.Second
 

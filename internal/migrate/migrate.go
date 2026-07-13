@@ -1,7 +1,7 @@
-// Package migrate performs the one-time v1 → v2 config/credential migration
-// (tech design §7). Principle: migrate only non-regenerable credentials
-// (uat, partner); derived tokens (store/app) are dropped and lazily re-minted.
-// v1 files stay on disk so users can downgrade (cleanup in a later release).
+// Package migrate performs the one-time v1 → v2 config/credential migration.
+// Principle: migrate only non-regenerable credentials (uat, partner); derived
+// tokens (store/app) are dropped and lazily re-minted. v1 files stay on disk
+// so users can downgrade (cleanup in a later release).
 package migrate
 
 import (
@@ -24,7 +24,7 @@ type legacyAuthMeta struct {
 	GrantedScopes []string `json:"granted_scopes"`
 }
 
-// accountMeta is the v2 auth/_accounts/<email>.json shape (shared with T6).
+// accountMeta is the v2 auth/_accounts/<email>.json shape.
 type accountMeta struct {
 	UserID        string   `json:"user_id,omitempty"`
 	UATExpiresAt  string   `json:"uat_expires_at,omitempty"`
@@ -35,7 +35,7 @@ type accountMeta struct {
 func Run(configPath string) error {
 	cfg, err := core.LoadConfig(configPath)
 	if err != nil {
-		return err // 损坏的 config 明确报错，不做半迁移（MIG-05）
+		return err // a corrupt config errors loudly — no partial migration
 	}
 	if cfg.ConfigVersion >= 2 {
 		return nil
@@ -45,7 +45,7 @@ func Run(configPath string) error {
 		return err
 	}
 	defer release()
-	// double-check：另一进程可能已迁完
+	// double-check: another process may have finished migrating
 	if cfg, err = core.LoadConfig(configPath); err != nil {
 		return err
 	}
@@ -59,12 +59,14 @@ func doMigrate(configPath string) error {
 	dir := filepath.Dir(configPath)
 	out := core.CliConfig{ConfigVersion: 2}
 
-	// 1) Account：v1 auth.json 是账号事实来源；没有则视为未登录，仅升版本号
+	// 1) Account: v1 auth.json is the source of truth; absent means not
+	// logged in, so just bump the version number.
 	meta, ok := readLegacyAuthMeta(filepath.Join(dir, "auth.json"))
 	if ok && meta.Account != "" {
 		email := strings.ToLower(meta.Account)
 		out.Accounts = []core.AccountConfig{{Name: email, GrantedScopes: meta.GrantedScopes}}
-		// 2) keychain：只迁 uat/partner（GetLegacy → Set 新命名；缺失容忍）
+		// 2) keychain: migrate only uat/partner (GetLegacy -> Set under the
+		// new naming; a missing entry is tolerated).
 		if v, err := keychain.GetLegacy(keychain.ShoplazzaCliService, "uat"); err == nil && v != "" {
 			if err := keychain.Set(keychain.ShoplazzaCliService, auth.AccountUATKey(email), v); err != nil {
 				return err
@@ -75,14 +77,15 @@ func doMigrate(configPath string) error {
 				return err
 			}
 		}
-		// 3) v2 账号元数据
+		// 3) v2 account metadata
 		if err := writeAccountMeta(dir, email, accountMeta{
 			UserID: meta.UserID, UATExpiresAt: meta.UATExpiresAt, GrantedScopes: meta.GrantedScopes,
 		}); err != nil {
 			return err
 		}
-		// 4) 当前店 → 唯一 Profile（不迁 token；其余店丢弃）
-		// v1 的 store_domain 已从 core.CliConfig 删除（T15），直接读原始 JSON
+		// 4) current store -> the sole profile (no token migrated; other
+		// stores dropped). store_domain is no longer on core.CliConfig, so
+		// read it straight from the raw JSON.
 		if storeDomain := readLegacyStoreDomain(configPath); storeDomain != "" {
 			name := core.DeriveProfileName(storeDomain, func(string) bool { return false })
 			out.Profiles = []core.ProfileConfig{{Name: name, Account: email, StoreDomain: storeDomain}}
@@ -90,7 +93,7 @@ func doMigrate(configPath string) error {
 		}
 	}
 
-	// 5) 覆写前备份 v1 config（仅当 v1 文件真实存在）
+	// 5) back up the v1 config before overwriting (only if it really exists)
 	if raw, err := os.ReadFile(configPath); err == nil {
 		if err := os.WriteFile(configPath+".v1.bak", raw, 0o600); err != nil {
 			return err
@@ -100,7 +103,7 @@ func doMigrate(configPath string) error {
 }
 
 // readLegacyStoreDomain reads the v1 config.json's store_domain field
-// directly, since core.CliConfig no longer carries it (T15).
+// directly, since core.CliConfig no longer carries it.
 func readLegacyStoreDomain(path string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {

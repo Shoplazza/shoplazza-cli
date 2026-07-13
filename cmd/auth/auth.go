@@ -129,17 +129,9 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			if result.StoreWarning != "" {
 				storeArg = ""
 			}
-			// GrantedScopes is only populated by a store-token exchange; an
-			// account-only login never touches it, so only validate when a store
-			// exchange actually happened.
-			// The v1 store exchange (login prewarm) already ran by this point
-			// and leaves its v1 side effect in place on a rejected --scope
-			// ('store use' now mints under the profile model instead). T15 only
-			// removed the v1
-			// store-domain config-field write; persistState's auth.json /
-			// legacy-keychain writes and StoreIDFor's v1 exchange still happen —
-			// just no longer read by v2 request paths (app deploy/dev's
-			// resolveStoreID now resolves from the profile instead).
+			// GrantedScopes is only populated by a store-token exchange, so
+			// only validate --scope when a store exchange actually happened; an
+			// account-only login leaves it empty.
 			if storeArg != "" {
 				if err := cmdutil.ValidateScopeSubset(scope, result.Status.GrantedScopes); err != nil {
 					return err

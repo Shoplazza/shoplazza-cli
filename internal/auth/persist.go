@@ -10,16 +10,15 @@ import (
 	"shoplazza-cli-v2/internal/keychain"
 )
 
-// storeKcKey / appKcKey build the resource-scoped keychain account names for
+// storeKcKey / appKcKey build resource-scoped keychain account names for
 // store/app tokens: a "<kind>:<id>" suffix lets one host hold many stores /
-// apps without collision. These remain the v1 eager-exchange cache still read
-// by AccessTokenReady/StoreIDFor/AppTokenReady; 'store use' now mints under
-// the v2 ProfileStoreKey model, so only login prewarm paths still write them.
+// apps without collision. These back the v1 eager-exchange cache (read by
+// AccessTokenReady/StoreIDFor/AppTokenReady); only login prewarm still writes
+// them, since 'store use' now mints under the v2 ProfileStoreKey model.
 //
-// Account-level tokens (uat, partner) are stored ONLY under the v2
-// AccountUATKey/AccountPartnerKey namespace — a single source of truth read by
-// both LoadState and the profile Gate (previously they were also mirrored to
-// legacy bare "uat"/"partner" keys; that transition bridge is now removed).
+// Account tokens (uat, partner) live ONLY under the v2 AccountUATKey/
+// AccountPartnerKey namespace — the single source read by LoadState and the
+// profile Gate.
 func storeKcKey(domain string) string { return "store:" + domain }
 func appKcKey(clientID string) string { return "app:" + clientID }
 
