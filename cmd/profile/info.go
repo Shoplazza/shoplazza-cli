@@ -22,9 +22,18 @@ func newCmdInfo(f *cmdutil.Factory) *cobra.Command {
 				target = f.Config.CurrentProfile
 			}
 			if target == "" {
+				if len(f.Config.Profiles) == 0 {
+					return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+						"no profiles configured",
+						"run 'shoplazza auth login -s <store-domain>' or 'shoplazza profile add --name <name> --store-domain <domain>' to create one")
+				}
+				names := make([]string, 0, len(f.Config.Profiles))
+				for _, p := range f.Config.Profiles {
+					names = append(names, p.Name)
+				}
 				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
 					"no current profile set",
-					"pass --name, or run 'shoplazza profile add' / 'shoplazza profile use' to set one")
+					"run 'shoplazza profile use <name>' (available: "+strings.Join(names, ", ")+")")
 			}
 			p := f.Config.FindProfile(target)
 			if p == nil {
@@ -42,14 +51,14 @@ func newCmdInfo(f *cmdutil.Factory) *cobra.Command {
 			// grant, else the requested narrowing, else the account's full set),
 			// so it stays consistent with the token instead of a bare null.
 			return output.PrintBody(cmd.OutOrStdout(), map[string]any{
-				"name":        p.Name,
-				"account":     p.Account,
-				"storeDomain": p.StoreDomain,
-				"storeId":     storeID,
-				"scopes":      effectiveScopes(*p, meta, f.Config.Account()),
-				"current":     strings.EqualFold(p.Name, f.Config.CurrentProfile),
-				"tokenStatus": internalauth.TokenStatus(meta.ExpiresAt),
-				"tokenExpiry": meta.ExpiresAt,
+				"name":         p.Name,
+				"account":      p.Account,
+				"store_domain": p.StoreDomain,
+				"store_id":     storeID,
+				"scopes":       effectiveScopes(*p, meta, f.Config.Account()),
+				"current":      strings.EqualFold(p.Name, f.Config.CurrentProfile),
+				"token_status": internalauth.TokenStatus(meta.ExpiresAt),
+				"token_expiry": meta.ExpiresAt,
 			}, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
 	}

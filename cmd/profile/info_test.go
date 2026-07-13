@@ -25,8 +25,8 @@ func TestProfileInfo_DefaultsToCurrent_TokenAbsent(t *testing.T) {
 	if got["name"] != "us" || got["current"] != true {
 		t.Fatalf("got: %+v", got)
 	}
-	if got["tokenStatus"] != "absent" {
-		t.Errorf("tokenStatus = %v, want absent (no meta written)", got["tokenStatus"])
+	if got["token_status"] != "absent" {
+		t.Errorf("token_status = %v, want absent (no meta written)", got["token_status"])
 	}
 	// No narrowing and no minted token: scopes defaults to the account's full
 	// granted set, never a bare null.
@@ -60,11 +60,11 @@ func TestProfileInfo_ByName_ExpiredToken_ScopesFromGrant(t *testing.T) {
 	if got["current"] != false {
 		t.Errorf("current = %v, want false", got["current"])
 	}
-	if got["tokenStatus"] != "expired" {
-		t.Errorf("tokenStatus = %v, want expired", got["tokenStatus"])
+	if got["token_status"] != "expired" {
+		t.Errorf("token_status = %v, want expired", got["token_status"])
 	}
-	if got["storeId"] != "2" {
-		t.Errorf("storeId = %v, want fallback to meta's 2", got["storeId"])
+	if got["store_id"] != "2" {
+		t.Errorf("store_id = %v, want fallback to meta's 2", got["store_id"])
 	}
 	// A minted token: scopes reflects the exchange's granted set from meta.
 	scopes, ok := got["scopes"].([]any)

@@ -27,12 +27,12 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 					storeID = meta.StoreID
 				}
 				items = append(items, map[string]any{
-					"name":        p.Name,
-					"account":     p.Account,
-					"storeDomain": p.StoreDomain,
-					"storeId":     storeID,
-					"scopes":      effectiveScopes(p, meta, acct),
-					"current":     strings.EqualFold(p.Name, f.Config.CurrentProfile),
+					"name":         p.Name,
+					"account":      p.Account,
+					"store_domain": p.StoreDomain,
+					"store_id":     storeID,
+					"scopes":       effectiveScopes(p, meta, acct),
+					"current":      strings.EqualFold(p.Name, f.Config.CurrentProfile),
 				})
 			}
 			return output.PrintBody(cmd.OutOrStdout(), items, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
