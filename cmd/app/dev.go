@@ -41,7 +41,7 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 		Args:  cobra.NoArgs,
 		// Long-running local dev server.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
-		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
+		PreRunE:     func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
