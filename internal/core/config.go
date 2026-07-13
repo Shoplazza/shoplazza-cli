@@ -56,11 +56,19 @@ func ValidateProfileName(name string) error {
 }
 
 // DeriveProfileName maps a store domain to a default profile name: first label
-// for *.myshoplazza.com, full host for custom domains; "-2"/"-3"… on conflict.
+// for platform domains (*.myshoplaza.com, including env segments like
+// xxx.stg.myshoplaza.com), full host for custom domains; "-2"/"-3"… on conflict.
 func DeriveProfileName(domain string, taken func(string) bool) string {
 	base := domain
-	if strings.HasSuffix(domain, ".myshoplazza.com") {
-		base = strings.TrimSuffix(domain, ".myshoplazza.com")
+	for _, suffix := range []string{".myshoplaza.com", ".myshoplazza.com"} {
+		if b, ok := strings.CutSuffix(domain, suffix); ok {
+			base = b
+			// Drop env segments (neymar.stg → neymar).
+			if i := strings.IndexByte(base, '.'); i > 0 {
+				base = base[:i]
+			}
+			break
+		}
 	}
 	// A subdomain that is a Windows-reserved device name (con/nul/com3…) or is
 	// otherwise not a valid profile name must not become one verbatim: the

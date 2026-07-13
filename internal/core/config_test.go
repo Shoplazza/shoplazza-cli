@@ -163,6 +163,17 @@ func TestDeriveProfileName(t *testing.T) {
 	if got := DeriveProfileName("shop.example.com", isTaken); got != "shop.example.com" {
 		t.Fatalf("custom domain keeps full host: got %q", got)
 	}
+	// Real platform domains are .myshoplaza.com (single z), with optional env
+	// segments (stg/dev): the default name is always the first label.
+	if got := DeriveProfileName("abctt.myshoplaza.com", isTaken); got != "abctt" {
+		t.Fatalf("single-z platform domain: got %q, want abctt", got)
+	}
+	if got := DeriveProfileName("neymar.stg.myshoplaza.com", isTaken); got != "neymar" {
+		t.Fatalf("env-segmented domain: got %q, want neymar", got)
+	}
+	if got := DeriveProfileName("xjn.dev.myshoplaza.com", isTaken); got != "xjn" {
+		t.Fatalf("dev env domain: got %q, want xjn", got)
+	}
 }
 
 // A store subdomain that is a Windows-reserved device name (e.g. "con") must not
