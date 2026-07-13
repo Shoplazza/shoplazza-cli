@@ -112,7 +112,7 @@ func shouldSkip(version string) bool {
 	if version == "" || version == "dev" || version == "DEV" {
 		return true
 	}
-	if !isReleaseVersion(version) {
+	if !IsReleaseVersion(version) {
 		return true
 	}
 	return false

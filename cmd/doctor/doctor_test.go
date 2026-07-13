@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	internalauth "shoplazza-cli-v2/internal/auth"
@@ -84,14 +85,18 @@ func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 		t.Fatalf("expected ok=true for a healthy v2 config, got %v", got)
 	}
 	checks, _ := got["checks"].([]any)
-	if len(checks) != 3 {
-		t.Fatalf("expected 3 checks, got %d: %v", len(checks), checks)
+	if len(checks) != 4 {
+		t.Fatalf("expected 4 checks, got %d: %v", len(checks), checks)
 	}
 	for _, c := range checks {
 		m := c.(map[string]any)
 		if m["status"] != "ok" {
 			t.Errorf("check %v not ok: %v", m["name"], m)
 		}
+	}
+	meta := checks[3].(map[string]any)
+	if meta["name"] != "metadata" || !strings.Contains(meta["message"].(string), "source=") {
+		t.Errorf("metadata check malformed: %v", meta)
 	}
 }
 

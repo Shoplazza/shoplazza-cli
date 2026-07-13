@@ -6,9 +6,20 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"strings"
 	"testing"
+
+	"shoplazza-cli-v2/internal/metasync"
 )
+
+// TestMain stubs the metadata refresh so runUpdate tests never hit the network.
+func TestMain(m *testing.M) {
+	metaRefresh = func(context.Context) (metasync.Result, error) {
+		return metasync.Result{OldRevision: "r0"}, nil
+	}
+	os.Exit(m.Run())
+}
 
 func TestNewCmdUpdate_Structure(t *testing.T) {
 	cmd := NewCmdUpdate(nil)
@@ -106,4 +117,58 @@ func TestRunUpdate_UpdateAvailable_RunsInstallAndReports(t *testing.T) {
 	if body["updated"] != true || body["latest"] != "2.0.2" || body["previous"] != "2.0.1" {
 		t.Errorf("body mismatch: %s", out.String())
 	}
+	if body["meta_updated"] != false || body["meta_revision"] != "r0" {
+		t.Errorf("body should carry metadata refresh outcome: %s", out.String())
+	}
+}
+
+func TestRunUpdate_MetaRefreshOutcomes(t *testing.T) {
+	saved := metaRefresh
+	t.Cleanup(func() { metaRefresh = saved })
+
+	t.Run("updated metadata reported", func(t *testing.T) {
+		metaRefresh = func(context.Context) (metasync.Result, error) {
+			return metasync.Result{OldRevision: "r0", NewRevision: "r1", Updated: true}, nil
+		}
+		f := &fakeOps{latestVer: "2.0.1"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		body := decodeBody(t, out.Bytes())
+		if body["meta_updated"] != true || body["meta_revision"] != "r1" {
+			t.Errorf("body mismatch: %s", out.String())
+		}
+	})
+
+	t.Run("refresh failure never fails the command", func(t *testing.T) {
+		metaRefresh = func(context.Context) (metasync.Result, error) {
+			return metasync.Result{}, errors.New("boom")
+		}
+		f := &fakeOps{latestVer: "2.0.1"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err != nil {
+			t.Fatalf("meta refresh failure must not fail update: %v", err)
+		}
+		body := decodeBody(t, out.Bytes())
+		if body["meta_error"] != "boom" || body["ok"] != true {
+			t.Errorf("body mismatch: %s", out.String())
+		}
+	})
+
+	t.Run("check-only skips refresh", func(t *testing.T) {
+		called := false
+		metaRefresh = func(context.Context) (metasync.Result, error) {
+			called = true
+			return metasync.Result{}, nil
+		}
+		f := &fakeOps{latestVer: "2.0.1"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", true, f.build()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if called {
+			t.Error("--check must not force a metadata refresh")
+		}
+	})
 }

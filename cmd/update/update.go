@@ -14,6 +14,7 @@ import (
 
 	"shoplazza-cli-v2/internal/build"
 	"shoplazza-cli-v2/internal/cmdutil"
+	"shoplazza-cli-v2/internal/metasync"
 	"shoplazza-cli-v2/internal/output"
 	"shoplazza-cli-v2/internal/updatecheck"
 )
@@ -73,6 +74,27 @@ func upToDate(latest, current string, latestErr error) bool {
 	return !updatecheck.IsNewer(latest, current)
 }
 
+// metaRefresh is swappable in tests (the real one hits the network).
+var metaRefresh = func(ctx context.Context) (metasync.Result, error) {
+	return metasync.ForceRefresh(ctx, build.Version)
+}
+
+// refreshMetadata force-refreshes the OpenAPI metadata cache and merges the
+// outcome into the response body. Failures never affect the exit code.
+func refreshMetadata(ctx context.Context, body map[string]any) {
+	res, err := metaRefresh(ctx)
+	if err != nil {
+		body["meta_error"] = err.Error()
+		return
+	}
+	body["meta_updated"] = res.Updated
+	if res.Updated {
+		body["meta_revision"] = res.NewRevision
+	} else {
+		body["meta_revision"] = res.OldRevision
+	}
+}
+
 func runUpdate(ctx context.Context, out, errW io.Writer, format, current string, checkOnly bool, ops npmOps) error {
 	npmPath, err := ops.lookPath()
 	if err != nil {
@@ -97,9 +119,11 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 
 	if upToDate(latest, current, latestErr) {
 		fmt.Fprintf(errW, "✓ %s is already up to date (%s)\n", npmPackage, current)
-		return output.PrintBody(out, map[string]any{
+		body := map[string]any{
 			"ok": true, "package": npmPackage, "current": current, "latest": latest, "updated": false,
-		}, format, "")
+		}
+		refreshMetadata(ctx, body)
+		return output.PrintBody(out, body, format, "")
 	}
 
 	// A non-npm binary would be shadowed by the separate npm-managed copy on PATH.
@@ -136,7 +160,9 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 	}
 	fmt.Fprintf(errW, "✓ Updated %s %s → %s\n", npmPackage, current, newVersion)
 
-	return output.PrintBody(out, map[string]any{
+	body := map[string]any{
 		"ok": true, "package": npmPackage, "previous": current, "latest": newVersion, "updated": true,
-	}, format, "")
+	}
+	refreshMetadata(ctx, body)
+	return output.PrintBody(out, body, format, "")
 }
