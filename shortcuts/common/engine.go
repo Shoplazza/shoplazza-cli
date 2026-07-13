@@ -38,9 +38,17 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 		Long:  s.Long,
 		Args:  args,
 	}
+	annotations := map[string]string{}
 	if s.AuthFree {
 		// Purely local command: the auth gate honors this annotation.
-		cmd.Annotations = map[string]string{cmdutil.AnnotationAuthFree: "true"}
+		annotations[cmdutil.AnnotationAuthFree] = "true"
+	}
+	if s.NotScannable {
+		// Interactive/long-running/local-write: blind CLI scans skip it.
+		annotations[cmdutil.AnnotationNotScannable] = "true"
+	}
+	if len(annotations) > 0 {
+		cmd.Annotations = annotations
 	}
 
 	for _, f := range s.Flags {

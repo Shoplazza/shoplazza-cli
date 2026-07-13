@@ -31,6 +31,8 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Register + push a dev build, then sync each saved file incrementally (create/update/delete via dev-doc)",
+		// Long-running watch process.
+		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if themeID == "" {
 				return output.ErrValidation("--theme-id/-t is required (run `shop themes list` to find a theme id)")

@@ -53,6 +53,8 @@ func NewCmdUpdate(_ *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update the CLI to the latest version (via npm)",
+		// Attempts binary self-update.
+		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runUpdate(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(),
 				cmdutil.GetFormat(cmd), build.DisplayVersion(), checkOnly, realNpmOps())

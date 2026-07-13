@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"shoplazza-cli-v2/cmd"
+	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/output"
 	"shoplazza-cli-v2/internal/testenv"
 
@@ -117,37 +118,11 @@ type cliLeaf struct {
 	denied    bool
 }
 
-// denylist holds command-path prefixes excluded from the blind scan. Entries
-// are resolved through cobra (aliases work) and cover the whole subtree.
-var denylist = []struct {
-	prefix string
-	reason string
-}{
-	{"auth login", "interactive: waits on browser OAuth callback"},
-	{"auth logout", "mutates local keychain"},
-	{"completion", "prints shell scripts, not envelopes"},
-	{"update", "attempts binary self-update"},
-	{"themes init", "writes local filesystem"},
-	{"themes package", "writes local filesystem"},
-	{"themes serve", "long-running watch process"},
-	{"theme-extension serve", "long-running watch process"},
-	{"app dev", "long-running local dev server"},
-	{"checkout dev", "long-running local dev server"},
-}
-
-// deniedNodes resolves every denylist entry to its command node, failing the
-// test when an entry no longer exists so the list can't rot silently.
-func deniedNodes(t *testing.T, root *cobra.Command) map[*cobra.Command]bool {
-	t.Helper()
-	denied := make(map[*cobra.Command]bool, len(denylist))
-	for _, d := range denylist {
-		found, rest, err := root.Find(strings.Split(d.prefix, " "))
-		if err != nil || found == nil || len(rest) != 0 {
-			t.Fatalf("denylist entry %q does not resolve to a command (rest=%v err=%v)", d.prefix, rest, err)
-		}
-		denied[found] = true
-	}
-	return denied
+// notScannable reports whether c opted out of the blind scan at its
+// definition site (interactive, long-running, or writes the local
+// filesystem). The annotation covers the whole subtree via the walk below.
+func notScannable(c *cobra.Command) bool {
+	return c.Annotations[cmdutil.AnnotationNotScannable] == "true"
 }
 
 // collectLeaves walks the full tree and returns every runnable command.
@@ -155,13 +130,12 @@ func deniedNodes(t *testing.T, root *cobra.Command) map[*cobra.Command]bool {
 func collectLeaves(t *testing.T) []cliLeaf {
 	t.Helper()
 	root := cmd.NewRootCmd()
-	denied := deniedNodes(t, root)
 	var leaves []cliLeaf
 	var walk func(c *cobra.Command, path []string, parentDenied bool)
 	walk = func(c *cobra.Command, path []string, parentDenied bool) {
 		for _, sub := range c.Commands() {
 			subPath := append(append([]string{}, path...), sub.Name())
-			subDenied := parentDenied || denied[sub]
+			subDenied := parentDenied || notScannable(sub)
 			if sub.Runnable() {
 				leaves = append(leaves, cliLeaf{
 					path:      subPath,
@@ -179,7 +153,30 @@ func collectLeaves(t *testing.T) []cliLeaf {
 	return leaves
 }
 
-// ── Tier 1: --help wiring check for every non-denylisted leaf ─────────────────
+// minNotScannable is the number of leaves known to carry the annotation today:
+// auth login/logout, completion, update, themes init/package/serve,
+// theme-extension serve, app dev, checkout-extension dev.
+const minNotScannable = 10
+
+// TestContractSmoke_NotScannableFloor guards the annotation set: dropping
+// below the floor means a definition-site annotation was lost, re-exposing
+// the blind scan to an interactive or long-running command.
+func TestContractSmoke_NotScannableFloor(t *testing.T) {
+	testenv.IsolateConfigDir(t)
+	var denied []string
+	for _, leaf := range collectLeaves(t) {
+		if leaf.denied {
+			denied = append(denied, strings.Join(leaf.path, " "))
+		}
+	}
+	if len(denied) < minNotScannable {
+		t.Fatalf("only %d leaves carry %s, want >= %d; current: %s",
+			len(denied), cmdutil.AnnotationNotScannable, minNotScannable, strings.Join(denied, ", "))
+	}
+	t.Logf("not-scannable leaves (%d): %s", len(denied), strings.Join(denied, ", "))
+}
+
+// ── Tier 1: --help wiring check for every scannable leaf ─────────────────────
 
 func TestContractSmoke_Help(t *testing.T) {
 	testenv.IsolateConfigDir(t)
@@ -191,7 +188,7 @@ func TestContractSmoke_Help(t *testing.T) {
 	for _, leaf := range leaves {
 		if leaf.denied {
 			skipped++
-			t.Logf("skip (denylist): %s", strings.Join(leaf.path, " "))
+			t.Logf("skip (not-scannable): %s", strings.Join(leaf.path, " "))
 			continue
 		}
 		t.Run(strings.Join(leaf.path, "/"), func(t *testing.T) {
@@ -206,7 +203,7 @@ func TestContractSmoke_Help(t *testing.T) {
 			}
 		})
 	}
-	t.Logf("help-scanned %d leaves, %d denylisted", len(leaves)-skipped, skipped)
+	t.Logf("help-scanned %d leaves, %d not-scannable", len(leaves)-skipped, skipped)
 }
 
 // ── Tier 2: dry-run output-contract check ─────────────────────────────────────
