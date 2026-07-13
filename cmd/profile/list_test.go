@@ -30,7 +30,7 @@ func TestProfileList_AllProfilesWithCurrentFlag(t *testing.T) {
 	if items[1]["name"] != "cn" || items[1]["current"] != false {
 		t.Errorf("cn entry: %+v", items[1])
 	}
-	if items[0]["storeId"] != "1" || items[0]["storeDomain"] != "us.myshoplazza.com" {
+	if items[0]["store_id"] != "1" || items[0]["store_domain"] != "us.myshoplazza.com" {
 		t.Errorf("us entry missing fields: %+v", items[0])
 	}
 	// us narrows to read_product; cn inherits the account's full granted set.

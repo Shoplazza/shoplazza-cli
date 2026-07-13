@@ -264,8 +264,13 @@ func TestContractSmoke_DryRun(t *testing.T) {
 				previewed.Add(1)
 				if strings.TrimSpace(stdout) == "" {
 					t.Errorf("exit 0 but stdout empty\nstderr: %s", stderr)
-				} else if !json.Valid([]byte(stdout)) {
-					t.Errorf("exit 0 but stdout is not valid JSON\nstdout: %s", stdout)
+				} else {
+					var v any
+					if err := json.Unmarshal([]byte(stdout), &v); err != nil {
+						t.Errorf("exit 0 but stdout is not valid JSON\nstdout: %s", stdout)
+					} else if bad := findUppercaseKey(v); bad != "" {
+						t.Errorf("stdout JSON key %q is not snake_case\nstdout: %s", bad, stdout)
+					}
 				}
 			case strings.TrimSpace(stderr) == "":
 				t.Errorf("exit %d but stderr empty (silent failure)\nstdout: %s", code, stdout)
@@ -283,6 +288,29 @@ func TestContractSmoke_DryRun(t *testing.T) {
 			}
 		})
 	}
+}
+
+// findUppercaseKey walks decoded JSON and returns the first object key with an
+// uppercase letter — CLI-local output keys are snake_case by convention.
+func findUppercaseKey(v any) string {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, child := range x {
+			if strings.ContainsFunc(k, func(r rune) bool { return r >= 'A' && r <= 'Z' }) {
+				return k
+			}
+			if bad := findUppercaseKey(child); bad != "" {
+				return bad
+			}
+		}
+	case []any:
+		for _, child := range x {
+			if bad := findUppercaseKey(child); bad != "" {
+				return bad
+			}
+		}
+	}
+	return ""
 }
 
 // ── forced error: the JSON error envelope contract ────────────────────────────
