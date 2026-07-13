@@ -91,11 +91,18 @@ func TestStatus_FreshInstall_LoggedInFalse(t *testing.T) {
 	}
 	for _, removed := range []string{
 		"refresh_available", "refresh_token_expires_at", "access_token_expires_at",
-		"stores", "current_store", "store", "storeId", "tokenStatus", "tokenExpiry", "scopes",
+		"current_store", "store", "storeId", "tokenStatus", "tokenExpiry", "scopes",
+		"profile", "store_domain", "store_id", "token_status",
 	} {
 		if _, ok := st[removed]; ok {
 			t.Errorf("status must not emit removed key %q", removed)
 		}
+	}
+	if rows, ok := st["profiles"].([]any); !ok || len(rows) != 0 {
+		t.Errorf("profiles must be an empty array on fresh install, got %v", st["profiles"])
+	}
+	if _, ok := st["stores"]; ok {
+		t.Error("stores must be omitted when the legacy map is empty")
 	}
 }
 

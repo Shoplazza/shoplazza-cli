@@ -247,37 +247,15 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 				"granted_scopes": status.GrantedScopes,
 				"uat_available":  status.UATAvailable,
 				"uat_expires_at": status.UATExpiresAt,
+				"profiles":       internalauth.ProfileRows(f.Config, internalauth.AuthDir(f.ConfigPath)),
 			}
-			addProfileStatus(out, f)
+			if len(status.Stores) > 0 {
+				out["stores"] = status.Stores
+			}
 
 			return output.PrintBody(cmd.OutOrStdout(), out, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
 	}
-}
-
-// addProfileStatus fills the v2 status fields for the current profile —
-// {account, profile, store_domain, store_id, token_status}. Scope and expiry
-// details live in 'profile info' / 'profile list'.
-// Auth-free: local config + on-disk profile meta only, no network/Gate.
-func addProfileStatus(out map[string]any, f *cmdutil.Factory) {
-	out["profile"] = f.Config.CurrentProfile
-
-	account := out["account"]
-	var store, storeID, tokenExpiry string
-	if p := f.Config.Current(); p != nil {
-		account = p.Account
-		store = p.StoreDomain
-		storeID = p.StoreID
-		meta, _ := internalauth.LoadProfileMeta(internalauth.AuthDir(f.ConfigPath), strings.ToLower(p.Name))
-		if storeID == "" {
-			storeID = meta.StoreID
-		}
-		tokenExpiry = meta.ExpiresAt
-	}
-	out["account"] = account
-	out["store_domain"] = store
-	out["store_id"] = storeID
-	out["token_status"] = internalauth.TokenStatus(tokenExpiry)
 }
 
 // parseStoreDomain splits "https://store.myshoplazza.com/" into ("https",

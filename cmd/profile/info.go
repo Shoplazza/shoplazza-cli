@@ -55,7 +55,7 @@ func newCmdInfo(f *cmdutil.Factory) *cobra.Command {
 				"account":      p.Account,
 				"store_domain": p.StoreDomain,
 				"store_id":     storeID,
-				"scopes":       effectiveScopes(*p, meta, f.Config.Account()),
+				"scopes":       internalauth.EffectiveScopes(*p, meta, f.Config.Account()),
 				"current":      strings.EqualFold(p.Name, f.Config.CurrentProfile),
 				"token_status": internalauth.TokenStatus(meta.ExpiresAt),
 				"token_expiry": meta.ExpiresAt,

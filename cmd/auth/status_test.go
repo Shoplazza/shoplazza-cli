@@ -39,7 +39,7 @@ func TestStatus_TokenStates(t *testing.T) {
 	}{
 		{"valid", "valid", time.Now().Add(time.Hour), true},
 		{"expired", "expired", time.Now().Add(-time.Hour), true},
-		{"absent", "absent", time.Time{}, false},
+		{"invalid", "invalid", time.Time{}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.seedToken {
@@ -50,8 +50,13 @@ func TestStatus_TokenStates(t *testing.T) {
 			out := runAuthCmd(t, f, "status")
 			var got map[string]any
 			_ = json.Unmarshal([]byte(out), &got)
-			if got["token_status"] != tc.wantStatus || got["profile"] != "us" {
-				t.Fatalf("status = %v", got)
+			rows, _ := got["profiles"].([]any)
+			if len(rows) != 1 {
+				t.Fatalf("profiles = %v", got["profiles"])
+			}
+			row, _ := rows[0].(map[string]any)
+			if row["token_status"] != tc.wantStatus || row["name"] != "us" || row["current"] != true {
+				t.Fatalf("profiles[0] = %v", row)
 			}
 		})
 	}

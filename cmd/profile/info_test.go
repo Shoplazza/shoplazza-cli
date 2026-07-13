@@ -25,8 +25,8 @@ func TestProfileInfo_DefaultsToCurrent_TokenAbsent(t *testing.T) {
 	if got["name"] != "us" || got["current"] != true {
 		t.Fatalf("got: %+v", got)
 	}
-	if got["token_status"] != "absent" {
-		t.Errorf("token_status = %v, want absent (no meta written)", got["token_status"])
+	if got["token_status"] != "invalid" {
+		t.Errorf("token_status = %v, want invalid (no meta written)", got["token_status"])
 	}
 	// No narrowing and no minted token: scopes defaults to the account's full
 	// granted set, never a bare null.
