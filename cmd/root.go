@@ -80,7 +80,18 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 }
 
 // Execute runs the root command and returns the process exit code.
-func Execute() int {
+func Execute() (exitCode int) {
+	// Last-resort catchall (error_types.md): a panic must still honor the
+	// JSON error envelope contract instead of leaking a raw stack trace.
+	defer func() {
+		if r := recover(); r != nil {
+			exitErr := output.Errorf(output.ExitInternal, output.TypeInternal,
+				"unexpected internal error: %v", r)
+			output.WriteErrorEnvelope(os.Stderr, exitErr)
+			exitCode = output.ExitInternal
+		}
+	}()
+
 	rootCmd := NewRootCmd()
 
 	// Ctrl-C / SIGTERM cancel the command context so in-flight work can unwind.
