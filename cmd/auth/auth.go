@@ -46,6 +46,8 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 		Use:   "login",
 		Short: "Log in to your Shoplazza account",
 		Args:  cobra.NoArgs,
+		// Interactive: waits on the browser OAuth callback.
+		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if len(scope) > 0 {
 				if err := internalauth.ValidateScopes(scope); err != nil {
@@ -206,6 +208,8 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout",
 		Short: "Log out from the current store",
+		// Mutates the local keychain.
+		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
 			_, err := manager.Logout()

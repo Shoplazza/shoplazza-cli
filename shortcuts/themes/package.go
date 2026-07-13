@@ -32,8 +32,10 @@ var packageShortcut = common.Shortcut{
 	Short:   "Package the current theme directory into a zip",
 	// Purely local (reads cwd, writes a zip): runs without login and reports a
 	// local artifact rather than an API response (no {ok,data} envelope).
-	AuthFree: true,
-	Local:    true,
+	// Writes the local filesystem, so blind scans skip it.
+	AuthFree:     true,
+	Local:        true,
+	NotScannable: true,
 	Flags: []common.Flag{
 		{
 			Name:        "no-ignore",

@@ -83,6 +83,8 @@ Two modes:
 Syncing is one-way (local -> remote). Changes made in the online Theme
 Editor are not written back to local files; fetch them with
 'shoplazza themes pull'.`,
+	// Long-running watch process, so blind scans skip it.
+	NotScannable: true,
 	Flags: []common.Flag{
 		{
 			Name:  "theme-id",

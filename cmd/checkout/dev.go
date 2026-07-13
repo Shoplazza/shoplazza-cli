@@ -46,6 +46,8 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dev",
 		Short: "Run the checkout extension dev server (rebuild + HMR on :8888)",
+		// Long-running local dev server.
+		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			selected, exitErr := ParseDevIDs(ids, all)
 			if exitErr != nil {
