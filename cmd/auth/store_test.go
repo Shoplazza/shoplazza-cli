@@ -56,9 +56,11 @@ func TestStoreUse_Success(t *testing.T) {
 	}
 	var env map[string]any
 	json.Unmarshal(out.Bytes(), &env)
-	status, _ := env["status"].(map[string]any)
-	if status["current_store"] != "my-store.com" {
-		t.Errorf("status.current_store = %v", status["current_store"])
+	if env["profile"] != "my-store.com" || env["store_domain"] != "my-store.com" {
+		t.Errorf("profile/store_domain = %v/%v", env["profile"], env["store_domain"])
+	}
+	if env["token_status"] != "valid" {
+		t.Errorf("token_status = %v, want valid (eager mint)", env["token_status"])
 	}
 
 	// Verify the current store was persisted to config.json (not just returned).
@@ -191,6 +193,15 @@ func TestStoreUse_ScopeNotGranted_Errors(t *testing.T) {
 		t.Errorf("no profile should be created/activated for an out-of-grant scope request, got profiles=%+v current=%q",
 			cfg.Profiles, cfg.CurrentProfile)
 	}
+
+	// The freshly-minted token/meta must be cleaned up too — no orphans.
+	if tok, kerr := keychain.Get(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey("my-store.com")); kerr == nil && tok != "" {
+		t.Error("orphan keychain token left behind after rejected store use")
+	}
+	meta, _ := internalauth.LoadProfileMeta(internalauth.AuthDir(f.ConfigPath), "my-store.com")
+	if meta.ExpiresAt != "" {
+		t.Error("orphan profile meta left behind after rejected store use")
+	}
 }
 
 // Regression for the bug fix-pass-2 introduced: after an account-only login
@@ -229,9 +240,8 @@ func TestStoreUse_AfterAccountOnlyLogin_ScopeSubset_Succeeds(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &env); err != nil {
 		t.Fatalf("output not JSON: %v\n%s", err, out.String())
 	}
-	status, _ := env["status"].(map[string]any)
-	if status["current_store"] != "my-store.com" {
-		t.Errorf("status.current_store = %v", status["current_store"])
+	if env["store_domain"] != "my-store.com" {
+		t.Errorf("store_domain = %v", env["store_domain"])
 	}
 }
 

@@ -252,47 +252,6 @@ func TestLogin_PollTimeout(t *testing.T) {
 	}
 }
 
-func TestUseStore_ExchangesAndSetsCurrent(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.URL.Path {
-		case "/api/saiga/cli/auth/me":
-			json.NewEncoder(w).Encode(map[string]any{"account": "a@x.com"})
-		case "/api/saiga/cli/auth/exchange/store-at":
-			json.NewEncoder(w).Encode(map[string]any{"access_token": "at_use", "store_domain": "b.com", "granted_scopes": []string{"read_order"}, "at_expires_at": "2026-12-01T00:00:00Z"})
-		}
-	}))
-	defer srv.Close()
-	mgr := newTestManager(t, srv)
-
-	if _, err := mgr.Login(context.Background(), "", nil, "uat_z", 5*time.Second, time.Millisecond, nil); err != nil {
-		t.Fatalf("Login: %v", err)
-	}
-	st, err := mgr.UseStore(context.Background(), "b.com")
-	if err != nil {
-		t.Fatalf("UseStore: %v", err)
-	}
-	if st.CurrentStore != "b.com" {
-		t.Errorf("current store = %q", st.CurrentStore)
-	}
-	// The store token cache is Manager's to persist; "current store" is a v2
-	// profile-layer concern now owned by SyncAfterLogin (cmd/auth), not Manager —
-	// covered by cmd/auth's TestStoreUse_Success.
-	loaded, _ := mgr.LoadState()
-	if loaded.Stores["b.com"].Token != "at_use" {
-		t.Errorf("persisted store token wrong: %+v", loaded)
-	}
-}
-
-func TestUseStore_NoUAT(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
-	defer srv.Close()
-	mgr := newTestManager(t, srv)
-	if _, err := mgr.UseStore(context.Background(), "b.com"); err == nil {
-		t.Error("expected error when no UAT present")
-	}
-}
-
 func TestAccessTokenReady_RefreshesWhenMissing(t *testing.T) {
 	exchanges := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -472,7 +431,7 @@ func TestLogin_StoreDomainMismatch_CacheHitsByCurrentStore(t *testing.T) {
 	}
 }
 
-func TestE2E_Login_StoreUse_Refresh_Logout(t *testing.T) {
+func TestE2E_Login_Refresh_Logout(t *testing.T) {
 	exchanges := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -499,17 +458,19 @@ func TestE2E_Login_StoreUse_Refresh_Logout(t *testing.T) {
 	if _, err := mgr.Login(context.Background(), "", nil, "uat_e2e", 5*time.Second, time.Millisecond, nil); err != nil {
 		t.Fatalf("login: %v", err)
 	}
-	// 2. store use → current store + store token (one exchange).
-	if _, err := mgr.UseStore(context.Background(), "shop.com"); err != nil {
-		t.Fatalf("use: %v", err)
-	}
-	if exchanges != 1 {
-		t.Fatalf("expected 1 exchange after UseStore, got %d", exchanges)
-	}
-	// 3. business call resolves token transparently from cache (no new exchange).
+	// 2. first token resolve mints once (store use now lives in the profile
+	// model; the legacy slot is exercised via AccessTokenReady directly).
 	tok, err := mgr.AccessTokenReady(context.Background(), "shop.com")
 	if err != nil || tok != "at_store" {
 		t.Fatalf("AccessTokenReady = %q, %v", tok, err)
+	}
+	if exchanges != 1 {
+		t.Fatalf("expected 1 exchange after first resolve, got %d", exchanges)
+	}
+	// 3. second resolve hits the cache (no new exchange).
+	tok, err = mgr.AccessTokenReady(context.Background(), "shop.com")
+	if err != nil || tok != "at_store" {
+		t.Fatalf("cached AccessTokenReady = %q, %v", tok, err)
 	}
 	if exchanges != 1 {
 		t.Errorf("cached token should not re-exchange, got %d exchanges", exchanges)

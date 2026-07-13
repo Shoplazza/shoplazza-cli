@@ -13,8 +13,8 @@ import (
 // storeKcKey / appKcKey build the resource-scoped keychain account names for
 // store/app tokens: a "<kind>:<id>" suffix lets one host hold many stores /
 // apps without collision. These remain the v1 eager-exchange cache still read
-// by AccessTokenReady/UseStore/StoreIDFor/AppTokenReady; migrating store tokens
-// onto the v2 ProfileStoreKey (per-profile) model is a separate change.
+// by AccessTokenReady/StoreIDFor/AppTokenReady; 'store use' now mints under
+// the v2 ProfileStoreKey model, so only login prewarm paths still write them.
 //
 // Account-level tokens (uat, partner) are stored ONLY under the v2
 // AccountUATKey/AccountPartnerKey namespace — a single source of truth read by

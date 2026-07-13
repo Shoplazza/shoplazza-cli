@@ -404,23 +404,3 @@ func (m *Manager) StoreIDFor(ctx context.Context, domain string) (string, error)
 	}
 	return state.Stores[domain].StoreID, nil
 }
-
-// UseStore mints a store token for storeDomain and sets it as the current store.
-func (m *Manager) UseStore(ctx context.Context, storeDomain string) (Status, error) {
-	state, err := m.LoadState()
-	if err != nil {
-		return Status{}, err
-	}
-	if state.UAT == "" {
-		return Status{}, errors.New("no UAT available — please run 'auth login' again")
-	}
-	block, err := m.exchangeStoreAT(ctx, state.UAT, storeDomain)
-	if err != nil {
-		return Status{}, err
-	}
-	state.CurrentStore = applyStoreToken(&state, block, storeDomain)
-	if err := m.persistState(state); err != nil {
-		return Status{}, err
-	}
-	return statusFromState(state), nil
-}
