@@ -50,7 +50,7 @@ func TestStatus_TokenStates(t *testing.T) {
 			out := runAuthCmd(t, f, "status")
 			var got map[string]any
 			_ = json.Unmarshal([]byte(out), &got)
-			if got["tokenStatus"] != tc.wantStatus || got["profile"] != "us" {
+			if got["token_status"] != tc.wantStatus || got["profile"] != "us" {
 				t.Fatalf("status = %v", got)
 			}
 		})

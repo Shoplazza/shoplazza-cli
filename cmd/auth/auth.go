@@ -132,9 +132,10 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			// GrantedScopes is only populated by a store-token exchange; an
 			// account-only login never touches it, so only validate when a store
 			// exchange actually happened.
-			// The v1 store exchange (login here, or UseStore in store.go) already
-			// ran by this point; both login and 'store use' leave that v1 side
-			// effect in place on a rejected --scope. T15 only removed the v1
+			// The v1 store exchange (login prewarm) already ran by this point
+			// and leaves its v1 side effect in place on a rejected --scope
+			// ('store use' now mints under the profile model instead). T15 only
+			// removed the v1
 			// store-domain config-field write; persistState's auth.json /
 			// legacy-keychain writes and StoreIDFor's v1 exchange still happen —
 			// just no longer read by v2 request paths (app deploy/dev's
@@ -243,13 +244,9 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 				"logged_in":      status.LoggedIn,
 				"account":        status.Account,
 				"user_id":        status.UserID,
-				"current_store":  status.CurrentStore,
 				"granted_scopes": status.GrantedScopes,
 				"uat_available":  status.UATAvailable,
 				"uat_expires_at": status.UATExpiresAt,
-			}
-			if len(status.Stores) > 0 {
-				out["stores"] = status.Stores
 			}
 			addProfileStatus(out, f)
 
@@ -259,7 +256,8 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 }
 
 // addProfileStatus fills the v2 status fields for the current profile —
-// {account, profile, store, storeId, scopes, tokenStatus, tokenExpiry}.
+// {account, profile, store_domain, store_id, scopes, token_status}. Details
+// (expiry, per-store breakdown) live in 'profile info'.
 // Auth-free: local config + on-disk profile meta only, no network/Gate.
 func addProfileStatus(out map[string]any, f *cmdutil.Factory) {
 	out["profile"] = f.Config.CurrentProfile
@@ -279,11 +277,10 @@ func addProfileStatus(out map[string]any, f *cmdutil.Factory) {
 		tokenExpiry = meta.ExpiresAt
 	}
 	out["account"] = account
-	out["store"] = store
-	out["storeId"] = storeID
+	out["store_domain"] = store
+	out["store_id"] = storeID
 	out["scopes"] = scopes
-	out["tokenStatus"] = internalauth.TokenStatus(tokenExpiry)
-	out["tokenExpiry"] = tokenExpiry
+	out["token_status"] = internalauth.TokenStatus(tokenExpiry)
 }
 
 // parseStoreDomain splits "https://store.myshoplazza.com/" into ("https",

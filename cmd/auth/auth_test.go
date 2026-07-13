@@ -89,7 +89,10 @@ func TestStatus_FreshInstall_LoggedInFalse(t *testing.T) {
 	if st["logged_in"] != false {
 		t.Errorf("logged_in = %v, want false", st["logged_in"])
 	}
-	for _, removed := range []string{"refresh_available", "refresh_token_expires_at", "access_token_expires_at", "store_id"} {
+	for _, removed := range []string{
+		"refresh_available", "refresh_token_expires_at", "access_token_expires_at",
+		"stores", "current_store", "store", "storeId", "tokenStatus", "tokenExpiry",
+	} {
 		if _, ok := st[removed]; ok {
 			t.Errorf("status must not emit removed key %q", removed)
 		}
