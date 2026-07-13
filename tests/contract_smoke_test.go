@@ -1,12 +1,13 @@
 // Contract smoke suite: enumerates every runnable leaf command in-process via
 // cmd.NewRootCmd(), then exercises each one through the real compiled binary.
 // Tier 1 checks --help wiring; Tier 2 checks the output contract under
-// --dry-run against a mock server. Design: docs/superpowers/specs/
-// 2026-07-11-cli-contract-smoke-suite-design.md
+// --dry-run against a mock server.
 package tests_test
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,14 +15,23 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"shoplazza-cli-v2/cmd"
+	"shoplazza-cli-v2/internal/output"
+	"shoplazza-cli-v2/internal/testenv"
 
 	"github.com/spf13/cobra"
 )
 
 // ── shared binary (built once for the whole package) ─────────────────────────
+
+// baseEnv snapshots the process env before any t.Setenv isolation, so the
+// go-build subprocess keeps the real GOCACHE/HOME (a redirected HOME would
+// cold-start the build cache).
+var baseEnv = os.Environ()
 
 var (
 	sharedBinOnce sync.Once
@@ -46,13 +56,13 @@ func sharedBinary(t *testing.T) string {
 		}
 		build := exec.Command("go", "build", "-o", sharedBinPath, ".")
 		build.Dir = projectRoot
+		build.Env = baseEnv
 		if out, err := build.CombinedOutput(); err != nil {
-			sharedBinErr = err
-			sharedBinPath = string(out)
+			sharedBinErr = fmt.Errorf("go build: %w\n%s", err, out)
 		}
 	})
 	if sharedBinErr != nil {
-		t.Fatalf("build shared binary: %v\n%s", sharedBinErr, sharedBinPath)
+		t.Fatalf("build shared binary: %v", sharedBinErr)
 	}
 	return sharedBinPath
 }
@@ -70,7 +80,10 @@ func TestMain(m *testing.M) {
 // the repo.
 func runCLIDir(t *testing.T, bin, dir string, env []string, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
-	cmd := exec.Command(bin, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), env...)
 	var outBuf, errBuf strings.Builder
@@ -78,7 +91,13 @@ func runCLIDir(t *testing.T, bin, dir string, env []string, args ...string) (std
 	cmd.Stderr = &errBuf
 	err := cmd.Run()
 	exitCode = 0
-	if exitErr, ok := err.(*exec.ExitError); ok {
+	if err != nil {
+		exitErr, ok := err.(*exec.ExitError)
+		if !ok {
+			// Launch failure (binary missing, EMFILE, ctx timeout): fail loudly
+			// instead of masquerading as exit 0.
+			t.Fatalf("subprocess failed to run: %v", err)
+		}
 		exitCode = exitErr.ExitCode()
 	}
 	return outBuf.String(), errBuf.String(), exitCode
@@ -98,8 +117,8 @@ type cliLeaf struct {
 	denied    bool
 }
 
-// denylist holds command paths excluded from the blind scan. Entries are
-// resolved through cobra (aliases work) and cover the whole subtree.
+// denylist holds command-path prefixes excluded from the blind scan. Entries
+// are resolved through cobra (aliases work) and cover the whole subtree.
 var denylist = []struct {
 	prefix string
 	reason string
@@ -160,17 +179,12 @@ func collectLeaves(t *testing.T) []cliLeaf {
 	return leaves
 }
 
-// TestContractSmoke_DenylistResolves keeps denylist rot a named failure even
-// though collectLeaves also enforces it.
-func TestContractSmoke_DenylistResolves(t *testing.T) {
-	deniedNodes(t, cmd.NewRootCmd())
-}
-
 // ── Tier 1: --help wiring check for every non-denylisted leaf ─────────────────
 
 func TestContractSmoke_Help(t *testing.T) {
-	leaves := collectLeaves(t)
+	testenv.IsolateConfigDir(t)
 	bin := sharedBinary(t)
+	leaves := collectLeaves(t)
 	env := []string{"SHOPLAZZA_CLI_NO_UPDATE_CHECK=1"}
 
 	skipped := 0
@@ -180,12 +194,11 @@ func TestContractSmoke_Help(t *testing.T) {
 			t.Logf("skip (denylist): %s", strings.Join(leaf.path, " "))
 			continue
 		}
-		leaf := leaf
 		t.Run(strings.Join(leaf.path, "/"), func(t *testing.T) {
 			t.Parallel()
 			args := append(append([]string{}, leaf.path...), "--help")
 			stdout, stderr, code := runCLIDir(t, bin, t.TempDir(), env, args...)
-			if code != 0 {
+			if code != output.ExitOK {
 				t.Fatalf("--help exit %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
 			}
 			if !strings.Contains(stdout, "Usage:") {
@@ -197,48 +210,76 @@ func TestContractSmoke_Help(t *testing.T) {
 }
 
 // ── Tier 2: dry-run output-contract check ─────────────────────────────────────
-//
-// Shape-only assertions; see the design doc for why envelopes are NOT asserted
-// here (dry-run success prints a bare request preview; cobra flag errors print
-// plain text).
 
+// Shape-only assertions (dry-run success is a bare preview; cobra errors are
+// plain text); rationale in the design doc.
 func TestContractSmoke_DryRun(t *testing.T) {
-	leaves := collectLeaves(t)
+	testenv.IsolateConfigDir(t)
 	bin := sharedBinary(t)
+	leaves := collectLeaves(t)
 
+	var mockHits atomic.Int64
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mockHits.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{}`))
 	}))
-	defer srv.Close()
+	// t.Cleanup, not defer: parallel subtests run after this function returns.
+	t.Cleanup(srv.Close)
+	t.Cleanup(func() {
+		// Dry-run must never send the request; any mock hit is a violation.
+		if n := mockHits.Load(); n > 0 {
+			t.Errorf("dry-run leaves sent %d real HTTP request(s) to the mock", n)
+		}
+	})
 	env := contractEnv(srv.URL)
+
+	var previewed atomic.Int64
+	t.Cleanup(func() {
+		// Guard against the whole tier degrading into the error branch
+		// (currently ~114 leaves reach the exit-0 preview path).
+		if n := previewed.Load(); n < 25 {
+			t.Errorf("only %d leaves exercised the dry-run preview path (exit 0); want >= 25", n)
+		} else {
+			t.Logf("dry-run preview exercised by %d leaves", n)
+		}
+	})
 
 	for _, leaf := range leaves {
 		if !leaf.hasDryRun || leaf.denied {
 			continue
 		}
-		leaf := leaf
 		t.Run(strings.Join(leaf.path, "/"), func(t *testing.T) {
 			t.Parallel()
 			args := append(append([]string{}, leaf.path...), "--dry-run")
 			stdout, stderr, code := runCLIDir(t, bin, t.TempDir(), env, args...)
 
-			if code < 0 || code > 5 {
-				t.Errorf("exit code %d outside contract range 0..5", code)
+			if code < output.ExitOK || code > output.ExitInternal {
+				t.Errorf("exit code %d outside contract range %d..%d", code, output.ExitOK, output.ExitInternal)
 			}
 			// Go panics exit with code 2 (inside the range), so catch them
 			// via stderr explicitly.
 			if strings.Contains(stderr, "panic:") {
 				t.Errorf("panic detected\nstderr: %s", stderr)
 			}
-			if code == 0 {
+			switch {
+			case code == output.ExitOK:
+				previewed.Add(1)
 				if strings.TrimSpace(stdout) == "" {
 					t.Errorf("exit 0 but stdout empty\nstderr: %s", stderr)
 				} else if !json.Valid([]byte(stdout)) {
 					t.Errorf("exit 0 but stdout is not valid JSON\nstdout: %s", stdout)
 				}
-			} else if strings.TrimSpace(stderr) == "" {
+			case strings.TrimSpace(stderr) == "":
 				t.Errorf("exit %d but stderr empty (silent failure)\nstdout: %s", code, stdout)
+			case strings.HasPrefix(strings.TrimSpace(stderr), "{"):
+				// JSON-looking errors must be a well-formed ok=false envelope.
+				var envlp map[string]any
+				if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &envlp); err != nil {
+					t.Errorf("exit %d with malformed JSON stderr: %v\nstderr: %s", code, err, stderr)
+				} else if ok, _ := envlp["ok"].(bool); ok {
+					t.Errorf("exit %d but stderr envelope says ok=true\nstderr: %s", code, stderr)
+				}
 			}
 			if t.Failed() {
 				t.Logf("cmd: %s --dry-run\nstdout: %s\nstderr: %s", strings.Join(leaf.path, " "), stdout, stderr)
@@ -249,20 +290,36 @@ func TestContractSmoke_DryRun(t *testing.T) {
 
 // ── forced error: the JSON error envelope contract ────────────────────────────
 
+// firstJSONObject decodes the first JSON object found in s (the envelope is
+// multi-line indented JSON), tolerating stray text before or after it.
+func firstJSONObject(s string) (map[string]any, bool) {
+	start := strings.Index(s, "{")
+	if start < 0 {
+		return nil, false
+	}
+	dec := json.NewDecoder(strings.NewReader(s[start:]))
+	var m map[string]any
+	if err := dec.Decode(&m); err != nil {
+		return nil, false
+	}
+	return m, true
+}
+
 func TestContractSmoke_ErrorEnvelope(t *testing.T) {
+	testenv.IsolateConfigDir(t)
 	bin := sharedBinary(t)
 	env := contractEnv("http://127.0.0.1:1") // closed port forces a network error
 
 	stdout, stderr, code := runCLIDir(t, bin, t.TempDir(), env, "products", "list")
-	if code == 0 {
+	if code == output.ExitOK {
 		t.Fatalf("expected non-zero exit\nstdout: %s", stdout)
 	}
-	if code < 1 || code > 5 {
-		t.Errorf("exit code %d outside contract range 1..5", code)
+	if code < output.ExitAPI || code > output.ExitInternal {
+		t.Errorf("exit code %d outside contract range %d..%d", code, output.ExitAPI, output.ExitInternal)
 	}
-	var envelope map[string]any
-	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &envelope); err != nil {
-		t.Fatalf("stderr is not JSON: %v\nstderr: %s", err, stderr)
+	envelope, found := firstJSONObject(stderr)
+	if !found {
+		t.Fatalf("no JSON envelope line on stderr\nstderr: %s", stderr)
 	}
 	if ok, _ := envelope["ok"].(bool); ok {
 		t.Error("error envelope must carry ok=false")

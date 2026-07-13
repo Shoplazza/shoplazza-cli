@@ -1,12 +1,12 @@
 // Binary-level happy-path tests for the themes push/pull workflows: the real
 // compiled CLI runs the full business chain (pack → upload → poll / download →
-// unpack) against a mock server, and the tests assert the business outcome,
-// not just the output shape.
+// unpack) against a mock server, and the tests assert the business outcome.
 package tests_test
 
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,40 +15,47 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"shoplazza-cli-v2/internal/testenv"
 )
+
+type fixtureFile struct {
+	path    string
+	content string
+}
 
 // writeThemeDir creates a minimal valid theme directory (readThemeInfo needs
 // config/settings_schema.json with a theme_info block).
 func writeThemeDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	schema := `[{"name":"theme_info","theme_name":"e2e-theme","theme_version":"1.0.0"}]`
-	for path, content := range map[string]string{
-		"config/settings_schema.json": schema,
-		"layout/theme.liquid":         "<html></html>",
-	} {
-		full := filepath.Join(dir, path)
+	files := []fixtureFile{
+		{"config/settings_schema.json", `[{"name":"theme_info","theme_name":"e2e-theme","theme_version":"1.0.0"}]`},
+		{"layout/theme.liquid", "<html></html>"},
+	}
+	for _, f := range files {
+		full := filepath.Join(dir, f.path)
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(full, []byte(f.content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
 	return dir
 }
 
-// buildZip returns zip bytes holding the given path→content entries.
-func buildZip(t *testing.T, files map[string]string) []byte {
+// buildZip returns zip bytes holding the given entries, in order.
+func buildZip(t *testing.T, files []fixtureFile) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	for name, content := range files {
-		w, err := zw.Create(name)
+	for _, f := range files {
+		w, err := zw.Create(f.path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := w.Write([]byte(content)); err != nil {
+		if _, err := w.Write([]byte(f.content)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -58,18 +65,62 @@ func buildZip(t *testing.T, files map[string]string) []byte {
 	return buf.Bytes()
 }
 
+// unwrapStrict asserts stdout is exactly the {ok:true,data:{...}} success
+// envelope and returns data (unwrapAPISuccess would silently fall back to the
+// raw map, letting an envelope regression pass).
+func unwrapStrict(t *testing.T, stdout string) map[string]any {
+	t.Helper()
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(stdout), &raw); err != nil {
+		t.Fatalf("stdout not JSON: %v\n%s", err, stdout)
+	}
+	if ok, _ := raw["ok"].(bool); !ok {
+		t.Fatalf("stdout missing ok=true envelope: %s", stdout)
+	}
+	data, isMap := raw["data"].(map[string]any)
+	if !isMap {
+		t.Fatalf("envelope missing data object: %s", stdout)
+	}
+	return data
+}
+
+// zipEntryNames lists entry names of a zip archive.
+func zipEntryNames(data []byte) ([]string, error) {
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(zr.File))
+	for _, f := range zr.File {
+		names = append(names, f.Name)
+	}
+	return names, nil
+}
+
+func hasSuffixEntry(names []string, suffix string) bool {
+	for _, n := range names {
+		if strings.HasSuffix(n, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
 func TestThemesPushHappyPath(t *testing.T) {
+	testenv.IsolateConfigDir(t)
+
 	var (
-		mu          sync.Mutex
-		uploadZipOK bool
-		uploadErr   string
-		taskPolls   int
+		mu         sync.Mutex
+		zipEntries []string
+		uploadErr  string
+		taskPolls  int
 	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case strings.Contains(r.URL.Path, "/themes/upload"):
-			// The uploaded multipart "file" part must be a real zip.
+			// The uploaded multipart "file" part must be a real zip carrying
+			// the packed theme files.
 			mu.Lock()
 			file, _, err := r.FormFile("file")
 			if err != nil {
@@ -79,10 +130,10 @@ func TestThemesPushHappyPath(t *testing.T) {
 				file.Close()
 				if rerr != nil {
 					uploadErr = "read file part: " + rerr.Error()
-				} else if _, zerr := zip.NewReader(bytes.NewReader(data), int64(len(data))); zerr != nil {
+				} else if names, zerr := zipEntryNames(data); zerr != nil {
 					uploadErr = "file part is not a valid zip: " + zerr.Error()
 				} else {
-					uploadZipOK = true
+					zipEntries = names
 				}
 			}
 			mu.Unlock()
@@ -109,7 +160,7 @@ func TestThemesPushHappyPath(t *testing.T) {
 		t.Fatalf("push exit %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
 	}
 
-	data := unwrapAPISuccess(t, stdout)
+	data := unwrapStrict(t, stdout)
 	if data["theme_id"] != "abc123" {
 		t.Errorf("theme_id = %v, want abc123", data["theme_id"])
 	}
@@ -122,8 +173,14 @@ func TestThemesPushHappyPath(t *testing.T) {
 	if uploadErr != "" {
 		t.Error(uploadErr)
 	}
-	if !uploadZipOK {
-		t.Error("upload endpoint never received a valid zip")
+	if zipEntries == nil {
+		t.Fatal("upload endpoint never received a valid zip")
+	}
+	// The pack step must ship the actual theme files, not just any zip.
+	for _, want := range []string{"config/settings_schema.json", "layout/theme.liquid"} {
+		if !hasSuffixEntry(zipEntries, want) {
+			t.Errorf("uploaded zip missing %s; entries: %v", want, zipEntries)
+		}
 	}
 	if taskPolls < 1 {
 		t.Error("task endpoint was never polled")
@@ -131,9 +188,11 @@ func TestThemesPushHappyPath(t *testing.T) {
 }
 
 func TestThemesPullHappyPath(t *testing.T) {
-	zipBytes := buildZip(t, map[string]string{
-		"Nova-1.0/assets/main.css":     "css-content",
-		"Nova-1.0/layout/theme.liquid": "<html/>",
+	testenv.IsolateConfigDir(t)
+
+	zipBytes := buildZip(t, []fixtureFile{
+		{"Nova-1.0/assets/main.css", "css-content"},
+		{"Nova-1.0/layout/theme.liquid", "<html/>"},
 	})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/download") {
@@ -156,7 +215,7 @@ func TestThemesPullHappyPath(t *testing.T) {
 		t.Fatalf("pull exit %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
 	}
 
-	data := unwrapAPISuccess(t, stdout)
+	data := unwrapStrict(t, stdout)
 	if data["theme_id"] != "abc123" {
 		t.Errorf("theme_id = %v, want abc123", data["theme_id"])
 	}
