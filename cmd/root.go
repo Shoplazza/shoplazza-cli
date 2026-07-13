@@ -29,8 +29,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Execute runs the root command and returns the process exit code.
-func Execute() int {
+// NewRootCmd assembles and returns the full root command tree without
+// executing it. Used by Execute and by tests that enumerate commands.
+func NewRootCmd() *cobra.Command {
 	factory := cmdutil.NewDefaultFactory()
 
 	spec := registry.LoadSpec()
@@ -74,6 +75,13 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 	rootCmd.AddCommand(update.NewCmdUpdate(factory))
 	dynamic.RegisterCommands(rootCmd, spec, factory)
 	shortcuts.RegisterShortcuts(rootCmd, factory)
+
+	return rootCmd
+}
+
+// Execute runs the root command and returns the process exit code.
+func Execute() int {
+	rootCmd := NewRootCmd()
 
 	// Ctrl-C / SIGTERM cancel the command context so in-flight work can unwind.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
