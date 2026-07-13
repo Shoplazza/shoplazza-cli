@@ -89,7 +89,7 @@ func RemoveProfileMeta(authDir, name string) error {
 // TokenStatus classifies a profile's cached access token from its meta
 // ExpiresAt: empty means no token has been minted yet ("absent"); an
 // unparsable or past timestamp is "expired"; otherwise "valid". Shared by
-// 'profile show' and 'auth status' so both report the same tri-state.
+// 'profile info' and 'auth status' so both report the same tri-state.
 func TokenStatus(expiresAt string) string {
 	if expiresAt == "" {
 		return "absent"
