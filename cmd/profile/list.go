@@ -33,6 +33,7 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 					"store_id":     storeID,
 					"scopes":       effectiveScopes(p, meta, acct),
 					"current":      strings.EqualFold(p.Name, f.Config.CurrentProfile),
+					"token_status": internalauth.TokenStatus(meta.ExpiresAt),
 				})
 			}
 			return output.PrintBody(cmd.OutOrStdout(), items, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))

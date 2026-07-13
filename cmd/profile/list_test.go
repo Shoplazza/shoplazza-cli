@@ -33,6 +33,9 @@ func TestProfileList_AllProfilesWithCurrentFlag(t *testing.T) {
 	if items[0]["store_id"] != "1" || items[0]["store_domain"] != "us.myshoplazza.com" {
 		t.Errorf("us entry missing fields: %+v", items[0])
 	}
+	if items[0]["token_status"] != "absent" {
+		t.Errorf("token_status = %v, want absent (no meta seeded)", items[0]["token_status"])
+	}
 	// us narrows to read_product; cn inherits the account's full granted set.
 	if s, _ := items[0]["scopes"].([]any); len(s) != 1 || s[0] != "read_product" {
 		t.Errorf("us scopes = %v, want [read_product] (explicit narrowing)", items[0]["scopes"])
