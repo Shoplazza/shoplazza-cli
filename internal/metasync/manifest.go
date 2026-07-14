@@ -17,6 +17,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"shoplazza-cli-v2/internal/registry"
 )
 
 const (
@@ -28,9 +30,7 @@ const (
 	maxSpecRaw      = 32 << 20  // 32 MB decompressed
 )
 
-// defaultOrigin is the static hosting root for manifest.json and specs/.
-// Placeholder until infra provisions the bucket; overridable per-run via
-// SHOPLAZZA_CLI_META_ORIGIN.
+// defaultOrigin is the static hosting root; override via SHOPLAZZA_CLI_META_ORIGIN.
 var defaultOrigin = "https://static.shoplazza.com/shoplazza-cli/meta/"
 
 // DefaultClient overrides the HTTP client (for tests). nil -> default client with timeout.
@@ -43,7 +43,6 @@ type Manifest struct {
 	MinCLIVersion string `json:"min_cli_version,omitempty"`
 	URL           string `json:"url"`
 	SHA256        string `json:"sha256"`
-	Size          int64  `json:"size,omitempty"`
 }
 
 func originURL() string {
@@ -97,8 +96,15 @@ func fetchManifest(ctx context.Context) (*Manifest, error) {
 	if err := json.Unmarshal(body, &m); err != nil {
 		return nil, fmt.Errorf("metasync: manifest: %w", err)
 	}
-	if m.Revision == "" || m.URL == "" || m.SHA256 == "" {
+	if m.URL == "" || m.SHA256 == "" {
 		return nil, errors.New("metasync: manifest missing required fields")
+	}
+	if !registry.IsCanonicalRevision(m.Revision) {
+		return nil, fmt.Errorf("metasync: non-canonical manifest revision %q", m.Revision)
+	}
+	// The spec URL must stay origin-relative.
+	if strings.HasPrefix(m.URL, "/") || strings.Contains(m.URL, "://") || strings.Contains(m.URL, "..") {
+		return nil, fmt.Errorf("metasync: invalid manifest url %q", m.URL)
 	}
 	return &m, nil
 }

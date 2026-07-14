@@ -83,6 +83,21 @@ func TestLoadSpec_CacheSelection(t *testing.T) {
 			cached:     `{"version":"v9","modules":[{"name":"zz-cache-probe","commands":[]}]}`,
 			wantSource: SourceEmbedded,
 		},
+		{
+			name:       "cache with non-canonical generated_at ignored",
+			cached:     `{"version":"v9","generated_at":"9999-01-01T00:00:00+08:00","modules":[{"name":"zz-cache-probe","commands":[]}]}`,
+			wantSource: SourceEmbedded,
+		},
+		{
+			name:       "cache without version ignored",
+			cached:     `{"generated_at":"9999-01-01T00:00:00Z","modules":[{"name":"zz-cache-probe","commands":[]}]}`,
+			wantSource: SourceEmbedded,
+		},
+		{
+			name:       "cache with duplicate module names ignored",
+			cached:     `{"version":"v9","generated_at":"9999-01-01T00:00:00Z","modules":[{"name":"zz","commands":[]},{"name":"zz","commands":[]}]}`,
+			wantSource: SourceEmbedded,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -143,7 +158,7 @@ func TestNewestLocalRevision_IgnoresInvalidCache(t *testing.T) {
 	if got := NewestLocalRevision(); got != embedded {
 		t.Fatalf("NewestLocalRevision() = %q, want embedded %q", got, embedded)
 	}
-	writeCachedSpec(t, dir, `{"generated_at":"9999-01-01T00:00:00Z","modules":[{"name":"zz","commands":[]}]}`)
+	writeCachedSpec(t, dir, `{"version":"v9","generated_at":"9999-01-01T00:00:00Z","modules":[{"name":"zz","commands":[]}]}`)
 	if got := NewestLocalRevision(); got != "9999-01-01T00:00:00Z" {
 		t.Fatalf("NewestLocalRevision() = %q, want valid cache revision", got)
 	}

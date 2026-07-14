@@ -11,13 +11,12 @@ import (
 
 const stateFile = "state.json"
 
-// state tracks refresh outcomes: LastCheckedAt marks a fully processed
-// check (24h TTL), LastFailureAt a completed-but-failed attempt (short
-// backoff). An interrupted attempt writes neither and retries next run.
+// state tracks the last fully processed check (TTL), the last failed
+// attempt (backoff), and the origin it was checked against.
 type state struct {
 	LastCheckedAt int64  `json:"last_checked_at"`
 	LastFailureAt int64  `json:"last_failure_at,omitempty"`
-	Revision      string `json:"revision,omitempty"`
+	Origin        string `json:"origin,omitempty"`
 }
 
 func statePath() (string, error) {

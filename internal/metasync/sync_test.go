@@ -126,7 +126,7 @@ func TestDoRefresh_HappyPath(t *testing.T) {
 		t.Fatal("cache file must hold the decompressed spec")
 	}
 	s := loadState()
-	if s == nil || s.Revision != futureRev || s.LastCheckedAt == 0 {
+	if s == nil || s.LastCheckedAt == 0 || s.Origin != originURL() {
 		t.Fatalf("unexpected state: %+v", s)
 	}
 }
@@ -297,6 +297,10 @@ func TestDoRefresh_InvalidCacheDoesNotWedge(t *testing.T) {
 	if err := os.WriteFile(path, bogus, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// Same-origin state so the gate consults the local cache revision.
+	if err := saveState(&state{LastCheckedAt: 1, Origin: originURL()}); err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := ForceRefresh(context.Background(), "1.0.0")
 	if err != nil {
@@ -307,6 +311,66 @@ func TestDoRefresh_InvalidCacheDoesNotWedge(t *testing.T) {
 	}
 	if !bytes.Equal(readCache(t), raw) {
 		t.Fatal("cache file must be overwritten with the valid spec")
+	}
+}
+
+// A cache pulled from one origin must not gate a different origin: after
+// switching back, the new origin's spec is adopted even if its revision is
+// lower than the foreign cache's.
+func TestDoRefresh_OriginSwitchRepairsCache(t *testing.T) {
+	stagingRaw := specJSON(futureRev) // 9998-...
+	stagingGz := gzipBytes(t, stagingRaw)
+	staging := newRemote(t, manifestFor(stagingGz, futureRev), stagingGz)
+	setup(t, staging)
+	if _, err := ForceRefresh(context.Background(), "1.0.0"); err != nil {
+		t.Fatal(err)
+	}
+
+	prodRev := "9997-01-01T00:00:00Z" // newer than embedded, older than staging's
+	prodRaw := specJSON(prodRev)
+	prodGz := gzipBytes(t, prodRaw)
+	prod := newRemote(t, manifestFor(prodGz, prodRev), prodGz)
+	t.Setenv("SHOPLAZZA_CLI_META_ORIGIN", prod.srv.URL+"/")
+
+	res, err := ForceRefresh(context.Background(), "1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Updated {
+		t.Fatalf("origin switch must repair the cache, got %+v", res)
+	}
+	if !bytes.Equal(readCache(t), prodRaw) {
+		t.Fatal("cache must hold the new origin's spec")
+	}
+}
+
+// Malformed manifests are rejected before any spec download.
+func TestFetchManifest_RejectsMalformed(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(m *Manifest)
+	}{
+		{name: "non-canonical revision", mutate: func(m *Manifest) { m.Revision = "2026-07-13T12:00:00+08:00" }},
+		{name: "absolute url", mutate: func(m *Manifest) { m.URL = "https://evil.example/spec.json.gz" }},
+		{name: "rooted url", mutate: func(m *Manifest) { m.URL = "/etc/spec.json.gz" }},
+		{name: "traversal url", mutate: func(m *Manifest) { m.URL = "../other/spec.json.gz" }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := specJSON(futureRev)
+			gz := gzipBytes(t, raw)
+			m := manifestFor(gz, futureRev)
+			tc.mutate(&m)
+			r := newRemote(t, m, gz)
+			setup(t, r)
+
+			if _, err := ForceRefresh(context.Background(), "1.0.0"); err == nil {
+				t.Fatal("expected error")
+			}
+			if got := r.specHits.Load(); got != 0 {
+				t.Fatalf("malformed manifest must not trigger a spec download, hits = %d", got)
+			}
+		})
 	}
 }
 
@@ -424,7 +488,7 @@ func TestCurrentStatus(t *testing.T) {
 	if !st.LastCheckedAt.IsZero() {
 		t.Fatalf("no state file means zero LastCheckedAt, got %v", st.LastCheckedAt)
 	}
-	if err := saveState(&state{LastCheckedAt: 1700000000, Revision: "r"}); err != nil {
+	if err := saveState(&state{LastCheckedAt: 1700000000}); err != nil {
 		t.Fatal(err)
 	}
 	if got := CurrentStatus().LastCheckedAt; got.IsZero() {

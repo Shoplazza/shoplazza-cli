@@ -11,6 +11,8 @@ func resetLoadSpec() {
 	loadOnce = sync.Once{}
 	activeSpec = nil
 	specSource = ""
+	embeddedRevOnce = sync.Once{}
+	embeddedRev = ""
 }
 
 func TestLoadSpec_EmbeddedSpec(t *testing.T) {

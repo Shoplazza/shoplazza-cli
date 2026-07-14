@@ -71,9 +71,7 @@ func runChecks(f *cmdutil.Factory) []checkResult {
 	}
 }
 
-// checkMetadata reports where the OpenAPI metadata comes from (embedded vs
-// downloaded cache) and when the background refresh last completed. Metadata
-// problems never break the CLI (embedded fallback), so the worst status is warn.
+// checkMetadata reports the active metadata source and last refresh check.
 func checkMetadata() checkResult {
 	st := metasync.CurrentStatus()
 	last := "never"

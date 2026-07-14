@@ -161,6 +161,26 @@ func TestRunUpdate_MetaRefreshOutcomes(t *testing.T) {
 		}
 	})
 
+	t.Run("disable env skips refresh", func(t *testing.T) {
+		called := false
+		metaRefresh = func(context.Context, string) (metasync.Result, error) {
+			called = true
+			return metasync.Result{}, nil
+		}
+		t.Setenv(metasync.EnvDisable, "1")
+		f := &fakeOps{latestVer: "2.0.1"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if called {
+			t.Error("disable env must suppress the metadata refresh")
+		}
+		if _, ok := decodeBody(t, out.Bytes())["meta_updated"]; ok {
+			t.Error("suppressed refresh must not add meta keys")
+		}
+	})
+
 	t.Run("check-only skips refresh", func(t *testing.T) {
 		called := false
 		metaRefresh = func(context.Context, string) (metasync.Result, error) {

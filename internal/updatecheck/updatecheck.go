@@ -106,7 +106,7 @@ func shouldSkip(version string) bool {
 	if os.Getenv("SHOPLAZZA_CLI_NO_UPDATE_CHECK") != "" {
 		return true
 	}
-	if isCIEnv() {
+	if IsCIEnv() {
 		return true
 	}
 	if version == "" || version == "dev" || version == "DEV" {
@@ -118,7 +118,7 @@ func shouldSkip(version string) bool {
 	return false
 }
 
-func isCIEnv() bool {
+func IsCIEnv() bool {
 	for _, k := range []string{"CI", "BUILD_NUMBER", "RUN_ID"} {
 		if os.Getenv(k) != "" {
 			return true

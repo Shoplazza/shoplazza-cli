@@ -80,11 +80,12 @@ var metaRefresh = func(ctx context.Context, version string) (metasync.Result, er
 }
 
 // refreshMetadata force-refreshes the OpenAPI metadata cache and merges the
-// outcome into the response body. version is the CLI version that will run
-// next (the just-installed one after an update), so the manifest's
-// min_cli_version gate is evaluated against it. Failures never affect the
-// exit code.
+// outcome into the response body; version is the CLI version that will run
+// next. Honors the disable env; failures never affect the exit code.
 func refreshMetadata(ctx context.Context, version string, body map[string]any) {
+	if os.Getenv(metasync.EnvDisable) != "" {
+		return
+	}
 	res, err := metaRefresh(ctx, version)
 	if err != nil {
 		body["meta_error"] = err.Error()

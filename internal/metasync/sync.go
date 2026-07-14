@@ -2,7 +2,6 @@ package metasync
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -17,6 +16,9 @@ const (
 	cacheTTL       = 24 * time.Hour
 	failureBackoff = time.Hour
 )
+
+// EnvDisable disables all metadata refreshes when set.
+const EnvDisable = "SHOPLAZZA_CLI_NO_META_UPDATE"
 
 // Result describes the outcome of a refresh.
 type Result struct {
@@ -39,10 +41,12 @@ func Refresh(ctx context.Context, currentVersion string) {
 		return
 	}
 	if s := loadState(); s != nil {
-		if time.Since(time.Unix(s.LastCheckedAt, 0)) < cacheTTL {
+		// A negative Since means a future timestamp (clock rollback); treat
+		// as stale so the next successful check self-heals it.
+		if d := time.Since(time.Unix(s.LastCheckedAt, 0)); d >= 0 && d < cacheTTL {
 			return
 		}
-		if s.LastFailureAt > 0 && time.Since(time.Unix(s.LastFailureAt, 0)) < failureBackoff {
+		if d := time.Since(time.Unix(s.LastFailureAt, 0)); s.LastFailureAt > 0 && d >= 0 && d < failureBackoff {
 			return
 		}
 	}
@@ -74,27 +78,33 @@ func CurrentStatus() Status {
 }
 
 func doRefresh(ctx context.Context, currentVersion string) (Result, error) {
-	res := Result{OldRevision: registry.NewestLocalRevision()}
+	origin := originURL()
+	// A cache downloaded from a different origin never gates this one, so
+	// switching origins (e.g. a staging override) repairs itself.
+	local := registry.EmbeddedRevision()
+	if s := loadState(); s != nil && s.Origin == origin {
+		local = registry.NewestLocalRevision()
+	}
+	res := Result{OldRevision: local}
 	m, err := fetchManifest(ctx)
 	if err != nil {
 		return res, err
 	}
-	// Gates: unknown manifest format, binary too old, or nothing newer.
-	// All three are fully processed checks — advance the TTL clock.
-	if m.FormatVersion != formatVersion || tooOld(m.MinCLIVersion, currentVersion) || m.Revision <= res.OldRevision {
-		markChecked()
+	// Fully processed gates advance the TTL clock.
+	if m.FormatVersion != formatVersion || tooOld(m.MinCLIVersion, currentVersion) || m.Revision <= local {
+		markChecked(origin)
 		return res, nil
 	}
 	raw, err := fetchSpec(ctx, m)
 	if err != nil {
 		return res, err
 	}
-	var spec registry.Spec
-	if err := json.Unmarshal(raw, &spec); err != nil {
+	spec, err := registry.ParseSpec(raw)
+	if err != nil {
 		return res, err
 	}
-	if len(spec.Modules) == 0 || spec.GeneratedAt != m.Revision {
-		return res, errors.New("metasync: downloaded spec failed validation")
+	if spec.GeneratedAt != m.Revision {
+		return res, errors.New("metasync: spec generated_at does not match manifest revision")
 	}
 	path, err := registry.CachedSpecPath()
 	if err != nil {
@@ -106,23 +116,17 @@ func doRefresh(ctx context.Context, currentVersion string) (Result, error) {
 	if err := fsx.WriteFileAtomic(path, raw, 0o600); err != nil {
 		return res, err
 	}
-	_ = saveState(&state{LastCheckedAt: time.Now().Unix(), Revision: m.Revision})
+	_ = saveState(&state{LastCheckedAt: time.Now().Unix(), Origin: origin})
 	res.NewRevision, res.Updated = m.Revision, true
 	return res, nil
 }
 
-// markChecked advances the TTL clock (and clears any failure backoff)
-// without changing the recorded revision.
-func markChecked() {
-	rev := ""
-	if s := loadState(); s != nil {
-		rev = s.Revision
-	}
-	_ = saveState(&state{LastCheckedAt: time.Now().Unix(), Revision: rev})
+// markChecked advances the TTL clock and clears any failure backoff.
+func markChecked(origin string) {
+	_ = saveState(&state{LastCheckedAt: time.Now().Unix(), Origin: origin})
 }
 
-// markFailed records a completed-but-failed attempt so the background path
-// backs off instead of retrying on every run.
+// markFailed records a completed-but-failed attempt for the backoff guard.
 func markFailed() {
 	s := loadState()
 	if s == nil {
@@ -132,29 +136,19 @@ func markFailed() {
 	_ = saveState(s)
 }
 
-// tooOld reports whether the manifest requires a newer CLI. Non-release
-// builds (dev) always pass the gate.
+// tooOld reports whether the manifest requires a newer CLI; non-release
+// (dev) builds always pass.
 func tooOld(minVersion, current string) bool {
 	return minVersion != "" && updatecheck.IsReleaseVersion(current) && updatecheck.IsNewer(minVersion, current)
 }
 
-// shouldSkip mirrors updatecheck.shouldSkip semantics with metasync's own
-// disable knob.
+// shouldSkip mirrors updatecheck.shouldSkip with metasync's own disable knob.
 func shouldSkip(version string) bool {
-	if os.Getenv("SHOPLAZZA_CLI_NO_META_UPDATE") != "" {
+	if os.Getenv(EnvDisable) != "" {
 		return true
 	}
-	if isCIEnv() {
+	if updatecheck.IsCIEnv() {
 		return true
 	}
 	return !updatecheck.IsReleaseVersion(version)
-}
-
-func isCIEnv() bool {
-	for _, k := range []string{"CI", "BUILD_NUMBER", "RUN_ID"} {
-		if os.Getenv(k) != "" {
-			return true
-		}
-	}
-	return false
 }
