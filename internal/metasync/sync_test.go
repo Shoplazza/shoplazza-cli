@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -216,9 +217,13 @@ func TestDoRefresh_RejectsBadPayloads(t *testing.T) {
 			if readCache(t) != nil {
 				t.Fatal("failed refresh must not write the cache file")
 			}
-			// Failures must NOT advance the TTL clock (retry next run).
-			if s := loadState(); s != nil {
-				t.Fatalf("failed refresh must not write state, got %+v", s)
+			// Failures record a backoff stamp but never advance the TTL clock.
+			s := loadState()
+			if s == nil || s.LastFailureAt == 0 {
+				t.Fatalf("failed refresh must record LastFailureAt, got %+v", s)
+			}
+			if s.LastCheckedAt != 0 {
+				t.Fatalf("failed refresh must not advance LastCheckedAt, got %+v", s)
 			}
 		})
 	}
@@ -269,6 +274,63 @@ func TestDoRefresh_FailureKeepsExistingCache(t *testing.T) {
 	}
 	if !bytes.Equal(readCache(t), raw) {
 		t.Fatal("existing cache must survive a failed refresh")
+	}
+}
+
+// An invalid-but-newer cache file must not wedge future downloads: the gate
+// compares against the newest VALID local spec, so the next refresh repairs it.
+func TestDoRefresh_InvalidCacheDoesNotWedge(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	path, err := registry.CachedSpecPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Bogus cache: revision far beyond the remote's, but unusable (no modules).
+	bogus := []byte(`{"generated_at":"9999-12-31T00:00:00Z","modules":[]}`)
+	if err := os.WriteFile(path, bogus, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := ForceRefresh(context.Background(), "1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Updated {
+		t.Fatalf("refresh must repair the invalid cache, got %+v", res)
+	}
+	if !bytes.Equal(readCache(t), raw) {
+		t.Fatal("cache file must be overwritten with the valid spec")
+	}
+}
+
+// A completed-but-failed attempt must back off instead of retrying every run.
+func TestRefresh_FailureBackoff(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	m := manifestFor(gz, futureRev)
+	m.SHA256 = sha256Hex([]byte("broken"))
+	r := newRemote(t, m, gz)
+	setup(t, r)
+
+	Refresh(context.Background(), "1.0.0")
+	s := loadState()
+	if s == nil || s.LastFailureAt == 0 {
+		t.Fatalf("failed background refresh must record LastFailureAt, got %+v", s)
+	}
+	if got := r.specHits.Load(); got != 1 {
+		t.Fatalf("spec hits = %d, want 1", got)
+	}
+	// Within the backoff window the next run must not touch the network.
+	Refresh(context.Background(), "1.0.0")
+	if got := r.specHits.Load(); got != 1 {
+		t.Fatalf("backoff must suppress the retry, spec hits = %d", got)
 	}
 }
 

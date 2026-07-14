@@ -13,7 +13,10 @@ import (
 	"shoplazza-cli-v2/internal/updatecheck"
 )
 
-const cacheTTL = 24 * time.Hour
+const (
+	cacheTTL       = 24 * time.Hour
+	failureBackoff = time.Hour
+)
 
 // Result describes the outcome of a refresh.
 type Result struct {
@@ -29,23 +32,33 @@ type Status struct {
 	LastCheckedAt time.Time // zero when no check has completed yet
 }
 
-// Refresh is the silent TTL-gated background path. Safe fire-and-forget: all
-// errors are swallowed and the process exiting mid-download just retries on
-// a later run (state is only written after a fully processed check).
+// Refresh is the silent background path: TTL-gated, failures backed off,
+// errors swallowed. Safe fire-and-forget.
 func Refresh(ctx context.Context, currentVersion string) {
 	if shouldSkip(currentVersion) {
 		return
 	}
-	if s := loadState(); s != nil && time.Since(time.Unix(s.LastCheckedAt, 0)) < cacheTTL {
-		return
+	if s := loadState(); s != nil {
+		if time.Since(time.Unix(s.LastCheckedAt, 0)) < cacheTTL {
+			return
+		}
+		if s.LastFailureAt > 0 && time.Since(time.Unix(s.LastFailureAt, 0)) < failureBackoff {
+			return
+		}
 	}
-	_, _ = doRefresh(ctx, currentVersion)
+	if _, err := doRefresh(ctx, currentVersion); err != nil {
+		markFailed()
+	}
 }
 
 // ForceRefresh skips the TTL and skip-guards (explicit user action, e.g.
 // `shoplazza update`) and reports what happened.
 func ForceRefresh(ctx context.Context, currentVersion string) (Result, error) {
-	return doRefresh(ctx, currentVersion)
+	res, err := doRefresh(ctx, currentVersion)
+	if err != nil {
+		markFailed()
+	}
+	return res, err
 }
 
 // CurrentStatus reports the active spec provenance and last check time.
@@ -98,13 +111,25 @@ func doRefresh(ctx context.Context, currentVersion string) (Result, error) {
 	return res, nil
 }
 
-// markChecked advances the TTL clock without changing the recorded revision.
+// markChecked advances the TTL clock (and clears any failure backoff)
+// without changing the recorded revision.
 func markChecked() {
 	rev := ""
 	if s := loadState(); s != nil {
 		rev = s.Revision
 	}
 	_ = saveState(&state{LastCheckedAt: time.Now().Unix(), Revision: rev})
+}
+
+// markFailed records a completed-but-failed attempt so the background path
+// backs off instead of retrying on every run.
+func markFailed() {
+	s := loadState()
+	if s == nil {
+		s = &state{}
+	}
+	s.LastFailureAt = time.Now().Unix()
+	_ = saveState(s)
 }
 
 // tooOld reports whether the manifest requires a newer CLI. Non-release

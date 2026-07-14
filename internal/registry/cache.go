@@ -47,22 +47,14 @@ func peekGeneratedAt(data []byte) string {
 }
 
 // NewestLocalRevision returns the generated_at of the newest locally
-// available spec — embedded or downloaded cache — reading the cache file
-// fresh (no memoization). Metasync uses it to gate downloads.
+// usable spec — the downloaded cache only counts when it passes the same
+// validation LoadSpec applies, so an invalid cache file never blocks a
+// re-download that would repair it. Metasync uses it to gate downloads.
 func NewestLocalRevision() string {
-	rev := peekGeneratedAt(Embedded)
-	path, err := CachedSpecPath()
-	if err != nil {
-		return rev
+	if cached := loadCachedSpec(); cached != nil {
+		return cached.GeneratedAt
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return rev
-	}
-	if r := peekGeneratedAt(data); r > rev {
-		return r
-	}
-	return rev
+	return peekGeneratedAt(Embedded)
 }
 
 // loadCachedSpec returns the downloaded spec when it is valid and strictly

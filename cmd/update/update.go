@@ -75,14 +75,17 @@ func upToDate(latest, current string, latestErr error) bool {
 }
 
 // metaRefresh is swappable in tests (the real one hits the network).
-var metaRefresh = func(ctx context.Context) (metasync.Result, error) {
-	return metasync.ForceRefresh(ctx, build.Version)
+var metaRefresh = func(ctx context.Context, version string) (metasync.Result, error) {
+	return metasync.ForceRefresh(ctx, version)
 }
 
 // refreshMetadata force-refreshes the OpenAPI metadata cache and merges the
-// outcome into the response body. Failures never affect the exit code.
-func refreshMetadata(ctx context.Context, body map[string]any) {
-	res, err := metaRefresh(ctx)
+// outcome into the response body. version is the CLI version that will run
+// next (the just-installed one after an update), so the manifest's
+// min_cli_version gate is evaluated against it. Failures never affect the
+// exit code.
+func refreshMetadata(ctx context.Context, version string, body map[string]any) {
+	res, err := metaRefresh(ctx, version)
 	if err != nil {
 		body["meta_error"] = err.Error()
 		return
@@ -122,7 +125,7 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 		body := map[string]any{
 			"ok": true, "package": npmPackage, "current": current, "latest": latest, "updated": false,
 		}
-		refreshMetadata(ctx, body)
+		refreshMetadata(ctx, current, body)
 		return output.PrintBody(out, body, format, "")
 	}
 
@@ -163,6 +166,6 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 	body := map[string]any{
 		"ok": true, "package": npmPackage, "previous": current, "latest": newVersion, "updated": true,
 	}
-	refreshMetadata(ctx, body)
+	refreshMetadata(ctx, newVersion, body)
 	return output.PrintBody(out, body, format, "")
 }

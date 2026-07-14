@@ -11,10 +11,12 @@ import (
 
 const stateFile = "state.json"
 
-// state tracks the last refresh attempt. LastCheckedAt is only written after
-// a fully processed check, so an interrupted download retries on the next run.
+// state tracks refresh outcomes: LastCheckedAt marks a fully processed
+// check (24h TTL), LastFailureAt a completed-but-failed attempt (short
+// backoff). An interrupted attempt writes neither and retries next run.
 type state struct {
 	LastCheckedAt int64  `json:"last_checked_at"`
+	LastFailureAt int64  `json:"last_failure_at,omitempty"`
 	Revision      string `json:"revision,omitempty"`
 }
 

@@ -106,7 +106,7 @@ func Execute() (exitCode int) {
 	// refresh in a background goroutine for the next run.
 	// Skip update/completion commands to avoid nagging mid-update and avoid corrupting completion output.
 	var pendingUpdate *updatecheck.Info
-	if !isUpdateCheckSkippedCommand(os.Args[1:]) {
+	if !isUpdateCheckSkippedCommand(rootCmd, os.Args[1:]) {
 		pendingUpdate = updatecheck.CheckCached(build.Version)
 		// Fire-and-forget: on fast-exiting commands the process may end before these
 		// finish — that's fine, they refresh the caches for the next run (no latency).

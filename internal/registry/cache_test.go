@@ -131,6 +131,24 @@ func TestLoadSpec_CachedRescuesCorruptEmbedded(t *testing.T) {
 	}
 }
 
+// An invalid cache file must not raise the local revision — otherwise it
+// would gate off the re-download that repairs it.
+func TestNewestLocalRevision_IgnoresInvalidCache(t *testing.T) {
+	dir := useTempConfigDir(t)
+	embedded := NewestLocalRevision()
+	if embedded == "" {
+		t.Fatal("embedded revision must be non-empty")
+	}
+	writeCachedSpec(t, dir, `{"generated_at":"9999-01-01T00:00:00Z","modules":[]}`)
+	if got := NewestLocalRevision(); got != embedded {
+		t.Fatalf("NewestLocalRevision() = %q, want embedded %q", got, embedded)
+	}
+	writeCachedSpec(t, dir, `{"generated_at":"9999-01-01T00:00:00Z","modules":[{"name":"zz","commands":[]}]}`)
+	if got := NewestLocalRevision(); got != "9999-01-01T00:00:00Z" {
+		t.Fatalf("NewestLocalRevision() = %q, want valid cache revision", got)
+	}
+}
+
 func TestCachedSpecPath(t *testing.T) {
 	dir := useTempConfigDir(t)
 	p, err := CachedSpecPath()

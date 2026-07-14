@@ -15,7 +15,7 @@ import (
 
 // TestMain stubs the metadata refresh so runUpdate tests never hit the network.
 func TestMain(m *testing.M) {
-	metaRefresh = func(context.Context) (metasync.Result, error) {
+	metaRefresh = func(context.Context, string) (metasync.Result, error) {
 		return metasync.Result{OldRevision: "r0"}, nil
 	}
 	os.Exit(m.Run())
@@ -126,14 +126,19 @@ func TestRunUpdate_MetaRefreshOutcomes(t *testing.T) {
 	saved := metaRefresh
 	t.Cleanup(func() { metaRefresh = saved })
 
-	t.Run("updated metadata reported", func(t *testing.T) {
-		metaRefresh = func(context.Context) (metasync.Result, error) {
+	t.Run("updated metadata reported with post-install version", func(t *testing.T) {
+		var gotVersion string
+		metaRefresh = func(_ context.Context, version string) (metasync.Result, error) {
+			gotVersion = version
 			return metasync.Result{OldRevision: "r0", NewRevision: "r1", Updated: true}, nil
 		}
-		f := &fakeOps{latestVer: "2.0.1"}
+		f := &fakeOps{latestVer: "2.0.2"}
 		var out, errW bytes.Buffer
 		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if gotVersion != "2.0.2" {
+			t.Errorf("refresh must use the just-installed version, got %q", gotVersion)
 		}
 		body := decodeBody(t, out.Bytes())
 		if body["meta_updated"] != true || body["meta_revision"] != "r1" {
@@ -142,7 +147,7 @@ func TestRunUpdate_MetaRefreshOutcomes(t *testing.T) {
 	})
 
 	t.Run("refresh failure never fails the command", func(t *testing.T) {
-		metaRefresh = func(context.Context) (metasync.Result, error) {
+		metaRefresh = func(context.Context, string) (metasync.Result, error) {
 			return metasync.Result{}, errors.New("boom")
 		}
 		f := &fakeOps{latestVer: "2.0.1"}
@@ -158,7 +163,7 @@ func TestRunUpdate_MetaRefreshOutcomes(t *testing.T) {
 
 	t.Run("check-only skips refresh", func(t *testing.T) {
 		called := false
-		metaRefresh = func(context.Context) (metasync.Result, error) {
+		metaRefresh = func(context.Context, string) (metasync.Result, error) {
 			called = true
 			return metasync.Result{}, nil
 		}
