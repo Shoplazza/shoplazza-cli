@@ -120,15 +120,25 @@ func TestRun_FreshInstall_NoV1Files(t *testing.T) {
 	}
 }
 
-func TestRun_SingleStore_CreatesCurrentProfileWithoutToken(t *testing.T) {
+func TestRun_AllStores_BecomeProfiles_CurrentFromLegacy(t *testing.T) {
 	dir := t.TempDir()
 	cp := layV1Fixture(t, dir, withStoreDomain("us.myshoplazza.com"), withStores("us.myshoplazza.com", "cn.myshoplazza.com"))
 	if err := Run(cp); err != nil {
 		t.Fatal(err)
 	}
 	cfg, _ := core.LoadConfig(cp)
-	if cfg.ConfigVersion != 2 || cfg.CurrentProfile != "us" || len(cfg.Profiles) != 1 {
-		t.Fatalf("profile: %+v", cfg) // 仅 current 店建 Profile；cn 丢弃
+	if cfg.ConfigVersion != 2 || cfg.CurrentProfile != "us" || len(cfg.Profiles) != 2 {
+		t.Fatalf("profile: %+v", cfg) // 每个 v1 店建 Profile；current 跟 legacy store_domain
+	}
+	byName := map[string]core.ProfileConfig{}
+	for _, p := range cfg.Profiles {
+		byName[p.Name] = p
+	}
+	if p, ok := byName["us"]; !ok || p.StoreID != "100001" || p.StoreDomain != "us.myshoplazza.com" {
+		t.Fatalf("us profile: %+v", byName)
+	}
+	if p, ok := byName["cn"]; !ok || p.StoreID != "100002" || p.StoreDomain != "cn.myshoplazza.com" {
+		t.Fatalf("cn profile: %+v", byName)
 	}
 	if cfg.Accounts[0].Name != "alice@co.com" { // 邮箱小写归一
 		t.Fatalf("account: %+v", cfg.Accounts)
@@ -140,6 +150,47 @@ func TestRun_SingleStore_CreatesCurrentProfileWithoutToken(t *testing.T) {
 	// store token 不迁移；Get 对不存在的条目返回 ("", nil)，不是 error（T2 契约）
 	if v, err := keychain.Get(keychain.ShoplazzaCliService, "profile:us:store"); err != nil || v != "" {
 		t.Fatalf("store token must NOT be migrated, got %q, %v", v, err)
+	}
+}
+
+// 无 legacy store_domain 时：唯一的迁移店自动成为 current（对齐 profile add
+// 首个 profile 的行为）；多店则留空，由用户 profile use 挑选。
+func TestRun_StoresOnly_SingleBecomesCurrent(t *testing.T) {
+	cp := layV1Fixture(t, t.TempDir(), withStores("us.myshoplazza.com"))
+	if err := Run(cp); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := core.LoadConfig(cp)
+	if len(cfg.Profiles) != 1 || cfg.CurrentProfile != "us" || cfg.Profiles[0].StoreID != "100001" {
+		t.Fatalf("single store: %+v", cfg)
+	}
+}
+
+func TestRun_StoresOnly_MultipleNoCurrent(t *testing.T) {
+	cp := layV1Fixture(t, t.TempDir(), withStores("us.myshoplazza.com", "cn.myshoplazza.com"))
+	if err := Run(cp); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := core.LoadConfig(cp)
+	if len(cfg.Profiles) != 2 || cfg.CurrentProfile != "" {
+		t.Fatalf("multi store must not guess a current: %+v", cfg)
+	}
+}
+
+// 派生名冲突（shop.myshoplaza.com 与 shop.stg.myshoplaza.com 同缩 "shop"）：
+// 后者获得 -2 后缀；域名排序保证结果确定。
+func TestRun_Stores_NameCollisionGetsSuffix(t *testing.T) {
+	cp := layV1Fixture(t, t.TempDir(), withStores("shop.myshoplaza.com", "shop.stg.myshoplaza.com"))
+	if err := Run(cp); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := core.LoadConfig(cp)
+	byName := map[string]string{}
+	for _, p := range cfg.Profiles {
+		byName[p.Name] = p.StoreDomain
+	}
+	if byName["shop"] != "shop.myshoplaza.com" || byName["shop-2"] != "shop.stg.myshoplaza.com" {
+		t.Fatalf("collision naming: %+v", byName)
 	}
 }
 
