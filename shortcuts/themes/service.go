@@ -2,8 +2,8 @@
 //
 // The dynamic CRUD commands (themes list/get/publish/delete/...) are registered
 // separately by the dynamic engine from the v2 spec. This package only adds
-// the workflow commands (init / package / pull / push / share / serve) that
-// need multi-step orchestration or compress parameters.
+// the workflow commands (init / package / pull / push / share / serve /
+// +preview) that need multi-step orchestration or compress parameters.
 //
 // API version mix:
 //   - v2 spec endpoints (16) — `/openapi/2026-01/themes/...` (including task polling)

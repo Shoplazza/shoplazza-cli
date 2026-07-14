@@ -67,6 +67,15 @@ func TestHelp_Push(t *testing.T) {
 	}
 }
 
+func TestHelp_Preview(t *testing.T) {
+	out := helpFor(t, "themes", "+preview")
+	for _, want := range []string{"+preview", "--theme-id", "-t", "--oseid"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("+preview help missing %q:\n%s", want, out)
+		}
+	}
+}
+
 // TestHelp_Share_HasNoThemeID: share is a non-destructive snapshot — it always
 // uploads a fresh temporary theme and never takes a --theme-id. Overwriting an
 // existing theme is `themes push`'s job; share must not expose a -t footgun.

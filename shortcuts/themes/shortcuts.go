@@ -4,8 +4,8 @@
 // spec-driven dynamic CRUD commands mount under top-level `shoplazza themes`
 // (Service: "themes"). They share one command group:
 //
-//	shoplazza themes init/package/pull/push/share/serve   (workflows, this package)
-//	shoplazza themes list/get/publish/delete/task/...      (dynamic CRUD, from the v2 spec)
+//	shoplazza themes init/package/pull/push/share/serve/+preview  (workflows, this package)
+//	shoplazza themes list/get/publish/delete/task/...              (dynamic CRUD, from the v2 spec)
 //
 // There is no `list` workflow shortcut: listing is provided by the dynamic
 // `themes list` command, so the workflow side stays free of a name collision.
@@ -18,9 +18,9 @@ import "shoplazza-cli-v2/shortcuts/common"
 // separately by the dynamic engine from the v2 spec; this slice only contains
 // the workflow shortcuts that have no direct spec equivalent.
 //
-// The 6 workflow shortcuts (init / package / pull / push / share / serve) all
-// mount under top-level `themes`; `list` is intentionally absent (the dynamic
-// `themes list` covers it).
+// The 7 workflow shortcuts (init / package / pull / push / share / serve /
+// +preview) all mount under top-level `themes`; `list` is intentionally absent
+// (the dynamic `themes list` covers it).
 func Shortcuts() []common.Shortcut {
 	return []common.Shortcut{
 		initShortcut,
@@ -29,5 +29,6 @@ func Shortcuts() []common.Shortcut {
 		pushShortcut,
 		shareShortcut,
 		serveShortcut,
+		previewShortcut,
 	}
 }
