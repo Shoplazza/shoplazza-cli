@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"shoplazza-cli-v2/internal/testenv"
 )
 
 func TestDefaultConfigPath_NonEmpty(t *testing.T) {
@@ -88,6 +90,7 @@ func TestLoadConfig_InvalidJSON(t *testing.T) {
 }
 
 func TestLoadConfig_EmptyPath_UsesDefaultPath(t *testing.T) {
+	testenv.IsolateConfigDir(t)
 	// An empty path triggers the DefaultConfigPath() fallback.
 	cfg, err := LoadConfig("")
 	if err != nil {
@@ -97,19 +100,11 @@ func TestLoadConfig_EmptyPath_UsesDefaultPath(t *testing.T) {
 }
 
 func TestSaveConfig_EmptyPath_UsesDefaultPath(t *testing.T) {
+	testenv.IsolateConfigDir(t)
 	defaultPath, err := DefaultConfigPath()
 	if err != nil {
 		t.Skip("DefaultConfigPath unavailable")
 	}
-	// Back up and restore so the test environment stays clean.
-	orig, readErr := os.ReadFile(defaultPath)
-	defer func() {
-		if readErr == nil {
-			_ = os.WriteFile(defaultPath, orig, 0o600)
-		} else {
-			_ = os.Remove(defaultPath)
-		}
-	}()
 	if err := SaveConfig("", CliConfig{CurrentProfile: "test-acct"}); err != nil {
 		t.Fatalf("SaveConfig with empty path: %v", err)
 	}
@@ -123,7 +118,7 @@ func TestSaveConfig_EmptyPath_UsesDefaultPath(t *testing.T) {
 }
 
 func TestRemoveConfig_EmptyPath(t *testing.T) {
-	// Verify it doesn't error when the default path doesn't exist.
+	testenv.IsolateConfigDir(t)
 	defaultPath, err := DefaultConfigPath()
 	if err != nil {
 		t.Skip("DefaultConfigPath unavailable")
@@ -220,7 +215,7 @@ func TestSaveConfig_Atomic(t *testing.T) {
 	// 目录里不残留 .tmp
 	entries, _ := os.ReadDir(filepath.Dir(p))
 	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".tmp") {
+		if strings.Contains(e.Name(), ".tmp") {
 			t.Fatalf("tmp leak: %s", e.Name())
 		}
 	}
