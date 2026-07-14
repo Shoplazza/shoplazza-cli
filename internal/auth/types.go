@@ -98,6 +98,10 @@ type LoginResult struct {
 	// StoreWarning is set when a requested --store-domain fails validation at
 	// login; login still succeeds but the store is not set as current.
 	StoreWarning string
+	// StoreToken carries the login-time store exchange result (server prewarm
+	// or validation) so the command layer can persist it under the profile
+	// key; login no longer writes the legacy account-level store slot.
+	StoreToken *storeATBlock
 }
 
 // ── HTTP request / response types ────────────────────────────────────────────

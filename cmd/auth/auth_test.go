@@ -12,9 +12,11 @@ import (
 	"testing"
 
 	cmdauth "shoplazza-cli-v2/cmd/auth"
+	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/client"
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/core"
+	"shoplazza-cli-v2/internal/keychain"
 	"shoplazza-cli-v2/internal/output"
 	"shoplazza-cli-v2/internal/testenv"
 )
@@ -133,12 +135,20 @@ func TestLogin_StoreDomainRequiresScope(t *testing.T) {
 }
 
 // --uat store login is exempt: the store token inherits the UAT's account scopes.
+// The login-time exchange must land under the profile key, ready to use.
 func TestLogin_StoreDomainWithUAT_NoScopeOK(t *testing.T) {
 	srv := storeATServer(t)
 	defer srv.Close()
 	f, out := tempAuthFactory(t, srv.URL)
 	if err := execAuth(t, f, out, "login", "--store-domain", "my-store.com", "--uat", "uat_x"); err != nil {
 		t.Fatalf("--uat store login should be exempt from the scope requirement: %v", err)
+	}
+	if tok, err := keychain.Get(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey("my-store.com")); err != nil || tok != "at_x" {
+		t.Errorf("login exchange must persist under the profile key, got tok=%q err=%v", tok, err)
+	}
+	meta, _ := internalauth.LoadProfileMeta(internalauth.AuthDir(f.ConfigPath), "my-store.com")
+	if internalauth.TokenStatus(meta.ExpiresAt) != "valid" {
+		t.Errorf("profile token_status after login = %q, want valid", internalauth.TokenStatus(meta.ExpiresAt))
 	}
 }
 

@@ -104,7 +104,7 @@ func seedExtraProfile(t *testing.T, f *cmdutil.Factory, name, storeDomain string
 func TestSync_ReLogin_KeepsProfilesClearsTokens(t *testing.T) {
 	f := seedLoggedInWithProfiles(t, "alice@co.com", "us", "cn")
 	seedProfileToken(t, authDir(f), "us", "at-us", future())
-	err := SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes), "", nil, io.Discard)
+	_, err := SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes), "", nil, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestSync_ReLogin_KeepsProfilesClearsTokens(t *testing.T) {
 func TestSync_ScopeNarrowing_TrimsWithOneWarning(t *testing.T) {
 	f := seedLoggedInWithProfiles(t, "alice@co.com", "us") // us.Scopes = allScopes
 	var buf bytes.Buffer
-	_ = SyncAfterLogin(f, loginResultFor("alice@co.com", []string{"read_product"}), "", nil, &buf)
+	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", []string{"read_product"}), "", nil, &buf)
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if got := cfg.FindProfile("us").Scopes; len(got) != 1 || got[0] != "read_product" {
 		t.Fatalf("trim to intersection: %v", got)
@@ -142,7 +142,7 @@ func TestSync_AccountSwitch_CascadeWipes(t *testing.T) {
 	if err := internalauth.SaveAccountMeta(authDir(f), "alice@co.com", internalauth.AccountMeta{UserID: "u1"}); err != nil {
 		t.Fatalf("seed alice account meta: %v", err)
 	}
-	_ = SyncAfterLogin(f, loginResultFor("bob@co.com", allScopes), "", nil, io.Discard)
+	_, _ = SyncAfterLogin(f, loginResultFor("bob@co.com", allScopes), "", nil, io.Discard)
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if len(cfg.Profiles) != 0 || cfg.Account().Name != "bob@co.com" {
 		t.Fatalf("old account must be wiped: %+v", cfg)
@@ -163,7 +163,7 @@ func TestSync_AccountSwitch_CascadeWipes(t *testing.T) {
 // domain, and a name collision falls back to a "-2" suffix.
 func TestSync_NewStore_DerivedNameAndConflictSuffix(t *testing.T) {
 	f := seedLoggedInWithProfiles(t, "alice@co.com") // no profile yet
-	_ = SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes), "us.myshoplazza.com", nil, io.Discard)
+	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes), "us.myshoplazza.com", nil, io.Discard)
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if cfg.CurrentProfile != "us" {
 		t.Fatalf("derived name: %+v", cfg)
@@ -171,7 +171,7 @@ func TestSync_NewStore_DerivedNameAndConflictSuffix(t *testing.T) {
 	// Manufacture a derived-name collision: a profile already named "cn" bound
 	// to a different store.
 	seedExtraProfile(t, f, "cn", "other.myshoplazza.com")
-	_ = SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes), "cn.myshoplazza.com", nil, io.Discard)
+	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes), "cn.myshoplazza.com", nil, io.Discard)
 	cfg, _ = core.LoadConfig(f.ConfigPath)
 	if cfg.FindProfile("cn-2") == nil || cfg.CurrentProfile != "cn-2" {
 		t.Fatalf("conflict suffix: %+v", cfg)
@@ -185,7 +185,7 @@ func TestSync_NewStore_DerivedNameAndConflictSuffix(t *testing.T) {
 func TestSync_ScopeSubset_IgnoresPrewarmToken(t *testing.T) {
 	f := seedLoggedInWithProfiles(t, "alice@co.com")
 	res := loginResultFor("alice@co.com", allScopes)
-	_ = SyncAfterLogin(f, res, "us.myshoplazza.com", []string{"read_product"}, io.Discard)
+	_, _ = SyncAfterLogin(f, res, "us.myshoplazza.com", []string{"read_product"}, io.Discard)
 	if v, err := keychain.Get(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey("us")); err != nil || v != "" {
 		t.Fatalf("SyncAfterLogin must never write a profile store token, got v=%q err=%v", v, err)
 	}
@@ -206,7 +206,7 @@ func TestEqualFoldSlice_OrderAndCaseInsensitive(t *testing.T) {
 func TestSync_DuplicateCreate_SilentScopeUpdate(t *testing.T) {
 	f := seedLoggedInWithProfiles(t, "alice@co.com", "us") // us exists, full scopes
 	var buf bytes.Buffer
-	_ = SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes),
+	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes),
 		"us.myshoplazza.com", []string{"read_product"}, &buf)
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if got := cfg.FindProfile("us").Scopes; len(got) != 1 {

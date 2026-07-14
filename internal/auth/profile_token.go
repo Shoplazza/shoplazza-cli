@@ -30,15 +30,22 @@ func (m *Manager) ExchangeForProfile(ctx context.Context, authDir string, p core
 	if err != nil {
 		return "", err
 	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, ProfileStoreKey(p.Name), block.AccessToken); err != nil {
-		return "", err
-	}
-	if err := SaveProfileMeta(authDir, strings.ToLower(p.Name), ProfileMeta{
-		StoreID: block.StoreID, ExpiresAt: block.ATExpiresAt, GrantedScopes: block.GrantedScopes,
-	}); err != nil {
+	if err := PersistProfileToken(authDir, p.Name, &block); err != nil {
 		return "", err
 	}
 	return block.AccessToken, nil
+}
+
+// PersistProfileToken stores a minted store token under the profile's
+// keychain key and writes its meta. Shared by ExchangeForProfile and the
+// login flow (which mints before the profile row exists).
+func PersistProfileToken(authDir, profileName string, block *storeATBlock) error {
+	if err := keychain.Set(keychain.ShoplazzaCliService, ProfileStoreKey(profileName), block.AccessToken); err != nil {
+		return err
+	}
+	return SaveProfileMeta(authDir, strings.ToLower(profileName), ProfileMeta{
+		StoreID: block.StoreID, ExpiresAt: block.ATExpiresAt, GrantedScopes: block.GrantedScopes,
+	})
 }
 
 // ExchangeEphemeral mints a token for an arbitrary owned domain WITHOUT any

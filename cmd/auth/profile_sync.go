@@ -18,12 +18,14 @@ import (
 // and, when storeDomain is set, the target profile is created or — if it
 // already exists — silently updated when the requested scope subset differs.
 //
-// SyncAfterLogin never mints or persists a store access token itself: that is
-// the Gate's job (AccessTokenReadyForProfile), done lazily on next use.
-func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomain string, scopes []string, errOut io.Writer) error {
+// SyncAfterLogin never mints or persists a store access token itself; it
+// returns the created/activated profile's name (empty without storeDomain) so
+// the caller can persist the login-time exchange result under that profile.
+func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomain string, scopes []string, errOut io.Writer) (string, error) {
 	email := strings.ToLower(res.Status.Account)
 	granted := res.Status.GrantedScopes
-	return core.UpdateConfig(f.ConfigPath, core.ConfigLockTimeout, func(c *core.CliConfig) error {
+	profileName := ""
+	err := core.UpdateConfig(f.ConfigPath, core.ConfigLockTimeout, func(c *core.CliConfig) error {
 		authDir := internalauth.AuthDir(f.ConfigPath)
 		switch {
 		case c.Account() == nil: // brand-new login
@@ -54,6 +56,7 @@ func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomai
 				_ = internalauth.RemoveProfileMeta(authDir, strings.ToLower(p.Name))
 			}
 			c.PreviousProfile, c.CurrentProfile = c.CurrentProfile, p.Name
+			profileName = p.Name
 			return nil
 		}
 		name := core.DeriveProfileName(storeDomain, func(n string) bool { return c.FindProfile(n) != nil })
@@ -61,8 +64,10 @@ func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomai
 			Name: name, Account: email, StoreDomain: storeDomain, Scopes: scopes,
 		})
 		c.PreviousProfile, c.CurrentProfile = c.CurrentProfile, name
+		profileName = name
 		return nil
 	})
+	return profileName, err
 }
 
 // wipeAccount cascades an account switch or logout: clears every profile's

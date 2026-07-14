@@ -122,9 +122,12 @@ func TestLogin_WithStoreDomain_PrewarmsStoreToken(t *testing.T) {
 	if res.Status.CurrentStore != "my-store.com" {
 		t.Errorf("current store = %q", res.Status.CurrentStore)
 	}
+	if res.StoreToken == nil || res.StoreToken.AccessToken != "at_store" {
+		t.Errorf("prewarm token must ride out on LoginResult, got %+v", res.StoreToken)
+	}
 	st, _ := mgr.LoadState()
-	if st.Stores["my-store.com"].Token != "at_store" {
-		t.Errorf("store token = %q", st.Stores["my-store.com"].Token)
+	if len(st.Stores) != 0 {
+		t.Errorf("login must not write the legacy store slot, got %v", st.Stores)
 	}
 	if len(st.GrantedScopes) != 1 || st.GrantedScopes[0] != "read_product" {
 		t.Errorf("granted scopes mirror = %v", st.GrantedScopes)
@@ -148,9 +151,12 @@ func TestLogin_WithStoreDomain_PrewarmMissing_ValidatesViaExchange(t *testing.T)
 	if res.Status.CurrentStore != "my-store.com" || res.StoreWarning != "" {
 		t.Errorf("valid store should be set with no warning; current=%q warn=%q", res.Status.CurrentStore, res.StoreWarning)
 	}
+	if res.StoreToken == nil || res.StoreToken.AccessToken != "at_validated" {
+		t.Errorf("validation token must ride out on LoginResult, got %+v", res.StoreToken)
+	}
 	st, _ := mgr.LoadState()
-	if st.Stores["my-store.com"].Token != "at_validated" {
-		t.Errorf("validated store token should be cached, got %q", st.Stores["my-store.com"].Token)
+	if len(st.Stores) != 0 {
+		t.Errorf("login must not write the legacy store slot, got %v", st.Stores)
 	}
 }
 
@@ -388,10 +394,9 @@ func TestCurrentStatus_GrantedScopesAlwaysPresent(t *testing.T) {
 }
 
 // Regression: when the prewarmed store_token echoes a domain different from
-// the one the caller requested, the store token must still be keyed by the
-// current store so AccessTokenReady hits the cache instead of re-exchanging on
-// every command.
-func TestLogin_StoreDomainMismatch_CacheHitsByCurrentStore(t *testing.T) {
+// the one the caller requested, the current store stays the REQUESTED domain
+// and the prewarm block still rides out on LoginResult for the profile layer.
+func TestLogin_StoreDomainMismatch_PrewarmRidesOnResult(t *testing.T) {
 	exchanges := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -418,16 +423,14 @@ func TestLogin_StoreDomainMismatch_CacheHitsByCurrentStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Login: %v", err)
 	}
-	// The store must be keyed by the current store, whatever it is.
-	tok, err := mgr.AccessTokenReady(context.Background(), res.Status.CurrentStore)
-	if err != nil {
-		t.Fatalf("AccessTokenReady: %v", err)
+	if res.Status.CurrentStore != "requested.com" {
+		t.Errorf("current store must stay the requested domain, got %q", res.Status.CurrentStore)
 	}
-	if tok != "at_prewarm" {
-		t.Errorf("expected cached prewarm token, got %q", tok)
+	if res.StoreToken == nil || res.StoreToken.AccessToken != "at_prewarm" {
+		t.Errorf("prewarm token must ride out on LoginResult, got %+v", res.StoreToken)
 	}
 	if exchanges != 0 {
-		t.Errorf("prewarmed token under current store should be reused; got %d re-exchanges", exchanges)
+		t.Errorf("prewarm must not trigger a validation exchange; got %d", exchanges)
 	}
 }
 

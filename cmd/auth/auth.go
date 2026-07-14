@@ -137,8 +137,17 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 					return err
 				}
 			}
-			if err := SyncAfterLogin(f, result, storeArg, scope, f.IOStreams.ErrOut); err != nil {
+			profileName, err := SyncAfterLogin(f, result, storeArg, scope, f.IOStreams.ErrOut)
+			if err != nil {
 				return output.ErrInternal("failed to sync profile state: %v", err)
+			}
+			// Persist the login-time exchange under the profile key so the new
+			// profile lands ready ("valid"), instead of re-minting on first use.
+			// Best-effort: a failed write self-heals via the Gate's lazy mint.
+			if profileName != "" && result.StoreToken != nil {
+				if perr := internalauth.PersistProfileToken(internalauth.AuthDir(f.ConfigPath), profileName, result.StoreToken); perr != nil {
+					fmt.Fprintf(f.IOStreams.ErrOut, "warning: store token not cached (will re-mint on next use): %v\n", perr)
+				}
 			}
 
 			// Store warning is shown in the stderr summary only, not echoed in the JSON.
