@@ -26,6 +26,11 @@ type Shortcut struct {
 	// skip it. Leave false for anything that touches the API.
 	AuthFree bool
 
+	// NotScannable marks a command blind CLI scans must skip (interactive,
+	// long-running, or writes the local filesystem); Mount stamps
+	// cmdutil.AnnotationNotScannable so the contract smoke suite discovers it.
+	NotScannable bool
+
 	// Local marks a command whose live result is a local artifact report (file
 	// paths, counts), not an API response. The engine prints it via
 	// output.PrintBody (raw body) instead of the {ok,data} success envelope.

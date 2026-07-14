@@ -46,6 +46,8 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 		Use:   "login",
 		Short: "Log in to your Shoplazza account",
 		Args:  cobra.NoArgs,
+		// Interactive: waits on the browser OAuth callback.
+		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if len(scope) > 0 {
 				if err := internalauth.ValidateScopes(scope); err != nil {
@@ -65,7 +67,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			normalizedStore := ""
 			if storeDomain != "" {
-				_, normalizedStore = parseStoreDomain(storeDomain)
+				normalizedStore = cmdutil.NormalizeStoreDomain(storeDomain)
 				if normalizedStore == "" {
 					return output.ErrValidation("--store-domain must not be empty")
 				}
@@ -120,6 +122,33 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 				fmt.Fprintf(f.IOStreams.ErrOut, "  Granted scopes: %s\n", strings.Join(result.Status.GrantedScopes, " "))
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "  UAT: %s\n", result.UAT)
+
+			// If the requested --store-domain failed live validation, don't create
+			// or activate a profile for it (result.Status.CurrentStore is already "").
+			storeArg := normalizedStore
+			if result.StoreWarning != "" {
+				storeArg = ""
+			}
+			// GrantedScopes is only populated by a store-token exchange, so
+			// only validate --scope when a store exchange actually happened; an
+			// account-only login leaves it empty.
+			if storeArg != "" {
+				if err := cmdutil.ValidateScopeSubset(scope, result.Status.GrantedScopes); err != nil {
+					return err
+				}
+			}
+			profileName, err := SyncAfterLogin(f, result, storeArg, scope, f.IOStreams.ErrOut)
+			if err != nil {
+				return output.ErrInternal("failed to sync profile state: %v", err)
+			}
+			// Persist the login-time exchange under the profile key so the new
+			// profile lands ready ("valid"), instead of re-minting on first use.
+			// Best-effort: a failed write self-heals via the Gate's lazy mint.
+			if profileName != "" && result.StoreToken != nil {
+				if perr := internalauth.PersistProfileToken(internalauth.AuthDir(f.ConfigPath), profileName, result.StoreToken); perr != nil {
+					fmt.Fprintf(f.IOStreams.ErrOut, "warning: store token not cached (will re-mint on next use): %v\n", perr)
+				}
+			}
 
 			// Store warning is shown in the stderr summary only, not echoed in the JSON.
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
@@ -181,11 +210,16 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout",
 		Short: "Log out from the current store",
+		// Mutates the local keychain.
+		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
 			_, err := manager.Logout()
 			if err != nil {
 				return output.Errorf(output.ExitAPI, output.TypeAuth, "logout failed: %s", err.Error())
+			}
+			if err := wipeV2OnLogout(f); err != nil {
+				return output.ErrInternal("failed to clear profile state: %v", err)
 			}
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,
@@ -197,30 +231,31 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "status",
-		Short: "Show current authentication status",
+		Use:         "status",
+		Short:       "Show current authentication status",
+		Annotations: map[string]string{cmdutil.AnnotationAuthFree: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
 			status, err := manager.CurrentStatus()
 			if err != nil {
 				return output.Errorf(output.ExitInternal, output.TypeInternal, "failed to read auth state: %s", err.Error())
 			}
-			return output.PrintJSON(cmd.OutOrStdout(), status)
-		},
-	}
-}
 
-// parseStoreDomain splits "https://store.myshoplazza.com/" into ("https",
-// "store.myshoplazza.com"). Missing scheme defaults to https.
-func parseStoreDomain(raw string) (scheme, host string) {
-	d := strings.TrimSpace(raw)
-	switch {
-	case strings.HasPrefix(d, "https://"):
-		return "https", strings.TrimRight(strings.TrimPrefix(d, "https://"), "/")
-	case strings.HasPrefix(d, "http://"):
-		return "http", strings.TrimRight(strings.TrimPrefix(d, "http://"), "/")
-	default:
-		return "https", strings.TrimRight(d, "/")
+			out := map[string]any{
+				"logged_in":      status.LoggedIn,
+				"account":        status.Account,
+				"user_id":        status.UserID,
+				"granted_scopes": status.GrantedScopes,
+				"uat_available":  status.UATAvailable,
+				"uat_expires_at": status.UATExpiresAt,
+				"profiles":       internalauth.ProfileRows(f.Config, internalauth.AuthDir(f.ConfigPath)),
+			}
+			if len(status.Stores) > 0 {
+				out["stores"] = status.Stores
+			}
+
+			return output.PrintBody(cmd.OutOrStdout(), out, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
+		},
 	}
 }
 
@@ -235,7 +270,7 @@ func newCmdScopes(f *cmdutil.Factory) *cobra.Command {
 				return output.Errorf(output.ExitInternal, output.TypeInternal, "failed to read auth state: %s", err.Error())
 			}
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
-				"current_store":    manager.Config.StoreDomain,
+				"current_store":    manager.Config.CurrentStoreDomain(),
 				"granted_scopes":   state.GrantedScopes,
 				"supported_scopes": internalauth.SupportedScopes(),
 			})

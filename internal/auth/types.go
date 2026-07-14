@@ -38,14 +38,14 @@ type AppState struct {
 type AuthState struct {
 	Account          string
 	UserID           string // login user id (poll/me user_id) — sent as login-user-id header
-	UAT              string // keychain "uat" — never serialized
-	Partner          string // keychain "partner" — never serialized
+	UAT              string // keychain AccountUATKey(account) — never serialized
+	Partner          string // keychain AccountPartnerKey(account) — never serialized
 	UATExpiresAt     string
 	PartnerExpiresAt string
 	GrantedScopes    []string // account-level; mirror of store-AT passthrough
 	Stores           map[string]StoreState
 	Apps             map[string]AppState
-	CurrentStore     string // from config.json.store_domain
+	CurrentStore     string // from the current profile's storeDomain (CliConfig.CurrentStoreDomain())
 }
 
 // StoreTokenMeta is the on-disk metadata for one store (no token).
@@ -98,6 +98,10 @@ type LoginResult struct {
 	// StoreWarning is set when a requested --store-domain fails validation at
 	// login; login still succeeds but the store is not set as current.
 	StoreWarning string
+	// StoreToken carries the login-time store exchange result (server prewarm
+	// or validation) so the command layer can persist it under the profile
+	// key; login no longer writes the legacy account-level store slot.
+	StoreToken *storeATBlock
 }
 
 // ── HTTP request / response types ────────────────────────────────────────────
@@ -146,8 +150,9 @@ type meResponse struct {
 }
 
 type exchangeStoreATRequest struct {
-	UAT         string `json:"uat"`
-	StoreDomain string `json:"store_domain"`
+	UAT         string   `json:"uat"`
+	StoreDomain string   `json:"store_domain"`
+	Scopes      []string `json:"scopes,omitempty"`
 }
 
 // exchangeAppATRequest is the ExchangeAppAT payload. client_secret + partner_id

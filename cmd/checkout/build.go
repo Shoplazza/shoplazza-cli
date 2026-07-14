@@ -72,10 +72,10 @@ func newCmdBuild(f *cmdutil.Factory) *cobra.Command {
 			}
 			format := cmdutil.GetFormat(cmd)
 			return output.PrintBody(cmd.OutOrStdout(), map[string]any{
-				"ok":          true,
-				"extensionId": id,
-				"artifacts":   res.Artifacts,
-				"durationMs":  res.DurationMs,
+				"ok":           true,
+				"extension_id": id,
+				"artifacts":    res.Artifacts,
+				"duration_ms":  res.DurationMs,
 			}, format, "")
 		},
 	}

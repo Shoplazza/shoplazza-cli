@@ -30,13 +30,17 @@ func writeCheckoutVersionList(w http.ResponseWriter, version, id string) {
 func tempCheckoutFactory(t *testing.T, srvURL string) (*cmdutil.Factory, *bytes.Buffer) {
 	t.Helper()
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "test-token") // RequireAuth fast-path (CI bypass)
+	t.Setenv("SHOPLAZZA_CLI_API_BASE_URL", srvURL)   // gate still needs an explicit store target
 	out := &bytes.Buffer{}
 	cl := client.New(srvURL)
 	cl.SetBearerToken("test-token")
 	return &cmdutil.Factory{
 		IOStreams:  cmdutil.IOStreams{In: strings.NewReader(""), Out: out, ErrOut: io.Discard},
 		ConfigPath: filepath.Join(t.TempDir(), "config.json"),
-		Config:     core.CliConfig{StoreDomain: "test-store.myshoplaza.com"},
+		Config: core.CliConfig{
+			CurrentProfile: "test",
+			Profiles:       []core.ProfileConfig{{Name: "test", StoreDomain: "test-store.myshoplaza.com"}},
+		},
 		Client:     cl,
 		AuthClient: client.New(srvURL),
 	}, out

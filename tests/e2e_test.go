@@ -28,23 +28,11 @@ func apiEnv(apiBaseURL string) []string {
 	}
 }
 
-// buildBinary compiles the CLI binary into a temp dir and returns the path.
+// buildBinary returns the package-shared CLI binary (compiled once by
+// sharedBinary in contract_smoke_test.go).
 func buildBinary(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
-	bin := filepath.Join(dir, "shoplazza")
-	// go test sets cwd to the package dir (tests/); navigate up to project root.
-	projectRoot, err := filepath.Abs("..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command("go", "build", "-o", bin, ".")
-	cmd.Dir = projectRoot
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("build failed: %v\n%s", err, out)
-	}
-	return bin
+	return sharedBinary(t)
 }
 
 // runCLI runs the CLI binary with the given args and environment overrides.
@@ -387,8 +375,8 @@ func TestAuthLogin_DomainNormalization(t *testing.T) {
 				t.Fatalf("read config.json: %v", err)
 			}
 			content := string(data)
-			if !strings.Contains(content, `"store_domain": "`+tc.want+`"`) {
-				t.Errorf("config.json store_domain mismatch\nwant: %q\ngot: %s", tc.want, content)
+			if !strings.Contains(content, `"storeDomain": "`+tc.want+`"`) {
+				t.Errorf("config.json storeDomain mismatch\nwant: %q\ngot: %s", tc.want, content)
 			}
 			if strings.Contains(content, "https://e2e") || strings.Contains(content, "http://e2e") {
 				t.Error("store_domain must not contain URL scheme")

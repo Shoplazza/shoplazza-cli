@@ -29,8 +29,10 @@ var initShortcut = common.Shortcut{
 	Short:   "Initialize a new theme by cloning the Nova-2023 template",
 	// Purely local (GitHub fetch + extraction): runs without login and reports
 	// a local artifact rather than an API response (no {ok,data} envelope).
-	AuthFree: true,
-	Local:    true,
+	// Writes the local filesystem, so blind scans skip it.
+	AuthFree:     true,
+	Local:        true,
+	NotScannable: true,
 	Flags: []common.Flag{
 		{
 			Name:        "name",

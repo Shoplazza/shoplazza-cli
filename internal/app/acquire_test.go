@@ -19,7 +19,7 @@ func TestEnsureAppToken_FetchesSecretThenMints(t *testing.T) {
 	// Isolate config + keychain to temp (HOME/XDG drive os.UserConfigDir).
 	dir := testenv.IsolateConfigDir(t)
 	// Seed a UAT so AppTokenReady's logged-in gate passes.
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_1"); err != nil {
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_1"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -54,7 +54,8 @@ func TestEnsureAppToken_FetchesSecretThenMints(t *testing.T) {
 	}))
 	defer saiga.Close()
 
-	mgr := internalauth.NewManager(core.CliConfig{}, filepath.Join(dir, "config.json"), client.New(saiga.URL))
+	cfg := core.CliConfig{Accounts: []core.AccountConfig{{Name: "alice@co.com"}}}
+	mgr := internalauth.NewManager(cfg, filepath.Join(dir, "config.json"), client.New(saiga.URL))
 	d := NewDashboard(client.New(dash.URL), "partner_tok")
 
 	tok, err := EnsureAppToken(context.Background(), d, mgr, "p1", "cid_1")

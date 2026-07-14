@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.0.7 - 2026-07-10
+
+### Added
+- **Multi-tenant profiles** — persisted per-store execution contexts. One logged-in account can manage many stores and switch between them without re-authenticating. New `shoplazza profile` command group: `add`, `list`, `show`, `use` (with a `--previous` toggle), `update`, `rename`, `remove`. Select a profile per invocation with `--profile` or `SHOPLAZZA_CLI_PROFILE`; resolution order is flag → env → current profile.
+- **Per-profile scope subsets** — `profile add --scope` / `auth login --scope` mint a store token limited to a subset of the account's granted scopes (validated server-side).
+- `auth status` now reports the current profile, store, scopes, and token status (`valid`/`expired`/`absent`); `doctor` gains config-version and profile-directory checks; shell completion for `--profile` and `profile use --name`.
+
+### Changed
+- **Store context is now a profile, not a single global store.** `auth login -s <store>` and `auth store use` create or switch the active profile automatically (re-login keeps existing profiles; switching accounts clears the old account's profiles). `app`, `checkout`, and `theme-extension` commands resolve their store through the current profile; `theme-extension -s <domain>` still works ad-hoc (ephemeral, non-persisted) for a store without a profile.
+- Credentials and config moved to a v2 layout (namespaced keychain keys + per-profile metadata). **Existing installs migrate automatically on first run** — v1 files are preserved and a `config.json.v1.bak` backup is written.
+
+### Removed
+- The v1 single-store config fields (`store_domain`, `current_account`), superseded by profiles (handled transparently by the auto-migration).
+
+### Fixed
+- **First store command after a fresh login no longer fails with `no UAT available`** — login now persists the account token under the keychain key the profile execution path reads (as well as the legacy key the older store/app flows read), so `login → any store command` works end-to-end.
+
 ## 2.0.6 - 2026-07-07
 
 ### Changed

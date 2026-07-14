@@ -36,7 +36,7 @@ func TestPersistState_PreservesPartnerAcrossSameAccountLogin(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := keychain.Get(keychain.ShoplazzaCliService, kcPartner); got != "ptok_a" {
+	if got, _ := keychain.Get(keychain.ShoplazzaCliService, AccountPartnerKey("a@x.com")); got != "ptok_a" {
 		t.Fatalf("partner token wiped by same-account store login: got %q, want ptok_a", got)
 	}
 
@@ -44,7 +44,7 @@ func TestPersistState_PreservesPartnerAcrossSameAccountLogin(t *testing.T) {
 	if err := m.persistState(AuthState{Account: "b@y.com", UAT: "uat_b"}); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := keychain.Get(keychain.ShoplazzaCliService, kcPartner); got != "" {
+	if got, _ := keychain.Get(keychain.ShoplazzaCliService, AccountPartnerKey("b@y.com")); got != "" {
 		t.Fatalf("partner token should be cleared on account switch, got %q", got)
 	}
 }
@@ -72,7 +72,7 @@ func TestPersistState_PreservesPartnerAcrossAccountCasing(t *testing.T) {
 	if err := m.persistState(AuthState{Account: "user@x.com", UAT: "uat_a"}); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := keychain.Get(keychain.ShoplazzaCliService, kcPartner); got != "ptok_a" {
+	if got, _ := keychain.Get(keychain.ShoplazzaCliService, AccountPartnerKey("user@x.com")); got != "ptok_a" {
 		t.Fatalf("partner token wiped by account casing difference: got %q, want ptok_a", got)
 	}
 }

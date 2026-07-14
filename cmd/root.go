@@ -15,6 +15,7 @@ import (
 	"shoplazza-cli-v2/cmd/completion"
 	"shoplazza-cli-v2/cmd/doctor"
 	"shoplazza-cli-v2/cmd/dynamic"
+	"shoplazza-cli-v2/cmd/profile"
 	"shoplazza-cli-v2/cmd/schema"
 	"shoplazza-cli-v2/cmd/theme_extension"
 	"shoplazza-cli-v2/cmd/update"
@@ -28,8 +29,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Execute runs the root command and returns the process exit code.
-func Execute() int {
+// NewRootCmd assembles and returns the full root command tree without
+// executing it. Used by Execute and by tests that enumerate commands.
+func NewRootCmd() *cobra.Command {
 	factory := cmdutil.NewDefaultFactory()
 
 	spec := registry.LoadSpec()
@@ -57,17 +59,40 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
 	RegisterGlobalFlags(rootCmd.PersistentFlags())
+	// --profile completes from configured profile names (best-effort: a
+	// registration failure here would only affect shell completion, never
+	// command execution).
+	_ = rootCmd.RegisterFlagCompletionFunc("profile", cmdutil.ProfileNameCompletionFunc(factory))
 	rootCmd.AddCommand(auth.NewCmdAuth(factory))
 	rootCmd.AddCommand(appcmd.NewCmdApp(factory))
 	rootCmd.AddCommand(checkout.NewCmdCheckout(factory))
 	rootCmd.AddCommand(theme_extension.NewCmdThemeExtension(factory))
 	rootCmd.AddCommand(api.NewCmdAPI(factory))
+	rootCmd.AddCommand(profile.NewCmdProfile(factory))
 	rootCmd.AddCommand(schema.NewCmdSchema(spec))
-	rootCmd.AddCommand(doctor.NewCmdDoctor())
+	rootCmd.AddCommand(doctor.NewCmdDoctor(factory))
 	rootCmd.AddCommand(completion.NewCmdCompletion(factory))
 	rootCmd.AddCommand(update.NewCmdUpdate(factory))
 	dynamic.RegisterCommands(rootCmd, spec, factory)
 	shortcuts.RegisterShortcuts(rootCmd, factory)
+
+	return rootCmd
+}
+
+// Execute runs the root command and returns the process exit code.
+func Execute() (exitCode int) {
+	// Last-resort catchall (error_types.md): a panic must still honor the
+	// JSON error envelope contract instead of leaking a raw stack trace.
+	defer func() {
+		if r := recover(); r != nil {
+			exitErr := output.Errorf(output.ExitInternal, output.TypeInternal,
+				"unexpected internal error: %v", r)
+			output.WriteErrorEnvelope(os.Stderr, exitErr)
+			exitCode = output.ExitInternal
+		}
+	}()
+
+	rootCmd := NewRootCmd()
 
 	// Ctrl-C / SIGTERM cancel the command context so in-flight work can unwind.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

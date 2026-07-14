@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -30,31 +29,16 @@ func addDryRunFlag(cmd *cobra.Command) {
 // --store-domain override.
 func authPreRun(f *cmdutil.Factory) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
-		return cmdutil.RequireAuth(cmd.Context(), f)
+		return cmdutil.RequireAuth(cmd.Context(), f, cmd)
 	}
-}
-
-// normalizeStoreDomain canonicalizes a user-supplied store domain: trims
-// whitespace, strips a leading http(s):// scheme (case-insensitively; the
-// rest of the domain keeps its original case), and drops trailing slashes.
-// Callers prepend their own scheme, so without this "--store-domain
-// https://x.com/" would yield a "https://https://x.com/" base URL.
-func normalizeStoreDomain(s string) string {
-	s = strings.TrimSpace(s)
-	switch lower := strings.ToLower(s); {
-	case strings.HasPrefix(lower, "https://"):
-		s = s[len("https://"):]
-	case strings.HasPrefix(lower, "http://"):
-		s = s[len("http://"):]
-	}
-	return strings.TrimRight(s, "/")
 }
 
 // resolveStore returns the current store domain (normalized), or a validation
 // error if none is selected. Checkout commands act on the current store; there
-// is no per-command override.
+// is no per-command override. Credentials are already injected by the auth
+// gate (RequireAuth) — this only resolves the domain for display/derivation.
 func resolveStore(f *cmdutil.Factory) (string, *output.ExitError) {
-	if s := normalizeStoreDomain(f.Config.StoreDomain); s != "" {
+	if s := cmdutil.NormalizeStoreDomain(f.Config.CurrentStoreDomain()); s != "" {
 		return s, nil
 	}
 	return "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,

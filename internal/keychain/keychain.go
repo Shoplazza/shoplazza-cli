@@ -5,20 +5,24 @@
 // Storage layout (under os.UserConfigDir()/shoplazza-cli/):
 //
 //	keychain.key        — 32-byte random master key (0600)
-//	keychain/<name>.enc — AES-256-GCM ciphertext (0600)
+//	keychain/<hash>.enc — AES-256-GCM ciphertext of {"k":..,"v":..} (0600)
 package keychain
 
 import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"shoplazza-cli-v2/internal/fsx"
 )
 
 const (
@@ -37,9 +41,25 @@ var ErrNotFound = errors.New("keychain: item not found")
 // names carry a "store:"/"app:" prefix.
 var safeNameRe = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
 
-// safeFileName converts an account key to a safe file name.
+// safeFileName converts an account key to a safe file name. Used only by
+// GetLegacy, which reads the pre-v2 on-disk layout.
 func safeFileName(account string) string {
 	return safeNameRe.ReplaceAllString(account, "_") + ".enc"
+}
+
+// entryFileName is the v2 on-disk name: hex(sha256(service+"\x00"+account)),
+// truncated to 32 hex chars. Key material never appears in filenames
+// (Windows-safe, collision-resistant, length-safe).
+func entryFileName(service, account string) string {
+	sum := sha256.Sum256([]byte(service + "\x00" + account))
+	return hex.EncodeToString(sum[:16]) + ".enc"
+}
+
+// payload wraps the secret with its key for post-decrypt verification,
+// guarding against a hash collision reading the wrong entry.
+type payload struct {
+	K string `json:"k"`
+	V string `json:"v"`
 }
 
 // baseDir returns the directory that holds the master key and encrypted entries.
@@ -99,12 +119,7 @@ func getMasterKey(allowCreate bool) ([]byte, error) {
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
 		return nil, fmt.Errorf("keychain: generate master key: %w", err)
 	}
-	tmp := path + "." + randHex() + ".tmp"
-	if err := os.WriteFile(tmp, key, 0o600); err != nil {
-		return nil, fmt.Errorf("keychain: write master key: %w", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+	if err := fsx.WriteFileAtomic(path, key, 0o600); err != nil {
 		// Another concurrent process may have won the race.
 		if existing, rerr := os.ReadFile(path); rerr == nil && len(existing) == masterKeyLen {
 			return existing, nil
@@ -155,13 +170,6 @@ func decrypt(data, key []byte) (string, error) {
 	return string(plaintext), nil
 }
 
-// randHex returns 8 random hex bytes for temporary file suffixes.
-func randHex() string {
-	b := make([]byte, 8)
-	_, _ = io.ReadFull(rand.Reader, b)
-	return hex.EncodeToString(b)
-}
-
 // Get retrieves a secret stored under (service, account).
 // Returns ("", nil) when the item does not exist.
 func Get(service, account string) (string, error) {
@@ -169,7 +177,7 @@ func Get(service, account string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	path := filepath.Join(dir, service+"_"+safeFileName(account))
+	path := filepath.Join(dir, entryFileName(service, account))
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return "", nil
@@ -184,11 +192,18 @@ func Get(service, account string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("keychain Get: %w", err)
 	}
-	value, err := decrypt(data, key)
+	plaintext, err := decrypt(data, key)
 	if err != nil {
 		return "", err
 	}
-	return value, nil
+	var p payload
+	if err := json.Unmarshal([]byte(plaintext), &p); err != nil {
+		return "", fmt.Errorf("keychain Get: corrupted payload: %w", err)
+	}
+	if p.K != service+":"+account {
+		return "", fmt.Errorf("keychain: key mismatch (hash collision?)")
+	}
+	return p.V, nil
 }
 
 // Set stores a secret under (service, account), overwriting any existing entry.
@@ -204,18 +219,17 @@ func Set(service, account, value string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("keychain Set: mkdir: %w", err)
 	}
-	ciphertext, err := encrypt(value, key)
+	body, err := json.Marshal(payload{K: service + ":" + account, V: value})
+	if err != nil {
+		return fmt.Errorf("keychain Set: marshal: %w", err)
+	}
+	ciphertext, err := encrypt(string(body), key)
 	if err != nil {
 		return fmt.Errorf("keychain Set: encrypt: %w", err)
 	}
-	target := filepath.Join(dir, service+"_"+safeFileName(account))
-	tmp := target + "." + randHex() + ".tmp"
-	if err := os.WriteFile(tmp, ciphertext, 0o600); err != nil {
+	target := filepath.Join(dir, entryFileName(service, account))
+	if err := fsx.WriteFileAtomic(target, ciphertext, 0o600); err != nil {
 		return fmt.Errorf("keychain Set: write: %w", err)
-	}
-	if err := os.Rename(tmp, target); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("keychain Set: rename: %w", err)
 	}
 	return nil
 }
@@ -226,10 +240,57 @@ func Remove(service, account string) error {
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(dir, service+"_"+safeFileName(account))
+	path := filepath.Join(dir, entryFileName(service, account))
 	err = os.Remove(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("keychain Remove: %w", err)
+	}
+	return nil
+}
+
+// GetLegacy reads an entry stored under the pre-v2 sanitized filename with the
+// raw (non-JSON) plaintext format. Migration-only; never used on the hot path.
+func GetLegacy(service, account string) (string, error) {
+	dir, err := keychainDir()
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(dir, service+"_"+safeFileName(account)))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+	key, err := getMasterKey(false)
+	if err != nil {
+		return "", err
+	}
+	return decrypt(data, key)
+}
+
+// SetLegacy writes an entry using the pre-v2 sanitized filename and raw
+// (non-JSON) plaintext format that GetLegacy reads. Test-support only: it
+// exists so migration tests outside this package can build v1 keychain
+// fixtures; never used on the hot path.
+func SetLegacy(service, account, value string) error {
+	dir, err := keychainDir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("keychain SetLegacy: mkdir: %w", err)
+	}
+	key, err := getMasterKey(true)
+	if err != nil {
+		return fmt.Errorf("keychain SetLegacy: %w", err)
+	}
+	ciphertext, err := encrypt(value, key)
+	if err != nil {
+		return fmt.Errorf("keychain SetLegacy: encrypt: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, service+"_"+safeFileName(account)), ciphertext, 0o600); err != nil {
+		return fmt.Errorf("keychain SetLegacy: write: %w", err)
 	}
 	return nil
 }

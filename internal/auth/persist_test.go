@@ -53,34 +53,6 @@ func TestLogin_DefaultAuthPath_UATInjection(t *testing.T) {
 	}
 }
 
-func TestLogin_SaveConfigError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.URL.Path {
-		case "/api/saiga/cli/auth/me":
-			json.NewEncoder(w).Encode(map[string]any{"account": "a@x.com"})
-		case "/api/saiga/cli/auth/exchange/store-at":
-			json.NewEncoder(w).Encode(map[string]any{"access_token": "at", "store_domain": "f.com"})
-		}
-	}))
-	defer srv.Close()
-	_, authPath := setupTempConfig(t)
-	// Force SaveConfig to fail in a way root CANNOT bypass: place config.json UNDER a
-	// regular file, so SaveConfig's MkdirAll(filepath.Dir) returns ENOTDIR (a path
-	// component is not a directory). A chmod/permission-based failure wouldn't trigger
-	// for root (root ignores file modes), which is why this avoids that approach.
-	notADir := filepath.Join(t.TempDir(), "not-a-dir")
-	if err := os.WriteFile(notADir, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	mgr := internalauth.NewManager(core.CliConfig{}, filepath.Join(notADir, "config.json"), client.New(srv.URL))
-	mgr.AuthPath = authPath
-	// store-domain login sets CurrentStore → persistState calls SaveConfig → MkdirAll fails (ENOTDIR).
-	if _, err := mgr.Login(context.Background(), "f.com", nil, "uat_cfg", 5*time.Second, time.Millisecond, nil); err == nil {
-		t.Error("expected SaveConfig error")
-	}
-}
-
 func TestLogout_AlreadyLoggedOut(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
 	defer srv.Close()
@@ -136,7 +108,7 @@ func TestAppSlot_RoundTripAndLogoutCleanup(t *testing.T) {
 	if err := os.WriteFile(authPath, []byte(authJSON), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_x"); err != nil {
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("a@x.com"), "uat_x"); err != nil {
 		t.Fatal(err)
 	}
 	if err := keychain.Set(keychain.ShoplazzaCliService, "app:cid_42", "app_tok_secret"); err != nil {

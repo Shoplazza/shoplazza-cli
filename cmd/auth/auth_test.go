@@ -12,9 +12,11 @@ import (
 	"testing"
 
 	cmdauth "shoplazza-cli-v2/cmd/auth"
+	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/client"
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/core"
+	"shoplazza-cli-v2/internal/keychain"
 	"shoplazza-cli-v2/internal/output"
 	"shoplazza-cli-v2/internal/testenv"
 )
@@ -89,10 +91,20 @@ func TestStatus_FreshInstall_LoggedInFalse(t *testing.T) {
 	if st["logged_in"] != false {
 		t.Errorf("logged_in = %v, want false", st["logged_in"])
 	}
-	for _, removed := range []string{"refresh_available", "refresh_token_expires_at", "access_token_expires_at", "store_id"} {
+	for _, removed := range []string{
+		"refresh_available", "refresh_token_expires_at", "access_token_expires_at",
+		"current_store", "store", "storeId", "tokenStatus", "tokenExpiry", "scopes",
+		"profile", "store_domain", "store_id", "token_status",
+	} {
 		if _, ok := st[removed]; ok {
 			t.Errorf("status must not emit removed key %q", removed)
 		}
+	}
+	if rows, ok := st["profiles"].([]any); !ok || len(rows) != 0 {
+		t.Errorf("profiles must be an empty array on fresh install, got %v", st["profiles"])
+	}
+	if _, ok := st["stores"]; ok {
+		t.Error("stores must be omitted when the legacy map is empty")
 	}
 }
 
@@ -123,12 +135,20 @@ func TestLogin_StoreDomainRequiresScope(t *testing.T) {
 }
 
 // --uat store login is exempt: the store token inherits the UAT's account scopes.
+// The login-time exchange must land under the profile key, ready to use.
 func TestLogin_StoreDomainWithUAT_NoScopeOK(t *testing.T) {
 	srv := storeATServer(t)
 	defer srv.Close()
 	f, out := tempAuthFactory(t, srv.URL)
 	if err := execAuth(t, f, out, "login", "--store-domain", "my-store.com", "--uat", "uat_x"); err != nil {
 		t.Fatalf("--uat store login should be exempt from the scope requirement: %v", err)
+	}
+	if tok, err := keychain.Get(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey("my-store.com")); err != nil || tok != "at_x" {
+		t.Errorf("login exchange must persist under the profile key, got tok=%q err=%v", tok, err)
+	}
+	meta, _ := internalauth.LoadProfileMeta(internalauth.AuthDir(f.ConfigPath), "my-store.com")
+	if internalauth.TokenStatus(meta.ExpiresAt) != "valid" {
+		t.Errorf("profile token_status after login = %q, want valid", internalauth.TokenStatus(meta.ExpiresAt))
 	}
 }
 
@@ -140,5 +160,97 @@ func TestLogin_StoreDomainWithEnvUAT_NoScopeOK(t *testing.T) {
 	t.Setenv("SHOPLAZZA_UAT", "uat_env") // tempAuthFactory cleared it; override after.
 	if err := execAuth(t, f, out, "login", "--store-domain", "my-store.com"); err != nil {
 		t.Fatalf("env-UAT store login should be exempt from the scope requirement: %v", err)
+	}
+}
+
+// Regression: an account-only login (no --store-domain) passing --scope must
+// succeed. GrantedScopes is only populated by a store-token exchange
+// (internal/auth/types.go: "account-level; mirror of store-AT passthrough"),
+// so this path must never validate --scope against it.
+func TestLogin_AccountOnly_WithScope_Succeeds(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/saiga/cli/auth/me" {
+			json.NewEncoder(w).Encode(map[string]any{"account": "alice@example.com"})
+			return
+		}
+		t.Errorf("unexpected path %s — account-only login must not exchange a store token", r.URL.Path)
+	}))
+	defer srv.Close()
+
+	f, out := tempAuthFactory(t, srv.URL)
+	if err := execAuth(t, f, out, "login", "--uat", "uat_test", "--scope", "read_product"); err != nil {
+		t.Fatalf("account-only login with --scope should succeed: %v", err)
+	}
+}
+
+// Regression: when login's store validation fails (StoreWarning set), no
+// profile is created and CurrentProfile is left untouched — the rejected
+// store must not become the active profile.
+func TestLogin_StoreValidationFailed_NoProfileCreated(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/saiga/cli/auth/sessions":
+			json.NewEncoder(w).Encode(map[string]any{"session_id": "sess1", "authorize_url": "https://example.com/authorize"})
+		case "/api/saiga/cli/auth/sessions/sess1/token":
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok", "uat": "uat_web", "account": "alice@example.com"})
+		case "/api/saiga/cli/auth/exchange/store-at":
+			w.WriteHeader(http.StatusNotFound)
+			io.WriteString(w, `{"errors":["store not found: bad-store.com"]}`)
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	f, out := tempAuthFactory(t, srv.URL)
+	if err := execAuth(t, f, out, "login", "--store-domain", "bad-store.com", "--scope", "read_product"); err != nil {
+		t.Fatalf("login must still succeed when only the store validation fails: %v", err)
+	}
+	var env map[string]any
+	if err := json.Unmarshal(out.Bytes(), &env); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	status, _ := env["status"].(map[string]any)
+	if status["current_store"] != "" {
+		t.Errorf("current_store must stay empty on failed store validation, got %v", status["current_store"])
+	}
+
+	cfg, err := core.LoadConfig(f.ConfigPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if len(cfg.Profiles) != 0 || cfg.CurrentProfile != "" {
+		t.Fatalf("no profile should be created/activated for a rejected store, got profiles=%+v current=%q",
+			cfg.Profiles, cfg.CurrentProfile)
+	}
+}
+
+// Login's --scope check can only run AFTER manager.Login: granted scopes come
+// back from the exchange, not known up front. This exercises that post-login
+// validation path (storeArg != "" branch in cmd/auth/auth.go).
+func TestLogin_StoreScopeNotGranted_Errors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/saiga/cli/auth/me":
+			json.NewEncoder(w).Encode(map[string]any{"account": "a@x.com"})
+		case "/api/saiga/cli/auth/exchange/store-at":
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "at_x", "store_domain": "my-store.com",
+				"at_expires_at":  "2099-01-01T00:00:00Z",
+				"granted_scopes": []string{"read_product"},
+			})
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	f, _ := tempAuthFactory(t, srv.URL)
+	typ, err := execAuthErrType(t, f, "login", "--store-domain", "my-store.com", "--uat", "uat_x", "--scope", "write_product")
+	if err == nil || typ != output.TypeValidation {
+		t.Errorf("expected type=validation for an out-of-grant --scope, got type=%q err=%v", typ, err)
 	}
 }

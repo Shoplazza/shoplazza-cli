@@ -36,10 +36,12 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 		ngrokAuthToken string
 	)
 	cmd := &cobra.Command{
-		Use:     "dev",
-		Short:   "Run the app in development mode",
-		Args:    cobra.NoArgs,
-		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
+		Use:   "dev",
+		Short: "Run the app in development mode",
+		Args:  cobra.NoArgs,
+		// Long-running local dev server.
+		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
+		PreRunE:     func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
@@ -63,7 +65,7 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 				return ex
 			}
 
-			targetStore, err := resolveTargetStore(f.Config.StoreDomain)
+			targetStore, err := resolveTargetStore(f.Config.CurrentStoreDomain())
 			if err != nil {
 				return err
 			}

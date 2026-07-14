@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/client"
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/core"
@@ -111,17 +112,17 @@ func TestFunctionListNoCurrentApp(t *testing.T) {
 	// passes — the test checks the no-current-app branch, not the auth gate.
 	dir := testenv.IsolateConfigDir(t)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
-	if err := keychain.Set(keychain.ShoplazzaCliService, "uat", "uat_1"); err != nil {
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_1"); err != nil {
 		t.Fatalf("keychain Set uat: %v", err)
 	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, "partner", "ptok_1"); err != nil {
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountPartnerKey("alice@co.com"), "ptok_1"); err != nil {
 		t.Fatalf("keychain Set partner: %v", err)
 	}
 
 	// empty project: no shoplazza.app.toml → p.ActiveConfig() read fails → validation
 	root := t.TempDir()
 	f := &cmdutil.Factory{
-		Config:     core.CliConfig{},
+		Config:     core.CliConfig{Accounts: []core.AccountConfig{{Name: "alice@co.com"}}},
 		ConfigPath: filepath.Join(dir, "config.json"),
 		AuthClient: client.New("https://partners.example.com"),
 	}

@@ -31,6 +31,8 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Register + push a dev build, then sync each saved file incrementally (create/update/delete via dev-doc)",
+		// Long-running watch process.
+		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if themeID == "" {
 				return output.ErrValidation("--theme-id/-t is required (run `shop themes list` to find a theme id)")
@@ -50,12 +52,8 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 				return output.ErrValidation("%v", err)
 			}
 			// serve always targets the current store (no --store-domain flag);
-			// resolveStore("") falls back to f.Config.StoreDomain.
-			domain, sErr := resolveStore(f, "")
-			if sErr != nil {
-				return sErr
-			}
-			store, cErr := storeClient(ctx, f, domain)
+			// storeClient("") falls back to the current profile's store.
+			store, domain, cErr := storeClient(ctx, f, "")
 			if cErr != nil {
 				return cErr
 			}

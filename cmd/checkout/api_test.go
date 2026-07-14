@@ -12,7 +12,7 @@ import (
 // ── resolveStore ──────────────────────────────────────────────────────────────
 
 func TestResolveStore_FallsBackToConfig(t *testing.T) {
-	f := &cmdutil.Factory{Config: core.CliConfig{StoreDomain: "abc.com"}}
+	f := &cmdutil.Factory{Config: currentStoreConfig("abc.com")}
 	got, exitErr := resolveStore(f)
 	if exitErr != nil || got != "abc.com" {
 		t.Fatalf("got %q err %v", got, exitErr)
@@ -28,7 +28,7 @@ func TestResolveStore_NoneIsValidation(t *testing.T) {
 }
 
 func TestResolveStore_NormalizesSchemePrefix(t *testing.T) {
-	f := &cmdutil.Factory{Config: core.CliConfig{StoreDomain: "https://abc.com/"}}
+	f := &cmdutil.Factory{Config: currentStoreConfig("https://abc.com/")}
 	got, exitErr := resolveStore(f)
 	if exitErr != nil || got != "abc.com" {
 		t.Fatalf("scheme-prefixed config domain must be normalized, got %q err %v", got, exitErr)
@@ -36,32 +36,18 @@ func TestResolveStore_NormalizesSchemePrefix(t *testing.T) {
 }
 
 func TestResolveStore_SchemeOnlyConfigIsValidation(t *testing.T) {
-	f := &cmdutil.Factory{Config: core.CliConfig{StoreDomain: "https://"}}
+	f := &cmdutil.Factory{Config: currentStoreConfig("https://")}
 	got, exitErr := resolveStore(f)
 	if exitErr == nil || exitErr.Detail.Type != output.TypeValidation {
 		t.Fatalf("config domain normalizing to empty → type=validation, got %q err %v", got, exitErr)
 	}
 }
 
-// ── normalizeStoreDomain ─────────────────────────────────────────────────────
-
-func TestNormalizeStoreDomain(t *testing.T) {
-	cases := map[string]string{
-		"x.com":            "x.com",
-		"https://x.com":    "x.com",
-		"http://x.com":     "x.com",
-		"https://x.com/":   "x.com",
-		"x.com/":           "x.com",
-		" https://x.com/ ": "x.com",
-		// Scheme strip must be case-insensitive but preserve the domain's case.
-		"HTTPS://x.com":        "x.com",
-		"HTTP://x.com":         "x.com",
-		"HtTpS://MyStore.com/": "MyStore.com",
-	}
-	for in, want := range cases {
-		if got := normalizeStoreDomain(in); got != want {
-			t.Errorf("normalizeStoreDomain(%q) = %q, want %q", in, got, want)
-		}
+// currentStoreConfig builds a v2 CliConfig whose CurrentStoreDomain() resolves to domain.
+func currentStoreConfig(domain string) core.CliConfig {
+	return core.CliConfig{
+		CurrentProfile: "p",
+		Profiles:       []core.ProfileConfig{{Name: "p", StoreDomain: domain}},
 	}
 }
 
