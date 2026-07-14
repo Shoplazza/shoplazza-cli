@@ -36,8 +36,7 @@ func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomai
 		default: // re-login to the same account
 			c.Accounts[0].GrantedScopes = granted
 			for i := range c.Profiles {
-				_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(c.Profiles[i].Name))
-				_ = internalauth.RemoveProfileMeta(authDir, strings.ToLower(c.Profiles[i].Name))
+				internalauth.ForgetProfileToken(authDir, c.Profiles[i].Name)
 				if trimmed, changed := intersect(c.Profiles[i].Scopes, granted); changed {
 					c.Profiles[i].Scopes = trimmed
 					fmt.Fprintf(errOut, "warning: profile %q scopes trimmed to granted set: %s\n",
@@ -52,8 +51,7 @@ func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomai
 		if p := c.FindProfileByStore(storeDomain); p != nil {
 			if scopes != nil && !equalFoldSlice(p.Scopes, scopes) {
 				p.Scopes = scopes // silent update: no output, just clear the cached AT
-				_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(p.Name))
-				_ = internalauth.RemoveProfileMeta(authDir, strings.ToLower(p.Name))
+				internalauth.ForgetProfileToken(authDir, p.Name)
 			}
 			c.PreviousProfile, c.CurrentProfile = c.CurrentProfile, p.Name
 			profileName = p.Name
@@ -77,13 +75,12 @@ func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomai
 func wipeAccount(f *cmdutil.Factory, c *core.CliConfig) {
 	authDir := internalauth.AuthDir(f.ConfigPath)
 	for i := range c.Profiles {
-		_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(c.Profiles[i].Name))
-		_ = internalauth.RemoveProfileMeta(authDir, strings.ToLower(c.Profiles[i].Name))
+		internalauth.ForgetProfileToken(authDir, c.Profiles[i].Name)
 	}
 	if old := c.Account(); old != nil {
 		_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.AccountUATKey(old.Name))
 		_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.AccountPartnerKey(old.Name))
-		_ = internalauth.RemoveAccountMeta(authDir, strings.ToLower(old.Name))
+		_ = internalauth.RemoveAccountMeta(authDir, old.Name)
 	}
 	c.Accounts = nil
 	c.Profiles = nil

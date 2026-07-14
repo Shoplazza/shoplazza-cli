@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,8 +12,8 @@ import (
 // storeKcKey / appKcKey build resource-scoped keychain account names for
 // store/app tokens: a "<kind>:<id>" suffix lets one host hold many stores /
 // apps without collision. These back the v1 eager-exchange cache (read by
-// AccessTokenReady/StoreIDFor/AppTokenReady); only login prewarm still writes
-// them, since 'store use' now mints under the v2 ProfileStoreKey model.
+// StoreIDFor and AppTokenReady via LoadState); only login prewarm still
+// writes them, since 'store use' now mints under the v2 ProfileStoreKey model.
 //
 // Account tokens (uat, partner) live ONLY under the v2 AccountUATKey/
 // AccountPartnerKey namespace — the single source read by LoadState and the
@@ -107,15 +106,8 @@ func loadAuthMeta(path string) (authMeta, error) {
 			return authMeta{}, err
 		}
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return authMeta{}, nil
-		}
-		return authMeta{}, err
-	}
 	var meta authMeta
-	if err := json.Unmarshal(data, &meta); err != nil {
+	if err := loadJSON(path, &meta); err != nil {
 		return authMeta{}, err
 	}
 	return meta, nil
@@ -129,14 +121,7 @@ func saveAuthMeta(path string, meta authMeta) error {
 			return err
 		}
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(meta, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o600)
+	return saveJSON(path, meta)
 }
 
 func removeAuthMeta(path string) error {

@@ -3,13 +3,11 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/client"
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
 	"shoplazza-cli-v2/internal/output"
 
 	"github.com/spf13/cobra"
@@ -41,7 +39,7 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 			if storeDomain == "" {
 				return output.ErrValidation("--store-domain is required")
 			}
-			_, normalized := parseStoreDomain(storeDomain)
+			normalized := cmdutil.NormalizeStoreDomain(storeDomain)
 			if normalized == "" {
 				return output.ErrValidation("--store-domain must not be empty")
 			}
@@ -105,11 +103,10 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 			// Validate --scope against THIS store's fresh grant (the exchange
 			// always runs, so meta.GrantedScopes is ground-truth, unlike the
 			// account-level grant which is empty after an account-only login).
-			meta, _ := internalauth.LoadProfileMeta(authDir, strings.ToLower(name))
+			meta, _ := internalauth.LoadProfileMeta(authDir, name)
 			if err := cmdutil.ValidateScopeSubset(scope, meta.GrantedScopes); err != nil {
 				// Leave no freshly-minted residue behind a failed store use.
-				_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(name))
-				_ = internalauth.RemoveProfileMeta(authDir, strings.ToLower(name))
+				internalauth.ForgetProfileToken(authDir, name)
 				return err
 			}
 			p.StoreID = meta.StoreID
@@ -131,8 +128,7 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 			})
 			if err != nil {
 				if isNew {
-					_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(name))
-					_ = internalauth.RemoveProfileMeta(authDir, strings.ToLower(name))
+					internalauth.ForgetProfileToken(authDir, name)
 				}
 				return output.ErrInternal("failed to save profile: %v", err)
 			}

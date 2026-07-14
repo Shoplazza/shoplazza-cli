@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/client"
@@ -33,7 +32,7 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 			if err := core.ValidateProfileName(name); err != nil {
 				return output.ErrValidation("%s", err.Error())
 			}
-			normalized := normalizeDomain(storeDomain)
+			normalized := cmdutil.NormalizeStoreDomain(storeDomain)
 			if normalized == "" {
 				return output.ErrValidation("--store-domain is required")
 			}
@@ -61,7 +60,7 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 				return translateExchangeErr(err)
 			}
 			// Backfill the numeric store id the exchange resolved.
-			meta, _ := internalauth.LoadProfileMeta(internalauth.AuthDir(f.ConfigPath), strings.ToLower(name))
+			meta, _ := internalauth.LoadProfileMeta(internalauth.AuthDir(f.ConfigPath), name)
 			p.StoreID = meta.StoreID
 
 			err := core.UpdateConfig(f.ConfigPath, core.ConfigLockTimeout, func(c *core.CliConfig) error {
@@ -119,19 +118,4 @@ func translateExchangeErr(err error) error {
 	return output.ErrWithHint(output.ExitAuth, output.TypeAuth,
 		"exchange failed: "+err.Error(),
 		"run 'shoplazza auth login' first")
-}
-
-// normalizeDomain canonicalizes a user-supplied store domain: trims
-// whitespace, strips a leading http(s):// scheme, and drops trailing
-// slashes. Local copy of cmd/checkout's normalizeStoreDomain (private there;
-// no cross-package import).
-func normalizeDomain(s string) string {
-	s = strings.TrimSpace(s)
-	switch lower := strings.ToLower(s); {
-	case strings.HasPrefix(lower, "https://"):
-		s = s[len("https://"):]
-	case strings.HasPrefix(lower, "http://"):
-		s = s[len("http://"):]
-	}
-	return strings.TrimRight(s, "/")
 }

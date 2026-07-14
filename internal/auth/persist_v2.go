@@ -1,14 +1,14 @@
 package auth
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"shoplazza-cli-v2/internal/fsx"
 )
 
 // AccountUATKey / AccountPartnerKey / ProfileStoreKey build namespaced
@@ -121,19 +121,7 @@ func loadJSON(path string, v any) error {
 	return json.Unmarshal(data, v)
 }
 
-// randHex returns 8 random hex bytes for temporary file suffixes (mirrors
-// internal/keychain's helper of the same name — unexported there, so a local
-// copy avoids a cross-package reach-in for one tiny function).
-func randHex() string {
-	b := make([]byte, 8)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
-}
-
-// saveJSON writes v to path atomically: MkdirAll 0o700, write tmp 0o600,
-// rename. The tmp name is randomized so two racing writers (e.g. a
-// lock-timeout degrade path calling SaveProfileMeta without the profile
-// lock) don't collide on the same fixed ".tmp" file.
+// saveJSON writes v to path atomically (MkdirAll 0o700, then temp+rename).
 func saveJSON(path string, v any) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
@@ -142,9 +130,5 @@ func saveJSON(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	tmp := path + "." + randHex() + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return fsx.WriteFileAtomic(path, data, 0o600)
 }

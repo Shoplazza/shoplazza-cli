@@ -195,9 +195,9 @@ func TestPartnerOpenapiClient_NetError_RoutesToErrNetwork(t *testing.T) {
 }
 
 // TestDashboardClient_WarnsOnUserIDFailure: a failed UserIDReady /
-// AccessTokenReady is not silent — a one-line stderr warning names the root
-// cause before the downstream 403 confuses the user. Still best-effort: the
-// client is returned without error.
+// AccessTokenReadyForProfile is not silent — a one-line stderr warning names
+// the root cause before the downstream 403 confuses the user. Still
+// best-effort: the client is returned without error.
 func TestDashboardClient_WarnsOnUserIDFailure(t *testing.T) {
 	dir := seedLoginKeychain(t)
 	var errBuf bytes.Buffer

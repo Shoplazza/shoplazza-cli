@@ -6,7 +6,6 @@ import (
 	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
 	"shoplazza-cli-v2/internal/output"
 
 	"github.com/spf13/cobra"
@@ -30,9 +29,7 @@ func newCmdRemove(f *cmdutil.Factory) *cobra.Command {
 				}
 				removed := p.Name
 
-				authDir := internalauth.AuthDir(f.ConfigPath)
-				_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(removed))
-				_ = internalauth.RemoveProfileMeta(authDir, strings.ToLower(removed))
+				internalauth.ForgetProfileToken(internalauth.AuthDir(f.ConfigPath), removed)
 
 				idx := -1
 				for i := range c.Profiles {

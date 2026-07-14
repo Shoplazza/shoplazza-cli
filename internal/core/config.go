@@ -1,8 +1,6 @@
 package core
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"shoplazza-cli-v2/internal/fsx"
 )
 
 // CliConfig stores the persisted CLI configuration (v2: accounts + profiles).
@@ -126,12 +126,6 @@ func (c *CliConfig) CurrentStoreDomain() string {
 	return ""
 }
 
-// RuntimeContext carries resolved runtime state for a command execution.
-type RuntimeContext struct {
-	AccountName string
-	StoreDomain string
-}
-
 // DefaultConfigPath returns the default local JSON config path.
 func DefaultConfigPath() (string, error) {
 	configDir, err := os.UserConfigDir()
@@ -185,24 +179,7 @@ func SaveConfig(path string, cfg CliConfig) error {
 		return err
 	}
 
-	tmp := path + "." + randHex() + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	return nil
-}
-
-// randHex returns 8 random hex bytes for temporary file suffixes (mirrors
-// internal/auth's and internal/keychain's unexported helpers — a local copy
-// avoids a cross-package reach-in for one tiny function).
-func randHex() string {
-	b := make([]byte, 8)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+	return fsx.WriteFileAtomic(path, data, 0o600)
 }
 
 // RemoveConfig deletes the persisted config file if it exists.

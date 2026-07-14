@@ -67,7 +67,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			normalizedStore := ""
 			if storeDomain != "" {
-				_, normalizedStore = parseStoreDomain(storeDomain)
+				normalizedStore = cmdutil.NormalizeStoreDomain(storeDomain)
 				if normalizedStore == "" {
 					return output.ErrValidation("--store-domain must not be empty")
 				}
@@ -256,20 +256,6 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 
 			return output.PrintBody(cmd.OutOrStdout(), out, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
-	}
-}
-
-// parseStoreDomain splits "https://store.myshoplazza.com/" into ("https",
-// "store.myshoplazza.com"). Missing scheme defaults to https.
-func parseStoreDomain(raw string) (scheme, host string) {
-	d := strings.TrimSpace(raw)
-	switch {
-	case strings.HasPrefix(d, "https://"):
-		return "https", strings.TrimRight(strings.TrimPrefix(d, "https://"), "/")
-	case strings.HasPrefix(d, "http://"):
-		return "http", strings.TrimRight(strings.TrimPrefix(d, "http://"), "/")
-	default:
-		return "https", strings.TrimRight(d, "/")
 	}
 }
 

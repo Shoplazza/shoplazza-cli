@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"shoplazza-cli-v2/internal/fsx"
 )
 
 const (
@@ -117,12 +119,7 @@ func getMasterKey(allowCreate bool) ([]byte, error) {
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
 		return nil, fmt.Errorf("keychain: generate master key: %w", err)
 	}
-	tmp := path + "." + randHex() + ".tmp"
-	if err := os.WriteFile(tmp, key, 0o600); err != nil {
-		return nil, fmt.Errorf("keychain: write master key: %w", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+	if err := fsx.WriteFileAtomic(path, key, 0o600); err != nil {
 		// Another concurrent process may have won the race.
 		if existing, rerr := os.ReadFile(path); rerr == nil && len(existing) == masterKeyLen {
 			return existing, nil
@@ -171,13 +168,6 @@ func decrypt(data, key []byte) (string, error) {
 		return "", errors.New("keychain: decryption failed (key mismatch or corruption)")
 	}
 	return string(plaintext), nil
-}
-
-// randHex returns 8 random hex bytes for temporary file suffixes.
-func randHex() string {
-	b := make([]byte, 8)
-	_, _ = io.ReadFull(rand.Reader, b)
-	return hex.EncodeToString(b)
 }
 
 // Get retrieves a secret stored under (service, account).
@@ -238,13 +228,8 @@ func Set(service, account, value string) error {
 		return fmt.Errorf("keychain Set: encrypt: %w", err)
 	}
 	target := filepath.Join(dir, entryFileName(service, account))
-	tmp := target + "." + randHex() + ".tmp"
-	if err := os.WriteFile(tmp, ciphertext, 0o600); err != nil {
+	if err := fsx.WriteFileAtomic(target, ciphertext, 0o600); err != nil {
 		return fmt.Errorf("keychain Set: write: %w", err)
-	}
-	if err := os.Rename(tmp, target); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("keychain Set: rename: %w", err)
 	}
 	return nil
 }

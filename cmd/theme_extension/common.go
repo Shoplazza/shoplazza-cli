@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"strings"
 
 	"shoplazza-cli-v2/internal/app"
 	internalauth "shoplazza-cli-v2/internal/auth"
@@ -31,35 +30,18 @@ func warnWriter(f *cmdutil.Factory) io.Writer {
 	return os.Stderr
 }
 
-// normalizeStoreDomain canonicalizes a user-supplied store domain: trims
-// whitespace, strips a leading http(s):// scheme (case-insensitively; the
-// rest of the domain keeps its original case), and drops trailing slashes.
-// Callers prepend their own scheme, so without this "--store-domain
-// https://x.com/" would yield a "https://https://x.com/" base URL. Copy of
-// cmd/checkout's normalizeStoreDomain (private there; no cross-module imports).
-func normalizeStoreDomain(s string) string {
-	s = strings.TrimSpace(s)
-	switch lower := strings.ToLower(s); {
-	case strings.HasPrefix(lower, "https://"):
-		s = s[len("https://"):]
-	case strings.HasPrefix(lower, "http://"):
-		s = s[len("http://"):]
-	}
-	return strings.TrimRight(s, "/")
-}
-
 // resolveStore mirrors cmd/checkout's resolveStore (private there) so every te
 // store-side command shares one resolution. override flag > current store; both
 // empty → validation. Emptiness is judged AFTER normalization so values like
 // "https://" cannot slip through. The current-store fallback goes through
 // CurrentStoreDomain() (current profile's domain, legacy field otherwise).
 func resolveStore(f *cmdutil.Factory, override string) (string, *output.ExitError) {
-	if s := normalizeStoreDomain(override); s != "" {
+	if s := cmdutil.NormalizeStoreDomain(override); s != "" {
 		return s, nil
 	} else if override != "" {
 		return "", output.ErrValidation("invalid --store-domain %q", override)
 	}
-	if s := normalizeStoreDomain(f.Config.CurrentStoreDomain()); s != "" {
+	if s := cmdutil.NormalizeStoreDomain(f.Config.CurrentStoreDomain()); s != "" {
 		return s, nil
 	}
 	return "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,
@@ -74,7 +56,7 @@ func resolveStore(f *cmdutil.Factory, override string) (string, *output.ExitErro
 // token); no override → the current profile's credentials.
 func storeTokenFor(ctx context.Context, f *cmdutil.Factory, override string) (string, string, error) {
 	mgr := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
-	if s := normalizeStoreDomain(override); s != "" {
+	if s := cmdutil.NormalizeStoreDomain(override); s != "" {
 		if p := f.Config.FindProfileByStore(s); p != nil {
 			tok, err := mgr.AccessTokenReadyForProfile(ctx, f.ConfigPath, *p)
 			return tok, s, err

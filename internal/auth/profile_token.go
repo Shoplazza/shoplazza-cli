@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"shoplazza-cli-v2/internal/core"
 	"shoplazza-cli-v2/internal/keychain"
@@ -43,9 +42,16 @@ func PersistProfileToken(authDir, profileName string, block *storeATBlock) error
 	if err := keychain.Set(keychain.ShoplazzaCliService, ProfileStoreKey(profileName), block.AccessToken); err != nil {
 		return err
 	}
-	return SaveProfileMeta(authDir, strings.ToLower(profileName), ProfileMeta{
+	return SaveProfileMeta(authDir, profileName, ProfileMeta{
 		StoreID: block.StoreID, ExpiresAt: block.ATExpiresAt, GrantedScopes: block.GrantedScopes,
 	})
+}
+
+// ForgetProfileToken drops a profile's cached store token and meta. Best
+// effort: both stores are cleaned regardless of individual failures.
+func ForgetProfileToken(authDir, profileName string) {
+	_ = keychain.Remove(keychain.ShoplazzaCliService, ProfileStoreKey(profileName))
+	_ = RemoveProfileMeta(authDir, profileName)
 }
 
 // ExchangeEphemeral mints a token for an arbitrary owned domain WITHOUT any
