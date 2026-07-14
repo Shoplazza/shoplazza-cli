@@ -177,6 +177,29 @@ func TestRun_StoresOnly_MultipleNoCurrent(t *testing.T) {
 	}
 }
 
+// 已存在的 v2 凭证绝不能被 legacy 覆盖：migrate 可能在 config.json 意外缺失
+// 时误跑（v2 keychain 仍在），此时 legacy uat/partner 是旧登录的陈值，
+// 覆盖会把有效凭证换成已撤销的（2026-07-14 真实事故）。
+func TestRun_DoesNotClobberExistingV2Credentials(t *testing.T) {
+	cp := layV1Fixture(t, t.TempDir(), withStoreDomain("us.myshoplazza.com"))
+	// 先有一个 v2 登录留下的新 UAT/partner，再触发 migrate。
+	if err := keychain.Set(keychain.ShoplazzaCliService, "account:alice@co.com:uat", "fresh-uat"); err != nil {
+		t.Fatal(err)
+	}
+	if err := keychain.Set(keychain.ShoplazzaCliService, "account:alice@co.com:partner", "fresh-partner"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(cp); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := keychain.Get(keychain.ShoplazzaCliService, "account:alice@co.com:uat"); v != "fresh-uat" {
+		t.Fatalf("v2 uat clobbered by legacy: %q", v)
+	}
+	if v, _ := keychain.Get(keychain.ShoplazzaCliService, "account:alice@co.com:partner"); v != "fresh-partner" {
+		t.Fatalf("v2 partner clobbered by legacy: %q", v)
+	}
+}
+
 // 派生名冲突（shop.myshoplaza.com 与 shop.stg.myshoplaza.com 同缩 "shop"）：
 // 后者获得 -2 后缀；域名排序保证结果确定。
 func TestRun_Stores_NameCollisionGetsSuffix(t *testing.T) {

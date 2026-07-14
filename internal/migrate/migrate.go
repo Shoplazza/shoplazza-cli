@@ -75,16 +75,14 @@ func doMigrate(configPath string) error {
 		email := strings.ToLower(meta.Account)
 		out.Accounts = []core.AccountConfig{{Name: email, GrantedScopes: meta.GrantedScopes}}
 		// 2) keychain: migrate only uat/partner (GetLegacy -> Set under the
-		// new naming; a missing entry is tolerated).
-		if v, err := keychain.GetLegacy(keychain.ShoplazzaCliService, "uat"); err == nil && v != "" {
-			if err := keychain.Set(keychain.ShoplazzaCliService, auth.AccountUATKey(email), v); err != nil {
-				return err
-			}
+		// new naming; a missing entry is tolerated). Never overwrite an
+		// existing v2 entry: if migrate re-runs after a lost config.json, the
+		// legacy value is staler than what a v2 login already minted.
+		if err := copyLegacyIfAbsent("uat", auth.AccountUATKey(email)); err != nil {
+			return err
 		}
-		if v, err := keychain.GetLegacy(keychain.ShoplazzaCliService, "partner"); err == nil && v != "" {
-			if err := keychain.Set(keychain.ShoplazzaCliService, auth.AccountPartnerKey(email), v); err != nil {
-				return err
-			}
+		if err := copyLegacyIfAbsent("partner", auth.AccountPartnerKey(email)); err != nil {
+			return err
 		}
 		// 3) v2 account metadata
 		if err := writeAccountMeta(dir, email, accountMeta{
@@ -143,6 +141,20 @@ func doMigrate(configPath string) error {
 		}
 	}
 	return core.SaveConfig(configPath, out)
+}
+
+// copyLegacyIfAbsent copies a legacy keychain entry to its v2 key unless the
+// v2 key already holds a value (a v2 login's credential outranks the legacy
+// copy). Missing legacy entries are tolerated.
+func copyLegacyIfAbsent(legacyAccount, v2Account string) error {
+	if existing, err := keychain.Get(keychain.ShoplazzaCliService, v2Account); err == nil && existing != "" {
+		return nil
+	}
+	v, err := keychain.GetLegacy(keychain.ShoplazzaCliService, legacyAccount)
+	if err != nil || v == "" {
+		return nil
+	}
+	return keychain.Set(keychain.ShoplazzaCliService, v2Account, v)
 }
 
 // readLegacyStoreDomain reads the v1 config.json's store_domain field
