@@ -181,6 +181,38 @@ func TestRunUpdate_MetaRefreshOutcomes(t *testing.T) {
 		}
 	})
 
+	t.Run("npm missing still refreshes metadata", func(t *testing.T) {
+		var gotVersion string
+		metaRefresh = func(_ context.Context, version string) (metasync.Result, error) {
+			gotVersion = version
+			return metasync.Result{}, nil
+		}
+		ops := npmOps{lookPath: func() (string, error) { return "", errors.New("not found") }}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, ops); err == nil {
+			t.Fatal("npm missing must still be an error")
+		}
+		if gotVersion != "2.0.1" {
+			t.Errorf("metadata half must run despite npm missing, got version %q", gotVersion)
+		}
+	})
+
+	t.Run("install failure still refreshes metadata", func(t *testing.T) {
+		called := false
+		metaRefresh = func(context.Context, string) (metasync.Result, error) {
+			called = true
+			return metasync.Result{}, nil
+		}
+		f := &fakeOps{latestVer: "2.0.2", installErr: errors.New("EACCES")}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err == nil {
+			t.Fatal("install failure must still be an error")
+		}
+		if !called {
+			t.Error("metadata half must run despite install failure")
+		}
+	})
+
 	t.Run("check-only skips refresh", func(t *testing.T) {
 		called := false
 		metaRefresh = func(context.Context, string) (metasync.Result, error) {

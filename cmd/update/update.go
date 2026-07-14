@@ -53,7 +53,7 @@ func NewCmdUpdate(_ *cmdutil.Factory) *cobra.Command {
 	var checkOnly bool
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update the CLI to the latest version (via npm)",
+		Short: "Update the CLI binary (via npm) and refresh the API metadata",
 		// Attempts binary self-update.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -80,13 +80,17 @@ var metaRefresh = func(ctx context.Context, version string) (metasync.Result, er
 }
 
 // refreshMetadata force-refreshes the OpenAPI metadata cache and merges the
-// outcome into the response body; version is the CLI version that will run
+// outcome into the response body (nil body = silent, for error paths whose
+// envelope is the error itself); version is the CLI version that will run
 // next. Honors the disable env; failures never affect the exit code.
 func refreshMetadata(ctx context.Context, version string, body map[string]any) {
 	if os.Getenv(metasync.EnvDisable) != "" {
 		return
 	}
 	res, err := metaRefresh(ctx, version)
+	if body == nil {
+		return
+	}
 	if err != nil {
 		body["meta_error"] = err.Error()
 		return
@@ -99,9 +103,15 @@ func refreshMetadata(ctx context.Context, version string, body map[string]any) {
 	}
 }
 
+// runUpdate performs the two halves of `update` independently: the npm binary
+// update and the metadata refresh. A failed binary half (npm missing, install
+// error) still refreshes metadata before returning its error.
 func runUpdate(ctx context.Context, out, errW io.Writer, format, current string, checkOnly bool, ops npmOps) error {
 	npmPath, err := ops.lookPath()
 	if err != nil {
+		if !checkOnly {
+			refreshMetadata(ctx, current, nil)
+		}
 		return output.ErrWithHint(
 			output.ExitValidation, output.TypeValidation,
 			"npm not found on PATH",
@@ -148,6 +158,7 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 		if npmOut.Len() > 0 {
 			fmt.Fprintln(errW, strings.TrimRight(npmOut.String(), "\n"))
 		}
+		refreshMetadata(ctx, current, nil)
 		return output.ErrWithHint(
 			output.ExitInternal, output.TypeInternal,
 			fmt.Sprintf("npm install failed: %s", runErr.Error()),
