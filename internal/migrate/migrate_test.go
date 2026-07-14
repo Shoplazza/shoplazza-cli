@@ -153,8 +153,7 @@ func TestRun_AllStores_BecomeProfiles_CurrentFromLegacy(t *testing.T) {
 	}
 }
 
-// 无 legacy store_domain 时：唯一的迁移店自动成为 current（对齐 profile add
-// 首个 profile 的行为）；多店则留空，由用户 profile use 挑选。
+// 无 legacy store_domain：单店自动 current，多店留空
 func TestRun_StoresOnly_SingleBecomesCurrent(t *testing.T) {
 	cp := layV1Fixture(t, t.TempDir(), withStores("us.myshoplazza.com"))
 	if err := Run(cp); err != nil {
@@ -177,9 +176,6 @@ func TestRun_StoresOnly_MultipleNoCurrent(t *testing.T) {
 	}
 }
 
-// 已存在的 v2 凭证绝不能被 legacy 覆盖：migrate 可能在 config.json 意外缺失
-// 时误跑（v2 keychain 仍在），此时 legacy uat/partner 是旧登录的陈值，
-// 覆盖会把有效凭证换成已撤销的（2026-07-14 真实事故）。
 func TestRun_DoesNotClobberExistingV2Credentials(t *testing.T) {
 	cp := layV1Fixture(t, t.TempDir(), withStoreDomain("us.myshoplazza.com"))
 	// 先有一个 v2 登录留下的新 UAT/partner，再触发 migrate。
@@ -200,8 +196,7 @@ func TestRun_DoesNotClobberExistingV2Credentials(t *testing.T) {
 	}
 }
 
-// 派生名冲突（shop.myshoplaza.com 与 shop.stg.myshoplaza.com 同缩 "shop"）：
-// 后者获得 -2 后缀；域名排序保证结果确定。
+// 派生名冲突时后者加 -2 后缀
 func TestRun_Stores_NameCollisionGetsSuffix(t *testing.T) {
 	cp := layV1Fixture(t, t.TempDir(), withStores("shop.myshoplaza.com", "shop.stg.myshoplaza.com"))
 	if err := Run(cp); err != nil {

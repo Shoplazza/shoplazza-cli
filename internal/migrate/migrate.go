@@ -74,10 +74,7 @@ func doMigrate(configPath string) error {
 	if ok && meta.Account != "" {
 		email := strings.ToLower(meta.Account)
 		out.Accounts = []core.AccountConfig{{Name: email, GrantedScopes: meta.GrantedScopes}}
-		// 2) keychain: migrate only uat/partner (GetLegacy -> Set under the
-		// new naming; a missing entry is tolerated). Never overwrite an
-		// existing v2 entry: if migrate re-runs after a lost config.json, the
-		// legacy value is staler than what a v2 login already minted.
+		// 2) keychain: migrate only uat/partner, never overwriting a v2 entry.
 		if err := copyLegacyIfAbsent("uat", auth.AccountUATKey(email)); err != nil {
 			return err
 		}
@@ -144,8 +141,7 @@ func doMigrate(configPath string) error {
 }
 
 // copyLegacyIfAbsent copies a legacy keychain entry to its v2 key unless the
-// v2 key already holds a value (a v2 login's credential outranks the legacy
-// copy). Missing legacy entries are tolerated.
+// v2 key already holds a value. Missing legacy entries are tolerated.
 func copyLegacyIfAbsent(legacyAccount, v2Account string) error {
 	if existing, err := keychain.Get(keychain.ShoplazzaCliService, v2Account); err == nil && existing != "" {
 		return nil
