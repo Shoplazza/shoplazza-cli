@@ -38,6 +38,13 @@ func (c *Client) DeleteJSONWithQuery(ctx context.Context, rawPath string, query 
 	return c.doJSON(ctx, http.MethodDelete, rawPath, query, nil, out)
 }
 
+// DeleteJSONWithBody issues DELETE with a JSON payload. The themes
+// edit-session endpoints (remove-block / remove-section) take their target
+// coordinates in the request body.
+func (c *Client) DeleteJSONWithBody(ctx context.Context, rawPath string, payload any, out any) error {
+	return c.doJSON(ctx, http.MethodDelete, rawPath, nil, payload, out)
+}
+
 // SendStream executes an HTTP request and returns the response body as an
 // io.ReadCloser without buffering it in memory. Use for large/streamed
 // downloads (zip / wasm / streamed exports). Callers MUST defer Close.

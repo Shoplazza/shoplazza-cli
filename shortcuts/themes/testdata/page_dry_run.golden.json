@@ -1,0 +1,36 @@
+{
+  "plans": [
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes",
+      "query": {
+        "published": "1"
+      }
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/\u003ctheme_id\u003e/doctree",
+      "query": null
+    },
+    {
+      "body": null,
+      "method": "POST",
+      "path": "/openapi/2026-01/themes/\u003ctheme_id\u003e/edit-sessions",
+      "query": null
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/files/\u003cdoc_id\u003e/sections",
+      "query": null
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/page-builder/custom-templates/\u003ccustom_id\u003e",
+      "query": null
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -85,13 +86,21 @@ func (r RawResponse) RequestID() string {
 
 // New creates a minimal API client.
 func New(baseURL string) *Client {
-	return &Client{
+	c := &Client{
 		BaseURL: strings.TrimRight(baseURL, "/"),
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 		Headers: map[string]string{},
 	}
+	// TEMP(feature-cli): gateway route flag for the themes edit-session /
+	// page-builder endpoint family, currently deployed on the dev gateway
+	// behind an `x-rf` header. Env-gated so release behavior is unchanged;
+	// remove once the endpoints ship. Usage: SHOPLAZZA_X_RF=feature-cli
+	if rf := os.Getenv("SHOPLAZZA_X_RF"); rf != "" {
+		c.Headers["x-rf"] = rf
+	}
+	return c
 }
 
 // SetBaseURL updates the target base URL (e.g. once the auth gate resolves

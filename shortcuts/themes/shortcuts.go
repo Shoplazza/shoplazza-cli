@@ -30,5 +30,7 @@ func Shortcuts() []common.Shortcut {
 		shareShortcut,
 		serveShortcut,
 		previewShortcut,
+		pageShortcut,
+		editShortcut,
 	}
 }

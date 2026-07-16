@@ -137,3 +137,103 @@ func PlanShareUpload(themeID, name, version string) common.PlannedRequest {
 		},
 	}
 }
+
+// ─────────── edit-session & page-builder endpoints (themes +page / +edit) ───────────
+//
+// Path factories for the endpoint family the +page/+edit shortcuts orchestrate
+// (docs/theme-page-edit-orchestration.md §1). Each maps 1:1 to a dynamic
+// registry command, named in the comment.
+
+func editSessionBase(oseid string) string {
+	return themeBaseV202601 + "/edit-sessions/" + oseid
+}
+
+// PlanThemesList describes GET /themes (themes list). +page/+edit resolve the
+// published theme through it when --theme is omitted.
+func PlanThemesList(query map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601, Query: query}
+}
+
+// PlanListTemplates describes GET /themes/{id}/theme-templates (themes list-templates).
+func PlanListTemplates(themeID string, query map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601 + "/" + themeID + "/theme-templates", Query: query}
+}
+
+// PlanCreateSession describes POST /themes/{id}/edit-sessions (themes create-session).
+// NOT idempotent: every call creates a fresh edit draft copied from the theme draft.
+func PlanCreateSession(themeID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: themeBaseV202601 + "/" + themeID + "/edit-sessions"}
+}
+
+// PlanSchemasList describes GET /themes/edit-sessions/{oseid}/files/{doc}/sections
+// (themes schemas-list): all cards of a template plus the full card schemas.
+func PlanSchemasList(oseid, docID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: editSessionBase(oseid) + "/files/" + docID + "/sections"}
+}
+
+// PlanSchemasGet describes GET .../files/{doc}/sections/{section} (themes schemas-get):
+// renders a single card with its current config.
+func PlanSchemasGet(oseid, docID, sectionID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: editSessionBase(oseid) + "/files/" + docID + "/sections/" + sectionID}
+}
+
+// PlanPbBlocksGet describes GET /themes/page-builder/custom-templates/{id}
+// (themes pb-blocks-get): the canvas text of a page-builder custom template.
+func PlanPbBlocksGet(templateID string, query map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601 + "/page-builder/custom-templates/" + templateID, Query: query}
+}
+
+// PlanSetSlot describes PATCH .../sections/{section}/slot (themes set-slot):
+// merge props into a block's settings, addressed by parent_path/block_index in body.
+func PlanSetSlot(oseid, sectionID string, body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/slot", Body: body}
+}
+
+// PlanSetProps describes PATCH .../sections/{section}/props (themes set-props).
+func PlanSetProps(oseid, sectionID string, body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/props", Body: body}
+}
+
+// PlanAddBlock describes POST .../sections/{section}/blocks (themes add-block).
+func PlanAddBlock(oseid, sectionID string, body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/blocks", Body: body}
+}
+
+// PlanRemoveBlock describes DELETE .../sections/{section}/blocks (themes remove-block).
+// Coordinates travel in the body (DELETE-with-body, see common.Send).
+func PlanRemoveBlock(oseid, sectionID string, body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "DELETE", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/blocks", Body: body}
+}
+
+// PlanAddSection describes POST .../sections (themes add-section).
+func PlanAddSection(oseid string, body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/sections", Body: body}
+}
+
+// PlanRemoveSection describes DELETE .../sections/{section} (themes remove-section).
+// Body carries doc_id (+ optional area) only — no theme_id, unlike its siblings.
+func PlanRemoveSection(oseid, sectionID string, body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "DELETE", Path: editSessionBase(oseid) + "/sections/" + sectionID, Body: body}
+}
+
+// PlanMoveSection describes PATCH .../sections/{section}/move (themes move-section).
+func PlanMoveSection(oseid, sectionID string, body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/move", Body: body}
+}
+
+// PlanSetVisibility describes PATCH .../sections/{section}/visibility (themes set-visibility).
+func PlanSetVisibility(oseid, sectionID string, body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/visibility", Body: body}
+}
+
+// PlanPbBlockSave describes POST /themes/page-builder/blocks (themes pb-block-save).
+// The 7 required body fields are backfilled by the CLI, never by the model.
+func PlanPbBlockSave(body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: themeBaseV202601 + "/page-builder/blocks", Body: body}
+}
+
+// PlanPromoteSession describes POST .../promote (themes promote-session):
+// save the edit draft back onto the theme draft.
+func PlanPromoteSession(oseid string, body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/promote", Body: body}
+}
