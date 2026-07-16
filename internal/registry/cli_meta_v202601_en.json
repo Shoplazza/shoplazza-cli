@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-14T06:25:16Z",
+  "generated_at": "2026-07-16T07:34:27Z",
   "modules": [
     {
       "name": "billing",
@@ -10911,7 +10911,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Data source filter: theme / pb / extension / public. Multi-value (repeat the param source=pb\u0026source=public, or comma-join source=pb,public). Empty aggregates all four; any invalid value -\u003e 400."
+              "description": "Data source filter: theme / pb / custom / extension / public. Multi-value (repeat the param source=pb\u0026source=public, or comma-join source=pb,public). Empty aggregates all five; any invalid value -\u003e 400."
             },
             {
               "name": "category",
