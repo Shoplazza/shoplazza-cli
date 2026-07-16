@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-16T07:34:27Z",
+  "generated_at": "2026-07-16T08:49:15Z",
   "modules": [
     {
       "name": "billing",
@@ -10891,7 +10891,7 @@
             "list-card"
           ],
           "summary": "List addable theme cards (aggregated)",
-          "description": "List all addable cards under the current theme, aggregated from four sources\n(theme / pb / extension / public) with de-dup, fixed source ordering and a\nunified cursor. The four upstream data sources are hidden from the caller.",
+          "description": "List all addable cards under the current theme, aggregated from five sources\n(theme / pb / custom / extension / public) with de-dup, fixed source ordering and a\nunified cursor. The five upstream data sources are hidden from the caller.",
           "hidden": false,
           "http": {
             "method": "GET",
