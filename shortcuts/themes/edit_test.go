@@ -418,6 +418,23 @@ func TestValidateOps_Table(t *testing.T) {
 	}
 }
 
+// TestValidateOps_PbTemplateHint pins the discovery hint on the
+// pb-without-template_id error (custom templates surface via source=custom).
+func TestValidateOps_PbTemplateHint(t *testing.T) {
+	ops, err := parseOps([]byte(`[{"op":"add_section","pb":true}]`))
+	if err != nil {
+		t.Fatalf("parseOps: %v", err)
+	}
+	var exitErr *output.ExitError
+	if !errors.As(validateOps(ops), &exitErr) {
+		t.Fatal("want *output.ExitError")
+	}
+	env := exitErr.Envelope()
+	if !strings.Contains(fmt.Sprint(env["hint"]), `"source":"custom"`) {
+		t.Errorf("hint = %v, want list-card source=custom discovery", env["hint"])
+	}
+}
+
 func TestEdit_DryRunZeroCall(t *testing.T) {
 	res, err := editExecute(context.Background(), common.ExecInput{
 		Flags: editFlags(t, map[string]any{"template": "index", "promote": true,

@@ -89,7 +89,7 @@ func validateOps(ops []editOp) error {
 
 	for i := range ops {
 		op := &ops[i]
-		fail := func(format string, args ...any) error {
+		fail := func(format string, args ...any) *output.ExitError {
 			e := output.ErrValidation("op #%d (%s): %s", i, op.Op, fmt.Sprintf(format, args...)).
 				WithField("invalid_op", i)
 			if ex := opExamples[op.Op]; ex != "" {
@@ -147,7 +147,8 @@ func validateOps(ops []editOp) error {
 		case "add_section":
 			if op.Pb {
 				if op.TemplateID == "" {
-					return fail("template_id is required when pb=true")
+					return fail("template_id is required when pb=true").
+						WithHint(`discover addable pb template ids: themes list-card --params '{"source":"custom"}'`)
 				}
 			} else if op.Name == "" {
 				return fail("name is required (the section type to add)")
