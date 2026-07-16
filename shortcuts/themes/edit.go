@@ -122,6 +122,12 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		return common.ExecResult{}, err
 	}
 
+	// Prefetch the store domain (GET /shop, read-only) concurrently with the
+	// ops loop; it is only consumed by the preview URL after all ops apply.
+	// Buffered so an early error return never blocks the goroutine.
+	domainCh := make(chan string, 1)
+	go func() { domainCh <- extractStoreDomainBest(ctx, in.Client) }()
+
 	// Sequential fail-fast application.
 	applied := make([]map[string]any, 0, len(resolved))
 	for i, r := range resolved {
@@ -158,7 +164,7 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		applied = append(applied, entry)
 	}
 
-	previewURL := buildPreviewURL(extractStoreDomainBest(ctx, in.Client), "/", themeID, oseid, "")
+	previewURL := buildPreviewURL(<-domainCh, "/", themeID, oseid, "")
 
 	body := map[string]any{
 		"oseid": oseid, "session_created": created,

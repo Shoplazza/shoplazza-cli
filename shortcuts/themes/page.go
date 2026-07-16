@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"shoplazza-cli-v2/internal/output"
 	"shoplazza-cli-v2/shortcuts/common"
@@ -268,11 +269,25 @@ func pageList(ctx context.Context, in common.ExecInput, themeID string) (common.
 		}
 	}
 
-	var templates []map[string]any
-	treeResp, err := common.Send(ctx, in.Client, PlanDocTree(themeID))
-	if err != nil {
-		return common.ExecResult{}, err
+	// doctree and list-templates are independent reads — fetch concurrently,
+	// keeping doctree's error precedence (it fails first, as it did serially).
+	var customResp map[string]any
+	var customErr error
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		customResp, customErr = common.Send(ctx, in.Client, PlanListTemplates(themeID, map[string]any{"per_page": "100"}))
+	}()
+	treeResp, treeErr := common.Send(ctx, in.Client, PlanDocTree(themeID))
+	<-done
+	if treeErr != nil {
+		return common.ExecResult{}, treeErr
 	}
+	if customErr != nil {
+		return common.ExecResult{}, customErr
+	}
+
+	var templates []map[string]any
 	for _, item := range doctreeGroupItems(treeResp, "templates") {
 		location := getString(item, "location")
 		name := strings.TrimSuffix(location, ".liquid")
@@ -290,10 +305,6 @@ func pageList(ctx context.Context, in common.ExecInput, themeID string) (common.
 		templates = append(templates, entry)
 	}
 
-	customResp, err := common.Send(ctx, in.Client, PlanListTemplates(themeID, map[string]any{"per_page": "100"}))
-	if err != nil {
-		return common.ExecResult{}, err
-	}
 	root := customResp
 	if d := mapField(customResp, "data"); d != nil {
 		root = d
@@ -352,26 +363,36 @@ func findSectionRow(rows []map[string]any, sectionID string) map[string]any {
 }
 
 // expandPbCanvas fetches the canvas text for every kind:"pb" row in place
-// (one pb-blocks-get per card). Per-card failures degrade to a canvas_error
-// note instead of failing the read: theme-baked PB cards reference
+// (one pb-blocks-get per card, fetched concurrently — the GETs are independent;
+// each goroutine writes only its own row). Per-card failures degrade to a
+// canvas_error note instead of failing the read: theme-baked PB cards reference
 // designer-side templates that 404 on the merchant store.
 func expandPbCanvas(ctx context.Context, in common.ExecInput, rows []map[string]any) error {
+	sem := make(chan struct{}, 4)
+	var wg sync.WaitGroup
 	for _, row := range rows {
 		customID, ok := pbCustomID(getString(row, "type"))
 		if !ok {
 			continue
 		}
-		resp, err := common.Send(ctx, in.Client, PlanPbBlocksGet(customID, nil))
-		if err != nil {
-			row["canvas_error"] = fmt.Sprintf("pb template %s unavailable on this store: %v", customID, err)
-			continue
-		}
-		root := resp
-		if d := mapField(resp, "data"); d != nil {
-			root = d
-		}
-		row["canvas"] = getString(root, "text")
+		wg.Add(1)
+		go func(row map[string]any, customID string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			resp, err := common.Send(ctx, in.Client, PlanPbBlocksGet(customID, nil))
+			if err != nil {
+				row["canvas_error"] = fmt.Sprintf("pb template %s unavailable on this store: %v", customID, err)
+				return
+			}
+			root := resp
+			if d := mapField(resp, "data"); d != nil {
+				root = d
+			}
+			row["canvas"] = getString(root, "text")
+		}(row, customID)
 	}
+	wg.Wait()
 	return nil
 }
 

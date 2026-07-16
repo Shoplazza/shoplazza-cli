@@ -76,6 +76,11 @@ func pageServer(t *testing.T, counters *pageServerCounters, sectionsPayload []by
 			_, _ = w.Write(sectionsPayload)
 		case strings.Contains(p, "/page-builder/custom-templates/"):
 			counters.pbGet.Add(1)
+			if strings.HasSuffix(p, "/9500") { // sentinel id: this card 500s (fan-out isolation)
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(`{"message":"record not found"}`))
+				return
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"text": "#0 root \"Canvas\""}})
 		case strings.HasSuffix(p, "/theme-templates"):
 			counters.listTemplates.Add(1)
@@ -263,6 +268,80 @@ func TestPage_IncludePbExpandsCanvas(t *testing.T) {
 	}
 	if rows[0]["canvas"] != nil {
 		t.Errorf("theme card must not get a canvas")
+	}
+}
+
+// TestPage_PbFanoutIsolation covers the concurrent pb-blocks-get fan-out:
+// every PB card is fetched, and one card's failure degrades to canvas_error
+// on that row only.
+func TestPage_PbFanoutIsolation(t *testing.T) {
+	payload := map[string]any{"data": map[string]any{
+		"schemas": map[string]any{},
+		"sections": map[string]any{
+			"page_sections": []any{
+				map[string]any{"id": 222.0, "type": "shoplazza://apps/page-builder/blocks/custom-9527", "display": true, "settings": map[string]any{}, "blocks": []any{}},
+				map[string]any{"id": 333.0, "type": "shoplazza://apps/page-builder/blocks/custom-9528", "display": true, "settings": map[string]any{}, "blocks": []any{}},
+				map[string]any{"id": 444.0, "type": "shoplazza://apps/page-builder/blocks/custom-9500", "display": true, "settings": map[string]any{}, "blocks": []any{}},
+			},
+			"sections": []any{},
+		},
+	}}
+	raw, _ := json.Marshal(payload)
+
+	var c pageServerCounters
+	srv := pageServer(t, &c, raw)
+	defer srv.Close()
+
+	body, err := pageExec(t, srv, map[string]any{"template": "index", "include": "pb"})
+	if err != nil {
+		t.Fatalf("pageExecute: %v", err)
+	}
+	rows := body["sections"].([]map[string]any)
+	if len(rows) != 3 {
+		t.Fatalf("sections = %d, want 3", len(rows))
+	}
+	for _, row := range rows[:2] {
+		if row["canvas"] != "#0 root \"Canvas\"" || row["canvas_error"] != nil {
+			t.Errorf("row %v: canvas = %v, canvas_error = %v", row["section_id"], row["canvas"], row["canvas_error"])
+		}
+	}
+	if rows[2]["canvas"] != nil || rows[2]["canvas_error"] == nil {
+		t.Errorf("failing card: canvas = %v, canvas_error = %v", rows[2]["canvas"], rows[2]["canvas_error"])
+	}
+	if c.pbGet.Load() != 3 {
+		t.Errorf("pb-blocks-get calls = %d, want 3", c.pbGet.Load())
+	}
+}
+
+// TestPage_ListDoctreeErrorPrecedence pins the error priority of the
+// concurrent --list pair: a doctree failure surfaces even when
+// list-templates succeeds (matching the former serial order).
+func TestPage_ListDoctreeErrorPrecedence(t *testing.T) {
+	var listTemplates atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/openapi/2026-01/themes":
+			_ = json.NewEncoder(w).Encode(map[string]any{"themes": []any{map[string]any{"id": "t_pub"}}})
+		case strings.HasSuffix(r.URL.Path, "/doctree"):
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"message":"doctree-boom"}`))
+		case strings.HasSuffix(r.URL.Path, "/theme-templates"):
+			listTemplates.Add(1)
+			_ = json.NewEncoder(w).Encode(map[string]any{"theme_templates": []any{}})
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	_, err := pageExec(t, srv, map[string]any{"list": true})
+	if err == nil || !strings.Contains(err.Error(), "doctree-boom") {
+		t.Fatalf("err = %v, want the doctree error to win", err)
+	}
+	if listTemplates.Load() != 1 {
+		t.Errorf("list-templates calls = %d, want 1 (pair still fires)", listTemplates.Load())
 	}
 }
 
