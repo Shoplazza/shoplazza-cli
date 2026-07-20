@@ -207,6 +207,66 @@ func TestBuildSectionRow_Visibility(t *testing.T) {
 	}
 }
 
+// TestBuildSectionRow_Name pins the per-kind name source: pb cards read
+// schema.name, theme/app cards read name, both passed through verbatim;
+// fixed cards have none and the field is omitted.
+func TestBuildSectionRow_Name(t *testing.T) {
+	bilingual := map[string]any{"en-US": "Static text 2", "zh-CN": "组合轮播2"}
+	cases := []struct {
+		label string
+		m     map[string]any
+		want  any // nil = field absent
+	}{
+		{"pb card takes schema.name", map[string]any{
+			"id": 1, "type": "shoplazza://apps/page-builder/blocks/global-666/abc",
+			"name": "image_with_text", "schema": map[string]any{"name": bilingual},
+		}, bilingual},
+		{"app card takes name", map[string]any{
+			"id": 2, "type": "shoplazza://apps/public/blocks/video_hero/41113",
+			"name": map[string]any{"en-US": "Video hero", "zh-CN": "视频背景"},
+		}, map[string]any{"en-US": "Video hero", "zh-CN": "视频背景"}},
+		{"theme card takes name", map[string]any{
+			"id": 3, "type": "hero_slideshow", "name": "hero_slideshow",
+		}, "hero_slideshow"},
+		{"fixed card has no name", map[string]any{
+			"id": "header", "type": "header",
+		}, nil},
+	}
+	for _, c := range cases {
+		got, ok := buildSectionRow(c.m)["name"]
+		if c.want == nil {
+			if ok {
+				t.Errorf("%s: name = %v, want field absent", c.label, got)
+			}
+			continue
+		}
+		if fmt.Sprint(got) != fmt.Sprint(c.want) {
+			t.Errorf("%s: name = %v, want %v", c.label, got, c.want)
+		}
+	}
+}
+
+// TestSectionsByArea_GlobalSectionsKey covers the renamed fixed-cards group:
+// newer schemas-list responses use "global_sections" instead of "sections".
+func TestSectionsByArea_GlobalSectionsKey(t *testing.T) {
+	inner := map[string]any{"sections": map[string]any{
+		"page_sections": []any{map[string]any{"id": 111.0, "type": "rich_text"}},
+		"global_sections": []any{
+			map[string]any{"id": "announcement", "type": "announcement"},
+			map[string]any{"id": "header", "type": "header"},
+			map[string]any{"id": "footer", "type": "footer"},
+		},
+	}}
+	ba := sectionsByArea(inner)
+	if len(ba["page"]) != 1 || len(ba["header"]) != 1 || len(ba["footer"]) != 1 || len(ba["global"]) != 1 {
+		t.Fatalf("area sizes = page:%d header:%d footer:%d global:%d, want 1/1/1/1",
+			len(ba["page"]), len(ba["header"]), len(ba["footer"]), len(ba["global"]))
+	}
+	if anyToString(ba["global"][0]["id"]) != "announcement" {
+		t.Errorf("global bucket = %v", ba["global"])
+	}
+}
+
 func TestPage_IncludeSchemaProjection(t *testing.T) {
 	var c pageServerCounters
 	srv := pageServer(t, &c, nil)

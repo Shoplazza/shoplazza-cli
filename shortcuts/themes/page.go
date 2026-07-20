@@ -333,12 +333,28 @@ func pageList(ctx context.Context, in common.ExecInput, themeID string) (common.
 // are tagged kind:"pb" (canvas attaches later under --include pb).
 func buildSectionRow(m map[string]any) map[string]any {
 	id := anyToString(m["id"])
+	typ := getString(m, "type")
 	row := map[string]any{
 		"section_id": id,
-		"type":       getString(m, "type"),
+		"type":       typ,
 		// set_visibility toggles "disabled"; "display" is a separate signal.
 		"visible":  m["display"] != false && m["disabled"] != true,
 		"settings": mapField(m, "settings"),
+	}
+	// name: pb cards carry the display name in schema.name (top-level name is
+	// the slug); theme and app cards carry it in name. Passed through verbatim
+	// (theme cards: string; pb/app cards: bilingual object); fixed cards have
+	// none and the field is omitted.
+	var name any
+	if isPbType(typ) {
+		if s := mapField(m, "schema"); s != nil {
+			name = s["name"]
+		}
+	} else {
+		name = m["name"]
+	}
+	if name != nil && name != "" {
+		row["name"] = name
 	}
 	blocks, _ := m["blocks"].([]any)
 	flat := flattenBlocks(id, blocks)
@@ -347,7 +363,7 @@ func buildSectionRow(m map[string]any) map[string]any {
 		rows = append(rows, map[string]any{"type": b.Type, "settings": b.Settings, "target": b.Target})
 	}
 	row["blocks"] = rows
-	if _, ok := pbCustomID(getString(m, "type")); ok {
+	if _, ok := pbCustomID(typ); ok {
 		row["kind"] = "pb"
 	}
 	return row

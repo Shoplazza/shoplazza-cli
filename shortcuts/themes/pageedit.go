@@ -176,7 +176,9 @@ func areaOf(fixedID string) string {
 
 // sectionsByArea groups a schemas-list payload into page / header / footer /
 // global, folding both the dedicated groups (page_sections / header_sections /
-// footer_sections) and the fixed "sections" group (classified by id via areaOf).
+// footer_sections) and the fixed-cards group (classified by id via areaOf).
+// The fixed group's key varies by response vintage: "sections" or
+// "global_sections" — both are folded.
 func sectionsByArea(inner map[string]any) map[string][]map[string]any {
 	out := map[string][]map[string]any{"page": {}, "header": {}, "footer": {}, "global": {}}
 	sec := mapField(inner, "sections")
@@ -186,9 +188,11 @@ func sectionsByArea(inner map[string]any) map[string][]map[string]any {
 	out["page"] = mapSlice(sec["page_sections"])
 	out["header"] = append(out["header"], mapSlice(sec["header_sections"])...)
 	out["footer"] = append(out["footer"], mapSlice(sec["footer_sections"])...)
-	for _, m := range mapSlice(sec["sections"]) { // fixed cards: classify by id
-		a := areaOf(anyToString(m["id"]))
-		out[a] = append(out[a], m)
+	for _, key := range []string{"sections", "global_sections"} {
+		for _, m := range mapSlice(sec[key]) { // fixed cards: classify by id
+			a := areaOf(anyToString(m["id"]))
+			out[a] = append(out[a], m)
+		}
 	}
 	return out
 }
@@ -227,6 +231,13 @@ func pbCustomID(sectionType string) (string, bool) {
 		return "", false
 	}
 	return m[1], true
+}
+
+// isPbType reports whether a section type belongs to the page-builder app
+// (custom- and global- families alike) — exact app-segment match per
+// template_structure.md, broader than pbCustomID's custom-only capture.
+func isPbType(sectionType string) bool {
+	return strings.HasPrefix(sectionType, "shoplazza://apps/page-builder/")
 }
 
 // isSessionNotFound reports whether an API error means the edit session is
