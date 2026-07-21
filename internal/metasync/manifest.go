@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"shoplazza-cli-v2/internal/build"
 	"shoplazza-cli-v2/internal/registry"
 )
 
@@ -30,8 +31,9 @@ const (
 	maxSpecRaw      = 32 << 20  // 32 MB decompressed
 )
 
-// defaultOrigin is the static hosting root; override via SHOPLAZZA_CLI_META_ORIGIN.
-var defaultOrigin = "https://static.shoplazza.com/shoplazza-cli/meta/"
+// metaRoutePrefix is the CliMetaService route on the saiga host, which also
+// serves the auth flow — the two share one base URL by design.
+const metaRoutePrefix = "/api/saiga/cli/meta/"
 
 // DefaultClient overrides the HTTP client (for tests). nil -> default client with timeout.
 var DefaultClient *http.Client
@@ -45,10 +47,17 @@ type Manifest struct {
 	SHA256        string `json:"sha256"`
 }
 
+// originURL resolves the metadata origin: explicit override first, otherwise
+// derived from the auth base URL so one variable switches both flows between
+// environments.
 func originURL() string {
 	v := os.Getenv("SHOPLAZZA_CLI_META_ORIGIN")
 	if v == "" {
-		v = defaultOrigin
+		base := os.Getenv("SHOPLAZZA_CLI_AUTH_BASE_URL")
+		if base == "" {
+			base = build.DefaultAuthBaseURL
+		}
+		v = strings.TrimRight(base, "/") + metaRoutePrefix
 	}
 	if !strings.HasSuffix(v, "/") {
 		v += "/"

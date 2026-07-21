@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"shoplazza-cli-v2/internal/build"
 	"shoplazza-cli-v2/internal/registry"
 	"shoplazza-cli-v2/internal/testenv"
 )
@@ -502,13 +503,23 @@ func TestOriginURL(t *testing.T) {
 		t.Fatalf("originURL() = %q, want trailing slash added", got)
 	}
 	t.Setenv("SHOPLAZZA_CLI_META_ORIGIN", "")
-	if got := originURL(); got != defaultOrigin {
-		t.Fatalf("originURL() = %q, want default %q", got, defaultOrigin)
+	t.Setenv("SHOPLAZZA_CLI_AUTH_BASE_URL", "")
+	want := build.DefaultAuthBaseURL + metaRoutePrefix
+	if got := originURL(); got != want {
+		t.Fatalf("originURL() = %q, want derived default %q", got, want)
+	}
+	t.Setenv("SHOPLAZZA_CLI_AUTH_BASE_URL", "https://stg-partners.example/")
+	if got := originURL(); got != "https://stg-partners.example/api/saiga/cli/meta/" {
+		t.Fatalf("originURL() = %q, want auth-base derivation", got)
+	}
+	t.Setenv("SHOPLAZZA_CLI_META_ORIGIN", "http://override.test/x/")
+	if got := originURL(); got != "http://override.test/x/" {
+		t.Fatalf("originURL() = %q, explicit META_ORIGIN must win", got)
 	}
 }
 
 func TestMain(m *testing.M) {
 	// Belt and braces: never let a stray test hit the real default origin.
-	defaultOrigin = fmt.Sprintf("http://127.0.0.1:0/unreachable-%d/", os.Getpid())
+	os.Setenv("SHOPLAZZA_CLI_META_ORIGIN", fmt.Sprintf("http://127.0.0.1:0/unreachable-%d/", os.Getpid()))
 	os.Exit(m.Run())
 }
