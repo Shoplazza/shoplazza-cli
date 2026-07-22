@@ -31,8 +31,7 @@ const (
 	maxSpecRaw      = 32 << 20  // 32 MB decompressed
 )
 
-// metaRoutePrefix is the CliMetaService route on the saiga host, which also
-// serves the auth flow — the two share one base URL by design.
+// metaRoutePrefix is the CliMetaService route; it shares the saiga auth host.
 const metaRoutePrefix = "/api/saiga/cli/meta/"
 
 // DefaultClient overrides the HTTP client (for tests). nil -> default client with timeout.
@@ -47,9 +46,8 @@ type Manifest struct {
 	SHA256        string `json:"sha256"`
 }
 
-// originURL resolves the metadata origin: explicit override first, otherwise
-// derived from the auth base URL so one variable switches both flows between
-// environments.
+// originURL returns the metadata origin: SHOPLAZZA_CLI_META_ORIGIN, else
+// derived from the auth base URL.
 func originURL() string {
 	v := os.Getenv("SHOPLAZZA_CLI_META_ORIGIN")
 	if v == "" {

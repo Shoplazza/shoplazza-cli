@@ -34,15 +34,13 @@ type Status struct {
 	LastCheckedAt time.Time // zero when no check has completed yet
 }
 
-// Refresh is the silent background path: TTL-gated, failures backed off,
-// errors swallowed. Safe fire-and-forget.
+// Refresh is the background path: TTL-gated, backed off on failure, silent.
 func Refresh(ctx context.Context, currentVersion string) {
 	if shouldSkip(currentVersion) {
 		return
 	}
 	if s := loadState(); s != nil {
-		// A negative Since means a future timestamp (clock rollback); treat
-		// as stale so the next successful check self-heals it.
+		// Negative Since = clock rollback; treat as stale (self-heals next check).
 		if d := time.Since(time.Unix(s.LastCheckedAt, 0)); d >= 0 && d < cacheTTL {
 			return
 		}
@@ -79,8 +77,7 @@ func CurrentStatus() Status {
 
 func doRefresh(ctx context.Context, currentVersion string) (Result, error) {
 	origin := originURL()
-	// A cache downloaded from a different origin never gates this one, so
-	// switching origins (e.g. a staging override) repairs itself.
+	// A different-origin cache never gates this one, so origin switches self-heal.
 	local := registry.EmbeddedRevision()
 	if s := loadState(); s != nil && s.Origin == origin {
 		local = registry.NewestLocalRevision()
