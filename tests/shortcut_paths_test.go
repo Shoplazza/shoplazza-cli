@@ -18,12 +18,16 @@ import (
 	"testing"
 
 	"shoplazza-cli-v2/internal/registry"
+	"shoplazza-cli-v2/internal/testenv"
 	"shoplazza-cli-v2/shortcuts/common"
 	discountshortcuts "shoplazza-cli-v2/shortcuts/discounts"
 	productshortcuts "shoplazza-cli-v2/shortcuts/products"
 )
 
 func TestShortcutPlanPathsMatchSpec(t *testing.T) {
+	// LoadSpec would otherwise pick up a real downloaded cache on dev machines;
+	// this test must validate against the embedded spec.
+	testenv.IsolateConfigDir(t)
 	spec := registry.LoadSpec()
 	if spec == nil || len(spec.Modules) == 0 {
 		t.Skip("embedded spec is empty; nothing to validate against")

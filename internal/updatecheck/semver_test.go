@@ -31,14 +31,14 @@ func TestIsNewer(t *testing.T) {
 func TestIsReleaseVersion(t *testing.T) {
 	// Only strict X.Y.Z (optional v prefix) is a release.
 	for _, v := range []string{"2.0.1", "v2.0.1", "2.2.2", "v10.20.30"} {
-		if !isReleaseVersion(v) {
-			t.Errorf("isReleaseVersion(%q)=false want true", v)
+		if !IsReleaseVersion(v) {
+			t.Errorf("IsReleaseVersion(%q)=false want true", v)
 		}
 	}
 	// dev / git-describe / prerelease / wrong part count / non-numeric are not releases.
 	for _, v := range []string{"dev", "", "2.0.1-12-gabc1234", "2.0.1-dirty", "2.1.0-beta.1", "not.a.version", "2.0", "2.0.0.1"} {
-		if isReleaseVersion(v) {
-			t.Errorf("isReleaseVersion(%q)=true want false", v)
+		if IsReleaseVersion(v) {
+			t.Errorf("IsReleaseVersion(%q)=true want false", v)
 		}
 	}
 }

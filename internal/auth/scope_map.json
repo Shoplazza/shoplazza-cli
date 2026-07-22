@@ -64,7 +64,9 @@
       "metafields-resource":   { "scope": null },
       "metafields-definition": { "scope": null },
       "analytics":             { "scope": null },
-      "carrier-services":      { "scope": "product" }
+      "carrier-services":      { "scope": "product" },
+      "markets":               { "scope": "shop"},
+      "languages":             { "scope": "shop"}
     }
   },
 

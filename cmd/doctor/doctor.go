@@ -5,10 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	internalauth "shoplazza-cli-v2/internal/auth"
 	"shoplazza-cli-v2/internal/cmdutil"
 	"shoplazza-cli-v2/internal/core"
+	"shoplazza-cli-v2/internal/metasync"
 	"shoplazza-cli-v2/internal/output"
 
 	"github.com/spf13/cobra"
@@ -58,14 +60,29 @@ func newCmdCheck(f *cmdutil.Factory) *cobra.Command {
 }
 
 // runChecks runs the v2 config-health checks: configVersion, the auth/+locks
-// directory layout, and leftover v1 migration residue. All are local-disk
-// reads only — no network, no keychain.
+// directory layout, leftover v1 migration residue, and metadata provenance.
+// All are local-disk reads only — no network, no keychain.
 func runChecks(f *cmdutil.Factory) []checkResult {
 	return []checkResult{
 		checkConfigVersion(f),
 		checkAuthLocksDirs(f),
 		checkMigrationResidue(f),
+		checkMetadata(),
 	}
+}
+
+// checkMetadata reports the active metadata source and last refresh check.
+func checkMetadata() checkResult {
+	st := metasync.CurrentStatus()
+	last := "never"
+	if !st.LastCheckedAt.IsZero() {
+		last = st.LastCheckedAt.UTC().Format(time.RFC3339)
+	}
+	msg := fmt.Sprintf("source=%s revision=%s last_check=%s", st.Source, st.Revision, last)
+	if st.Revision == "" {
+		return checkResult{"metadata", "warn", "active spec has no generated_at — " + msg}
+	}
+	return checkResult{"metadata", "ok", msg}
 }
 
 func configExists(f *cmdutil.Factory) bool {

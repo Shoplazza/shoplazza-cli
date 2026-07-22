@@ -21,6 +21,7 @@ import (
 	"shoplazza-cli-v2/cmd/update"
 	"shoplazza-cli-v2/internal/build"
 	"shoplazza-cli-v2/internal/cmdutil"
+	"shoplazza-cli-v2/internal/metasync"
 	"shoplazza-cli-v2/internal/output"
 	"shoplazza-cli-v2/internal/registry"
 	"shoplazza-cli-v2/internal/updatecheck"
@@ -105,11 +106,12 @@ func Execute() (exitCode int) {
 	// refresh in a background goroutine for the next run.
 	// Skip update/completion commands to avoid nagging mid-update and avoid corrupting completion output.
 	var pendingUpdate *updatecheck.Info
-	if !isUpdateCheckSkippedCommand(os.Args[1:]) {
+	if !isUpdateCheckSkippedCommand(rootCmd, os.Args[1:]) {
 		pendingUpdate = updatecheck.CheckCached(build.Version)
-		// Fire-and-forget: on fast-exiting commands the process may end before this
-		// finishes — that's fine, it refreshes the cache for the next run (no latency).
+		// Fire-and-forget: on fast-exiting commands the process may end before these
+		// finish — that's fine, they refresh the caches for the next run (no latency).
 		go updatecheck.RefreshCache(build.Version)
+		go metasync.Refresh(ctx, build.Version)
 	}
 
 	execErr := rootCmd.ExecuteContext(ctx)
