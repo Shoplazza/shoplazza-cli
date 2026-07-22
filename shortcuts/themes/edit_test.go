@@ -58,7 +58,12 @@ func newEditServer(t *testing.T) *editServer {
 		case p == "/openapi/2026-01/shop":
 			_ = json.NewEncoder(w).Encode(map[string]any{"shop": map[string]any{"domain": "unit.myshoplaza.com"}})
 		case strings.HasSuffix(p, "/doctree"):
-			_ = json.NewEncoder(w).Encode(map[string]any{"templates": []any{map[string]any{"id": "d_index", "location": "index.liquid"}}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"templates": []any{
+				map[string]any{"id": "d_index", "location": "index.liquid"},
+				map[string]any{"id": "d_product", "location": "product.liquid"},
+			}})
+		case p == "/openapi/2026-01/products" && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"products": []any{map[string]any{"handle": "demo-product"}}})
 		case strings.HasSuffix(p, "/edit-sessions") && r.Method == http.MethodPost:
 			_ = json.NewEncoder(w).Encode(map[string]any{"oseid": "ose_new"})
 		case strings.HasSuffix(p, "/sections") && r.Method == http.MethodGet:
@@ -171,6 +176,86 @@ func TestEdit_SessionReuseAndImplicitReadOnlyWhenNeeded(t *testing.T) {
 		}
 		if !strings.Contains(p, "ose_given") {
 			t.Errorf("write not addressed to the given session: %v", p)
+		}
+	}
+}
+
+// TestEdit_PreviewPathByTemplate pins the preview_url path resolution:
+// resource templates point at a representative item, static/index at /.
+func TestEdit_PreviewPathByTemplate(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	body, err := editExec(t, es, map[string]any{"template": "product", "session": "ose_x",
+		"ops": `[{"op":"replace_props","target":"111","props":{"a":"b"}}]`})
+	if err != nil {
+		t.Fatalf("editExecute: %v", err)
+	}
+	preview := body["preview_url"].(string)
+	if !strings.Contains(preview, "/products/demo-product?") {
+		t.Errorf("preview_url = %q, want /products/demo-product path", preview)
+	}
+
+	body, err = editExec(t, es, map[string]any{"template": "index", "session": "ose_x",
+		"ops": `[{"op":"replace_props","target":"111","props":{"a":"b"}}]`})
+	if err != nil {
+		t.Fatalf("editExecute: %v", err)
+	}
+	if preview := body["preview_url"].(string); !strings.Contains(preview, "unit.myshoplaza.com/?") {
+		t.Errorf("index preview_url = %q, want homepage path", preview)
+	}
+}
+
+// TestPreviewPageName covers the template/file → page-name extraction.
+func TestPreviewPageName(t *testing.T) {
+	cases := []struct{ template, file, want string }{
+		{"index", "", "index"},
+		{"product.custom", "", "product"},
+		{"", "templates/page.summer.liquid", "page"},
+		{"", "sections/foo.liquid", ""}, // non-templates group: no storefront page
+		{"", "", ""},
+	}
+	for _, c := range cases {
+		if got := previewPageName(c.template, c.file); got != c.want {
+			t.Errorf("previewPageName(%q, %q) = %q, want %q", c.template, c.file, got, c.want)
+		}
+	}
+}
+
+// TestResolvePreviewPath_LocalOnly covers the paths that never touch the
+// network: static pages, article, and unknown templates (nil client proves it).
+func TestResolvePreviewPath_LocalOnly(t *testing.T) {
+	cases := []struct{ template, want string }{
+		{"index", ""},
+		{"cart", "cart"},
+		{"search", "search"},
+		{"404", "404"},
+		{"article", ""}, // needs a two-hop handle, unsupported → homepage
+		{"whatever", ""},
+	}
+	for _, c := range cases {
+		if got := resolvePreviewPath(context.Background(), nil, c.template, ""); got != c.want {
+			t.Errorf("resolvePreviewPath(%q) = %q, want %q", c.template, got, c.want)
+		}
+	}
+}
+
+// TestFirstHandleIn covers list-response shapes: named key, data wrapper,
+// generic slice, and the empty fallback.
+func TestFirstHandleIn(t *testing.T) {
+	cases := []struct {
+		resp map[string]any
+		want string
+	}{
+		{map[string]any{"products": []any{map[string]any{"handle": "p1"}}}, "p1"},
+		{map[string]any{"data": map[string]any{"collections": []any{map[string]any{"handle": "c1"}}}}, "c1"},
+		{map[string]any{"whatever": []any{map[string]any{"handle": "x1"}}}, "x1"},
+		{map[string]any{"products": []any{}}, ""},
+		{map[string]any{}, ""},
+	}
+	for _, c := range cases {
+		if got := firstHandleIn(c.resp); got != c.want {
+			t.Errorf("firstHandleIn(%v) = %q, want %q", c.resp, got, c.want)
 		}
 	}
 }

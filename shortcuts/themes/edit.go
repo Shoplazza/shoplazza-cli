@@ -122,11 +122,14 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		return common.ExecResult{}, err
 	}
 
-	// Prefetch the store domain (GET /shop, read-only) concurrently with the
-	// ops loop; it is only consumed by the preview URL after all ops apply.
-	// Buffered so an early error return never blocks the goroutine.
+	// Prefetch the preview-URL inputs (store domain via GET /shop; storefront
+	// path from the edited template, resource pages via one page_size=1 read)
+	// concurrently with the ops loop; both are only consumed after all ops
+	// apply. Buffered so an early error return never blocks the goroutines.
 	domainCh := make(chan string, 1)
 	go func() { domainCh <- extractStoreDomainBest(ctx, in.Client) }()
+	pathCh := make(chan string, 1)
+	go func() { pathCh <- resolvePreviewPath(ctx, in.Client, template, file) }()
 
 	// Sequential fail-fast application.
 	applied := make([]map[string]any, 0, len(resolved))
@@ -164,7 +167,7 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		applied = append(applied, entry)
 	}
 
-	previewURL := buildPreviewURL(<-domainCh, "/", themeID, oseid, "")
+	previewURL := buildPreviewURL(<-domainCh, <-pathCh, themeID, oseid, "")
 
 	body := map[string]any{
 		"oseid": oseid, "session_created": created,
