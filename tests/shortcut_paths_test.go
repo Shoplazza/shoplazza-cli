@@ -17,10 +17,10 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/registry"
-	"shoplazza-cli-v2/shortcuts/common"
-	discountshortcuts "shoplazza-cli-v2/shortcuts/discounts"
-	productshortcuts "shoplazza-cli-v2/shortcuts/products"
+	"github.com/Shoplazza/shoplazza-cli/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
+	discountshortcuts "github.com/Shoplazza/shoplazza-cli/shortcuts/discounts"
+	productshortcuts "github.com/Shoplazza/shoplazza-cli/shortcuts/products"
 )
 
 func TestShortcutPlanPathsMatchSpec(t *testing.T) {

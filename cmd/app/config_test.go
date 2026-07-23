@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/app"
-	"shoplazza-cli-v2/internal/app/project"
-	"shoplazza-cli-v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/internal/app/project"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
 )
 
 func TestRunConfigUse_ValidatesThenSwitches(t *testing.T) {

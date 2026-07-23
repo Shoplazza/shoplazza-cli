@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // DevResult is the printable outcome of a dev session: the install URL plus the

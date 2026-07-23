@@ -3,7 +3,7 @@ package cmdutil_test
 import (
 	"testing"
 
-	"shoplazza-cli-v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
 )
 
 func TestEnsureObject_CreatesNew(t *testing.T) {

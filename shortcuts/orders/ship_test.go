@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 func TestParseLineItemsArg_ValidPairs(t *testing.T) {

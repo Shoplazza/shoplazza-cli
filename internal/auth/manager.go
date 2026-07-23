@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
 )
 
 func NewManager(cfg core.CliConfig, configPath string, cl *client.Client) *Manager {

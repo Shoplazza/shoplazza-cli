@@ -3,7 +3,7 @@ package auth
 import (
 	"strings"
 
-	"shoplazza-cli-v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
 )
 
 // EffectiveScopes resolves the scope set a profile's store token carries (or

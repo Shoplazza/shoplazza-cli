@@ -15,8 +15,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // captureDeployPayloadExt captures the first extension from the /deploy request

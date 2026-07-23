@@ -1,6 +1,6 @@
 package orders
 
-import "shoplazza-cli-v2/shortcuts/common"
+import "github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 
 const ordersBase = common.APIPrefix + "/orders"
 

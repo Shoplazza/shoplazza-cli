@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	internalauth "shoplazza-cli-v2/internal/auth"
-	"shoplazza-cli-v2/internal/core"
+	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
 )
 
 func TestProfileInfo_DefaultsToCurrent_TokenAbsent(t *testing.T) {

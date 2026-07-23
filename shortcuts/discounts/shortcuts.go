@@ -1,6 +1,6 @@
 package discounts
 
-import "shoplazza-cli-v2/shortcuts/common"
+import "github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 
 // Shortcuts returns all discount shortcut commands.
 func Shortcuts() []common.Shortcut {

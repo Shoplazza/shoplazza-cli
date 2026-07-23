@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 // testdataDir resolves the testdata directory from this test file's source

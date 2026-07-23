@@ -7,11 +7,11 @@ import (
 	"net"
 	"strings"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/rawapi"
-	"shoplazza-cli-v2/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/rawapi"
+	"github.com/Shoplazza/shoplazza-cli/internal/registry"
 
 	"github.com/spf13/cobra"
 )

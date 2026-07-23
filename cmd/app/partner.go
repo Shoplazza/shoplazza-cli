@@ -1,8 +1,8 @@
 package appcmd
 
 import (
-	"shoplazza-cli-v2/internal/app"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // selectPartner resolves the partner context non-interactively: explicit flag

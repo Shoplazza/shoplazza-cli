@@ -9,12 +9,12 @@ import (
 	"os"
 	"strings"
 
-	"shoplazza-cli-v2/internal/app"
-	"shoplazza-cli-v2/internal/app/project"
-	internalauth "shoplazza-cli-v2/internal/auth"
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/internal/app/project"
+	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // warnWriter picks the factory's stderr handle, falling back to os.Stderr —

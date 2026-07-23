@@ -1,8 +1,8 @@
 package orders
 
 import (
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 var countShortcut = common.Shortcut{

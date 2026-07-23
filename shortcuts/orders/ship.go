@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 var shipShortcut = common.Shortcut{

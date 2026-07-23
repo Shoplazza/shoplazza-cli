@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-13T08:08:19Z",
+  "generated_at": "2026-07-23T05:29:01Z",
   "modules": [
     {
       "name": "billing",
@@ -850,7 +850,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "A list of customer IDs"
+              "description": "A list of customer IDs. Example: ?ids=1001\u0026ids=1002"
             },
             {
               "name": "created_at_min",
@@ -967,7 +967,7 @@
               }
             ]
           },
-          "response_schema": "google.protobuf.Empty"
+          "response_schema": "v202601.response.BatchDeleteDiscountsResponse"
         },
         {
           "id": "discount-cancel",
@@ -997,7 +997,7 @@
               }
             ]
           },
-          "response_schema": "google.protobuf.Empty"
+          "response_schema": "v202601.response.CancelDiscountsResponse"
         },
         {
           "id": "discount-combine-update",
@@ -1205,7 +1205,7 @@
               "min_length": 1
             }
           ],
-          "response_schema": "google.protobuf.Empty"
+          "response_schema": "v202601.response.DeleteDiscountResponse"
         },
         {
           "id": "discount-detail",
@@ -1298,7 +1298,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Discount types used as filter values: - `rebate_cta_otr`: Amount-threshold fixed reduction - `rebate_ctq_otr`: Quantity-threshold fixed reduction - `rebate_cta_otp`: Amount-threshold percentage discount - `rebate_ctq_otp`: Quantity-threshold percentage discount - `m_n_discount`: M-for-N discount - `flashsale`: Flash sale discount - `code_percent`: Discount-code percentage discount - `code_fix_price_reduction`: Discount-code fixed reduction - `code_bxgy`: Discount-code buy X get Y - `code_free_shipping`: Discount-code free shipping"
+              "description": "Discount types used as filter values. - rebate_cta_otr: Amount-threshold fixed reduction. - rebate_ctq_otr: Quantity-threshold fixed reduction. - rebate_cta_otp: Amount-threshold percentage discount. - rebate_ctq_otp: Quantity-threshold percentage discount. - m_n_discount: M-for-N discount. - flashsale: Flash sale discount. - code_percent: Discount-code percentage discount. - code_fix_price_reduction: Discount-code fixed reduction. - code_bxgy: Discount-code buy X get Y. - code_free_shipping: Discount-code free shipping. Example: ?discount_type=rebate_cta_otr\u0026discount_type=rebate_ctq_otr"
             },
             {
               "name": "progress",
@@ -1307,7 +1307,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Discount progress states used as filter values: - `ongoing`: Ongoing - `not_started`: Not started - `finished`: Finished - `paused`: Paused"
+              "description": "Discount progress states used as filter values. - ongoing: Ongoing. - not_started: Not started. - finished: Finished. - paused: Paused. Example: ?progress=ongoing\u0026progress=finished"
             },
             {
               "name": "starts_date",
@@ -1335,7 +1335,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Discount methods used as filter values: - `automatic`: Applied automatically - `discount_code`: Applied by discount code"
+              "description": "Discount methods used as filter values. - automatic: Applied automatically. - discount_code: Applied by discount code. Example: ?discount_methods=automatic\u0026discount_methods=discount_code"
             },
             {
               "name": "ids",
@@ -1344,7 +1344,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Explicit discount IDs used as filter values"
+              "description": "Explicit discount IDs used as filter values. Example: ?ids=1001\u0026ids=1002"
             },
             {
               "name": "discount_targets",
@@ -1353,7 +1353,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Discount target categories used as filter values: - `product`: Product discount - `order`: Order discount - `shipping`: Shipping discount"
+              "description": "Discount target categories used as filter values. - product: Product discount. - order: Order discount. - shipping: Shipping discount. Example: ?discount_targets=product\u0026discount_targets=order"
             },
             {
               "name": "source_ids",
@@ -1362,7 +1362,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Business source IDs used as filter values: - `1`: Manual creation - `2`: Goaffpro Affiliate Marketing - `3`: Fintouch - `4`: MambaSMS SMS \u0026 Marketing - `5`: Stamped Loyalty \u0026 Referrals - `6`: Product recommendation - `999`: Other"
+              "description": "Business source IDs used as filter values. - 1: Manual creation. - 2: Goaffpro Affiliate Marketing. - 3: Fintouch. - 4: MambaSMS SMS \u0026 Marketing. - 5: Stamped Loyalty \u0026 Referrals. - 6: Product recommendation. - 999: Other. Example: ?source_ids=3001\u0026source_ids=3002"
             },
             {
               "name": "discount_combines",
@@ -1371,7 +1371,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Other discount categories that can be combined: - `product`: Can combine with product discounts - `order`: Can combine with order discounts - `shipping`: Can combine with shipping discounts"
+              "description": "Other discount categories that can be combined. - product: Can combine with product discounts. - order: Can combine with order discounts. - shipping: Can combine with shipping discounts. Example: ?discount_combines=product\u0026discount_combines=shipping"
             }
           ],
           "response_schema": "v202601.response.ListDiscountsResponse"
@@ -1401,7 +1401,7 @@
               }
             ]
           },
-          "response_schema": "google.protobuf.Empty"
+          "response_schema": "v202601.response.RestartDiscountResponse"
         },
         {
           "id": "discount-automatic-update",
@@ -1562,7 +1562,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by order IDs"
+              "description": "Filter orders by order IDs. Example: ?ids=1001\u0026ids=1002"
             },
             {
               "name": "status",
@@ -1571,7 +1571,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order status: - `opened`: pending payment - `cancelled`: cancelled - `placed`: in progress - `finished`: completed"
+              "description": "Filter by order status. - opened: pending payment. - cancelled: cancelled. - placed: in progress. - finished: completed. Example: ?status=opened\u0026status=finished"
             },
             {
               "name": "fulfillment_status",
@@ -1580,7 +1580,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order fulfillment status: - `initialled`: initial - `waiting`: waiting to ship - `partially_shipped`: partially shipped - `shipped`: fully shipped - `partially_finished`: partially received - `finished`: fully received - `cancelled`: cancelled - `returning`: return in progress - `partially_returned`: partially returned - `returned`: fully returned"
+              "description": "Filter by order fulfillment status. - initialled: initial. - waiting: waiting to ship. - partially_shipped: partially shipped. - shipped: fully shipped. - partially_finished: partially received. - finished: fully received. - cancelled: cancelled. - returning: return in progress. - partially_returned: partially returned. - returned: fully returned. Example: ?fulfillment_status=waiting\u0026fulfillment_status=shipped"
             },
             {
               "name": "financial_status",
@@ -1589,7 +1589,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by payment status: - `waiting`: pending payment - `paying`: payment under review - `authorized`: authorized - `partially_paid`: partially paid - `paid`: paid - `cancelled`: cancelled - `failed`: payment failed - `refunding`: refund in progress - `refund_failed`: refund failed - `refunded`: fully refunded - `partially_refunded`: partially refunded"
+              "description": "Filter by payment status. - waiting: pending payment. - paying: payment under review. - authorized: authorized. - partially_paid: partially paid. - paid: paid. - cancelled: cancelled. - failed: payment failed. - refunding: refund in progress. - refund_failed: refund failed. - refunded: fully refunded. - partially_refunded: partially refunded. Example: ?financial_status=waiting\u0026financial_status=paid"
             },
             {
               "name": "recovery_status",
@@ -1598,7 +1598,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by cart recovery status"
+              "description": "Filter orders by cart recovery status: - `waiting`: waiting to be recalled - `sending`: recall notification in progress - `recalling`: recall in progress - `failed`: recall failed - `success`: recall successful"
             },
             {
               "name": "location_id",
@@ -1619,7 +1619,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Fields to apply keyword search on. Supported values: order_no, email, phone, name, etc"
+              "description": "Fields to apply keyword search on. Supported values: order_no, email, phone, name, etc. Example: ?keyword_scope_fields=order_no\u0026keyword_scope_fields=email"
             },
             {
               "name": "customer_id",
@@ -1684,7 +1684,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by sales channel"
+              "description": "Filter orders by sales channel. Example: ?sales_platform=value1\u0026sales_platform=value2"
             },
             {
               "name": "admin_hasfilter",
@@ -1747,7 +1747,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by shipping address email"
+              "description": "Filter orders by shipping address email. Example: ?shipping_emails=a@example.com\u0026shipping_emails=b@example.com"
             },
             {
               "name": "shipping_phones",
@@ -1756,7 +1756,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by shipping address phone"
+              "description": "Filter orders by shipping address phone. Example: ?shipping_phones=13800000001\u0026shipping_phones=13800000002"
             },
             {
               "name": "browser_ips",
@@ -1765,7 +1765,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by browser IP address"
+              "description": "Filter orders by browser IP address. Example: ?browser_ips=1.2.3.4\u0026browser_ips=5.6.7.8"
             },
             {
               "name": "product_ids",
@@ -1774,7 +1774,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by product ID"
+              "description": "Filter orders by product ID. Example: ?product_ids=2001\u0026product_ids=2002"
             },
             {
               "name": "skus",
@@ -1783,7 +1783,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by SKU"
+              "description": "Filter orders by SKU. Example: ?skus=SKU0001\u0026skus=SKU0002"
             },
             {
               "name": "spus",
@@ -1792,7 +1792,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by SPU"
+              "description": "Filter orders by SPU. Example: ?spus=SPU0001\u0026spus=SPU0002"
             },
             {
               "name": "order_tags",
@@ -1801,7 +1801,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by order tag"
+              "description": "Filter orders by order tag. Example: ?order_tags=vip\u0026order_tags=new"
             },
             {
               "name": "customer_emails",
@@ -1810,7 +1810,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by customer email"
+              "description": "Filter orders by customer email. Example: ?customer_emails=c@example.com\u0026customer_emails=d@example.com"
             },
             {
               "name": "fuzzy_fields",
@@ -1819,7 +1819,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Field names to apply fuzzy matching on. Combined with fuzzy_keywords / fuzzy_relation Allowed values: - `name`: customer name (not recipient name) - `number`: order number - `id`: order ID - `sku`: product SKU (snapshot data). For exact match use `skus` - `spu`: product SPU (snapshot data). For exact match use `spus` - `tag_list`: order tags. For exact match use `order_tags` - `shipping_email`: shipping address email. For exact match use `shipping_emails` - `shipping_phone`: shipping address phone. For exact match use `shipping_phones` - `browser_ip`: order IP address. For exact match use `browser_ips` - `product_tags`: product tags (snapshot data) - `product_title`: product title (snapshot data) - `credit_card_number`: last 4 digits of the payment card - `source`: first-visit landing page - `source_name`: first-visit source - `tracking_number`: shipping tracking number - `shipping_line_name`: shipping plan name - `line_item_vendor`: product vendor - `discount_code`: discount code - `shipping_address_extra_info`: special shipping field info - `transaction_id`: payment transaction number - `customer_id`: customer ID - `last_landing_url`: last-visit landing page - `last_referrer_show`: last-visit source - `country`: country name (snapshot data; mixed CN/EN search not supported) - `shop_name`: POS shop name - `staff_contact`: POS staff Note: for fields that also have a dedicated exact-match array parameter (sku/spu/tag_list/shipping_email/shipping_phone/browser_ip), use the array parameter for full-value lookups; reserve fuzzy mode for prefix or fragment search."
+              "description": "Field names to apply fuzzy matching on. Combined with fuzzy_keywords / fuzzy_relation Allowed values: - `name`: customer name (not recipient name) - `number`: order number - `id`: order ID - `sku`: product SKU (snapshot data). For exact match use `skus` - `spu`: product SPU (snapshot data). For exact match use `spus` - `tag_list`: order tags. For exact match use `order_tags` - `shipping_email`: shipping address email. For exact match use `shipping_emails` - `shipping_phone`: shipping address phone. For exact match use `shipping_phones` - `browser_ip`: order IP address. For exact match use `browser_ips` - `product_tags`: product tags (snapshot data) - `product_title`: product title (snapshot data) - `credit_card_number`: last 4 digits of the payment card - `source`: first-visit landing page - `source_name`: first-visit source - `tracking_number`: shipping tracking number - `shipping_line_name`: shipping plan name - `line_item_vendor`: product vendor - `discount_code`: discount code - `shipping_address_extra_info`: special shipping field info - `transaction_id`: payment transaction number - `customer_id`: customer ID - `last_landing_url`: last-visit landing page - `last_referrer_show`: last-visit source - `country`: country name (snapshot data; mixed CN/EN search not supported) - `shop_name`: POS shop name - `staff_contact`: POS staff Note: for fields that also have a dedicated exact-match array parameter (sku/spu/tag_list/shipping_email/shipping_phone/browser_ip), use the array parameter for full-value lookups; reserve fuzzy mode for prefix or fragment search. Example: ?fuzzy_fields=name\u0026fuzzy_fields=number"
             },
             {
               "name": "fuzzy_keywords",
@@ -1828,7 +1828,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Fuzzy keyword list. Any keyword matches in any of fuzzy_fields counts as a hit"
+              "description": "Fuzzy keyword list. Any keyword matches in any of fuzzy_fields counts as a hit. Example: ?fuzzy_keywords=iphone\u0026fuzzy_keywords=vip"
             },
             {
               "name": "fuzzy_relation",
@@ -1864,7 +1864,7 @@
               }
             ]
           },
-          "response_schema": "v202601.CreateOrderResponseV202601"
+          "response_schema": "v202601.CreateOrderResponse"
         },
         {
           "id": "order-delete",
@@ -1921,7 +1921,7 @@
               "min_length": 1
             }
           ],
-          "response_schema": "v202506.CancelFulfillmentResponse"
+          "response_schema": "v202601.CancelFulfillmentResponse"
         },
         {
           "id": "fulfillment-complete",
@@ -1954,7 +1954,7 @@
               "min_length": 1
             }
           ],
-          "response_schema": "v202506.CompleteFulfillmentResponse"
+          "response_schema": "v202601.CompleteFulfillmentResponse"
         },
         {
           "id": "fulfillment-count",
@@ -2041,7 +2041,7 @@
               }
             ]
           },
-          "response_schema": "v202506.CreateFulfillmentResponse"
+          "response_schema": "v202601.CreateFulfillmentResponse"
         },
         {
           "id": "fulfillment-detail",
@@ -2139,7 +2139,7 @@
               "description": "Filter fulfillments updated at or before this date. ISO-8601 format, for example, \"2023-01-01T00:00:00Z\""
             }
           ],
-          "response_schema": "v202506.ListFulfillmentResponse"
+          "response_schema": "v202601.ListFulfillmentResponse"
         },
         {
           "id": "fulfillment-update",
@@ -2185,7 +2185,7 @@
               }
             ]
           },
-          "response_schema": "v202506.UpdateFulfillmentResponse"
+          "response_schema": "v202601.UpdateFulfillmentResponse"
         },
         {
           "id": "order-detail",
@@ -2209,7 +2209,7 @@
               "min_length": 1
             }
           ],
-          "response_schema": "v202601.GetOrderResponseV202601"
+          "response_schema": "v202601.GetOrderResponse"
         },
         {
           "id": "order-by-number",
@@ -2233,7 +2233,7 @@
               "min_length": 1
             }
           ],
-          "response_schema": "v202601.GetOrderByNumberResponseV202601"
+          "response_schema": "v202601.GetOrderByNumberResponse"
         },
         {
           "id": "orders",
@@ -2271,7 +2271,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "List of IDs"
+              "description": "List of IDs. Example: ?ids=1001\u0026ids=1002"
             },
             {
               "name": "created_at_min",
@@ -2316,7 +2316,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order status: - `opened`: pending payment - `cancelled`: cancelled - `placed`: in progress - `finished`: completed"
+              "description": "Filter by order status. - opened: pending payment. - cancelled: cancelled. - placed: in progress. - finished: completed. Example: ?status=opened\u0026status=finished"
             },
             {
               "name": "fulfillment_status",
@@ -2325,7 +2325,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order fulfillment status: - `initialled`: initial - `waiting`: waiting to ship - `partially_shipped`: partially shipped - `shipped`: fully shipped - `partially_finished`: partially received - `finished`: fully received - `cancelled`: cancelled - `returning`: return in progress - `partially_returned`: partially returned - `returned`: fully returned"
+              "description": "Filter by order fulfillment status. - initialled: initial. - waiting: waiting to ship. - partially_shipped: partially shipped. - shipped: fully shipped. - partially_finished: partially received. - finished: fully received. - cancelled: cancelled. - returning: return in progress. - partially_returned: partially returned. - returned: fully returned. Example: ?fulfillment_status=waiting\u0026fulfillment_status=shipped"
             },
             {
               "name": "financial_status",
@@ -2334,7 +2334,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by payment status: - `waiting`: pending payment - `paying`: payment under review - `authorized`: authorized - `partially_paid`: partially paid - `paid`: paid - `cancelled`: cancelled - `failed`: payment failed - `refunding`: refund in progress - `refund_failed`: refund failed - `refunded`: fully refunded - `partially_refunded`: partially refunded"
+              "description": "Filter by payment status. - waiting: pending payment. - paying: payment under review. - authorized: authorized. - partially_paid: partially paid. - paid: paid. - cancelled: cancelled. - failed: payment failed. - refunding: refund in progress. - refund_failed: refund failed. - refunded: fully refunded. - partially_refunded: partially refunded. Example: ?financial_status=waiting\u0026financial_status=paid"
             },
             {
               "name": "recovery_status",
@@ -2343,7 +2343,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by cart recovery status"
+              "description": "Filter orders by cart recovery status: - `waiting`: waiting to be recalled - `sending`: recall notification in progress - `recalling`: recall in progress - `failed`: recall failed - `success`: recall successful"
             },
             {
               "name": "location_id",
@@ -2364,7 +2364,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Fields to apply keyword search on"
+              "description": "Fields to apply keyword search on. Example: ?keyword_scope_fields=order_no\u0026keyword_scope_fields=email"
             },
             {
               "name": "sort_by",
@@ -2405,7 +2405,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by sales platform"
+              "description": "Filter orders by sales platform. Example: ?sales_platform=value1\u0026sales_platform=value2"
             },
             {
               "name": "finished_at_min",
@@ -2462,7 +2462,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by shipping address email"
+              "description": "Filter orders by shipping address email. Example: ?shipping_emails=a@example.com\u0026shipping_emails=b@example.com"
             },
             {
               "name": "shipping_phones",
@@ -2471,7 +2471,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by shipping address phone"
+              "description": "Filter orders by shipping address phone. Example: ?shipping_phones=13800000001\u0026shipping_phones=13800000002"
             },
             {
               "name": "browser_ips",
@@ -2480,7 +2480,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by browser IP address"
+              "description": "Filter orders by browser IP address. Example: ?browser_ips=1.2.3.4\u0026browser_ips=5.6.7.8"
             },
             {
               "name": "product_ids",
@@ -2489,7 +2489,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by product ID"
+              "description": "Filter orders by product ID. Example: ?product_ids=2001\u0026product_ids=2002"
             },
             {
               "name": "skus",
@@ -2498,7 +2498,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by SKU"
+              "description": "Filter orders by SKU. Example: ?skus=SKU0001\u0026skus=SKU0002"
             },
             {
               "name": "spus",
@@ -2507,7 +2507,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by SPU"
+              "description": "Filter orders by SPU. Example: ?spus=SPU0001\u0026spus=SPU0002"
             },
             {
               "name": "order_tags",
@@ -2516,7 +2516,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by order tag"
+              "description": "Filter orders by order tag. Example: ?order_tags=vip\u0026order_tags=new"
             },
             {
               "name": "customer_emails",
@@ -2525,7 +2525,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter orders by customer email"
+              "description": "Filter orders by customer email. Example: ?customer_emails=c@example.com\u0026customer_emails=d@example.com"
             },
             {
               "name": "fuzzy_fields",
@@ -2534,7 +2534,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Field names to apply fuzzy matching on. Combined with fuzzy_keywords / fuzzy_relation Allowed values: - `name`: customer name (not recipient name) - `number`: order number - `id`: order ID - `sku`: product SKU (snapshot data). For exact match use `skus` - `spu`: product SPU (snapshot data). For exact match use `spus` - `tag_list`: order tags. For exact match use `order_tags` - `shipping_email`: shipping address email. For exact match use `shipping_emails` - `shipping_phone`: shipping address phone. For exact match use `shipping_phones` - `browser_ip`: order IP address. For exact match use `browser_ips` - `product_tags`: product tags (snapshot data) - `product_title`: product title (snapshot data) - `credit_card_number`: last 4 digits of the payment card - `source`: first-visit landing page - `source_name`: first-visit source - `tracking_number`: shipping tracking number - `shipping_line_name`: shipping plan name - `line_item_vendor`: product vendor - `discount_code`: discount code - `shipping_address_extra_info`: special shipping field info - `transaction_id`: payment transaction number - `customer_id`: customer ID - `last_landing_url`: last-visit landing page - `last_referrer_show`: last-visit source - `country`: country name (snapshot data; mixed CN/EN search not supported) - `shop_name`: POS shop name - `staff_contact`: POS staff Note: for fields that also have a dedicated exact-match array parameter (sku/spu/tag_list/shipping_email/shipping_phone/browser_ip), use the array parameter for full-value lookups; reserve fuzzy mode for prefix or fragment search."
+              "description": "Field names to apply fuzzy matching on. Combined with fuzzy_keywords / fuzzy_relation Allowed values: - `name`: customer name (not recipient name) - `number`: order number - `id`: order ID - `sku`: product SKU (snapshot data). For exact match use `skus` - `spu`: product SPU (snapshot data). For exact match use `spus` - `tag_list`: order tags. For exact match use `order_tags` - `shipping_email`: shipping address email. For exact match use `shipping_emails` - `shipping_phone`: shipping address phone. For exact match use `shipping_phones` - `browser_ip`: order IP address. For exact match use `browser_ips` - `product_tags`: product tags (snapshot data) - `product_title`: product title (snapshot data) - `credit_card_number`: last 4 digits of the payment card - `source`: first-visit landing page - `source_name`: first-visit source - `tracking_number`: shipping tracking number - `shipping_line_name`: shipping plan name - `line_item_vendor`: product vendor - `discount_code`: discount code - `shipping_address_extra_info`: special shipping field info - `transaction_id`: payment transaction number - `customer_id`: customer ID - `last_landing_url`: last-visit landing page - `last_referrer_show`: last-visit source - `country`: country name (snapshot data; mixed CN/EN search not supported) - `shop_name`: POS shop name - `staff_contact`: POS staff Note: for fields that also have a dedicated exact-match array parameter (sku/spu/tag_list/shipping_email/shipping_phone/browser_ip), use the array parameter for full-value lookups; reserve fuzzy mode for prefix or fragment search. Example: ?fuzzy_fields=name\u0026fuzzy_fields=number"
             },
             {
               "name": "fuzzy_keywords",
@@ -2543,7 +2543,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Fuzzy keyword list. Any keyword matches in any of fuzzy_fields counts as a hit"
+              "description": "Fuzzy keyword list. Any keyword matches in any of fuzzy_fields counts as a hit. Example: ?fuzzy_keywords=iphone\u0026fuzzy_keywords=vip"
             },
             {
               "name": "fuzzy_relation",
@@ -2552,7 +2552,7 @@
               "description": "How fuzzy_fields entries are joined: \"and\" or \"or\". Defaults to \"or\""
             }
           ],
-          "response_schema": "v202601.ListOrderResponseV202601"
+          "response_schema": "v202601.ListOrderResponse"
         },
         {
           "id": "order-pay-success",
@@ -2560,7 +2560,7 @@
             "pay"
           ],
           "summary": "Pay order success",
-          "description": "Finalizes payment for an order and updates its status to indicate that payment has been completed.",
+          "description": "Finalizes payment for an order and updates its status to indicate that payment has been completed.\nUsage:\n1. No params: default test payment (bogus), simulating a completed payment\n2. `payment_line` only: specify a real payment channel\nExample: {\"payment_line\":{\"payment_channel\":\"stripe\",\"payment_method\":\"credit_card\",\"transaction_no\":\"txn_xxx\"}}\n3. `gateway` only: custom payment method (e.g. offline bank transfer)\nExample: {\"gateway\":\"bank_transfer\"}\n4. Both `gateway` and `payment_line`: pay via the real channel in `payment_line`, with a custom display name from `gateway`\nExample: {\"gateway\":\"My Custom Name\",\"payment_line\":{\"payment_channel\":\"stripe\",\"payment_method\":\"credit_card\",\"transaction_no\":\"txn_xxx\"}}",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -2588,14 +2588,14 @@
               {
                 "name": "gateway",
                 "type": "string",
-                "description": "The gateway of the payment which is used to pay for the order",
+                "description": "Payment gateway name; can be used to set a custom payment gateway name. See the API usage notes.",
                 "min_length": 1
               },
               {
                 "name": "payment_line",
                 "type": "object",
                 "schema": "v202506.PaymentLineParam",
-                "description": "Payment line of the order"
+                "description": "Payment line of the order. Specifies the actual payment channel, method, and transaction number."
               },
               {
                 "name": "payment_lines",
@@ -2705,7 +2705,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order IDs. Up to 10 IDs are supported",
+              "description": "Filter by order IDs. Up to 10 IDs are supported. Example: ?order_ids=1001\u0026order_ids=1002",
               "max_length": 10
             },
             {
@@ -2715,7 +2715,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by refund record IDs. Up to 20 IDs are supported",
+              "description": "Filter by refund record IDs. Up to 20 IDs are supported. Example: ?refund_order_ids=2001\u0026refund_order_ids=2002",
               "max_length": 20
             },
             {
@@ -2725,7 +2725,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by refund status: - `pending`: refund in progress - `finished`: refund completed - `failed`: refund failed"
+              "description": "Filter by refund status. - pending: refund in progress. - finished: refund completed. - failed: refund failed. Example: ?refund_statuses=pending\u0026refund_statuses=finished"
             },
             {
               "name": "created_at_start",
@@ -2829,7 +2829,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order IDs. Up to 10 IDs are supported",
+              "description": "Filter by order IDs. Up to 10 IDs are supported. Example: ?order_ids=1001\u0026order_ids=1002",
               "max_length": 10
             },
             {
@@ -2839,7 +2839,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by refund record IDs. Up to 20 IDs are supported",
+              "description": "Filter by refund record IDs. Up to 20 IDs are supported. Example: ?refund_order_ids=2001\u0026refund_order_ids=2002",
               "max_length": 20
             },
             {
@@ -2849,7 +2849,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by refund status: - `pending`: refund in progress - `finished`: refund completed - `failed`: refund failed"
+              "description": "Filter by refund status. - pending: refund in progress. - finished: refund completed. - failed: refund failed. Example: ?refund_statuses=pending\u0026refund_statuses=finished"
             },
             {
               "name": "sort_by",
@@ -3175,12 +3175,12 @@
               {
                 "name": "province_code",
                 "type": "string",
-                "description": "Province code"
+                "description": "Province/state code. Pass `ALL` to match all provinces (default behavior for most countries). **GB (United Kingdom) special handling:** Because shipping costs vary significantly across England (GB-ENG), Scotland (GB-SCT), Wales (GB-WLS), and Northern Ireland (GB-NIR), an empty value will not match any shipping zone. You must either: - Pass a specific province code (e.g. `GB-ENG`), or - Pass `ALL`, or - Provide `zip` instead — the system will automatically derive the province from the postal code prefix"
               },
               {
                 "name": "zip",
                 "type": "string",
-                "description": "Zip code"
+                "description": "Zip/postal code. For GB addresses, the system uses the postal code prefix to automatically derive the province code when `province_code` is not provided."
               }
             ]
           },
@@ -3375,7 +3375,7 @@
               }
             ]
           },
-          "response_schema": "v202601.UpdateOrderResponseV202601"
+          "response_schema": "v202601.UpdateOrderResponse"
         }
       ]
     },
@@ -3484,7 +3484,7 @@
                 "type": "integer",
                 "format": "uint64"
               },
-              "description": "ID of the categories"
+              "description": "ID of the categories. Example: ?ids=1001\u0026ids=1002"
             }
           ],
           "response_schema": "v202506.ListCategoryResponse"
@@ -3731,7 +3731,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "List of collection IDs to retrieve specific collections"
+              "description": "List of collection IDs to retrieve specific collections. Example: ?ids=1001\u0026ids=1002"
             },
             {
               "name": "title",
@@ -4185,7 +4185,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Product's IDs"
+              "description": "Product's IDs. Example: ?ids=2001\u0026ids=2002"
             },
             {
               "name": "title",
@@ -4458,7 +4458,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "List of gift card IDs to filter by"
+              "description": "List of gift card IDs to filter by. Example: ?ids=GC1001\u0026ids=GC1002"
             },
             {
               "name": "created_at_min",
@@ -4765,7 +4765,7 @@
             "inventory",
             "create-level"
           ],
-          "summary": "Create inventory level",
+          "summary": "Create inventory",
           "description": "Sets the inventory level for a specific location and inventory item.",
           "hidden": false,
           "http": {
@@ -4800,7 +4800,7 @@
             "inventory",
             "delete-level"
           ],
-          "summary": "Delete inventory level",
+          "summary": "Delete inventory",
           "description": "Deletes an inventory level for a specific location and inventory item.",
           "hidden": false,
           "http": {
@@ -4876,7 +4876,7 @@
                 "type": "string"
               },
               "required": true,
-              "description": "List of variant ids, must contain at least one ID",
+              "description": "List of variant ids, must contain at least one ID. Example: ?variant_ids=2001\u0026variant_ids=2002",
               "min_length": 1
             }
           ],
@@ -4904,7 +4904,7 @@
                 "type": "string"
               },
               "required": true,
-              "description": "List of inventory ids, must contain at least one ID",
+              "description": "List of inventory ids, must contain at least one ID. Example: ?inventory_item_ids=1001\u0026inventory_item_ids=1002",
               "min_length": 1
             },
             {
@@ -4930,7 +4930,7 @@
             "inventory",
             "list-levels"
           ],
-          "summary": "List inventory levels",
+          "summary": "List inventory",
           "description": "Returns a paginated list of inventory levels.",
           "hidden": false,
           "http": {
@@ -4945,7 +4945,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "List of inventory item IDs"
+              "description": "List of inventory item IDs. Example: ?inventory_item_ids=1003\u0026inventory_item_ids=1004"
             },
             {
               "name": "location_ids",
@@ -4954,7 +4954,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Location to filter inventory details (optional) ID"
+              "description": "Location to filter inventory details (optional) ID. Example: ?location_ids=3001\u0026location_ids=3002"
             },
             {
               "name": "cursor",
@@ -4985,7 +4985,7 @@
             "inventory",
             "set-stock"
           ],
-          "summary": "Set inventory level",
+          "summary": "Set inventory quantity",
           "description": "Sets the inventory level for a specific location and inventory item.",
           "hidden": false,
           "http": {
@@ -5064,7 +5064,7 @@
             "inventory",
             "update-level"
           ],
-          "summary": "Update inventory level",
+          "summary": "Update inventory",
           "description": "Updates the inventory level for a specific location and inventory item.",
           "hidden": false,
           "http": {
@@ -5120,7 +5120,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Product's IDs"
+              "description": "Product's IDs. Example: ?ids=1001\u0026ids=1002"
             },
             {
               "name": "title",
@@ -5213,7 +5213,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter fields return in responses"
+              "description": "Filter fields return in responses. Example: ?fields=id\u0026fields=title"
             },
             {
               "name": "sort_direction",
@@ -5256,7 +5256,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by the vendor of the product"
+              "description": "Filter by the vendor of the product. Example: ?vendors=Nike\u0026vendors=Adidas"
             },
             {
               "name": "vendors_match",
@@ -5265,7 +5265,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Fuzzy matching filter by the vendor of the product"
+              "description": "Fuzzy matching filter by the vendor of the product. Example: ?vendors_match=Nik\u0026vendors_match=Adid"
             },
             {
               "name": "handles",
@@ -5274,7 +5274,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter products by the handles"
+              "description": "Filter products by the handles. Example: ?handles=t-shirt\u0026handles=hoodie"
             }
           ],
           "response_schema": "v202506.ListProductsResponse"
@@ -5742,7 +5742,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Array of procurement IDs to filter by"
+              "description": "Array of procurement IDs to filter by. Example: ?ids=1001\u0026ids=1002"
             },
             {
               "name": "state",
@@ -5984,7 +5984,7 @@
                 "type": "integer",
                 "format": "uint64"
               },
-              "description": "A list of supplier IDs to filter results. Empty value retrieves all suppliers"
+              "description": "A list of supplier IDs to filter results. Empty value retrieves all suppliers. Example: ?ids=1001\u0026ids=1002"
             }
           ],
           "response_schema": "v202506.ListSupplierResponse"
@@ -7505,7 +7505,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Specifies which fields to include in the response"
+              "description": "Specifies which fields to include in the response. Example: ?fields=id\u0026fields=name"
             }
           ],
           "response_schema": "v202506.GetShopResponse"
@@ -8402,7 +8402,7 @@
                 "format": "uint64"
               },
               "required": true,
-              "description": "Array of metafield definition IDs to count",
+              "description": "Array of metafield definition IDs to count. Example: ?definition_ids=1001\u0026definition_ids=1002",
               "min_length": 1
             }
           ],
@@ -8890,7 +8890,7 @@
                 "type": "integer",
                 "format": "uint64"
               },
-              "description": "The metafield definition ID list"
+              "description": "The metafield definition ID list. Example: ?definition_ids=1001\u0026definition_ids=1002"
             }
           ],
           "response_schema": "v202506.GetMetafieldListResponse"
@@ -9954,7 +9954,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "List of theme IDs to filter by. Only themes matching the given IDs are returned"
+              "description": "List of theme IDs to filter by. Only themes matching the given IDs are returned. Example: ?ids=1001\u0026ids=1002"
             },
             {
               "name": "contain_ext_theme",
@@ -10365,7 +10365,6 @@
         }
       ]
     },
-    "google.protobuf.Empty": {},
     "google.protobuf.ListValue": {
       "fields": [
         {
@@ -11059,15 +11058,6 @@
         }
       ]
     },
-    "v202506.CancelFulfillmentResponse": {
-      "fields": [
-        {
-          "name": "fulfillment",
-          "type": "object",
-          "schema": "v202506.Fulfillment"
-        }
-      ]
-    },
     "v202506.CancelOrderResponse": {
       "fields": [
         {
@@ -11314,15 +11304,6 @@
           "name": "product_published",
           "type": "integer",
           "format": "int32"
-        }
-      ]
-    },
-    "v202506.CompleteFulfillmentResponse": {
-      "fields": [
-        {
-          "name": "fulfillment",
-          "type": "object",
-          "schema": "v202506.Fulfillment"
         }
       ]
     },
@@ -11884,15 +11865,6 @@
         {
           "name": "phone_number",
           "type": "string"
-        }
-      ]
-    },
-    "v202506.CreateFulfillmentResponse": {
-      "fields": [
-        {
-          "name": "fulfillment",
-          "type": "object",
-          "schema": "v202506.Fulfillment"
         }
       ]
     },
@@ -15609,26 +15581,6 @@
           "items": {
             "type": "object",
             "schema": "v202506.Customer"
-          }
-        },
-        {
-          "name": "cursor",
-          "type": "string"
-        },
-        {
-          "name": "has_more",
-          "type": "boolean"
-        }
-      ]
-    },
-    "v202506.ListFulfillmentResponse": {
-      "fields": [
-        {
-          "name": "fulfillments",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "schema": "v202506.Fulfillment"
           }
         },
         {
@@ -19387,15 +19339,6 @@
         }
       ]
     },
-    "v202506.UpdateFulfillmentResponse": {
-      "fields": [
-        {
-          "name": "fulfillment",
-          "type": "object",
-          "schema": "v202506.Fulfillment"
-        }
-      ]
-    },
     "v202506.UpdateGiftCardParam": {
       "fields": [
         {
@@ -20782,6 +20725,15 @@
         }
       ]
     },
+    "v202601.CancelFulfillmentResponse": {
+      "fields": [
+        {
+          "name": "fulfillment",
+          "type": "object",
+          "schema": "v202601.FulfillmentSummary"
+        }
+      ]
+    },
     "v202601.Collection": {
       "fields": [
         {
@@ -20876,6 +20828,15 @@
         {
           "name": "alt",
           "type": "string"
+        }
+      ]
+    },
+    "v202601.CompleteFulfillmentResponse": {
+      "fields": [
+        {
+          "name": "fulfillment",
+          "type": "object",
+          "schema": "v202601.FulfillmentSummary"
         }
       ]
     },
@@ -20997,6 +20958,15 @@
           "name": "collection",
           "type": "object",
           "schema": "v202601.Collection"
+        }
+      ]
+    },
+    "v202601.CreateFulfillmentResponse": {
+      "fields": [
+        {
+          "name": "fulfillment",
+          "type": "object",
+          "schema": "v202601.FulfillmentSummary"
         }
       ]
     },
@@ -21138,7 +21108,7 @@
         }
       ]
     },
-    "v202601.CreateOrderResponseV202601": {
+    "v202601.CreateOrderResponse": {
       "fields": [
         {
           "name": "order",
@@ -21379,6 +21349,58 @@
         }
       ]
     },
+    "v202601.FulfillmentSummary": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        },
+        {
+          "name": "tracking_company",
+          "type": "string"
+        },
+        {
+          "name": "tracking_number",
+          "type": "string"
+        },
+        {
+          "name": "tracking_company_code",
+          "type": "string"
+        },
+        {
+          "name": "line_items",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.LineItem"
+          }
+        },
+        {
+          "name": "tracking_url",
+          "type": "string"
+        },
+        {
+          "name": "phone_number",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.GetCollectionAsyncTaskResponse": {
       "fields": [
         {
@@ -21424,7 +21446,7 @@
         }
       ]
     },
-    "v202601.GetOrderByNumberResponseV202601": {
+    "v202601.GetOrderByNumberResponse": {
       "fields": [
         {
           "name": "order",
@@ -21442,7 +21464,7 @@
         }
       ]
     },
-    "v202601.GetOrderResponseV202601": {
+    "v202601.GetOrderResponse": {
       "fields": [
         {
           "name": "order",
@@ -21517,6 +21539,26 @@
           "items": {
             "type": "object",
             "schema": "v202601.Collection"
+          }
+        },
+        {
+          "name": "cursor",
+          "type": "string"
+        },
+        {
+          "name": "has_more",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.ListFulfillmentResponse": {
+      "fields": [
+        {
+          "name": "fulfillments",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.FulfillmentSummary"
           }
         },
         {
@@ -21621,7 +21663,7 @@
         }
       ]
     },
-    "v202601.ListOrderResponseV202601": {
+    "v202601.ListOrderResponse": {
       "fields": [
         {
           "name": "orders",
@@ -22347,7 +22389,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "schema": "v202506.LineItem"
+            "schema": "v202601.OrderLineItem"
           }
         },
         {
@@ -22375,7 +22417,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "schema": "v202601.Fulfillment"
+            "schema": "v202601.OrderFulfillment"
           }
         },
         {
@@ -22647,6 +22689,210 @@
         {
           "name": "total_spent",
           "type": "string"
+        }
+      ]
+    },
+    "v202601.OrderFulfillment": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        },
+        {
+          "name": "tracking_company",
+          "type": "string"
+        },
+        {
+          "name": "tracking_number",
+          "type": "string"
+        },
+        {
+          "name": "tracking_company_code",
+          "type": "string"
+        },
+        {
+          "name": "line_items",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.LineItem"
+          }
+        },
+        {
+          "name": "tracking_url",
+          "type": "string"
+        },
+        {
+          "name": "phone_number",
+          "type": "string"
+        },
+        {
+          "name": "tracking_items",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.TrackingItem"
+          }
+        }
+      ]
+    },
+    "v202601.OrderLineItem": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "product_id",
+          "type": "string"
+        },
+        {
+          "name": "product_title",
+          "type": "string"
+        },
+        {
+          "name": "variant_id",
+          "type": "string"
+        },
+        {
+          "name": "variant_title",
+          "type": "string"
+        },
+        {
+          "name": "quantity",
+          "type": "integer",
+          "format": "uint32"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        },
+        {
+          "name": "image",
+          "type": "object",
+          "schema": "v202506.Image"
+        },
+        {
+          "name": "price",
+          "type": "string"
+        },
+        {
+          "name": "compare_at_price",
+          "type": "string"
+        },
+        {
+          "name": "total_price",
+          "type": "string"
+        },
+        {
+          "name": "fulfillment_status",
+          "type": "string"
+        },
+        {
+          "name": "sku",
+          "type": "string"
+        },
+        {
+          "name": "weight",
+          "type": "string"
+        },
+        {
+          "name": "weight_unit",
+          "type": "string"
+        },
+        {
+          "name": "vendor",
+          "type": "string"
+        },
+        {
+          "name": "product_url",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        },
+        {
+          "name": "options",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.LineItemOption"
+          }
+        },
+        {
+          "name": "product_slug",
+          "type": "string"
+        },
+        {
+          "name": "taxable",
+          "type": "boolean"
+        },
+        {
+          "name": "requires_shipping",
+          "type": "boolean"
+        },
+        {
+          "name": "spu",
+          "type": "string"
+        },
+        {
+          "name": "product_tags",
+          "type": "string"
+        },
+        {
+          "name": "refund_quantity_total",
+          "type": "integer",
+          "format": "uint32"
+        },
+        {
+          "name": "custom",
+          "type": "boolean"
+        },
+        {
+          "name": "trunk_price",
+          "type": "string"
+        },
+        {
+          "name": "discount_applications",
+          "type": "string"
+        },
+        {
+          "name": "tax_price",
+          "type": "string"
+        },
+        {
+          "name": "duty_price",
+          "type": "string"
+        },
+        {
+          "name": "payment_discount_price",
+          "type": "string"
+        },
+        {
+          "name": "custom_properties",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
         }
       ]
     },
@@ -22931,6 +23177,15 @@
         }
       ]
     },
+    "v202601.UpdateFulfillmentResponse": {
+      "fields": [
+        {
+          "name": "fulfillment",
+          "type": "object",
+          "schema": "v202601.FulfillmentSummary"
+        }
+      ]
+    },
     "v202601.UpdateMarketDefaultLanguageResponse": {},
     "v202601.UpdateMarketDomainResponse": {},
     "v202601.UpdateMarketPriceResponse": {},
@@ -23007,7 +23262,7 @@
         }
       ]
     },
-    "v202601.UpdateOrderResponseV202601": {
+    "v202601.UpdateOrderResponse": {
       "fields": [
         {
           "name": "order",
@@ -24116,6 +24371,8 @@
         }
       ]
     },
+    "v202601.response.BatchDeleteDiscountsResponse": {},
+    "v202601.response.CancelDiscountsResponse": {},
     "v202601.response.CountDown": {
       "fields": [
         {
@@ -24329,6 +24586,7 @@
         }
       ]
     },
+    "v202601.response.DeleteDiscountResponse": {},
     "v202601.response.DiscountAreaResp": {
       "fields": [
         {
@@ -24846,6 +25104,7 @@
         }
       ]
     },
+    "v202601.response.RestartDiscountResponse": {},
     "v202601.response.SkuExtendResp": {
       "fields": [
         {

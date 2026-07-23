@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // BuildRequest is the single-line JSON sent to the Node entry over stdin.

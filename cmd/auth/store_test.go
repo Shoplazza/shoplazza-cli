@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
-	cmdauth "shoplazza-cli-v2/cmd/auth"
-	internalauth "shoplazza-cli-v2/internal/auth"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
-	"shoplazza-cli-v2/internal/output"
+	cmdauth "github.com/Shoplazza/shoplazza-cli/cmd/auth"
+	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 func execAuthErrType(t *testing.T, f *cmdutil.Factory, args ...string) (string, error) {

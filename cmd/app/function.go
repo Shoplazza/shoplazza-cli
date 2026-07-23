@@ -8,11 +8,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/app"
-	"shoplazza-cli-v2/internal/app/project"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/extbuild/javy"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/internal/app/project"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/extbuild/javy"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // newCmdFunction is the `app function` subgroup: the v1 `function` module lands

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/theme"
-	"shoplazza-cli-v2/internal/theme/pack"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme/pack"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 // shareShortcut is the `themes share` workflow: it packages the current

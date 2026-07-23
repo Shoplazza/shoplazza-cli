@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // fakeNpm puts a stub `npm` on PATH that records its args and cwd to logPath,

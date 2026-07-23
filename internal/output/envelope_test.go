@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // Wire-compat regression: when Extra is unset the envelope JSON carries

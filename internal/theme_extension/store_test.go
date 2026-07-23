@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 func TestRegisterWritesExtensionIDAndDoesNotConnect(t *testing.T) {

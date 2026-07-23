@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
-	"shoplazza-cli-v2/internal/lockfile"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/internal/lockfile"
 )
 
 // profileLockTimeout is the per-profile lock wait budget. A var (not const)

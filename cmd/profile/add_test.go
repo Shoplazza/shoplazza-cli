@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
 )
 
 // newExchangeStub returns an httptest server that stubs the store-AT exchange

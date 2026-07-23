@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"shoplazza-cli-v2/internal/build"
+	"github.com/Shoplazza/shoplazza-cli/internal/build"
 )
 
 func TestDerivePkgRoot(t *testing.T) {

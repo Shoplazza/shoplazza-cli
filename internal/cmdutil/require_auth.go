@@ -5,9 +5,9 @@ import (
 	"errors"
 	"os"
 
-	internalauth "shoplazza-cli-v2/internal/auth"
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
+	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 
 	"github.com/spf13/cobra"
 )

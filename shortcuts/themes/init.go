@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"shoplazza-cli-v2/internal/theme"
-	"shoplazza-cli-v2/internal/theme/pack"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme/pack"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 // initShortcut is the `themes init` workflow: clones the Nova-2023 GitHub

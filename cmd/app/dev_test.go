@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
 )
 
 // TestDev_Flags asserts the command registers the expected flags (no auth or

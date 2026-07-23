@@ -12,8 +12,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"shoplazza-cli-v2/internal/fsx"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 const (

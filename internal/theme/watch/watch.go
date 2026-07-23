@@ -10,7 +10,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"shoplazza-cli-v2/internal/theme/doc"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme/doc"
 )
 
 // WatchOptions controls the watcher behavior.

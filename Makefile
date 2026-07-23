@@ -1,5 +1,5 @@
 BINARY  := shoplazza
-MODULE  := shoplazza-cli-v2
+MODULE  := github.com/Shoplazza/shoplazza-cli
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 DATE    := $(shell date -u +%Y-%m-%d)
 
