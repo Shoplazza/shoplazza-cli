@@ -3,7 +3,7 @@ package auth
 import (
 	"testing"
 
-	internalauth "shoplazza-cli-v2/internal/auth"
+	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
 )
 
 func containsAll(got []string, want ...string) bool {

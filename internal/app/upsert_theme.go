@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // UpsertResult is the outcome of an extension-upsert leg (theme today; reused by

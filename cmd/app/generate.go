@@ -9,11 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/app"
-	"shoplazza-cli-v2/internal/app/project"
-	"shoplazza-cli-v2/internal/app/scaffold"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/internal/app/project"
+	"github.com/Shoplazza/shoplazza-cli/internal/app/scaffold"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // templateTypeFor maps the user-facing extension type to the Dashboard

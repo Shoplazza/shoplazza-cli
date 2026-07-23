@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	internalauth "shoplazza-cli-v2/internal/auth"
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
-	"shoplazza-cli-v2/internal/testenv"
+	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/internal/testenv"
 )
 
 // setupTempConfig redirects auth/config/keychain paths to a temp dir.

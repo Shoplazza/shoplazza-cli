@@ -6,8 +6,8 @@ builds:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X shoplazza-cli-v2/internal/build.Version={{ .Version }}
-      - -X shoplazza-cli-v2/internal/build.Date={{ .Date }}
+      - -X github.com/Shoplazza/shoplazza-cli/internal/build.Version={{ .Version }}
+      - -X github.com/Shoplazza/shoplazza-cli/internal/build.Date={{ .Date }}
     goos:
       - darwin
       - linux

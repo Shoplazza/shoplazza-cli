@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 func TestDeploy_PostsWrappedVersionLevelBody(t *testing.T) {

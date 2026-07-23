@@ -7,10 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
-	"shoplazza-cli-v2/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/internal/testenv"
 )
 
 // seedAccountUAT stores a UAT under the v2 account-namespaced keychain key.

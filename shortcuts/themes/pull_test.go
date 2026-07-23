@@ -13,10 +13,10 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/theme"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 
 	"github.com/spf13/cobra"
 )

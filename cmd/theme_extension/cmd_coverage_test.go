@@ -3,7 +3,7 @@ package theme_extension
 import (
 	"testing"
 
-	"shoplazza-cli-v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
 )
 
 // TestBuild_PreRunE_Validations covers newCmdBuild's three pre-flight checks

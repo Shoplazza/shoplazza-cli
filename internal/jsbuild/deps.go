@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // EnsureProjectDeps auto-installs the project's npm dependencies when they have

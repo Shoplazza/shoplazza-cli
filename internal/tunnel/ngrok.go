@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // Ngrok is the fallback tunnel strategy. It is non-interactive: the authtoken

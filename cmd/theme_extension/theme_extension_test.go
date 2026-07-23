@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
 )
 
 func TestTeGroupAndAlias(t *testing.T) {

@@ -3,9 +3,9 @@ package profile
 import (
 	"strings"
 
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 
 	"github.com/spf13/cobra"
 )

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"shoplazza-cli-v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
 )
 
 // Dashboard is the typed client for Partner Dashboard /api/cli/v2 endpoints.

@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	internalauth "shoplazza-cli-v2/internal/auth"
+	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
 )
 
 // EnsureAppToken runs the acquisition chain: Dashboard app-config (client_secret

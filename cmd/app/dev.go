@@ -15,12 +15,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/app"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/devserver"
-	"shoplazza-cli-v2/internal/fsx"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/tunnel"
+	"github.com/Shoplazza/shoplazza-cli/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/devserver"
+	"github.com/Shoplazza/shoplazza-cli/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/tunnel"
 )
 
 const (

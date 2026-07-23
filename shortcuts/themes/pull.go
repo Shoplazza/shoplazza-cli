@@ -9,11 +9,11 @@ import (
 	"os"
 	"time"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/theme"
-	"shoplazza-cli-v2/internal/theme/pack"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme/pack"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 // pullMaxUnpackSize caps the cumulative extracted bytes from a pulled zip.

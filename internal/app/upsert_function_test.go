@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
 )
 
 // parseFunctionForm parses the multipart body of a functions/create|commit

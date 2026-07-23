@@ -11,14 +11,14 @@ import (
 	"syscall"
 	"unicode/utf8"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/theme"
-	"shoplazza-cli-v2/internal/theme/devstate"
-	"shoplazza-cli-v2/internal/theme/doc"
-	"shoplazza-cli-v2/internal/theme/pack"
-	"shoplazza-cli-v2/internal/theme/watch"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme/devstate"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme/doc"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme/pack"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme/watch"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 
 	"github.com/spf13/cobra"
 )

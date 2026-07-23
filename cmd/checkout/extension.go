@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/checkout/scaffold"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/checkout/scaffold"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 func newCmdExtensionCreate(f *cmdutil.Factory) *cobra.Command {

@@ -11,7 +11,7 @@
 // `themes list` command, so the workflow side stays free of a name collision.
 package themes
 
-import "shoplazza-cli-v2/shortcuts/common"
+import "github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 
 // Shortcuts returns the registered themes workflow shortcuts. The dynamic CRUD
 // commands (themes list / get / publish / delete / ...) are registered

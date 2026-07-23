@@ -12,10 +12,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/build"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/updatecheck"
+	"github.com/Shoplazza/shoplazza-cli/internal/build"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/updatecheck"
 )
 
 // npmPackage is the published package the CLI updates itself from.

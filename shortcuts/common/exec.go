@@ -3,7 +3,7 @@ package common
 import (
 	"context"
 
-	"shoplazza-cli-v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
 )
 
 // ExecInput is what the engine hands to a Shortcut's Execute function for

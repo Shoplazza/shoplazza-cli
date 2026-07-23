@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	checkout "shoplazza-cli-v2/cmd/checkout"
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/core"
+	checkout "github.com/Shoplazza/shoplazza-cli/cmd/checkout"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
 )
 
 // writeCheckoutVersionList writes a checkout /version/list response mapping one

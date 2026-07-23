@@ -3,7 +3,7 @@ package discounts
 import (
 	"testing"
 
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 func TestValidateLayerObtainValues(t *testing.T) {

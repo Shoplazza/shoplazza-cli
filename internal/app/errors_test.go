@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 func TestApiOrInternal_HTTPError_RoutesToErrAPI_WithEndpoint(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
 )
 
 func TestExchangeAppAT_SendsFourFields(t *testing.T) {

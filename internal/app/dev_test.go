@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 func TestDevReport(t *testing.T) {

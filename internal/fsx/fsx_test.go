@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/internal/fsx"
 )
 
 func TestWriteFileAtomic_CreatesFile(t *testing.T) {

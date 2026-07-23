@@ -14,9 +14,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/multipartx"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/multipartx"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // signResp is the flat (non-enveloped) body returned by the sign endpoint.

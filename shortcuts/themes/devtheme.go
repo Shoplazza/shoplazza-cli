@@ -7,12 +7,12 @@ import (
 	"os"
 	"time"
 
-	"shoplazza-cli-v2/internal/asynctask"
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/multipartx"
-	"shoplazza-cli-v2/internal/theme"
-	"shoplazza-cli-v2/internal/theme/pack"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/internal/asynctask"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/multipartx"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme/pack"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 // devThemeName derives the development theme's display name from the local

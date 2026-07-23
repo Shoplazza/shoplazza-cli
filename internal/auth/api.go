@@ -6,7 +6,7 @@ import (
 	"errors"
 	"strconv"
 
-	"shoplazza-cli-v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
 )
 
 func (m *Manager) createSession(ctx context.Context, storeDomain string, scopes []string) (createSessionResponse, error) {

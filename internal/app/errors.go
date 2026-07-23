@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // apiOrInternal maps a client error to an ExitError: *client.HTTPError becomes

@@ -1,8 +1,8 @@
 package dynamic
 
 import (
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/registry"
 
 	"github.com/spf13/cobra"
 )

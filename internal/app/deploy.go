@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/ossupload"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/ossupload"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // wrapExtErr prefixes the failing extension's identity onto ex's message,

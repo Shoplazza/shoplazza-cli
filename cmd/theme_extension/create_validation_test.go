@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"testing"
 
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // TestCreate_NameValidation: --name is a path segment, not a path — traversal,
