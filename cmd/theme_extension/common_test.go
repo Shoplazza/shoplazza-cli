@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
-	te "github.com/Shoplazza/shoplazza-cli/internal/theme_extension"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	te "github.com/Shoplazza/shoplazza-cli/v2/internal/theme_extension"
 )
 
 func TestResolveStore(t *testing.T) {

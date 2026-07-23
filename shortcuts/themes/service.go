@@ -12,7 +12,7 @@
 package themes
 
 import (
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 const (

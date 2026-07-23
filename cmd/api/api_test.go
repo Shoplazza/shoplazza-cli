@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
 func TestNewCmdAPI_HasRestSubcommand(t *testing.T) {

@@ -3,7 +3,7 @@ package cmdutil
 import (
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 func TestDefaultFactory_AuthBaseURL_FixedDefault(t *testing.T) {

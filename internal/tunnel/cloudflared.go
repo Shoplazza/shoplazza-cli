@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/binmgr"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/binmgr"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // cloudflared pinned release.

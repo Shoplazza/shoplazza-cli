@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 func TestStockShortcut_DeclarativeShape(t *testing.T) {

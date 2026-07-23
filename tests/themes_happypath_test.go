@@ -16,7 +16,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 type fixtureFile struct {

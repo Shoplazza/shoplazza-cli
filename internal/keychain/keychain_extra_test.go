@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
 )
 
 // ── Corrupted master key ──────────────────────────────────────────────────────

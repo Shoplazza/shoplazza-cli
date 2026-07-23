@@ -14,9 +14,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/extbuild/javy"
-	"github.com/Shoplazza/shoplazza-cli/internal/jsbuild"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/extbuild/javy"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/jsbuild"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // themeZipName ports v1's buildTheme.js filename: "<name>-<hash8><ts8>.zip",

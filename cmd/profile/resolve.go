@@ -3,8 +3,8 @@ package profile
 import (
 	"strings"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // currentOrNamed returns name, falling back to the current profile, with

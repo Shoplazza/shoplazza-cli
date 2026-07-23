@@ -12,11 +12,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/internal/jsbuild"
-	"github.com/Shoplazza/shoplazza-cli/internal/ossupload"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/jsbuild"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/ossupload"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func newCmdPush(f *cmdutil.Factory) *cobra.Command {

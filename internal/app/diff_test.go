@@ -3,7 +3,7 @@ package app
 import (
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func TestDiff_MatchesByExtensionID(t *testing.T) {

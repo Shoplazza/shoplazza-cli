@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
-	"github.com/Shoplazza/shoplazza-cli/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 // A store-scoped or --uat login of the SAME account carries no partner token;

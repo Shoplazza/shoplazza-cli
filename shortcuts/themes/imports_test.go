@@ -12,9 +12,9 @@ import (
 
 func TestImportsGuard_NoForbiddenPackages(t *testing.T) {
 	forbidden := []string{
-		"github.com/Shoplazza/shoplazza-cli/cmd",
-		"github.com/Shoplazza/shoplazza-cli/internal/registry",
-		"github.com/Shoplazza/shoplazza-cli/internal/serviceformat",
+		"github.com/Shoplazza/shoplazza-cli/v2/cmd",
+		"github.com/Shoplazza/shoplazza-cli/v2/internal/registry",
+		"github.com/Shoplazza/shoplazza-cli/v2/internal/serviceformat",
 		// interactive deps — banned absolutely
 		"github.com/AlecAivazis/survey",
 		"github.com/manifoldco/promptui",

@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/checkout/scaffold"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/checkout/scaffold"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func newCmdInit(f *cmdutil.Factory) *cobra.Command {

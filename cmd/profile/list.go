@@ -1,9 +1,9 @@
 package profile
 
 import (
-	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/spf13/cobra"
 )

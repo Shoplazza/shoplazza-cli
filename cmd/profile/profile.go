@@ -4,7 +4,7 @@
 package profile
 
 import (
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 
 	"github.com/spf13/cobra"
 )

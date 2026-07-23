@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/build"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // PkgRoot resolves the npm package root containing scripts/jsbuild/ and node_modules/.

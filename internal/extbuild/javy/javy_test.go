@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/extbuild/javy"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/extbuild/javy"
 )
 
 // writeFakeJavy writes a shell script (or .bat on Windows) to dir that acts

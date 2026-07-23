@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // fakeStrategy is an in-test Strategy: it either returns tunnel or fails with

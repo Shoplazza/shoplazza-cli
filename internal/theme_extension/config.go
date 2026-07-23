@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/fsx"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // configFile is the standalone theme-extension project config. It uses v1's
