@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	checkout "shoplazza-cli-v2/cmd/checkout"
-	"shoplazza-cli-v2/internal/output"
+	checkout "github.com/Shoplazza/shoplazza-cli/cmd/checkout"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 func TestParseDevIDs(t *testing.T) {

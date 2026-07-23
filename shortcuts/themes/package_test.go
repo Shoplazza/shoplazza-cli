@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 
 	"github.com/spf13/cobra"
 )

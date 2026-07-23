@@ -11,9 +11,9 @@ import (
 
 // Forbidden import prefixes that would break the shortcuts module boundary.
 var forbiddenPrefixes = []string{
-	"shoplazza-cli-v2/cmd/",
-	"shoplazza-cli-v2/internal/registry",
-	"shoplazza-cli-v2/internal/serviceformat",
+	"github.com/Shoplazza/shoplazza-cli/cmd/",
+	"github.com/Shoplazza/shoplazza-cli/internal/registry",
+	"github.com/Shoplazza/shoplazza-cli/internal/serviceformat",
 }
 
 func TestNoForbiddenImports(t *testing.T) {

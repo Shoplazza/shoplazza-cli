@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/internal/registry"
 )
 
 func TestScopeBase_KnownModules(t *testing.T) {

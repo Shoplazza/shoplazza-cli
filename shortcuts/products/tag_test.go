@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 func TestTagShortcut_ValidationFields(t *testing.T) {

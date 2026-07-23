@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/theme/doc"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/theme/doc"
 )
 
 // recordDevDocMethods spins a server that records every method hitting the

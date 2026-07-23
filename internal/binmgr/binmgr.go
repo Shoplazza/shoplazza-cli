@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // classifiedError tags an ensureIn failure as network- or internal-class so

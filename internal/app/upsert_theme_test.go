@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // themeStoreServer is a fake store-openapi (2020-07) server. taskStates is the

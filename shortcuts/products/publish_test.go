@@ -3,7 +3,7 @@ package products
 import (
 	"testing"
 
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 func TestPublishShortcut_NoPositionalArgs(t *testing.T) {

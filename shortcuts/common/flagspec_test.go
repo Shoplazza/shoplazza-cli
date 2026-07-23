@@ -3,7 +3,7 @@ package common_test
 import (
 	"testing"
 
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 func TestIDFlag_Defaults(t *testing.T) {

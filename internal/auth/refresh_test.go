@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
-	"shoplazza-cli-v2/internal/lockfile"
-	"shoplazza-cli-v2/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/internal/lockfile"
+	"github.com/Shoplazza/shoplazza-cli/internal/testenv"
 )
 
 // writeExchangeEnvelope writes the real store-AT exchange response shape

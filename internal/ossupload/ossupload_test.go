@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
 )
 
 func TestBuildOSSForm_FieldOrderFileLast(t *testing.T) {

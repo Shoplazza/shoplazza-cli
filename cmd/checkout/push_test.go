@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	checkout "shoplazza-cli-v2/cmd/checkout"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
+	checkout "github.com/Shoplazza/shoplazza-cli/cmd/checkout"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // skipIfDirWritable skips the test when a write into dir still succeeds despite a

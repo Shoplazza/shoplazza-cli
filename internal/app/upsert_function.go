@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/multipartx"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/multipartx"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // cartTransformNamespace is the function-extension namespace. v1 hardcodes it

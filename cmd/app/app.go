@@ -3,7 +3,7 @@ package appcmd
 import (
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
 )
 
 // NewCmdApp creates the app command group (hand-written, bare name; mirrors

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
 )
 
 func TestSendStream_MapsPlannedRequest(t *testing.T) {

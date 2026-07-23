@@ -3,9 +3,9 @@ package theme_extension
 import (
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
-	te "shoplazza-cli-v2/internal/theme_extension"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	te "github.com/Shoplazza/shoplazza-cli/internal/theme_extension"
 )
 
 func newCmdList(f *cmdutil.Factory) *cobra.Command {

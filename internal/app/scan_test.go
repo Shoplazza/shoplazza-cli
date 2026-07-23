@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // TestScanLocalExtensions_PopulatesExtensionID proves the scanner reads the

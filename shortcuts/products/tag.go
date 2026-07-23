@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 // tagShortcut edits a product's tags without clobbering the rest.

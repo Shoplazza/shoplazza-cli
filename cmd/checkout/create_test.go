@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 func TestCreate_RequiresNameAndExtension(t *testing.T) {

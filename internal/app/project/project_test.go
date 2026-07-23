@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
 )
 
 func TestActiveConfig_DefaultsToShoplazzaAppToml(t *testing.T) {

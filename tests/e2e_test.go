@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"shoplazza-cli-v2/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/internal/testenv"
 )
 
 // apiEnv returns the environment variables needed to run module commands in

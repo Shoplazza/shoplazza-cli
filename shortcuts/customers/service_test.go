@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
 )
 
 func TestCustomerShortcuts_NonEmpty(t *testing.T) {

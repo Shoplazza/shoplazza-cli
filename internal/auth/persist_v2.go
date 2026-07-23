@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/internal/fsx"
 )
 
 // AccountUATKey / AccountPartnerKey / ProfileStoreKey build namespaced

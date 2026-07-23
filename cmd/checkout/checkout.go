@@ -5,7 +5,7 @@ package checkout
 import (
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
 )
 
 // NewCmdCheckout creates the checkout command group.

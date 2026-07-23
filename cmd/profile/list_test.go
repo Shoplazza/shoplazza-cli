@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"shoplazza-cli-v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/internal/core"
 )
 
 func TestProfileList_AllProfilesWithCurrentFlag(t *testing.T) {

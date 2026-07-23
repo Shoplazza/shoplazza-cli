@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/internal/app"
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/internal/output"
 )
 
 // Register performs the no-connect registration for a te project: it reuses
