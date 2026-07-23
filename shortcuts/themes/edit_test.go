@@ -40,10 +40,11 @@ func editFlags(t *testing.T, vals map[string]any) common.FlagSet {
 type editServer struct {
 	srv *httptest.Server
 
-	mu       sync.Mutex
-	writes   []map[string]any
-	failPath string // first write whose path contains this substring fails with 500
-	conflict bool   // promote responds conflict=true
+	mu          sync.Mutex
+	writes      []map[string]any
+	failResults map[int]string // batch entry index → non-success result string
+	added       []string       // section ids "created" by add_section entries
+	conflict    bool           // promote responds conflict=true
 }
 
 func newEditServer(t *testing.T) *editServer {
@@ -67,6 +68,18 @@ func newEditServer(t *testing.T) *editServer {
 		case strings.HasSuffix(p, "/edit-sessions") && r.Method == http.MethodPost:
 			_ = json.NewEncoder(w).Encode(map[string]any{"oseid": "ose_new"})
 		case strings.HasSuffix(p, "/sections") && r.Method == http.MethodGet:
+			pageSections := []any{
+				map[string]any{"id": 111, "type": "hero_slideshow", "display": true, "settings": map[string]any{},
+					"blocks": []any{map[string]any{"type": "slide", "settings": map[string]any{}}}},
+				map[string]any{"id": 222, "type": "shoplazza://apps/page-builder/blocks/custom-9527", "display": true,
+					"settings": map[string]any{}, "blocks": []any{}},
+			}
+			es.mu.Lock()
+			for _, id := range es.added { // sections "created" by earlier batch adds
+				pageSections = append(pageSections, map[string]any{"id": id, "type": "rich_text", "display": true,
+					"settings": map[string]any{}, "blocks": []any{}})
+			}
+			es.mu.Unlock()
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{
 				"schemas": map[string]any{
 					"hero_slideshow": map[string]any{
@@ -75,12 +88,7 @@ func newEditServer(t *testing.T) *editServer {
 					},
 				},
 				"sections": map[string]any{
-					"page_sections": []any{
-						map[string]any{"id": 111, "type": "hero_slideshow", "display": true, "settings": map[string]any{},
-							"blocks": []any{map[string]any{"type": "slide", "settings": map[string]any{}}}},
-						map[string]any{"id": 222, "type": "shoplazza://apps/page-builder/blocks/custom-9527", "display": true,
-							"settings": map[string]any{}, "blocks": []any{}},
-					},
+					"page_sections": pageSections,
 					// dedicated header group (real df423620 shape — numeric ids, not the
 					// semantic-id fixed group). Exercises sectionsByArea's group path.
 					"header_sections": []any{
@@ -89,6 +97,35 @@ func newEditServer(t *testing.T) *editServer {
 					"sections": []any{}, // truly-fixed cards (cart_drawer etc.)
 				},
 			}})
+		case strings.HasSuffix(p, "/operations") && r.Method == http.MethodPost:
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			es.mu.Lock()
+			es.writes = append(es.writes, map[string]any{"method": r.Method, "path": p, "body": body})
+			ops, _ := body["operations"].([]any)
+			results := make([]any, 0, len(ops))
+			for i, o := range ops {
+				om, _ := o.(map[string]any)
+				res := "success"
+				if fr, ok := es.failResults[i]; ok {
+					res = fr
+				} else if om["op"] == "add_section" {
+					es.added = append(es.added, fmt.Sprintf("sec_new%d", len(es.added)+1))
+				}
+				results = append(results, map[string]any{"op": om["op"], "result": res})
+			}
+			es.mu.Unlock()
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"data": results}})
+		case strings.HasSuffix(p, "/page-builder/blocks") && r.Method == http.MethodPost:
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			es.mu.Lock()
+			es.writes = append(es.writes, map[string]any{"method": r.Method, "path": p, "body": body})
+			es.mu.Unlock()
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"section": map[string]any{
+				"type": "shoplazza://apps/page-builder/blocks/custom-9527/regenerated", "name": "pbcard",
+				"settings": map[string]any{}, "blocks": []any{},
+			}}})
 		case strings.HasSuffix(p, "/promote"):
 			if es.conflict { // real behavior: HTTP 409, not a {conflict:true} body
 				w.WriteHeader(http.StatusConflict)
@@ -96,22 +133,14 @@ func newEditServer(t *testing.T) *editServer {
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"promoted": true})
-		default: // write endpoints
+		default: // anything else is unexpected under the batch-ops flow
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			es.mu.Lock()
 			es.writes = append(es.writes, map[string]any{"method": r.Method, "path": p, "body": body})
-			fail := es.failPath != "" && strings.Contains(p, es.failPath)
-			if fail {
-				es.failPath = "" // fail once
-			}
 			es.mu.Unlock()
-			if fail {
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = w.Write([]byte(`{"message":"boom"}`))
-				return
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"section_id": "sec_new", "html": "<div/>"})
+			t.Errorf("unexpected request: %s %s", r.Method, p)
+			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	return es
@@ -141,21 +170,30 @@ func TestEdit_FirstEditFlow(t *testing.T) {
 		t.Fatalf("body = %v", body)
 	}
 	applied := body["applied"].([]map[string]any)
-	if len(applied) != 2 {
+	if len(applied) != 2 || applied[0]["result"] != "success" || applied[1]["result"] != "success" {
 		t.Fatalf("applied = %v", applied)
 	}
 	preview := body["preview_url"].(string)
 	if !strings.Contains(preview, "unit.myshoplaza.com") || !strings.Contains(preview, "oseid=ose_new") {
 		t.Errorf("preview_url = %q", preview)
 	}
-	// update_slot must carry block coordinates parsed from the target.
-	slot := es.writes[1]
-	if !strings.HasSuffix(slot["path"].(string), "/sections/111/slot") {
-		t.Errorf("slot path = %v", slot["path"])
+	// The whole batch travels in ONE request; update_slot translates to the
+	// server's replace_props with a dot-index block path.
+	batch := editWriteBody(es, http.MethodPost, "/operations")
+	if batch == nil {
+		t.Fatal("batch-ops never sent")
 	}
-	sbody := slot["body"].(map[string]any)
-	if fmt.Sprint(sbody["block_index"]) != "0" || sbody["doc_id"] != "d_index" || sbody["theme_id"] != "t_pub" {
-		t.Errorf("slot body = %v", sbody)
+	ops := batch["operations"].([]any)
+	if len(ops) != 2 {
+		t.Fatalf("operations = %v", ops)
+	}
+	first := ops[0].(map[string]any)
+	second := ops[1].(map[string]any)
+	if first["op"] != "replace_props" || first["target"] != "111" {
+		t.Errorf("op[0] = %v", first)
+	}
+	if second["op"] != "replace_props" || second["target"] != "111.blocks.0" {
+		t.Errorf("op[1] = %v, want translated update_slot with dot path", second)
 	}
 }
 
@@ -270,15 +308,12 @@ func TestEdit_MixedBatchRoutesPbAndBackfillsBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("editExecute: %v", err)
 	}
-	if len(body["applied"].([]map[string]any)) != 2 {
-		t.Fatalf("applied = %v", body["applied"])
+	applied := body["applied"].([]map[string]any)
+	if len(applied) != 2 || applied[1]["result"] != "success" {
+		t.Fatalf("applied = %v", applied)
 	}
-	var pb map[string]any
-	for _, wr := range es.writes {
-		if strings.Contains(wr["path"].(string), "page-builder/blocks") {
-			pb = wr["body"].(map[string]any)
-		}
-	}
+	// pb-block-save runs first and generates the replacement card.
+	pb := editWriteBody(es, http.MethodPost, "/page-builder/blocks")
 	if pb == nil {
 		t.Fatal("update_pb never hit pb-block-save")
 	}
@@ -289,6 +324,25 @@ func TestEdit_MixedBatchRoutesPbAndBackfillsBody(t *testing.T) {
 		if fmt.Sprint(pb[k]) != want {
 			t.Errorf("pb body %s = %v, want %s", k, pb[k], want)
 		}
+	}
+	// The batch swaps the card: remove_section old + add_section generated.
+	batch := editWriteBody(es, http.MethodPost, "/operations")
+	ops := batch["operations"].([]any)
+	if len(ops) != 3 {
+		t.Fatalf("operations = %v", ops)
+	}
+	rm := ops[1].(map[string]any)
+	add := ops[2].(map[string]any)
+	if rm["op"] != "remove_section" || rm["target"] != "222" {
+		t.Errorf("op[1] = %v, want remove_section 222", rm)
+	}
+	card, _ := add["value"].(map[string]any)
+	if add["op"] != "add_section" || card == nil || !strings.Contains(fmt.Sprint(card["type"]), "custom-9527/regenerated") {
+		t.Errorf("op[2] = %v, want add_section with the generated card", add)
+	}
+	// The generated section's id is recovered from the re-read.
+	if applied[1]["new_section_id"] != "sec_new1" {
+		t.Errorf("new_section_id = %v", applied[1]["new_section_id"])
 	}
 }
 
@@ -326,7 +380,7 @@ func TestEdit_AddSectionEchoesNewSectionID(t *testing.T) {
 		t.Fatalf("editExecute: %v", err)
 	}
 	applied := body["applied"].([]map[string]any)
-	if applied[0]["new_section_id"] != "sec_new" {
+	if applied[0]["new_section_id"] != "sec_new1" { // recovered by re-reading the session
 		t.Errorf("new_section_id = %v", applied[0]["new_section_id"])
 	}
 }
@@ -346,41 +400,53 @@ func editWriteBody(es *editServer, method, pathSuffix string) map[string]any {
 	return nil
 }
 
-func TestEdit_SectionPositionAndArea(t *testing.T) {
+func TestEdit_PositionTranslationAndPlacement(t *testing.T) {
 	es := newEditServer(t)
 	defer es.srv.Close()
 
-	// move a header_sections card: CLI reverse-looks-up area="header" from the
-	// header_sections group; position "first" -> to_index 0.
+	// move_section "position first" resolves against the section's own area
+	// layout into the server's {position, move_target} pair.
 	if _, err := editExec(t, es, map[string]any{"template": "index",
 		"ops": `[{"op":"move_section","target":"hsec1","position":"first"}]`}); err != nil {
 		t.Fatalf("move header: %v", err)
 	}
-	mv := editWriteBody(es, http.MethodPatch, "/move")
-	if mv == nil {
-		t.Fatal("move-section never sent")
+	batch := editWriteBody(es, http.MethodPost, "/operations")
+	if batch == nil {
+		t.Fatal("batch-ops never sent")
 	}
-	if mv["area"] != "header" || fmt.Sprint(mv["to_index"]) != "0" {
-		t.Errorf("move body = %v, want area=header to_index=0", mv)
+	mv := batch["operations"].([]any)[0].(map[string]any)
+	if mv["op"] != "move_section" || mv["position"] != "before" || mv["move_target"] != "hsec1" {
+		t.Errorf("move entry = %v, want before/hsec1 (first of its area)", mv)
 	}
 
-	// add_section after page card 111 (page index 0) → to_index 1, no area (page flow).
+	// add_section with a position: the server always appends, so the CLI
+	// issues a follow-up move batch once the new id is recovered.
 	es.mu.Lock()
 	es.writes = nil
 	es.mu.Unlock()
-	if _, err := editExec(t, es, map[string]any{"template": "index",
-		"ops": `[{"op":"add_section","name":"rich_text","position":"after:111"}]`}); err != nil {
+	body, err := editExec(t, es, map[string]any{"template": "index",
+		"ops": `[{"op":"add_section","name":"rich_text","position":"after:111"}]`})
+	if err != nil {
 		t.Fatalf("add after: %v", err)
 	}
-	add := editWriteBody(es, http.MethodPost, "/sections")
-	if add == nil {
-		t.Fatal("add-section never sent")
+	var batches []map[string]any
+	es.mu.Lock()
+	for _, wr := range es.writes {
+		if strings.HasSuffix(fmt.Sprint(wr["path"]), "/operations") {
+			batches = append(batches, wr["body"].(map[string]any))
+		}
 	}
-	if fmt.Sprint(add["to_index"]) != "1" {
-		t.Errorf("add to_index = %v, want 1", add["to_index"])
+	es.mu.Unlock()
+	if len(batches) != 2 {
+		t.Fatalf("batches = %d, want add batch + placement batch", len(batches))
 	}
-	if _, ok := add["area"]; ok {
-		t.Errorf("page-flow add must not carry area: %v", add)
+	place := batches[1]["operations"].([]any)[0].(map[string]any)
+	if place["op"] != "move_section" || place["target"] != "sec_new1" ||
+		place["position"] != "after" || place["move_target"] != "111" {
+		t.Errorf("placement move = %v", place)
+	}
+	if body["applied"].([]map[string]any)[0]["new_section_id"] != "sec_new1" {
+		t.Errorf("new_section_id = %v", body["applied"])
 	}
 }
 
@@ -400,10 +466,12 @@ func TestEdit_ErrorCarriesExample(t *testing.T) {
 	}
 }
 
-func TestEdit_FailFastPartialEnvelope(t *testing.T) {
+// TestEdit_BatchPartialFailure pins the independent-application contract:
+// one failed op does not stop the others; the envelope carries per-op results.
+func TestEdit_BatchPartialFailure(t *testing.T) {
 	es := newEditServer(t)
 	defer es.srv.Close()
-	es.failPath = "/sections/222/props"
+	es.failResults = map[int]string{1: "target_not_found"}
 
 	_, err := editExec(t, es, map[string]any{"template": "index", "session": "ose_x",
 		"ops": `[{"op":"replace_props","target":"111","props":{"a":"1"}},
@@ -414,28 +482,24 @@ func TestEdit_FailFastPartialEnvelope(t *testing.T) {
 		t.Fatalf("err = %v, want api ExitError", err)
 	}
 	env := exitErr.Envelope()
-	if env["partial"] != true || env["oseid"] != "ose_x" {
-		t.Errorf("envelope discriminators = %v", env)
+	if env["oseid"] != "ose_x" {
+		t.Errorf("envelope oseid = %v", env["oseid"])
 	}
-	if len(env["applied"].([]map[string]any)) != 1 {
-		t.Errorf("applied = %v", env["applied"])
+	results := env["results"].([]map[string]any)
+	if len(results) != 3 || results[0]["result"] != "success" ||
+		results[1]["result"] != "target_not_found" || results[2]["result"] != "success" {
+		t.Errorf("results = %v", results)
 	}
-	failed := env["failed"].(map[string]any)
-	if failed["index"] != 1 || failed["target"] != "222" {
-		t.Errorf("failed = %v", failed)
-	}
-	if fmt.Sprint(env["remaining"]) != "[2]" {
-		t.Errorf("remaining = %v", env["remaining"])
+	if fmt.Sprint(env["failed"]) != "[1]" {
+		t.Errorf("failed = %v", env["failed"])
 	}
 	if !strings.Contains(fmt.Sprint(env["hint"]), "--session ose_x") {
 		t.Errorf("hint = %v", env["hint"])
 	}
-	// op #3 must never have been sent.
-	for _, wr := range es.writes {
-		b, _ := json.Marshal(wr["body"])
-		if strings.Contains(string(b), `"c":"3"`) {
-			t.Error("fail-fast violated: op after the failure was sent")
-		}
+	// The whole batch still went out in one request.
+	batch := editWriteBody(es, http.MethodPost, "/operations")
+	if n := len(batch["operations"].([]any)); n != 3 {
+		t.Errorf("operations sent = %d, want 3", n)
 	}
 }
 
@@ -558,7 +622,7 @@ func TestSnapshot_EditDryRun(t *testing.T) {
 
 func TestHelp_Edit(t *testing.T) {
 	out := helpFor(t, "themes", "+edit")
-	for _, want := range []string{"+edit", "--ops", "--session", "--promote", "fail-fast", "update_pb"} {
+	for _, want := range []string{"+edit", "--ops", "--session", "--promote", "apply and persist independently", "update_pb"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("+edit help missing %q:\n%s", want, out)
 		}

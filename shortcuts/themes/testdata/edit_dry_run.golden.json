@@ -28,45 +28,6 @@
     },
     {
       "body": {
-        "block_index": 0,
-        "doc_id": "\u003cdoc_id\u003e",
-        "parent_path": [],
-        "props": {
-          "title": "X"
-        },
-        "theme_id": "\u003ctheme_id\u003e"
-      },
-      "method": "PATCH",
-      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/sections/111/slot",
-      "query": null
-    },
-    {
-      "body": {
-        "block_index": 1,
-        "doc_id": "\u003cdoc_id\u003e",
-        "parent_path": [],
-        "theme_id": "\u003ctheme_id\u003e"
-      },
-      "method": "DELETE",
-      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/sections/111/blocks",
-      "query": null
-    },
-    {
-      "body": {
-        "block": {
-          "settings": {},
-          "type": "slide"
-        },
-        "doc_id": "\u003cdoc_id\u003e",
-        "parent_path": null,
-        "theme_id": "\u003ctheme_id\u003e"
-      },
-      "method": "POST",
-      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/sections/111/blocks",
-      "query": null
-    },
-    {
-      "body": {
         "action": "save",
         "doc_id": "\u003cdoc_id\u003e",
         "event_type": "theme",
@@ -84,6 +45,44 @@
       },
       "method": "POST",
       "path": "/openapi/2026-01/themes/page-builder/blocks",
+      "query": null
+    },
+    {
+      "body": {
+        "operations": [
+          {
+            "op": "replace_props",
+            "props": {
+              "title": "X"
+            },
+            "target": "111.blocks.0"
+          },
+          {
+            "op": "remove_array_item",
+            "target": "111.blocks.1"
+          },
+          {
+            "op": "append_array_item",
+            "target": "111.blocks",
+            "value": {
+              "settings": {},
+              "type": "slide"
+            }
+          },
+          {
+            "op": "remove_section",
+            "target": "222"
+          },
+          {
+            "op": "add_section",
+            "value": {
+              "type": "\u003cgenerated_theme_card\u003e"
+            }
+          }
+        ]
+      },
+      "method": "POST",
+      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/templates/\u003cdoc_id\u003e/operations",
       "query": null
     }
   ]

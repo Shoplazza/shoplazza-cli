@@ -27,8 +27,8 @@ var editShortcut = common.Shortcut{
 	Use:     "+edit",
 	Short:   "Apply a batch of edit ops to a template page inside one edit session",
 	Long: `Apply a batch of edit operations to one template page: session handling,
-per-op endpoint routing (theme cards and page-builder cards can mix in one
-batch), fail-fast application and a ready-to-share preview URL — one call.
+one batch-operations request for the whole array (theme cards and
+page-builder cards can mix) and a ready-to-share preview URL — one call.
 
 Targets are copied verbatim from "themes +page" output. Standard flow passes
 the oseid echoed by +page via --session so read and write share one snapshot;
@@ -39,15 +39,16 @@ Ops (JSON array via --ops <file> | - (stdin) | inline JSON):
   replace_props      section target + props      merge props into a section's settings
   remove_array_item  block target                remove a block (same-container batches: descending index)
   append_array_item  container target + value    append {type, settings} (validated against schema/max_blocks)
-  add_section        name | pb+template_id       add a section (position: first|last|after:<sid>|before:<sid>)
-  remove_section     section target              remove a section (header/footer area auto-resolved)
+  add_section        name                        add a section (position: first|last|after:<sid>|before:<sid>)
+  remove_section     section target              remove a section
   move_section       section target + position   reorder a section (position, or numeric to_index)
   set_visibility     section target + visible    show/hide a section
-  update_pb          PB section target + ops     apply inner PB operations (body backfilled by the CLI)
+  update_pb          PB section target + ops     regenerate the PB card via pb and swap it in place
 
-Failure semantics: fail-fast; a mid-batch failure returns an api error with
-partial=true carrying oseid/applied/failed/remaining — fix the failed op and
-retry ONLY the remaining ops with --session. Nothing is rolled back.
+Failure semantics: ops apply and persist independently server-side — a
+failure does not stop or roll back the others. A partial failure returns an
+api error carrying per-op results; fix the failed ops and resend ONLY them
+with --session.
 
 --promote saves the edit draft back onto the theme draft after all ops apply
 (reserve it for explicit user instruction; a conflict returns an api error
@@ -114,7 +115,22 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 			return common.ExecResult{}, err
 		}
 	}
-	resolved, err := preflightOps(ops, oseid, docID, themeID, inner)
+	// update_pb pre-flight: pb-block-save generates the replacement theme
+	// card that the batch then swaps in via remove_section + add_section.
+	cards := map[int]map[string]any{}
+	for i := range ops {
+		if ops[i].Op == "update_pb" {
+			card, cerr := generateThemeCard(ctx, in.Client, ops[i], inner, oseid, docID, themeID)
+			if cerr != nil {
+				if exitErr, ok := cerr.(*output.ExitError); ok {
+					exitErr.WithField("oseid", oseid).WithField("session_created", created)
+				}
+				return common.ExecResult{}, cerr
+			}
+			cards[i] = card
+		}
+	}
+	entries, moves, newTargets, err := translateOps(ops, inner, cards)
 	if err != nil {
 		if exitErr, ok := err.(*output.ExitError); ok {
 			exitErr.WithField("oseid", oseid).WithField("session_created", created)
@@ -124,47 +140,60 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 
 	// Prefetch the preview-URL inputs (store domain via GET /shop; storefront
 	// path from the edited template, resource pages via one page_size=1 read)
-	// concurrently with the ops loop; both are only consumed after all ops
-	// apply. Buffered so an early error return never blocks the goroutines.
+	// concurrently with the batch. Buffered so an early error return never
+	// blocks the goroutines.
 	domainCh := make(chan string, 1)
 	go func() { domainCh <- extractStoreDomainBest(ctx, in.Client) }()
 	pathCh := make(chan string, 1)
 	go func() { pathCh <- resolvePreviewPath(ctx, in.Client, template, file) }()
 
-	// Sequential fail-fast application.
-	applied := make([]map[string]any, 0, len(resolved))
-	for i, r := range resolved {
-		resp, err := common.Send(ctx, in.Client, r.plan)
-		if err != nil {
-			// An invalid --session passes through verbatim — never wrapped as
-			// partial, never auto-recreated (contract §4.2).
-			if !created && isSessionNotFound(err) {
-				return common.ExecResult{}, err
-			}
-			remaining := make([]int, 0, len(resolved)-i-1)
-			for j := i + 1; j < len(resolved); j++ {
-				remaining = append(remaining, j)
-			}
-			failed := map[string]any{"index": i, "op": ops[i].Op}
-			if ops[i].Target != "" {
-				failed["target"] = ops[i].Target
-			}
-			failed["error"] = err.Error()
-			return common.ExecResult{}, partialApplyErr(oseid, created, applied, failed, remaining)
+	// One request for the whole batch: ops apply and persist independently
+	// server-side — no abort, no rollback.
+	preIDs := map[string]bool{}
+	for _, m := range allSections(inner) {
+		preIDs[anyToString(m["id"])] = true
+	}
+	operations := make([]map[string]any, len(entries))
+	for i, e := range entries {
+		operations[i] = e.entry
+	}
+	resp, err := common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
+	if err != nil {
+		// An invalid --session passes through verbatim — never auto-recreated
+		// (contract §4.2). Any other request-level error applied nothing.
+		if !created && isSessionNotFound(err) {
+			return common.ExecResult{}, err
 		}
-		entry := map[string]any{"op": ops[i].Op}
+		if exitErr, ok := err.(*output.ExitError); ok {
+			exitErr.WithField("oseid", oseid).WithField("session_created", created)
+		}
+		return common.ExecResult{}, err
+	}
+	perOp := mapBatchResults(len(ops), entries, resp)
+	applied := make([]map[string]any, 0, len(ops))
+	var failedIdx []int
+	for i := range ops {
+		entry := map[string]any{"op": ops[i].Op, "result": perOp[i]}
 		if ops[i].Target != "" {
 			entry["target"] = ops[i].Target
 		}
-		if r.newTarget != "" {
-			entry["new_target"] = r.newTarget
+		if nt := newTargets[i]; nt != "" {
+			entry["new_target"] = nt
 		}
-		if ops[i].Op == "add_section" {
-			if sid := extractSectionID(resp); sid != "" {
-				entry["new_section_id"] = sid
-			}
+		if perOp[i] != "success" {
+			failedIdx = append(failedIdx, i)
 		}
 		applied = append(applied, entry)
+	}
+	if len(failedIdx) > 0 {
+		return common.ExecResult{}, batchFailErr(oseid, created, applied, failedIdx)
+	}
+
+	// Recover server-assigned ids for added sections and restore requested
+	// placement (the server always appends) with one follow-up batch.
+	var placementWarning string
+	if hasAdds(entries) {
+		placementWarning = placeSections(ctx, in.Client, oseid, docID, entries, moves, preIDs, applied)
 	}
 
 	previewURL := buildPreviewURL(<-domainCh, <-pathCh, themeID, oseid, "")
@@ -172,6 +201,9 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	body := map[string]any{
 		"oseid": oseid, "session_created": created,
 		"applied": applied, "preview_url": previewURL, "promoted": false,
+	}
+	if placementWarning != "" {
+		body["placement_warning"] = placementWarning
 	}
 	if promote {
 		resp, err := common.Send(ctx, in.Client, PlanPromoteSession(oseid, map[string]any{"force": false}))
@@ -212,138 +244,6 @@ func readOpsInput(val string) ([]byte, error) {
 	}
 }
 
-// resolvedOp is a preflighted op: the request to send plus the key artifacts
-// echoed back in applied[] (docs/theme-page-edit-shortcuts.md §4.5 ①).
-type resolvedOp struct {
-	plan      common.PlannedRequest
-	newTarget string
-}
-
-// preflightOps maps every op to its endpoint request, backfilling the body
-// fields the model never provides. Checks that need page data (custom_id
-// lookup, append type/max_blocks) run here, before the first write.
-func preflightOps(ops []editOp, oseid, docID, themeID string, inner map[string]any) ([]resolvedOp, error) {
-	out := make([]resolvedOp, 0, len(ops))
-	base := func() map[string]any {
-		return map[string]any{"doc_id": docID, "theme_id": themeID}
-	}
-	fail := func(i int, format string, args ...any) error {
-		e := output.ErrValidation("op #%d (%s): %s", i, ops[i].Op, fmt.Sprintf(format, args...)).
-			WithField("invalid_op", i)
-		if ex := opExamples[ops[i].Op]; ex != "" {
-			e = e.WithField("example", ex)
-		}
-		return e
-	}
-
-	for i, op := range ops {
-		var r resolvedOp
-		switch op.Op {
-		case "update_slot":
-			body := base()
-			body["parent_path"] = op.ref.ParentPath
-			body["block_index"] = op.ref.BlockIndex
-			body["props"] = op.Props
-			r.plan = PlanSetSlot(oseid, op.ref.SectionID, body)
-		case "replace_props":
-			body := base()
-			body["props"] = op.Props
-			r.plan = PlanSetProps(oseid, op.ref.SectionID, body)
-		case "remove_array_item":
-			body := base()
-			body["parent_path"] = op.ref.ParentPath
-			body["block_index"] = op.ref.BlockIndex
-			r.plan = PlanRemoveBlock(oseid, op.ref.SectionID, body)
-		case "append_array_item":
-			section := findSectionByID(inner, op.ref.SectionID)
-			if section == nil {
-				return nil, fail(i, "section %q not found on this page", op.ref.SectionID)
-			}
-			container, err := containerAt(section, op.ref.ParentPath)
-			if err != nil {
-				return nil, fail(i, "%v", err)
-			}
-			if err := validateAppend(inner, section, op.Value, len(container)); err != nil {
-				return nil, fail(i, "%v", err)
-			}
-			body := base()
-			body["parent_path"] = op.ref.ParentPath
-			body["index"] = len(container) // tail insert
-			body["block"] = op.Value
-			r.plan = PlanAddBlock(oseid, op.ref.SectionID, body)
-			r.newTarget = fmt.Sprintf("%s[%d]", op.Target, len(container))
-		case "add_section":
-			body := base()
-			if op.Pb {
-				body["pb"] = true
-				body["template_id"] = op.TemplateID
-			} else {
-				body["name"] = op.Name
-			}
-			toIndex, area := resolveSectionPlacement(inner, op)
-			body["to_index"] = toIndex
-			if area != "" && area != "page" { // area reverse-looked-up, not model-supplied
-				body["area"] = area
-			}
-			r.plan = PlanAddSection(oseid, body)
-		case "remove_section":
-			// Contract quirk: this endpoint's body has no theme_id.
-			body := map[string]any{"doc_id": docID}
-			if area := sectionArea(inner, op.ref.SectionID); area != "" && area != "page" {
-				body["area"] = area
-			}
-			r.plan = PlanRemoveSection(oseid, op.ref.SectionID, body)
-		case "move_section":
-			body := map[string]any{"doc_id": docID}
-			toIndex, posArea := resolveSectionPlacement(inner, op)
-			area := sectionArea(inner, op.ref.SectionID) // area of the section being moved
-			if area == "" {
-				area = posArea
-			}
-			// move "last" = the area's real last index (add's -1 append no-ops here)
-			if op.Position == "last" && inner != nil {
-				grp := area
-				if grp == "" {
-					grp = "page"
-				}
-				if n := len(sectionsByArea(inner)[grp]); n > 0 {
-					toIndex = n - 1
-				}
-			}
-			body["to_index"] = toIndex
-			if area != "" && area != "page" {
-				body["area"] = area
-			}
-			r.plan = PlanMoveSection(oseid, op.ref.SectionID, body)
-		case "set_visibility":
-			body := base()
-			body["visible"] = *op.Visible
-			r.plan = PlanSetVisibility(oseid, op.ref.SectionID, body)
-		case "update_pb":
-			customID := phCustomID
-			if inner != nil {
-				section := findSectionByID(inner, op.ref.SectionID)
-				if section == nil {
-					return nil, fail(i, "section %q not found on this page", op.ref.SectionID)
-				}
-				id, ok := pbCustomID(getString(section, "type"))
-				if !ok {
-					return nil, fail(i, "section %q is not a page-builder custom card (type %q)", op.ref.SectionID, getString(section, "type"))
-				}
-				customID = id
-			}
-			r.plan = PlanPbBlockSave(map[string]any{
-				"event_type": "theme", "action": "save", // fixed values
-				"origin_template_id": customID,
-				"oseid":              oseid, "doc_id": docID, "section_id": op.ref.SectionID, "theme_id": themeID,
-				"ops": op.Ops,
-			})
-		}
-		out = append(out, r)
-	}
-	return out, nil
-}
-
 // findSectionByID locates a card by stringified id across the page flow and
 // the fixed cards group.
 func findSectionByID(inner map[string]any, sectionID string) map[string]any {
@@ -363,58 +263,19 @@ func splitPosition(pos string) (kind, id string, ok bool) {
 	return "", "", false
 }
 
-// sectionAreaIndex returns a section's area and its index within that area.
-func sectionAreaIndex(inner map[string]any, sectionID string) (area string, idx int, found bool) {
+// sectionArea returns a section's area ("" if unknown).
+func sectionArea(inner map[string]any, sectionID string) string {
 	if inner == nil {
-		return "", 0, false
+		return ""
 	}
-	ba := sectionsByArea(inner)
-	for _, a := range []string{"page", "header", "footer", "global"} {
-		for i, m := range ba[a] {
+	for area, list := range sectionsByArea(inner) {
+		for _, m := range list {
 			if anyToString(m["id"]) == sectionID {
-				return a, i, true
+				return area
 			}
 		}
 	}
-	return "", 0, false
-}
-
-// sectionArea returns a section's area ("" if unknown).
-func sectionArea(inner map[string]any, sectionID string) string {
-	area, _, _ := sectionAreaIndex(inner, sectionID)
-	return area
-}
-
-// resolveSectionPlacement turns an op's position (or numeric to_index) into the
-// body to_index and, for after/before, the reference section's area.
-func resolveSectionPlacement(inner map[string]any, op editOp) (toIndex any, area string) {
-	if op.Position == "" {
-		if op.ToIndex != nil {
-			return *op.ToIndex, ""
-		}
-		return -1, "" // default: append at tail
-	}
-	switch op.Position {
-	case "first":
-		return 0, ""
-	case "last":
-		return -1, ""
-	}
-	kind, refID, ok := splitPosition(op.Position)
-	if !ok {
-		return -1, ""
-	}
-	a, idx, found := sectionAreaIndex(inner, refID)
-	if !found {
-		if inner == nil {
-			return "<to_index>", "" // dry-run: resolved live
-		}
-		return -1, "" // ref not on page — let the backend default
-	}
-	if kind == "after" {
-		return idx + 1, a
-	}
-	return idx, a // before
+	return ""
 }
 
 // containerAt walks parentPath from the section root down to the container
@@ -498,50 +359,41 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote bool) []comm
 	if opsNeedImplicitRead(ops) {
 		plans = append(plans, PlanSchemasList(oseidRef, phDocID))
 	}
-	// Placeholder-backed preflight: append indexes stay unset, custom_id is a
-	// placeholder; targets resolve locally so coordinates are real.
-	resolved, _ := preflightOpsDryRun(ops, oseidRef, phDocID, themeRef)
-	for _, r := range resolved {
-		plans = append(plans, r.plan)
+	// update_pb: one pb-block-save per op (card generation), placeholders for
+	// runtime-resolved values; then the whole batch as one request, plus the
+	// placement follow-up when adds carry a position.
+	cards := map[int]map[string]any{}
+	for i := range ops {
+		if ops[i].Op == "update_pb" {
+			plans = append(plans, PlanPbBlockSave(map[string]any{
+				"event_type": "theme", "action": "save",
+				"origin_template_id": phCustomID,
+				"oseid":              oseidRef, "doc_id": phDocID, "section_id": ops[i].ref.SectionID, "theme_id": themeRef,
+				"ops": ops[i].Ops,
+			}))
+			cards[i] = map[string]any{"type": "<generated_theme_card>"}
+		}
+	}
+	if entries, moves, _, err := translateOps(ops, nil, cards); err == nil {
+		operations := make([]map[string]any, len(entries))
+		for i, e := range entries {
+			operations[i] = e.entry
+		}
+		plans = append(plans, PlanBatchOps(oseidRef, phDocID, operations))
+		if len(moves) > 0 {
+			moveOps := make([]map[string]any, 0, len(moves))
+			for _, mv := range moves {
+				moveOps = append(moveOps, map[string]any{
+					"op": "move_section", "target": "<new_section_id>", "position": mv.position, "move_target": mv.moveTarget,
+				})
+			}
+			plans = append(plans, PlanBatchOps(oseidRef, phDocID, moveOps))
+		}
 	}
 	if promote {
 		plans = append(plans, PlanPromoteSession(oseidRef, map[string]any{"force": false}))
 	}
 	return plans
-}
-
-// preflightOpsDryRun mirrors preflightOps without page data: append omits the
-// index (unknown until live) and update_pb keeps the custom_id placeholder.
-func preflightOpsDryRun(ops []editOp, oseid, docID, themeID string) ([]resolvedOp, error) {
-	out := make([]resolvedOp, 0, len(ops))
-	for i := range ops {
-		op := ops[i]
-		if op.Op == "append_array_item" {
-			body := map[string]any{
-				"doc_id": docID, "theme_id": themeID,
-				"parent_path": op.ref.ParentPath, "block": op.Value,
-			}
-			out = append(out, resolvedOp{plan: PlanAddBlock(oseid, op.ref.SectionID, body)})
-			continue
-		}
-		r, err := preflightOps([]editOp{op}, oseid, docID, themeID, nil)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, r...)
-	}
-	return out, nil
-}
-
-// extractSectionID pulls the new section id out of an add-section response.
-func extractSectionID(resp map[string]any) string {
-	if s := anyToString(resp["section_id"]); s != "" {
-		return s
-	}
-	if d := mapField(resp, "data"); d != nil {
-		return anyToString(d["section_id"])
-	}
-	return ""
 }
 
 // isPromoteConflict classifies a promote failure as a draft conflict: the
@@ -565,19 +417,6 @@ func promoteConflicted(resp map[string]any) bool {
 }
 
 // ─────────── error envelopes (docs/theme-page-edit-shortcuts.md §4.5 ③④) ───────────
-
-// partialApplyErr is the mid-batch fail-fast envelope: type "api" with a
-// partial=true discriminator, carrying everything an agent needs to recover.
-func partialApplyErr(oseid string, created bool, applied []map[string]any, failed map[string]any, remaining []int) *output.ExitError {
-	return output.Errorf(output.ExitAPI, output.TypeAPI, "op #%v (%v) failed: %v", failed["index"], failed["op"], failed["error"]).
-		WithField("partial", true).
-		WithField("oseid", oseid).
-		WithField("session_created", created).
-		WithField("applied", applied).
-		WithField("failed", failed).
-		WithField("remaining", remaining).
-		WithHint(fmt.Sprintf("fix op #%v, then retry ONLY the remaining ops with --session %s (do NOT resend applied ops)", failed["index"], oseid))
-}
 
 // promoteConflictErr is the --promote conflict envelope: ops applied fine but
 // the theme draft moved; forcing is a user decision, never automatic.
