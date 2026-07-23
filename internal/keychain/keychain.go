@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 )
 
 const (

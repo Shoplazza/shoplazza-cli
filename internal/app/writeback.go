@@ -9,8 +9,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/app/project"
-	"github.com/Shoplazza/shoplazza-cli/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 )
 
 // WriteBackExtensionVersion updates id/version in

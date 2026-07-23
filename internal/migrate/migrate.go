@@ -12,11 +12,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/auth"
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/internal/fsx"
-	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
-	"github.com/Shoplazza/shoplazza-cli/internal/lockfile"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/lockfile"
 )
 
 // legacyAuthMeta mirrors the v1 auth.json shape (only the fields migration reads).

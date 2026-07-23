@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 func newProductExecInput(t *testing.T, flags map[string]string, values map[string]string, dryRun bool) common.ExecInput {

@@ -1,6 +1,6 @@
 package discounts
 
-import "github.com/Shoplazza/shoplazza-cli/shortcuts/common"
+import "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 
 const discountsBase = common.APIPrefix + "/discounts"
 

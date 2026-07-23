@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
 // NormalizePath normalizes a raw path into an API path.

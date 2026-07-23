@@ -9,7 +9,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // ErrAuthExpired flags an OAuth / 401 / keychain-miss path and suggests

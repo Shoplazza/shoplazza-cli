@@ -1,6 +1,6 @@
 package products
 
-import "github.com/Shoplazza/shoplazza-cli/shortcuts/common"
+import "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 
 const productsBase = common.APIPrefix + "/products"
 

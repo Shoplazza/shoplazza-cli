@@ -3,7 +3,7 @@ package shop
 import (
 	"context"
 
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 var uploadFileShortcut = common.Shortcut{

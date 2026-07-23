@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 func newShopExecInputWithClient(t *testing.T, values map[string]string, c *client.Client) common.ExecInput {

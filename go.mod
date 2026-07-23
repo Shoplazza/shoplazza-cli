@@ -1,4 +1,4 @@
-module github.com/Shoplazza/shoplazza-cli
+module github.com/Shoplazza/shoplazza-cli/v2
 
 go 1.24.0
 

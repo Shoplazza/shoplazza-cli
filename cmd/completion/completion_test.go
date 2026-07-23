@@ -3,7 +3,7 @@ package completion
 import (
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
 func TestNewCmdCompletion_Structure(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/lockfile"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/lockfile"
 )
 
 // ConfigLockTimeout is the config.lock wait budget; on timeout callers

@@ -3,7 +3,7 @@ package appcmd
 import (
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
 // TestDeploy_Flags asserts newCmdDeploy registers its flags and the login gate.

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
 // runAuthCmd runs the auth command tree with args, capturing stdout, and

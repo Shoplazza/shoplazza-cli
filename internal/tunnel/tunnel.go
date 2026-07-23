@@ -13,7 +13,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // gracefulKill sends SIGTERM on Unix and falls back to Process.Kill on Windows
