@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-21T07:40:51Z",
+  "generated_at": "2026-07-23T01:35:36Z",
   "modules": [
     {
       "name": "billing",
@@ -11082,7 +11082,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Custom template id (snowflake). Must parse to uint64 \u003e 0",
+              "description": "Custom template id. Must parse to uint64 \u003e 0",
               "min_length": 1
             },
             {
@@ -11902,6 +11902,56 @@
             ]
           },
           "response_schema": "v202601.SetSectionPropsResponse"
+        },
+        {
+          "id": "theme-edit-session-batch-operations",
+          "command_path": [
+            "session",
+            "batch-ops"
+          ],
+          "summary": "Batch theme operations",
+          "description": "Execute multiple theme edit operations in one request; each op is applied and persisted\nindependently, and a failure on one does not stop the others.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/templates/{template_id}/operations",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid)",
+              "min_length": 1
+            },
+            {
+              "name": "template_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Template ID within the edit session",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "operations",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "v202601.ThemeOperation"
+                },
+                "required": true,
+                "description": "Ordered list of theme operations executed in one batch. Each op is applied and persisted independently, and a failure on one does not stop the others. See `ThemeOperation`.",
+                "min_length": 1
+              }
+            ]
+          },
+          "response_schema": "v202601.BatchThemeOperationsResponse"
         },
         {
           "id": "theme-edit-session-conflict",
@@ -23190,6 +23240,18 @@
       ]
     },
     "v202601.BatchDeleteProductsResponse": {},
+    "v202601.BatchThemeOperationsResponse": {
+      "fields": [
+        {
+          "name": "data",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.ThemeOperationResult"
+          }
+        }
+      ]
+    },
     "v202601.Blog": {
       "fields": [
         {
@@ -26434,6 +26496,53 @@
             "type": "object",
             "schema": "google.protobuf.Struct"
           }
+        }
+      ]
+    },
+    "v202601.ThemeOperation": {
+      "fields": [
+        {
+          "name": "op",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "target",
+          "type": "string"
+        },
+        {
+          "name": "value",
+          "type": "object",
+          "schema": "google.protobuf.Value"
+        },
+        {
+          "name": "props",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "visible",
+          "type": "boolean"
+        },
+        {
+          "name": "position",
+          "type": "string"
+        },
+        {
+          "name": "move_target",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.ThemeOperationResult": {
+      "fields": [
+        {
+          "name": "op",
+          "type": "string"
+        },
+        {
+          "name": "result",
+          "type": "string"
         }
       ]
     },
