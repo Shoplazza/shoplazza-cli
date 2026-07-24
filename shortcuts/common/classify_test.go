@@ -6,8 +6,8 @@ import (
 	"net"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // fakeNetErr implements net.Error for classifySendError/classifyExecError tests.

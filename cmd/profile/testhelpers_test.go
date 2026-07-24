@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
-	"github.com/Shoplazza/shoplazza-cli/internal/testenv"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 // newTestFactory builds a temp, isolated Factory with a single logged-in

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/Shoplazza/shoplazza-cli/cmd"
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd"
 )
 
 func main() {

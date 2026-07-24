@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
 )
 
 // AccountUAT reads the v2-namespaced UAT for email.

@@ -3,8 +3,8 @@ package auth
 import (
 	"time"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 )
 
 // atRefreshMargin is how long before AT expiry we proactively refresh.

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 // TestAllShortcutsAreComplete fails if any registered Shortcut has a nil Plan,

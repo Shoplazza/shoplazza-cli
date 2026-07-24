@@ -4,14 +4,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/customers"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/discounts"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/orders"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/products"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/shop"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/themes"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/customers"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/discounts"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/orders"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/products"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/shop"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/themes"
 
 	"github.com/spf13/cobra"
 )

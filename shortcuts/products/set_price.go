@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
-	"github.com/Shoplazza/shoplazza-cli/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 var setPriceShortcut = common.Shortcut{

@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/spf13/cobra"
 )

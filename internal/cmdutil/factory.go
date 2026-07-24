@@ -5,10 +5,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/build"
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/internal/migrate"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/migrate"
 )
 
 // IOStreams groups command IO handles.

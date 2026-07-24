@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
 )
 
 // storeKcKey / appKcKey build resource-scoped keychain account names for

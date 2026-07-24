@@ -3,7 +3,7 @@ package cmdutil
 import (
 	"fmt"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // ValidateScopeSubset errors when want ⊄ granted (case-sensitive scope names).

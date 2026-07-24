@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 )
 
 // TestLoginThenGate_StoreTokenReady is the "real login output → Gate input"

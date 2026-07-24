@@ -8,11 +8,11 @@ import (
 	"net"
 	"os"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/app"
-	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // envAccessToken is the CI/test injection bypass honored across the CLI (see

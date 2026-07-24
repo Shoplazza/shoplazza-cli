@@ -3,7 +3,7 @@ package cmdutil
 import (
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 
 	"github.com/spf13/cobra"
 )

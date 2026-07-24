@@ -1,6 +1,6 @@
 package common
 
-import "github.com/Shoplazza/shoplazza-cli/internal/output"
+import "github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 // IDFlag returns a required --id string flag with the given description.
 // Used for single-resource shortcuts (+get, +delete, +publish, +cancel, etc.).

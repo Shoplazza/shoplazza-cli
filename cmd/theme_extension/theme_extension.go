@@ -7,7 +7,7 @@ package theme_extension
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
 func NewCmdThemeExtension(f *cmdutil.Factory) *cobra.Command {

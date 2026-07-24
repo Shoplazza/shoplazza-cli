@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
 )
 
 func cmd(path ...string) registry.Command {

@@ -13,10 +13,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/app"
-	"github.com/Shoplazza/shoplazza-cli/internal/app/project"
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func TestRunInfo_AppAndExtensions(t *testing.T) {

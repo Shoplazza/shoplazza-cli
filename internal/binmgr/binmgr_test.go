@@ -15,7 +15,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func TestEnsure_DownloadsThenCaches(t *testing.T) {

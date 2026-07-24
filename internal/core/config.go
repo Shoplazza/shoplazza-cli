@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 )
 
 // CliConfig stores the persisted CLI configuration (v2: accounts + profiles).

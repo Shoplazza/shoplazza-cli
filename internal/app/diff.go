@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // LocalExt is a local extension discovered under extensions/<Dir>.

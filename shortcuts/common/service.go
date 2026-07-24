@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 )
 
 // APIPrefix is the single declaration of the Shoplazza Open Platform API

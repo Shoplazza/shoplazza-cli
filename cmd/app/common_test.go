@@ -11,15 +11,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/internal/app"
-	"github.com/Shoplazza/shoplazza-cli/internal/app/project"
-	internalauth "github.com/Shoplazza/shoplazza-cli/internal/auth"
-	"github.com/Shoplazza/shoplazza-cli/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/internal/keychain"
-	"github.com/Shoplazza/shoplazza-cli/internal/output"
-	"github.com/Shoplazza/shoplazza-cli/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 func TestRequireLogin_NotLoggedIn(t *testing.T) {
