@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-23T01:35:36Z",
+  "generated_at": "2026-07-24T05:48:34Z",
   "modules": [
     {
       "name": "billing",
@@ -4849,7 +4849,7 @@
             "inventory",
             "create-level"
           ],
-          "summary": "Create inventory level",
+          "summary": "Create inventory",
           "description": "Sets the inventory level for a specific location and inventory item.",
           "hidden": false,
           "http": {
@@ -4884,7 +4884,7 @@
             "inventory",
             "delete-level"
           ],
-          "summary": "Delete inventory level",
+          "summary": "Delete inventory",
           "description": "Deletes an inventory level for a specific location and inventory item.",
           "hidden": false,
           "http": {
@@ -5052,7 +5052,7 @@
             "inventory",
             "list-levels"
           ],
-          "summary": "List inventory levels",
+          "summary": "List inventory",
           "description": "Returns a paginated list of inventory levels.",
           "hidden": false,
           "http": {
@@ -5114,7 +5114,7 @@
             "inventory",
             "set-stock"
           ],
-          "summary": "Set inventory level",
+          "summary": "Set inventory quantity",
           "description": "Sets the inventory level for a specific location and inventory item.",
           "hidden": false,
           "http": {
@@ -5193,7 +5193,7 @@
             "inventory",
             "update-level"
           ],
-          "summary": "Update inventory level",
+          "summary": "Update inventory",
           "description": "Updates the inventory level for a specific location and inventory item.",
           "hidden": false,
           "http": {
