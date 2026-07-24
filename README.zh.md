@@ -43,40 +43,6 @@ Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能在终�
 | **Homebrew**（macOS / Linux） | `brew install Shoplazza/tap/shoplazza-cli` | 通过 `brew upgrade` 自动更新。 |
 
 <details>
-<summary>各平台二进制下载命令</summary>
-
-发布归档带版本号（`shoplazza-cli-<version>-<os>-<arch>`），因此先解析最新版本号 —— 或直接从 [releases 页面](https://github.com/Shoplazza/shoplazza-cli/releases/latest) 下载对应平台的归档。
-
-**macOS / Linux**
-
-```bash
-# 解析最新版本号（也可自行设置 VERSION=x.y.z）：
-VERSION=$(curl -fsSL https://api.github.com/repos/Shoplazza/shoplazza-cli/releases/latest \
-  | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/')
-BASE="https://github.com/Shoplazza/shoplazza-cli/releases/download/v${VERSION}"
-
-# macOS (Apple Silicon)
-curl -fsSL "${BASE}/shoplazza-cli-${VERSION}-darwin-arm64.tar.gz" | tar -xz
-# macOS (Intel):  ${BASE}/shoplazza-cli-${VERSION}-darwin-amd64.tar.gz
-# Linux (x86_64): ${BASE}/shoplazza-cli-${VERSION}-linux-amd64.tar.gz
-# Linux (ARM64):  ${BASE}/shoplazza-cli-${VERSION}-linux-arm64.tar.gz
-
-sudo install -m755 shoplazza /usr/local/bin/
-```
-
-**Windows (PowerShell)**
-
-```powershell
-$V = (Invoke-RestMethod https://api.github.com/repos/Shoplazza/shoplazza-cli/releases/latest).tag_name.TrimStart('v')
-# arm64 架构把 windows-amd64 换成 windows-arm64
-Invoke-WebRequest "https://github.com/Shoplazza/shoplazza-cli/releases/download/v$V/shoplazza-cli-$V-windows-amd64.zip" -OutFile shoplazza.zip
-Expand-Archive shoplazza.zip -DestinationPath .
-# 将 shoplazza.exe 移动到 PATH 中的目录。
-```
-
-</details>
-
-<details>
 <summary>源码构建详情</summary>
 
 需要 Go `v1.24`+。安装到 `~/.local/bin`（用户级，无需 `sudo`）：
