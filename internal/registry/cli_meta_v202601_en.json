@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-23T05:29:01Z",
+  "generated_at": "2026-07-24T09:07:54Z",
   "modules": [
     {
       "name": "billing",
@@ -7080,18 +7080,21 @@
           "hidden": false,
           "http": {
             "method": "POST",
-            "path": "/openapi/2026-01/blogs"
+            "path": "/openapi/2026-01/blogs",
+            "body": "*"
           },
-          "parameters": [
-            {
-              "name": "blog",
-              "in": "query",
-              "type": "object",
-              "schema": "v202506.CreateBlogParam",
-              "required": true,
-              "description": "Blog"
-            }
-          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "blog",
+                "type": "object",
+                "schema": "v202506.CreateBlogParam",
+                "required": true,
+                "description": "Blog"
+              }
+            ]
+          },
           "response_schema": "v202506.CreateBlogResponse"
         },
         {
