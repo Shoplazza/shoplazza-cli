@@ -14,12 +14,10 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
-// themes +edit — one-shot batch write for agent-driven theme editing
-// (docs/theme-page-edit-shortcuts.md §4, docs/plans/theme-page-edit/03-themes-edit.md).
+// themes +edit — one-shot batch write for agent-driven theme editing.
 //
 // Standard flow: pass the oseid echoed by `themes +page` so read and write
-// share one edit-draft snapshot. Omitting --session creates a fresh session —
-// legal, but the ops then apply to a snapshot you never read.
+// share one edit-draft snapshot; omitting --session creates a fresh one.
 
 var editShortcut = common.Shortcut{
 	Service: "themes",
@@ -39,7 +37,7 @@ Ops (JSON array via --ops <file> | - (stdin) | inline JSON):
   replace_props      section target + props      merge props into a section's settings
   remove_array_item  block target                remove a block (same-container batches: descending index)
   append_array_item  container target + value    append {type, settings} (validated against schema/max_blocks)
-  add_section        name                        add a section (position: first|last|after:<sid>|before:<sid>)
+  add_section        name | pb+template_id       add a section or a pb card (position: first|last|after:<sid>|before:<sid>)
   remove_section     section target              remove a section
   move_section       section target + position   reorder a section (position, or numeric to_index)
   set_visibility     section target + visible    show/hide a section
@@ -115,20 +113,27 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 			return common.ExecResult{}, err
 		}
 	}
-	// update_pb pre-flight: pb-block-save generates the replacement theme
-	// card that the batch then swaps in via remove_section + add_section.
+	// pb pre-flights: update_pb regenerates its card via pb-block-save,
+	// add_section pb resolves the template via pb-single-blocks.
 	cards := map[int]map[string]any{}
 	for i := range ops {
-		if ops[i].Op == "update_pb" {
-			card, cerr := generateThemeCard(ctx, in.Client, ops[i], inner, oseid, docID, themeID)
-			if cerr != nil {
-				if exitErr, ok := cerr.(*output.ExitError); ok {
-					exitErr.WithField("oseid", oseid).WithField("session_created", created)
-				}
-				return common.ExecResult{}, cerr
-			}
-			cards[i] = card
+		var card map[string]any
+		var cerr error
+		switch {
+		case ops[i].Op == "update_pb":
+			card, cerr = generateThemeCard(ctx, in.Client, ops[i], inner, oseid, docID, themeID)
+		case ops[i].Op == "add_section" && ops[i].Pb:
+			card, cerr = resolvePbSectionValue(ctx, in.Client, ops[i].TemplateID)
+		default:
+			continue
 		}
+		if cerr != nil {
+			if exitErr, ok := cerr.(*output.ExitError); ok {
+				exitErr.WithField("oseid", oseid).WithField("session_created", created)
+			}
+			return common.ExecResult{}, cerr
+		}
+		cards[i] = card
 	}
 	entries, moves, newTargets, err := translateOps(ops, inner, cards)
 	if err != nil {
@@ -138,10 +143,8 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		return common.ExecResult{}, err
 	}
 
-	// Prefetch the preview-URL inputs (store domain via GET /shop; storefront
-	// path from the edited template, resource pages via one page_size=1 read)
-	// concurrently with the batch. Buffered so an early error return never
-	// blocks the goroutines.
+	// Prefetch the preview-URL inputs concurrently with the batch; buffered
+	// so an early error return never blocks the goroutines.
 	domainCh := make(chan string, 1)
 	go func() { domainCh <- extractStoreDomainBest(ctx, in.Client) }()
 	pathCh := make(chan string, 1)
@@ -159,8 +162,8 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	}
 	resp, err := common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
 	if err != nil {
-		// An invalid --session passes through verbatim — never auto-recreated
-		// (contract §4.2). Any other request-level error applied nothing.
+		// An invalid --session passes through verbatim — never auto-recreated.
+		// Any other request-level error applied nothing.
 		if !created && isSessionNotFound(err) {
 			return common.ExecResult{}, err
 		}
@@ -359,12 +362,12 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote bool) []comm
 	if opsNeedImplicitRead(ops) {
 		plans = append(plans, PlanSchemasList(oseidRef, phDocID))
 	}
-	// update_pb: one pb-block-save per op (card generation), placeholders for
-	// runtime-resolved values; then the whole batch as one request, plus the
+	// pb pre-flight plans, then the whole batch as one request, plus the
 	// placement follow-up when adds carry a position.
 	cards := map[int]map[string]any{}
 	for i := range ops {
-		if ops[i].Op == "update_pb" {
+		switch {
+		case ops[i].Op == "update_pb":
 			plans = append(plans, PlanPbBlockSave(map[string]any{
 				"event_type": "theme", "action": "save",
 				"origin_template_id": phCustomID,
@@ -372,6 +375,9 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote bool) []comm
 				"ops": ops[i].Ops,
 			}))
 			cards[i] = map[string]any{"type": "<generated_theme_card>"}
+		case ops[i].Op == "add_section" && ops[i].Pb:
+			plans = append(plans, PlanPbSingleBlocks(ops[i].TemplateID))
+			cards[i] = map[string]any{"type": "<pb_template_type_uri>"}
 		}
 	}
 	if entries, moves, _, err := translateOps(ops, nil, cards); err == nil {
@@ -397,8 +403,7 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote bool) []comm
 }
 
 // isPromoteConflict classifies a promote failure as a draft conflict: the
-// endpoint answers HTTP 409 with "edit session has conflict with draft, retry
-// with force=true" — not the {promoted, conflict} body the registry documents.
+// endpoint answers HTTP 409, not the documented {promoted, conflict} body.
 func isPromoteConflict(err error) bool {
 	var httpErr *client.HTTPError
 	if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusConflict {
@@ -416,7 +421,7 @@ func promoteConflicted(resp map[string]any) bool {
 	return root["conflict"] == true
 }
 
-// ─────────── error envelopes (docs/theme-page-edit-shortcuts.md §4.5 ③④) ───────────
+// ─────────── error envelopes ───────────
 
 // promoteConflictErr is the --promote conflict envelope: ops applied fine but
 // the theme draft moved; forcing is a user decision, never automatic.

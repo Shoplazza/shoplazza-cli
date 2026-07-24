@@ -10,15 +10,12 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
-// themes +page — one-shot page read for agent-driven theme editing
-// (docs/theme-page-edit-shortcuts.md §3, docs/plans/theme-page-edit/02-themes-page.md).
+// themes +page — one-shot page read for agent-driven theme editing.
 //
-// Session semantics: omitting --session creates a fresh edit session (an edit
-// draft copied from the theme draft) and echoes its oseid so the follow-up
-// `themes +edit --session <oseid>` writes into the same snapshot.
+// Omitting --session creates a fresh edit session and echoes its oseid so the
+// follow-up `themes +edit --session <oseid>` writes into the same snapshot.
 
-// pagePlaceholder values stand in for runtime-resolved ids in --dry-run plans
-// (strict zero-call semantics, docs/theme-page-edit-shortcuts.md §3.6).
+// Placeholders for runtime-resolved ids in --dry-run plans (zero network calls).
 const (
 	phThemeID  = "<theme_id>"
 	phDocID    = "<doc_id>"
@@ -270,7 +267,7 @@ func pageList(ctx context.Context, in common.ExecInput, themeID string) (common.
 	}
 
 	// doctree and list-templates are independent reads — fetch concurrently,
-	// keeping doctree's error precedence (it fails first, as it did serially).
+	// keeping doctree's error precedence.
 	var customResp map[string]any
 	var customErr error
 	done := make(chan struct{})
@@ -327,10 +324,8 @@ func pageList(ctx context.Context, in common.ExecInput, themeID string) (common.
 	return common.ExecResult{Body: map[string]any{"theme_id": themeID, "templates": templates}}, nil
 }
 
-// buildSectionRow converts one schemas-list card into the +page output row:
-// stringified section_id, visible (from display, default true), current
-// settings, and the flattened blocks with pre-built targets. PB custom cards
-// are tagged kind:"pb" (canvas attaches later under --include pb).
+// buildSectionRow converts one schemas-list card into the +page output row
+// (id, visible, settings, flattened blocks); PB custom cards get kind:"pb".
 func buildSectionRow(m map[string]any) map[string]any {
 	id := anyToString(m["id"])
 	typ := getString(m, "type")
@@ -341,10 +336,8 @@ func buildSectionRow(m map[string]any) map[string]any {
 		"visible":  m["display"] != false && m["disabled"] != true,
 		"settings": mapField(m, "settings"),
 	}
-	// name: pb cards carry the display name in schema.name (top-level name is
-	// the slug); theme and app cards carry it in name. Passed through verbatim
-	// (theme cards: string; pb/app cards: bilingual object); fixed cards have
-	// none and the field is omitted.
+	// pb cards carry the display name in schema.name (top-level name is the
+	// slug); theme/app cards carry it in name; fixed cards have none.
 	var name any
 	if isPbType(typ) {
 		if s := mapField(m, "schema"); s != nil {
@@ -378,11 +371,8 @@ func findSectionRow(rows []map[string]any, sectionID string) map[string]any {
 	return nil
 }
 
-// expandPbCanvas fetches the canvas text for every kind:"pb" row in place
-// (one pb-blocks-get per card, fetched concurrently — the GETs are independent;
-// each goroutine writes only its own row). Per-card failures degrade to a
-// canvas_error note instead of failing the read: theme-baked PB cards reference
-// designer-side templates that 404 on the merchant store.
+// expandPbCanvas fetches canvas text for every kind:"pb" row concurrently;
+// per-card failures degrade to canvas_error (theme-baked PB templates can 404).
 func expandPbCanvas(ctx context.Context, in common.ExecInput, rows []map[string]any) error {
 	sem := make(chan struct{}, 4)
 	var wg sync.WaitGroup
@@ -452,9 +442,8 @@ func projectSchemas(schemas map[string]any, types map[string]bool) map[string]an
 	return out
 }
 
-// projectSettings keeps the semantic subset of a settings schema list:
-// id/type/label/options/info/visibleOn/default/min/max/step/unit, labels
-// collapsed to zh-CN (en-US fallback). Empty values are dropped.
+// projectSettings keeps the semantic subset of a settings schema list, labels
+// collapsed to zh-CN (en-US fallback); empty values are dropped.
 func projectSettings(settings []any) []map[string]any {
 	out := make([]map[string]any, 0, len(settings))
 	for _, s := range settings {

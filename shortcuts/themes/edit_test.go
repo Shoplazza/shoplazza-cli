@@ -116,6 +116,14 @@ func newEditServer(t *testing.T) *editServer {
 			}
 			es.mu.Unlock()
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"data": results}})
+		case strings.HasSuffix(p, "/page-builder/blocks") && r.Method == http.MethodGet:
+			sid := r.URL.Query().Get("source_ids")
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"blocks": map[string]any{
+				sid: map[string]any{
+					"type": "shoplazza://apps/page-builder/blocks/" + sid + "/hash9527",
+					"name": map[string]any{"en-US": "Mixed media", "zh-CN": "混合图文"},
+				},
+			}}})
 		case strings.HasSuffix(p, "/page-builder/blocks") && r.Method == http.MethodPost:
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -400,6 +408,33 @@ func editWriteBody(es *editServer, method, pathSuffix string) map[string]any {
 	return nil
 }
 
+// TestEdit_AddSectionPbMode pins the pb add flow: pb-single-blocks resolves
+// the template to its full type URI, which travels as the add_section value.
+func TestEdit_AddSectionPbMode(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	body, err := editExec(t, es, map[string]any{"template": "index", "session": "ose_x",
+		"ops": `[{"op":"add_section","pb":true,"template_id":"global-777","position":"last"}]`})
+	if err != nil {
+		t.Fatalf("editExecute: %v", err)
+	}
+	batch := editWriteBody(es, http.MethodPost, "/operations")
+	if batch == nil {
+		t.Fatal("batch-ops never sent")
+	}
+	add := batch["operations"].([]any)[0].(map[string]any)
+	value, _ := add["value"].(map[string]any)
+	if add["op"] != "add_section" || value == nil ||
+		value["type"] != "shoplazza://apps/page-builder/blocks/global-777/hash9527" {
+		t.Errorf("add entry = %v, want value.type resolved via pb-single-blocks", add)
+	}
+	applied := body["applied"].([]map[string]any)
+	if applied[0]["new_section_id"] != "sec_new1" {
+		t.Errorf("new_section_id = %v", applied[0]["new_section_id"])
+	}
+}
+
 func TestEdit_PositionTranslationAndPlacement(t *testing.T) {
 	es := newEditServer(t)
 	defer es.srv.Close()
@@ -579,7 +614,7 @@ func TestValidateOps_PbTemplateHint(t *testing.T) {
 		t.Fatal("want *output.ExitError")
 	}
 	env := exitErr.Envelope()
-	if !strings.Contains(fmt.Sprint(env["hint"]), `"source":"custom"`) {
+	if !strings.Contains(fmt.Sprint(env["hint"]), `"source":"pb,custom"`) {
 		t.Errorf("hint = %v, want list-card source=custom discovery", env["hint"])
 	}
 }
@@ -611,6 +646,7 @@ func TestSnapshot_EditDryRun(t *testing.T) {
 			"ops": `[{"op":"update_slot","target":"111.blocks[0]","props":{"title":"X"}},
 			         {"op":"remove_array_item","target":"111.blocks[1]"},
 			         {"op":"append_array_item","target":"111.blocks","value":{"type":"slide","settings":{}}},
+			         {"op":"add_section","pb":true,"template_id":"global-777","position":"first"},
 			         {"op":"update_pb","target":"222","ops":[{"action":"update","targetId":"0","settings":{}}]}]`}),
 		DryRun: true,
 	})

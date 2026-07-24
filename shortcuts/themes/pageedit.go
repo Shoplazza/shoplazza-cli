@@ -11,14 +11,12 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
-// Shared foundation for themes +page / +edit
-// (docs/plans/theme-page-edit/01-shared-foundation.md): theme/doc resolution,
-// schemas-list unwrapping and area grouping, PB card detection, session error
-// classification. Both shortcuts consume this file; keep it flag-free.
+// Shared foundation for themes +page / +edit: theme/doc resolution, schemas-list
+// unwrapping and area grouping, PB card detection, session error classification.
+// Both shortcuts consume this file; keep it flag-free.
 
-// resolveThemeAndDoc resolves the working theme and template file id for
-// +page/+edit. An empty themeID defaults to the published theme; exactly one
-// of template ("index") or file ("templates/index.liquid") selects the doc.
+// resolveThemeAndDoc resolves the working theme and template file id: empty
+// themeID defaults to the published theme; template or file selects the doc.
 func resolveThemeAndDoc(ctx context.Context, c *client.Client, themeID, template, file string) (string, string, error) {
 	if themeID == "" {
 		resp, err := common.Send(ctx, c, PlanThemesList(map[string]any{"published": "1"}))
@@ -98,8 +96,7 @@ func publishedThemeID(resp map[string]any) string {
 }
 
 // docIDForLocation finds the file id for (group, location) in a doctree
-// response, tolerating {data:{doctree:{...}}}, {data:{...}} and bare shapes
-// (mirrors internal/theme/doc.FromDocTreeResponse, which drops the ids).
+// response, tolerating {data:{doctree:{...}}}, {data:{...}} and bare shapes.
 func docIDForLocation(resp map[string]any, group, location string) string {
 	tree := resp
 	if d := mapField(resp, "data"); d != nil {
@@ -124,9 +121,8 @@ func docIDForLocation(resp map[string]any, group, location string) string {
 	return ""
 }
 
-// fetchSections sends schemas-list and returns its inner payload
-// ({schemas, sections}), unwrapping the upstream double-data envelope
-// ({data:{data:{...}}} as decoded by common.Send: {data:{schemas,sections}}).
+// fetchSections sends schemas-list and returns its inner {schemas, sections}
+// payload, unwrapping up to two data envelopes.
 func fetchSections(ctx context.Context, c *client.Client, oseid, docID string) (map[string]any, error) {
 	resp, err := common.Send(ctx, c, PlanSchemasList(oseid, docID))
 	if err != nil {
@@ -149,11 +145,8 @@ func fetchSections(ctx context.Context, c *client.Client, oseid, docID string) (
 	return inner, nil
 }
 
-// splitSections splits the schemas-list sections payload into the page flow
-// cards (sections.page_sections) and the fixed cards group (sections.sections:
-// header / footer / announcement, addressed by id). Real response has exactly
-// these two groups — not the four the requirement doc assumed; areas derive
-// from the fixed cards' ids (see areaOf).
+// splitSections splits the schemas-list sections payload into page-flow cards
+// (page_sections) and fixed cards (sections: header/footer/announcement, by id).
 func splitSections(inner map[string]any) (page []map[string]any, fixed []map[string]any) {
 	sec := mapField(inner, "sections")
 	if sec == nil {
@@ -162,9 +155,8 @@ func splitSections(inner map[string]any) (page []map[string]any, fixed []map[str
 	return mapSlice(sec["page_sections"]), mapSlice(sec["sections"])
 }
 
-// areaOf maps a fixed card's id to its +page --area bucket. Page-flow cards
-// are always area "page"; fixed cards split into header / footer / global
-// (announcement and any future fixed card fall into global).
+// areaOf maps a fixed card's id to its +page --area bucket; anything but
+// header/footer falls into global.
 func areaOf(fixedID string) string {
 	switch fixedID {
 	case "header", "footer":
@@ -174,11 +166,8 @@ func areaOf(fixedID string) string {
 	}
 }
 
-// sectionsByArea groups a schemas-list payload into page / header / footer /
-// global, folding both the dedicated groups (page_sections / header_sections /
-// footer_sections) and the fixed-cards group (classified by id via areaOf).
-// The fixed group's key varies by response vintage: "sections" or
-// "global_sections" — both are folded.
+// sectionsByArea groups a schemas-list payload into page/header/footer/global;
+// the fixed-cards key varies ("sections" or "global_sections") — both fold in.
 func sectionsByArea(inner map[string]any) map[string][]map[string]any {
 	out := map[string][]map[string]any{"page": {}, "header": {}, "footer": {}, "global": {}}
 	sec := mapField(inner, "sections")
@@ -234,15 +223,13 @@ func pbCustomID(sectionType string) (string, bool) {
 }
 
 // isPbType reports whether a section type belongs to the page-builder app
-// (custom- and global- families alike) — exact app-segment match per
-// template_structure.md, broader than pbCustomID's custom-only capture.
+// (custom- and global- families) — broader than pbCustomID's custom-only capture.
 func isPbType(sectionType string) bool {
 	return strings.HasPrefix(sectionType, "shoplazza://apps/page-builder/")
 }
 
-// isSessionNotFound reports whether an API error means the edit session is
-// gone (passed through verbatim — never auto-recreate). An invalid oseid
-// surfaces as a 500 carrying "b_invalid_themeid"; SESSION_NOT_FOUND matches too.
+// isSessionNotFound reports whether an API error means the edit session is gone
+// (never auto-recreate); an invalid oseid surfaces as a 500 with "b_invalid_themeid".
 func isSessionNotFound(err error) bool {
 	if err == nil {
 		return false

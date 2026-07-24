@@ -10,9 +10,8 @@ import (
 )
 
 // Preview-path resolution for themes +edit: map the edited template to a
-// representative storefront path so preview_url lands on the page being
-// edited. Fail-open by contract: any unknown page, lookup failure, or
-// timeout falls back to "" (homepage) and never blocks the write.
+// representative storefront path. Fail-open: any miss falls back to the
+// homepage and never blocks the write.
 
 // previewStaticPaths maps static template names straight to a path
 // ("" renders as / in buildPreviewURL).
@@ -23,9 +22,8 @@ var previewStaticPaths = map[string]string{
 	"404":    "404",
 }
 
-// previewResourcePages maps resource templates to their storefront prefix
-// and the list endpoint (with its page-size param) that yields a
-// representative handle.
+// previewResourcePages maps resource templates to their storefront prefix and
+// the list endpoint (with its page-size param) yielding a representative handle.
 var previewResourcePages = map[string]struct{ prefix, queryPath, sizeParam string }{
 	"product":    {"products", common.APIPrefix + "/products", "per_page"},
 	"collection": {"collections", common.APIPrefix + "/collections", "page_size"},
@@ -35,9 +33,8 @@ var previewResourcePages = map[string]struct{ prefix, queryPath, sizeParam strin
 
 const previewHandleTimeout = 5 * time.Second
 
-// resolvePreviewPath maps --template/--file to a storefront path: static
-// pages resolve locally, resource pages fetch one representative handle.
-// article and non-template files have no storefront page → homepage.
+// resolvePreviewPath maps --template/--file to a storefront path: static pages
+// resolve locally, resource pages fetch one representative handle.
 func resolvePreviewPath(ctx context.Context, c *client.Client, template, file string) string {
 	page := previewPageName(template, file)
 	if page == "" {
@@ -57,9 +54,8 @@ func resolvePreviewPath(ctx context.Context, c *client.Client, template, file st
 	return res.prefix + "/" + handle
 }
 
-// previewPageName extracts the page name: the first dot segment of the
-// template name (product.custom → product). A --file counts only when it is
-// a templates-group file; sections/snippets/... have no storefront page.
+// previewPageName extracts the page name (first dot segment, product.custom →
+// product); a --file counts only when it is a templates-group file.
 func previewPageName(template, file string) string {
 	name := template
 	if name == "" {
@@ -90,8 +86,7 @@ func representativeHandle(ctx context.Context, c *client.Client, path, sizeParam
 }
 
 // firstHandleIn scans a list response for the first object slice whose head
-// carries a non-empty handle, tolerating data wrappers and the per-resource
-// list key (products / collections / pages / blogs / list / items).
+// carries a non-empty handle, tolerating data wrappers and per-resource list keys.
 func firstHandleIn(resp map[string]any) string {
 	root := resp
 	for i := 0; i < 2; i++ {

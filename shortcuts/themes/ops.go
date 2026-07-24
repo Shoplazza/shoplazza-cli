@@ -8,8 +8,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
-// ops parsing / validation / endpoint mapping for themes +edit
-// (docs/theme-page-edit-shortcuts.md §4.3, docs/theme-page-edit-orchestration.md §3.3).
+// ops parsing / validation / endpoint mapping for themes +edit.
 
 // editOp is one entry of the +edit --ops array. Fields are a union across the
 // nine op kinds; per-kind requirements are enforced by validateOps.
@@ -80,9 +79,8 @@ func parseOps(raw []byte) ([]editOp, error) {
 	return ops, nil
 }
 
-// validateOps runs every network-free check: op whitelist, per-kind required
-// fields, target kind, and the in-batch descending-index rule for positional
-// ops (docs/theme-page-edit-shortcuts.md §4.4). It fills each op's parsed ref.
+// validateOps runs every network-free check (op whitelist, per-kind required
+// fields, target kind, descending-index rule) and fills each op's parsed ref.
 func validateOps(ops []editOp) error {
 	// group key (section + parent path) → last seen remove index, ops order
 	lastRemoved := map[string]int{}
@@ -148,7 +146,7 @@ func validateOps(ops []editOp) error {
 			if op.Pb {
 				if op.TemplateID == "" {
 					return fail("template_id is required when pb=true").
-						WithHint(`discover addable pb template ids: themes list-card --params '{"source":"custom"}'`)
+						WithHint(`discover addable pb template ids: themes list-card --params '{"source":"pb,custom"}'`)
 				}
 			} else if op.Name == "" {
 				return fail("name is required (the section type to add)")
@@ -189,9 +187,8 @@ func validateOps(ops []editOp) error {
 	return nil
 }
 
-// opsNeedImplicitRead reports whether applying ops needs the schemas-list read:
-// update_pb (custom_id lookup), append_array_item (type/max_blocks + tail index),
-// and the section-level ops (position → to_index and area reverse-lookup).
+// opsNeedImplicitRead reports whether applying ops needs the schemas-list read
+// (custom_id lookup, append validation, position/area resolution).
 func opsNeedImplicitRead(ops []editOp) bool {
 	for _, op := range ops {
 		switch op.Op {

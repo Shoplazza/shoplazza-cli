@@ -10,19 +10,16 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
-// batch-ops translation layer for themes +edit: the --ops vocabulary maps to
-// ThemeOperation entries of POST .../edit-sessions/{oseid}/templates/{doc}/operations.
-// Whole batch in one request; ops apply and persist independently server-side.
+// batch-ops translation layer for themes +edit: --ops entries map to
+// ThemeOperation entries of one batch-operations request; ops apply and
+// persist independently server-side.
 //
-// Server grammar (probed live 2026-07-23):
+// Server grammar constraints:
 //   - block paths use dot indexes ("sid.blocks.0"), not brackets
-//   - block-level props merge via replace_props with a block dot-path (the
-//     server's update_slot replaces a block's child slot — a different op)
-//   - placement is {position: before|after, move_target: <sid>}; only
-//     move_section honors it, add_section always appends (a follow-up move
-//     restores the requested position)
-//   - add_section value is a full section object; server assigns the id
-//     (client-supplied ids are ignored — new ids are recovered by re-reading)
+//   - block props merge via replace_props with a block dot-path (the server's
+//     update_slot swaps child slots — a different op)
+//   - add_section always appends; placement needs a follow-up move_section
+//   - the server assigns section ids; client-supplied ids are ignored
 
 // serverOp is one translated ThemeOperation plus its source op index
 // (update_pb expands into two entries sharing one source index).
@@ -61,10 +58,8 @@ func dotContainerPath(ref targetRef) string {
 	return b.String()
 }
 
-// resolveMoveRef translates the position surface (first|last|after:<sid>|
-// before:<sid>) or a numeric to_index into the server's {position, move_target}
-// pair, resolved against the section's area layout. inner==nil (dry-run)
-// yields placeholders.
+// resolveMoveRef translates a position or numeric to_index into the server's
+// {position, move_target} pair; inner==nil (dry-run) yields placeholders.
 func resolveMoveRef(inner map[string]any, op editOp) (string, string) {
 	if op.Position != "" {
 		if kind, sid, ok := splitPosition(op.Position); ok { // after:<sid> / before:<sid>
@@ -140,10 +135,8 @@ func successorOf(inner map[string]any, sid string) string {
 	return ""
 }
 
-// translateOps maps the validated +edit ops onto server ThemeOperation
-// entries plus the placement fix-ups that need the follow-up batch.
-// cards holds the pre-generated theme card per update_pb op index; the
-// returned newTargets echo appended block coordinates per op index.
+// translateOps maps validated +edit ops onto server ThemeOperation entries
+// plus the placement fix-ups for the follow-up batch.
 func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]any) ([]serverOp, []postMove, map[int]string, error) {
 	var entries []serverOp
 	var moves []postMove
@@ -160,8 +153,8 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 	for i, op := range ops {
 		switch op.Op {
 		case "update_slot":
-			// Block-level props merge is the server's replace_props with a
-			// block dot-path (the server's own update_slot swaps child slots).
+			// Block props go through replace_props with a block dot-path;
+			// the server's own update_slot swaps child slots.
 			entries = append(entries, serverOp{map[string]any{
 				"op": "replace_props", "target": dotBlockPath(op.ref), "props": op.Props,
 			}, i})
@@ -192,13 +185,18 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 				"op": "remove_array_item", "target": dotBlockPath(op.ref),
 			}, i})
 		case "add_section":
+			value := sectionValue(op.Name)
 			if op.Pb {
-				return nil, nil, nil, fail(i, "add_section pb mode is not supported by batch-ops yet (no server-side pb instantiation contract)")
+				// pb mode: card value pre-resolved via pb-single-blocks.
+				value = cards[i]
+				if value == nil {
+					return nil, nil, nil, fail(i, "internal: no resolved pb card value")
+				}
 			}
 			entries = append(entries, serverOp{map[string]any{
-				"op": "add_section", "value": sectionValue(op.Name),
+				"op": "add_section", "value": value,
 			}, i})
-			// The server always appends; a requested position needs a
+			// add_section always appends; a requested position needs a
 			// follow-up move once the new id is known.
 			if op.Position != "" && op.Position != "last" || op.ToIndex != nil {
 				if pos, ref := resolveMoveRef(inner, op); pos != "" && ref != "" {
@@ -294,10 +292,8 @@ func hasAdds(entries []serverOp) bool {
 	return false
 }
 
-// placeSections re-reads the session to recover the server-assigned ids of
-// newly added sections (echoed as applied[].new_section_id) and sends the
-// follow-up move batch restoring requested positions. Failures degrade to a
-// warning: the content ops already applied and are not rolled back.
+// placeSections recovers server-assigned ids for added sections and sends the
+// follow-up move batch; failures degrade to a warning (no rollback).
 func placeSections(ctx context.Context, c *client.Client, oseid, docID string, entries []serverOp, moves []postMove, preIDs map[string]bool, applied []map[string]any) string {
 	inner, err := fetchSections(ctx, c, oseid, docID)
 	if err != nil {
@@ -309,7 +305,7 @@ func placeSections(ctx context.Context, c *client.Client, oseid, docID string, e
 			newIDs = append(newIDs, id)
 		}
 	}
-	// The server appends adds in batch order — assign recovered ids in order.
+	// Adds append in batch order — assign recovered ids in order.
 	bySource := map[int]string{}
 	k := 0
 	for _, e := range entries {
@@ -348,8 +344,8 @@ func placeSections(ctx context.Context, c *client.Client, oseid, docID string, e
 	return ""
 }
 
-// batchFailErr reports a batch with failed ops: everything else already
-// applied and persisted (independent semantics — no abort, no rollback).
+// batchFailErr reports a batch with failed ops: the rest already applied and
+// persisted (ops are independent — no abort, no rollback).
 func batchFailErr(oseid string, created bool, results []map[string]any, failed []int) *output.ExitError {
 	return output.Errorf(output.ExitAPI, output.TypeAPI, "%d of %d ops failed", len(failed), len(results)).
 		WithField("results", results).
@@ -359,9 +355,32 @@ func batchFailErr(oseid string, created bool, results []map[string]any, failed [
 		WithHint("ops apply independently (no rollback) — the other ops are already persisted; fix the failed ops and resend ONLY them with --session " + oseid)
 }
 
-// generateThemeCard turns an update_pb op into a theme-card section object by
-// calling pb-block-save (the interface owner's flow: pb generates the card,
-// the batch then does remove_section + add_section).
+// resolvePbSectionValue turns an add_section pb template_id into a section
+// value, resolving the template's full type URI via pb-single-blocks.
+func resolvePbSectionValue(ctx context.Context, c *client.Client, templateID string) (map[string]any, error) {
+	resp, err := common.Send(ctx, c, PlanPbSingleBlocks(templateID))
+	if err != nil {
+		return nil, err
+	}
+	root := resp
+	if d := mapField(root, "data"); d != nil {
+		root = d
+	}
+	block := mapField(mapField(root, "blocks"), templateID)
+	typeURI := getString(block, "type")
+	if typeURI == "" {
+		return nil, output.ErrValidation("pb template %q not found (pb-single-blocks returned no type)", templateID).
+			WithHint(`discover addable pb template ids: themes list-card --params '{"source":"pb,custom"}'`)
+	}
+	name := templateID
+	if n := zhText(block["name"]); n != "" {
+		name = n
+	}
+	return map[string]any{"type": typeURI, "name": name, "settings": map[string]any{}, "blocks": []any{}}, nil
+}
+
+// generateThemeCard turns an update_pb op into a theme-card section object via
+// pb-block-save; the batch then swaps it in with remove_section + add_section.
 func generateThemeCard(ctx context.Context, c *client.Client, op editOp, inner map[string]any, oseid, docID, themeID string) (map[string]any, error) {
 	customID := phCustomID
 	if inner != nil {

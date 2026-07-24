@@ -6,7 +6,7 @@
 // +preview) that need multi-step orchestration or compress parameters.
 //
 // API version mix:
-//   - v2 spec endpoints (16) — `/openapi/2026-01/themes/...` (including task polling)
+//   - v2 spec endpoints — `/openapi/2026-01/themes/...` (including task polling)
 //   - v1 path endpoints (spec missing) — `/openapi/2020-07/themes/{upload,download}`
 //   - share keeps the entire v1 path tree for byte-exact parity with the v1 CLI.
 package themes
@@ -51,8 +51,7 @@ func PlanDocTree(themeID string) common.PlannedRequest {
 }
 
 // PlanDocCreate describes POST /themes/{id}/doc (add or replace a single file).
-// The server's CreateThemeFileRequest requires the file fields under a "doc"
-// object, so the caller's {type,location,content} map is wrapped accordingly.
+// The server requires the file fields under a "doc" wrapper.
 func PlanDocCreate(themeID string, body map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "POST", Path: themeBaseV202601 + "/" + themeID + "/doc", Body: map[string]any{"doc": body}}
 }
@@ -75,10 +74,8 @@ func PlanShop() common.PlannedRequest {
 
 // ─────────── v1 path endpoints (spec missing or share parity) ───────────
 
-// PlanUpload describes the push multipart upload for dry-run rendering only.
-// Actual multipart upload is performed via client.DoRaw + RawRequest.Headers
-// inside push.go's Execute path. Body holds the multipart description map for
-// human-readable dry-run output.
+// PlanUpload describes the push multipart upload for dry-run rendering only;
+// the real upload goes through client.DoRaw in push.go.
 func PlanUpload(themeID, name, version string) common.PlannedRequest {
 	return common.PlannedRequest{
 		Method: "POST",
@@ -115,9 +112,8 @@ func PlanShareShop() common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: shopV1}
 }
 
-// PlanShareUpload is the share-specific multipart upload. Accepts an empty
-// themeID (creates a new theme on the share-target shop); otherwise identical
-// in shape to PlanUpload. Dry-run only; real upload is via client.DoRaw.
+// PlanShareUpload is the share-specific multipart upload (dry-run only); an
+// empty themeID creates a new theme on the share-target shop.
 func PlanShareUpload(themeID, name, version string) common.PlannedRequest {
 	return common.PlannedRequest{
 		Method: "POST",
@@ -140,9 +136,8 @@ func PlanShareUpload(themeID, name, version string) common.PlannedRequest {
 
 // ─────────── edit-session & page-builder endpoints (themes +page / +edit) ───────────
 //
-// Path factories for the endpoint family the +page/+edit shortcuts orchestrate
-// (docs/theme-page-edit-orchestration.md §1). Each maps 1:1 to a dynamic
-// registry command, named in the comment.
+// Path factories for the endpoint family the +page/+edit shortcuts orchestrate.
+// Each maps 1:1 to a dynamic registry command, named in the comment.
 
 func editSessionBase(oseid string) string {
 	return themeBaseV202601 + "/edit-sessions/" + oseid
@@ -181,6 +176,17 @@ func PlanSchemasGet(oseid, docID, sectionID string) common.PlannedRequest {
 // (themes pb-blocks-get): the canvas text of a page-builder custom template.
 func PlanPbBlocksGet(templateID string, query map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601 + "/page-builder/custom-templates/" + templateID, Query: query}
+}
+
+// PlanPbSingleBlocks describes GET /themes/page-builder/blocks (themes pb
+// single-blocks): resolve a pb template id (global-N / custom-N) to its full
+// hash-suffixed type URI and display name.
+func PlanPbSingleBlocks(sourceID string) common.PlannedRequest {
+	return common.PlannedRequest{
+		Method: "GET",
+		Path:   themeBaseV202601 + "/page-builder/blocks",
+		Query:  map[string]any{"event_type": "page-builder", "source_ids": sourceID},
+	}
 }
 
 // PlanSetSlot describes PATCH .../sections/{section}/slot (themes set-slot):
@@ -233,8 +239,7 @@ func PlanPbBlockSave(body map[string]any) common.PlannedRequest {
 }
 
 // PlanBatchOps describes POST .../templates/{doc}/operations (themes session
-// batch-ops): the whole +edit batch in one request; ops apply and persist
-// independently server-side.
+// batch-ops): the whole +edit batch in one request; ops apply independently.
 func PlanBatchOps(oseid, docID string, operations []map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{
 		Method: "POST",
