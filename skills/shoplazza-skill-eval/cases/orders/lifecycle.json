@@ -1,0 +1,91 @@
+[
+  {
+    "case_id": "orders.cancel-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.cancel",
+    "scenario": "取消订单并带原因 — leaf, path param + reason body, dry-run first",
+    "input": "取消订单 555666，原因写买家主动申请取消",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders cancel",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["555666", "reason"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "order_id 555666 via --params (path); reason carried in --data with the user's wording (买家主动申请)",
+        "safety: --dry-run first (destructive), restates which order will be cancelled",
+        "cancels the ORDER — does not confuse with fulfillments cancel"
+      ]
+    },
+    "notes": "POST /orders/{order_id}/cancel; body reason is optional but the user supplied one."
+  },
+  {
+    "case_id": "orders.transactions-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.transactions",
+    "scenario": "查订单支付流水 — orders transactions, 不是 billing transactions",
+    "input": "查一下订单 778877 的支付交易流水",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders transactions list",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["778877"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "orders transactions list = buyer payment events on an order; billing transactions = app charges to the merchant — must pick the former",
+        "no status / payment_channel filters invented",
+        "any jq extraction starts at .data, without -r"
+      ]
+    },
+    "notes": "GET /orders/{order_id}/transactions. Cross-domain lookalike with billing transactions."
+  },
+  {
+    "case_id": "orders.risks-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.risks",
+    "scenario": "人工标记欺诈风险 — risks create, level 枚举取 high",
+    "input": "订单 909090 看起来像欺诈单，帮我标记成高风险，理由写 IP 和收货地址不一致",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders risks create",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["909090", "level", "high"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "高风险 → risk.level high (enum low/medium/high), nested under the required risk object",
+        "the stated reason (IP 和收货地址不一致) goes into the details array",
+        "restates (or --dry-run) before writing the risk record"
+      ]
+    },
+    "notes": "POST /orders/{order_id}/risks; body {\"risk\":{\"level\",...,\"details\":[...]}}."
+  },
+  {
+    "case_id": "orders.tracking-carriers-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.tracking-carriers",
+    "scenario": "运单号识别承运商 — detect, 只读",
+    "input": "运单号 1Z999AA10123456784 是哪家承运商的？",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders tracking-carriers detect",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["tracking_number", "1Z999AA10123456784"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses tracking-carriers detect (query param tracking_number), not list + manual matching",
+        "read-only — answers directly from .data, nothing fabricated"
+      ]
+    },
+    "notes": "GET /tracking/carriers/detect?tracking_number=..."
+  }
+]

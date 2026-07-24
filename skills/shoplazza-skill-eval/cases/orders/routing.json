@@ -1,0 +1,65 @@
+[
+  {
+    "case_id": "routing.orders-01",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "中文日常订单处理 utterance routes to orders",
+    "input": "帮我看看今天有没有新订单要处理",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is volunteered, its service prefix is orders"]
+    }
+  },
+  {
+    "case_id": "routing.orders-02",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "English shipping utterance routes to orders",
+    "input": "I need to ship order 4321 and give the buyer its tracking number",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is volunteered, it is orders +ship"]
+    }
+  },
+  {
+    "case_id": "routing.orders-03",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "跨域相似词: 给顾客退钱是 orders refund, 不是 discounts/billing",
+    "input": "顾客要求退 20 美元，帮我处理",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": ["shoplazza-discounts", "shoplazza-billing"],
+      "semantic_rubric": ["If a command is named, it is orders +refund — refunding a buyer is not a discount and not an app charge"]
+    },
+    "notes": "Money-word collision: 退款 vs 折扣 vs 应用收费. Enforceable against shoplazza-discounts TODAY."
+  },
+  {
+    "case_id": "routing.orders-04",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "跨域相似词: 运费区域/邮费方案归 orders shipping-schemas, 不归 shop carrier-services",
+    "input": "设置一下各个国家的运费区域和邮费",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": ["shoplazza-shop"],
+      "semantic_rubric": ["If a command is named, it is orders shipping-schemas (zones/rates); shop carrier-services is only for registering real-time rate carriers"]
+    },
+    "notes": "Mirror direction of collision.register-rate-carrier. Candidate for _routing/collisions.json."
+  },
+  {
+    "case_id": "routing.orders-05",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "按邮箱找订单 — 落点在 orders 而不是 customers",
+    "input": "查一下用户 alice@example.com 下过的所有订单",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": [],
+      "semantic_rubric": ["Lands in orders: either orders +search --keyword alice@example.com (keyword matches email per --help) directly, or resolves the customer id first and then orders +search --customer-id"]
+    },
+    "notes": "customers +search as an intermediate step is acceptable; the final answer must come from an orders query."
+  }
+]

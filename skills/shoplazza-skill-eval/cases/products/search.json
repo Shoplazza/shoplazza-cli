@@ -1,0 +1,67 @@
+[
+  {
+    "case_id": "products.search-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.search",
+    "scenario": "按供应商 + 未上架状态搜索商品 — happy path",
+    "input": "帮我列出供应商是 Nike 的所有未上架商品",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +search",
+      "flags_must_contain": ["--vendor Nike", "--published unpublished"],
+      "flags_must_not_contain": ["--keyword", "--collection-id"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "--vendor Nike taken verbatim (vendor is an exact-match filter per --help), not put into --keyword",
+        "未上架 mapped to --published unpublished (documented values: published, unpublished, any)",
+        "does not set --page-limit or --fields uninvited",
+        "any jq extraction starts at .data, without -r"
+      ]
+    },
+    "notes": "+search --vendor is exact match; --keyword filters by product title only."
+  },
+  {
+    "case_id": "products.search-02",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.search",
+    "scenario": "English keyword search with field projection",
+    "input": "Find products with hoodie in the title and show me just their ids and titles",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +search",
+      "flags_must_contain": ["--keyword hoodie", "--fields"],
+      "flags_must_not_contain": ["--vendor", "--published"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "--keyword hoodie (keyword filters by product title per --help)",
+        "projection done with --fields id,title (this shortcut supports --fields) or an equivalent --jq over .data",
+        "does not add published/vendor filters the user never mentioned"
+      ]
+    },
+    "notes": "products +search is one of the few shortcuts with --fields; both --fields and --jq projections are acceptable, --fields preferred."
+  },
+  {
+    "case_id": "products.count-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.count",
+    "scenario": "统计已上架商品数 — +count with published filter",
+    "input": "店里现在一共有多少已上架的商品？",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +count",
+      "flags_must_contain": ["--published published"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses products +count, not +search plus manual counting",
+        "已上架 mapped to --published published",
+        "extracts the number from .data (never fabricates a count)"
+      ]
+    }
+  }
+]

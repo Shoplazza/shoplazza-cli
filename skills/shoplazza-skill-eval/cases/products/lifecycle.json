@@ -1,0 +1,88 @@
+[
+  {
+    "case_id": "products.publish-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.publish",
+    "scenario": "按 ID 上架商品 — happy path",
+    "input": "把商品 654321 上架",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +publish",
+      "flags_must_contain": ["--id 654321"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses +publish --id, not the update leaf with a published:true body",
+        "no extra flags invented (+publish takes only --id)"
+      ]
+    }
+  },
+  {
+    "case_id": "products.tag-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.tag",
+    "scenario": "追加标签且保留原标签 — --add 不是 --set",
+    "input": "给商品 445566 加上 summer 和 sale 标签，别动原来的标签",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +tag",
+      "flags_must_contain": ["--id 445566", "--add", "summer", "sale"],
+      "flags_must_not_contain": ["--set", "--remove"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "别动原来的标签 → --add (existing tags kept per --help), NOT --set (which replaces all tags)",
+        "both tags summer and sale passed, comma-separated",
+        "does not use the update leaf, which would clobber the tag list"
+      ]
+    },
+    "notes": "+tag exists precisely to avoid clobbering; --set is mutually exclusive with --add/--remove."
+  },
+  {
+    "case_id": "products.delete-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.delete",
+    "scenario": "删除单个商品 — leaf + path param, dry-run first",
+    "input": "把商品 778899 从店里删掉",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "leaf",
+      "command_prefix": "products delete",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["product_id", "778899"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses products delete --params '{\"product_id\":\"778899\"}' — single delete, not batch-delete for one id",
+        "safety: --dry-run first or an explicit restate of store/id before the real delete",
+        "does not invent a +delete shortcut (none exists)"
+      ]
+    },
+    "notes": "DELETE /products/{product_id}; path param goes through --params."
+  },
+  {
+    "case_id": "products.batch-delete-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.batch-delete",
+    "scenario": "批量删除多个商品 — product_ids 数组, dry-run first",
+    "input": "批量删除这三个测试商品：111222、333444、555666",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "leaf",
+      "command_prefix": "products batch-delete",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["product_ids", "111222", "333444", "555666"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "product_ids passed as an ARRAY of the three ids from the utterance, none dropped or invented",
+        "safety: --dry-run first (destructive batch op), then the real call",
+        "restates that exactly 3 products will be deleted before executing"
+      ]
+    },
+    "notes": "DELETE /products with required query array product_ids (min 1)."
+  }
+]

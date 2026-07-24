@@ -1,0 +1,85 @@
+[
+  {
+    "case_id": "customers.create-01",
+    "type": "behavior",
+    "skill": "shoplazza-customers",
+    "operation": "customers.create",
+    "scenario": "建客户 + 拒绝营销订阅 — happy path",
+    "input": "新建一个客户：Jane Doe，邮箱 jane.doe@example.com，不要给她订阅营销邮件",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "access_tier": "shortcut",
+      "command_prefix": "customers +create",
+      "flags_must_contain": ["--email jane.doe@example.com", "--no-marketing"],
+      "flags_must_not_contain": ["--phone", "--tags"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "name split into --first-name Jane / --last-name Doe",
+        "不要订阅营销 → --no-marketing (the default is subscribe, so the flag MUST be set)",
+        "--email XOR --phone respected: email given, phone not set"
+      ]
+    },
+    "notes": "+create requires exactly one of --email / --phone."
+  },
+  {
+    "case_id": "customers.create-02",
+    "type": "behavior",
+    "skill": "shoplazza-customers",
+    "operation": "customers.create",
+    "scenario": "建客户但邮箱/手机都缺 — must ask, never fabricate contact info",
+    "input": "帮我建一个新的客户档案",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": ["邮箱|email|手机|电话|phone"],
+      "flags_must_not_contain": ["--email", "--phone"],
+      "semantic_rubric": [
+        "does not fabricate an email or phone (one of the two is required, no default)",
+        "does not ask about name / tags / marketing (all optional or defaulted)",
+        "explains email XOR phone if it asks for both — only one is needed"
+      ]
+    }
+  },
+  {
+    "case_id": "customers.search-01",
+    "type": "behavior",
+    "skill": "shoplazza-customers",
+    "operation": "customers.search",
+    "scenario": "按手机号查客户 — +search --phone",
+    "input": "查一下手机号 13800138000 的客户信息",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "access_tier": "shortcut",
+      "command_prefix": "customers +search",
+      "flags_must_contain": ["--phone", "13800138000"],
+      "flags_must_not_contain": ["--email", "--since", "--until"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "phone filter used, no time bounds invented",
+        "any jq extraction starts at .data, without -r"
+      ]
+    }
+  },
+  {
+    "case_id": "customers.count-01",
+    "type": "behavior",
+    "skill": "shoplazza-customers",
+    "operation": "customers.count",
+    "scenario": "客户总数 — customers 没有 +count shortcut, 正确用 count leaf",
+    "input": "我们店一共有多少注册客户？",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "access_tier": "leaf",
+      "command_prefix": "customers count",
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "there is NO customers +count shortcut — the count LEAF is the correct tier; does not invent customers +count",
+        "does not list all customers and count them manually",
+        "extracts the number from .data"
+      ]
+    },
+    "notes": "Tier trap: products/orders have +count, customers does not (shortcuts are only +create and +search)."
+  }
+]

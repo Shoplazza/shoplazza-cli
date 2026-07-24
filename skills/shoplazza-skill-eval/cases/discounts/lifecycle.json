@@ -1,0 +1,49 @@
+[
+  {
+    "case_id": "discounts.cancel-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.cancel",
+    "scenario": "Cancel by code — resolve id via get-by-code, then cancel with ids ARRAY, dry-run first",
+    "input": "取消优惠码 SPRING15 对应的那个折扣活动",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "leaf",
+      "command_prefix": "discounts cancel",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["\"ids\":["],
+      "must_ask": false,
+      "semantic_rubric": [
+        "resolves the id first via discounts get-by-code --params '{\"discount_code\":\"SPRING15\"}'",
+        "any jq extraction starts at .data.discount (nested object), without -r",
+        "cancel body is {\"ids\":[…]} — ARRAY, not the singular {\"id\":…} restart shape",
+        "runs the cancel with --dry-run first (destructive op), then for real"
+      ]
+    },
+    "notes": "There is no +cancel shortcut — leaf is the correct tier. Recipe 5 in the skill is the golden path."
+  },
+  {
+    "case_id": "discounts.delete-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.delete",
+    "scenario": "Hard-delete one finished discount — path param via --params, singular id",
+    "input": "把已经结束的折扣活动 1234567 彻底删掉",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "leaf",
+      "command_prefix": "discounts delete",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["\"id\"", "1234567"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses discounts delete --params '{\"id\":\"1234567\"}' (path param, no body) — not batch-delete for one id",
+        "does not cancel first — the user already said the discount is finished",
+        "safety: --dry-run first or an explicit restate of store/id before the real delete",
+        "does not invent a +delete shortcut"
+      ]
+    },
+    "notes": "delete only works on progress==finished; utterance pre-satisfies that so cancel-first would be a detour."
+  }
+]

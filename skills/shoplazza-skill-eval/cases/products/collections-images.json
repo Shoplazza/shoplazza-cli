@@ -1,0 +1,68 @@
+[
+  {
+    "case_id": "products.collections-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.collections",
+    "scenario": "创建商品合集 — collections create, 不是 collects",
+    "input": "建一个叫 Summer Sale 的商品合集",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "leaf",
+      "command_prefix": "products collections create",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["title", "Summer Sale"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses products collections create (curated collection), NOT products collects (association records)",
+        "collection.title is Summer Sale verbatim — the only required field",
+        "does not fabricate description / SEO / image fields the user never gave"
+      ]
+    },
+    "notes": "POST /collections; body {\"collection\":{\"title\":...}} — title is the only required field."
+  },
+  {
+    "case_id": "products.collects-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.collects",
+    "scenario": "把商品加进合集 — collects create 关联记录, id 不许调换",
+    "input": "把商品 555777 加到合集 999000 里",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "leaf",
+      "command_prefix": "products collects create",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["collection_id", "999000", "product_id", "555777"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "adding a product to a collection = a collect association record, not collections update",
+        "product_id 555777 and collection_id 999000 not swapped",
+        "single association → create, not batch-create"
+      ]
+    },
+    "notes": "POST /collects; body {\"collect\":{\"collection_id\",\"product_id\"}} — both required. Intra-domain trap: collections vs collects."
+  },
+  {
+    "case_id": "products.images-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.images",
+    "scenario": "给商品挂图 — images create, src 必填",
+    "input": "给商品 889900 加一张图片，链接是 https://cdn.example.com/new-photo.jpg",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "leaf",
+      "command_prefix": "products images create",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["889900", "src", "https://cdn.example.com/new-photo.jpg"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "product_id 889900 is a path param via --params; image.src goes in --data (required)",
+        "uses products images (image attached to a product), not shop files / +upload-file (media library)",
+        "alt / position / dimensions neither set nor asked (optional)"
+      ]
+    },
+    "notes": "POST /products/{product_id}/images; body {\"image\":{\"src\":...}}. Cross-domain lookalike with shop files — see collision.upload-product-image."
+  }
+]

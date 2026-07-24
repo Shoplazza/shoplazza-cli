@@ -1,0 +1,223 @@
+[
+  {
+    "case_id": "collision.metafield-on-product",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 商品 metafield 归 shop 不归 products",
+    "input": "给商品加一个自定义字段(metafield)",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": ["shoplazza-products"],
+      "semantic_rubric": ["If a command is named, it is shop metafields-resource, not a products command"]
+    },
+    "notes": "shoplazza-shop not built yet (Wave 2) — until then, pass = does not route to shoplazza-products."
+  },
+  {
+    "case_id": "collision.upload-product-image",
+    "type": "routing",
+    "skill": "shoplazza-products",
+    "scenario": "跨域相似词: 商品主图归 products images 不归 shop files",
+    "input": "上传这张商品主图",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "must_not_route_to": ["shoplazza-shop"],
+      "semantic_rubric": ["If a command is named, it is products images, not shop files"]
+    },
+    "notes": "shoplazza-products not built yet (Wave 1) — until then, pass = does not route to shoplazza-shop."
+  },
+  {
+    "case_id": "collision.upload-to-media-library",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 素材库文件归 shop files 不归 products",
+    "input": "把这个文件传到素材库",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": ["shoplazza-products"],
+      "semantic_rubric": ["If a command is named, it is shop files or shop +upload-file"]
+    },
+    "notes": "shoplazza-shop not built yet — pass = does not route to shoplazza-products."
+  },
+  {
+    "case_id": "collision.register-rate-carrier",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 实时运费承运商注册归 shop carrier-services 不归 orders",
+    "input": "注册一个能实时报运费的承运商",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is shop carrier-services"]
+    },
+    "notes": "shoplazza-shop not built yet — pass = does not route to shoplazza-orders."
+  },
+  {
+    "case_id": "collision.query-order-carrier",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "跨域相似词: 订单快递承运商查询归 orders tracking-carriers 不归 shop",
+    "input": "查一下这个订单的快递承运商",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": ["shoplazza-shop"],
+      "semantic_rubric": ["If a command is named, it is orders tracking-carriers"]
+    },
+    "notes": "shoplazza-orders not built yet (Wave 2) — pass = does not route to shoplazza-shop."
+  },
+  {
+    "case_id": "collision.create-gift-card",
+    "type": "routing",
+    "skill": "shoplazza-products",
+    "scenario": "跨域相似词: 礼品卡是商品域的储值卡, 不是折扣",
+    "input": "创建一张礼品卡",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "must_not_route_to": ["shoplazza-discounts"],
+      "semantic_rubric": ["If a command is named, it is products gift-cards, not any discounts command"]
+    },
+    "notes": "Tests shoplazza-discounts' NOT-gift-cards boundary keyword TODAY (discounts is built). shoplazza-products not built yet — pass = does not route to shoplazza-discounts."
+  },
+  {
+    "case_id": "collision.view-sales-analytics",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 销量/流量报表归 shop analytics 不归 orders",
+    "input": "看这个月的销量/流量数据",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is shop analytics, not orders +count/+search"]
+    },
+    "notes": "shoplazza-shop not built yet — pass = does not route to shoplazza-orders."
+  },
+  {
+    "case_id": "collision.create-product-collection",
+    "type": "routing",
+    "skill": "shoplazza-products",
+    "scenario": "域内相似词: 商品合集是 collections, 不是 collects (关联记录)",
+    "input": "建一个商品合集/专辑",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is named, it is products collections (curated collection), NOT products collects (association records)"]
+    },
+    "notes": "Intra-domain trap (collections vs collects). shoplazza-products not built yet — routing hit skipped; the semantic rubric is what matters once built."
+  },
+  {
+    "case_id": "collision.refund-order",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "跨域相似词: 订单退款归 orders, 不是 discounts(折扣)也不是 billing(应用扣费)",
+    "input": "给这个订单退款 50 元",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": ["shoplazza-discounts", "shoplazza-billing"],
+      "semantic_rubric": ["If a command is named, it is orders +refund / orders refunds, not a discounts or billing command"]
+    },
+    "notes": "Tests the discounts boundary TODAY (discounts is built): 退款 must not route to discounts. orders/billing unbuilt."
+  },
+  {
+    "case_id": "collision.shipping-zone-rate",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "跨域相似词: 运费区域/邮费规则归 orders shipping-schemas, 不是 shop carrier-services(实时报价承运商)",
+    "input": "配置各地区的运费/邮费规则",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": ["shoplazza-shop"],
+      "semantic_rubric": ["If a command is named, it is orders shipping-schemas (zones/methods/rates), not shop carrier-services"]
+    },
+    "notes": "Mirror of register-rate-carrier. Both orders & shop unbuilt — pass = does not force the other."
+  },
+  {
+    "case_id": "collision.order-payment-transactions",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "跨域相似词: 订单支付流水归 orders transactions, 不是 billing(应用扣费)transactions",
+    "input": "查这个订单的支付交易流水",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": ["shoplazza-billing"],
+      "semantic_rubric": ["If a command is named, it is orders transactions (buyer payments), not billing transactions"]
+    },
+    "notes": "orders/billing unbuilt — pass = does not force billing."
+  },
+  {
+    "case_id": "collision.app-charge-transactions",
+    "type": "routing",
+    "skill": "shoplazza-billing",
+    "scenario": "跨域相似词: 应用扣费交易归 billing transactions, 不是 orders(买家支付)",
+    "input": "查我这个应用的扣费交易记录",
+    "expected": {
+      "route_to_skill": "shoplazza-billing",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is billing transactions (app charges), not orders transactions"]
+    },
+    "notes": "orders/billing unbuilt — pass = does not force orders."
+  },
+  {
+    "case_id": "collision.event-webhook",
+    "type": "routing",
+    "skill": "shoplazza-webhook",
+    "scenario": "跨域相似词: 事件回调通知归 webhook, 不是 orders/products",
+    "input": "订单创建时回调通知我的系统",
+    "expected": {
+      "route_to_skill": "shoplazza-webhook",
+      "must_not_route_to": ["shoplazza-orders", "shoplazza-products"],
+      "semantic_rubric": ["If a command is named, it is webhook create (subscribe to an event topic), not an orders/products command"]
+    },
+    "notes": "webhook/orders/products unbuilt — pass = does not force orders/products."
+  },
+  {
+    "case_id": "collision.gift-card-balance",
+    "type": "routing",
+    "skill": "shoplazza-products",
+    "scenario": "跨域相似词: 礼品卡余额查询归 products gift-cards, 不是 discounts 也不是 billing",
+    "input": "查这张礼品卡还剩多少余额",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "must_not_route_to": ["shoplazza-discounts", "shoplazza-billing"],
+      "semantic_rubric": ["If a command is named, it is products gift-cards, not a discounts or billing command"]
+    },
+    "notes": "Query direction of create-gift-card. Tests discounts boundary TODAY (built). products unbuilt."
+  },
+  {
+    "case_id": "collision.custom-page",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 自定义店铺页面归 shop pages, 不是主题编辑(themes 本轮不做)",
+    "input": "建一个'关于我们'页面",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is named, it is shop pages (custom storefront page), not a theme asset edit"]
+    },
+    "notes": "themes is out of scope (no skill). shop unbuilt — routing hit skipped; semantic rubric matters once built."
+  },
+  {
+    "case_id": "collision.customer-by-email",
+    "type": "routing",
+    "skill": "shoplazza-customers",
+    "scenario": "跨域相似词: 按邮箱找客户资料归 customers, 不是 orders",
+    "input": "按邮箱 jane@example.com 找到这个客户",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is customers +search (find the customer record), not an orders lookup"]
+    },
+    "notes": "customers/orders unbuilt — pass = does not force orders."
+  },
+  {
+    "case_id": "collision.orders-by-email",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "跨域相似词: 按邮箱查某客户下过的订单归 orders, 不是 customers",
+    "input": "查一下 jane@example.com 这个客户下过的所有订单",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": ["shoplazza-customers"],
+      "semantic_rubric": ["If a command is named, it is orders +search filtered by customer, not a customers command"]
+    },
+    "notes": "Bidirectional pair with collision.customer-by-email. Both unbuilt — pass = does not force customers."
+  }
+]

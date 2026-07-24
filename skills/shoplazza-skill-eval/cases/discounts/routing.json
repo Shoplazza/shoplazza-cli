@@ -1,0 +1,26 @@
+[
+  {
+    "case_id": "routing.discounts-01",
+    "type": "routing",
+    "skill": "shoplazza-discounts",
+    "scenario": "中文满减 utterance routes to discounts on description keywords alone",
+    "input": "我想给店里搞个满200减20的促销活动",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is volunteered, its service prefix is discounts"]
+    }
+  },
+  {
+    "case_id": "routing.discounts-02",
+    "type": "routing",
+    "skill": "shoplazza-discounts",
+    "scenario": "English free-shipping coupon utterance routes to discounts",
+    "input": "Set up a free shipping coupon code for US customers",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is volunteered, its service prefix is discounts"]
+    }
+  }
+]

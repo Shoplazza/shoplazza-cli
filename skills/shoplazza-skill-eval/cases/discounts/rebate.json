@@ -1,0 +1,46 @@
+[
+  {
+    "case_id": "discounts.rebate-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.rebate",
+    "scenario": "订单级满减, 单档, 永不过期 — happy path",
+    "input": "创建一个满200减20的订单级满减活动，永不过期",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "command_prefix": "discounts +rebate",
+      "flags_must_contain": ["--target order", "--tiers", "200:20"],
+      "flags_must_not_contain": ["--limit-max", "--limit-user", "--products", "--collections"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "tiers 200:20 taken verbatim from the utterance, threshold:discount order not swapped",
+        "永不过期 expressed as --end forever / --end -1, or correctly left to the CLI default (-1 = no expiry)",
+        "usage caps neither set nor asked about (omit = unlimited)",
+        "--type omitted (default amount-off) or explicitly amount-off"
+      ]
+    },
+    "notes": "Spec §3 reference case. --end default is already -1/no-expiry, so omitting --end is also correct."
+  },
+  {
+    "case_id": "discounts.rebate-02",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.rebate",
+    "scenario": "满减 with everything missing — must ask, never fabricate",
+    "input": "帮我建个满减活动",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": ["tiers|档|阈值|满多少|满X|threshold", "target|订单|商品|order|product"],
+      "flags_must_not_contain": ["--tiers"],
+      "semantic_rubric": [
+        "does not fabricate tiers (no invented 满100减10-style numbers anywhere)",
+        "does not ask about caps, start/end time, name, code, or combines (all defaulted / omit-to-disable)",
+        "asks for tiers and target in ONE AskUserQuestion batch, not serially"
+      ]
+    },
+    "notes": "Skill decision example: '帮我建个满减活动 → ASK — tiers + target missing'."
+  }
+]

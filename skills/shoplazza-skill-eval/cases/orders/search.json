@@ -1,0 +1,87 @@
+[
+  {
+    "case_id": "orders.search-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.search",
+    "scenario": "最近 7 天未发货订单 — +search 时间下界 + 履约状态过滤",
+    "input": "找出最近 7 天还没发货的订单",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "shortcut",
+      "command_prefix": "orders +search",
+      "flags_must_contain": ["--fulfillment-status", "--since"],
+      "flags_must_not_contain": ["--until", "--customer-id"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "还没发货 mapped to a valid fulfillment_status enum value — waiting (waiting to ship) per the orders.list schema; 'unfulfilled' is NOT a valid value",
+        "--since set to about 7 days before today (ISO date or unix ts); --until left open",
+        "uses orders +search, not the list leaf, when the shortcut expresses it"
+      ]
+    },
+    "notes": "fulfillment_status enum (from schema orders.list): initialled, waiting, partially_shipped, shipped, partially_finished, ..."
+  },
+  {
+    "case_id": "orders.search-02",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.search",
+    "scenario": "English: paid orders for one customer",
+    "input": "Show me the paid orders from customer 100200",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "shortcut",
+      "command_prefix": "orders +search",
+      "flags_must_contain": ["--customer-id 100200", "--financial-status paid"],
+      "flags_must_not_contain": ["--since", "--until", "--keyword"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "paid is a valid financial_status enum value (schema orders.list), taken from the user's own wording",
+        "customer targeted with --customer-id, not by stuffing the id into --keyword",
+        "no time bounds invented"
+      ]
+    }
+  },
+  {
+    "case_id": "orders.count-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.count",
+    "scenario": "全店订单总数 — 无过滤条件的 +count",
+    "input": "统计一下店里总共有多少订单",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "shortcut",
+      "command_prefix": "orders +count",
+      "flags_must_not_contain": ["--status", "--since", "--until", "--financial-status", "--fulfillment-status"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "总共 → no filters at all; does not ask about a time range",
+        "extracts the number from .data, never fabricates a count"
+      ]
+    }
+  },
+  {
+    "case_id": "orders.get-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.get",
+    "scenario": "按订单号查详情 — get-by-number 而不是 get(内部 id)",
+    "input": "看下订单号 #2026071500123 的详情",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders get-by-number",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["number", "2026071500123"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "an order NUMBER (#...) goes to get-by-number; orders get expects the internal order ID — the two are not interchangeable",
+        "strips the leading # if the API expects the bare number",
+        "any jq extraction starts at .data, without -r"
+      ]
+    },
+    "notes": "GET /orders/number/{number} vs GET /orders/{order_id} — classic id-vs-number trap."
+  }
+]

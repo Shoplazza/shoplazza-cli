@@ -1,0 +1,28 @@
+[
+  {
+    "case_id": "routing.webhook-01",
+    "type": "routing",
+    "skill": "shoplazza-webhook",
+    "scenario": "跨域相似词: 订单事件通知 = webhook 订阅, 不是 orders 操作",
+    "input": "订单发货之后自动通知我们自己的系统",
+    "expected": {
+      "route_to_skill": "shoplazza-webhook",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is webhook create with a fulfillment/shipping topic — subscribing to events, not performing an orders action"]
+    },
+    "notes": "订单+通知 wording strongly smells like orders (+ship --notify notifies the BUYER); notifying an external system = webhook. Candidate for _routing/collisions.json."
+  },
+  {
+    "case_id": "routing.webhook-02",
+    "type": "routing",
+    "skill": "shoplazza-webhook",
+    "scenario": "English: product-update notifications = webhook, not products",
+    "input": "Get notified whenever a product is updated in the store",
+    "expected": {
+      "route_to_skill": "shoplazza-webhook",
+      "must_not_route_to": ["shoplazza-products"],
+      "semantic_rubric": ["If a command is named, it is webhook create with a product-update topic, not any products command"]
+    },
+    "notes": "Candidate for _routing/collisions.json (webhook vs products direction)."
+  }
+]

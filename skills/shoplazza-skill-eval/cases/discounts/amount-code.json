@@ -1,0 +1,25 @@
+[
+  {
+    "case_id": "discounts.amount-code-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.amount-code",
+    "scenario": "订单级固定金额优惠码 — target inferable from 整单/全店 wording",
+    "input": "建一个优惠码，整单立减30元，全店订单都能用",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "command_prefix": "discounts +amount-code",
+      "flags_must_contain": ["--target order", "--off 30"],
+      "flags_must_not_contain": ["--limit-max", "--limit-user", "--min-amount", "--products"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "整单/全店订单 wording inferred as --target order without asking",
+        "--off 30 verbatim from 立减30元 (not --percent)",
+        "--limit-order-once left to its default (true)",
+        "no cap/threshold flags set or asked (user gave none)"
+      ]
+    },
+    "notes": "Verified: +amount-code uses --off (float, required) + --target; --percent belongs to +percent-code."
+  }
+]

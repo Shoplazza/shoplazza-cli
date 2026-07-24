@@ -1,0 +1,25 @@
+[
+  {
+    "case_id": "discounts.mn-discount-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.mn-discount",
+    "scenario": "第3件半价 — 半价 must translate to 50 (% off), tiers format N:percent",
+    "input": "搞个第3件半价的活动",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "command_prefix": "discounts +mn-discount",
+      "flags_must_contain": ["--tiers", "3:50"],
+      "flags_must_not_contain": ["--limit-max", "--limit-user", "--products", "--rebate"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "半价 correctly translated to 50 (percent off) — the L1 fabricated-value warn on 50 is EXPECTED and passes here",
+        "tiers format is nth:percent (3:50), not percent:nth",
+        "--scope left to default highest (not asked); --price-sort left to default",
+        "chose +mn-discount (Nth-item pattern), not +rebate"
+      ]
+    },
+    "notes": "Also exercises the L1 fabricated-value warn → L2 adjudication path (50 is not a digit in the utterance)."
+  }
+]

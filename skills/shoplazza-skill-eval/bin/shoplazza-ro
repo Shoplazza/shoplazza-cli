@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# shoplazza-ro — read-only CLI wrapper for the tool-enabled L1 eval mode (Task B).
+#
+# Deny-by-default. Only three call shapes reach the real binary:
+#   1. `schema …`              (schema is inspection-only, never sends)
+#   2. any command with --help (help text, never sends)
+#   3. any command with --dry-run (dry-run prints the request, never sends)
+# Everything else — a bare write with no --dry-run — is REFUSED. A real write is
+# therefore impossible through this wrapper regardless of the profile in effect.
+#
+# The current dev-store profile (add-test) is pinned unless the caller set one.
+# Overridable for testing via SHOPLAZZA_RO_BIN / SHOPLAZZA_RO_PROFILE.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN="${SHOPLAZZA_RO_BIN:-$SCRIPT_DIR/../../../shoplazza}"
+PROFILE="${SHOPLAZZA_RO_PROFILE:-add-test}"
+
+allowed=0        # 1 once schema / --help / --dry-run is confirmed
+first_pos=""     # first non-flag arg (the module/verb)
+has_profile=0
+is_help=0
+
+for a in "$@"; do
+  case "$a" in
+    # --dry-run explicitly disabled → hard refuse (would actually send).
+    --dry-run=false|--dry-run=0|--dry-run=f|--dry-run=FALSE|--dry-run=False|--dry-run=no)
+      allowed=0; first_pos="__disabled_dryrun__"; break ;;
+    --dry-run|--dry-run=true|--dry-run=1|--dry-run=t|--dry-run=TRUE|--dry-run=True)
+      allowed=1 ;;
+    -h|--help)
+      allowed=1; is_help=1 ;;
+    --profile|--profile=*)
+      has_profile=1 ;;
+  esac
+  if [ -z "$first_pos" ] && [ "${a#-}" = "$a" ]; then first_pos="$a"; fi
+done
+
+if [ "$first_pos" = "schema" ]; then allowed=1; fi
+
+if [ "$allowed" != "1" ]; then
+  echo "shoplazza-ro: REFUSED — this read-only sandbox permits only 'schema …', '--help', or '--dry-run' calls." >&2
+  echo "shoplazza-ro: to preview a write safely, re-run the exact command with --dry-run appended (it prints the request without sending)." >&2
+  exit 3
+fi
+
+# Belt-and-suspenders: any executed call that isn't pure introspection (schema /
+# --help) gets a REAL --dry-run appended, so a write is impossible even if the
+# caller's "--dry-run" was only a flag VALUE (not a real flag). A duplicate
+# --dry-run is harmless.
+extra=()
+if [ "$first_pos" != "schema" ] && [ "$is_help" != "1" ]; then extra+=(--dry-run); fi
+if [ "$has_profile" = "1" ]; then
+  exec "$BIN" "$@" "${extra[@]}"
+else
+  exec "$BIN" "$@" --profile "$PROFILE" "${extra[@]}"
+fi

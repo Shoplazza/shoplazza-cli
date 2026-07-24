@@ -1,0 +1,25 @@
+[
+  {
+    "case_id": "discounts.bxgy-code-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.bxgy-code",
+    "scenario": "买2送1 with explicit product IDs — buy/get sides fully specified",
+    "input": "创建买赠优惠码：买2件商品P1，送1件商品P2",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "command_prefix": "discounts +bxgy-code",
+      "flags_must_contain": ["--products P1", "--buy-quantity 2", "--get-products P2", "--get-quantity 1", "--get-free"],
+      "flags_must_not_contain": ["--buy-amount", "--get-percent", "--get-off", "--limit-max", "--limit-user"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "送/赠 wording maps to --get-free (not --get-percent / --get-off)",
+        "buy side uses --products + --buy-quantity; get side uses --get-products + --get-quantity (no invented --buy/--get flags)",
+        "--limit-order left to its default (1 set per order), not asked",
+        "quantities 2 and 1 verbatim from the utterance"
+      ]
+    },
+    "notes": "Verified: buy side has NO --buy-products flag — buy scope is --products/--variants/--collections."
+  }
+]

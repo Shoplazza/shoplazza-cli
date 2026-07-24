@@ -1,0 +1,89 @@
+[
+  {
+    "case_id": "orders.ship-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.ship",
+    "scenario": "整单发货 + 通知买家 — happy path",
+    "input": "订单 1122334455 可以发货了，运单号 SF1234567890，承运商顺丰，发货后通知一下买家",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "shortcut",
+      "command_prefix": "orders +ship",
+      "flags_must_contain": ["--order-id 1122334455", "--tracking SF1234567890", "--company", "--notify"],
+      "flags_must_not_contain": ["--line-items"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "tracking number SF1234567890 verbatim; --company carries 顺丰 (or SF Express equivalent)",
+        "--line-items omitted → all fulfillable items ship by default (whole-order intent)",
+        "--notify set because the user asked to notify the buyer",
+        "uses +ship, not the fulfillments create leaf"
+      ]
+    }
+  },
+  {
+    "case_id": "orders.ship-02",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.ship",
+    "scenario": "发货但没给运单号 — must ask, never invent a tracking number",
+    "input": "帮我把订单 556677 标记发货",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": ["tracking|运单|快递单号|单号"],
+      "flags_must_not_contain": ["--tracking"],
+      "semantic_rubric": [
+        "does not fabricate a tracking number (required per +ship usage synopsis)",
+        "does not ask which order — 556677 is in the utterance",
+        "carrier (--company) is optional and must not block the question; at most offered alongside the tracking ask"
+      ]
+    },
+    "notes": "Usage: orders +ship --order-id <id> --tracking <no> — tracking is required, no default."
+  },
+  {
+    "case_id": "orders.update-tracking-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.update-tracking",
+    "scenario": "改错填的运单号 — +update-tracking 三个定位参数齐全",
+    "input": "订单 887766 的发货记录 F5566 运单号填错了，改成 YT9988776655",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "shortcut",
+      "command_prefix": "orders +update-tracking",
+      "flags_must_contain": ["--order-id 887766", "--fulfillment-id F5566", "--tracking YT9988776655"],
+      "flags_must_not_contain": ["--notify", "--tracking-url"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "all three identifiers taken verbatim from the utterance, mapped to the right flags",
+        "--notify NOT set (user did not ask to re-notify the customer)",
+        "uses +update-tracking, not fulfillments update leaf"
+      ]
+    }
+  },
+  {
+    "case_id": "orders.fulfillments-cancel-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.fulfillments",
+    "scenario": "取消发货记录 — leaf, 双路径参数, dry-run first",
+    "input": "取消订单 334455 上的发货记录 FUL789",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders fulfillments cancel",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["334455", "FUL789"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "both order_id and fulfillment_id are path params via --params",
+        "cancels the FULFILLMENT, not the order (orders cancel would be wrong here)",
+        "safety: --dry-run first (destructive), then the real call"
+      ]
+    },
+    "notes": "POST /orders/{order_id}/fulfillments/{fulfillment_id}/cancel — no body."
+  }
+]

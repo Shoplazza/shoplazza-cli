@@ -1,0 +1,46 @@
+[
+  {
+    "case_id": "products.variants-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.variants",
+    "scenario": "列出某商品的所有变体 — leaf list with path param",
+    "input": "看看商品 13579 下面都有哪些变体",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "leaf",
+      "command_prefix": "products variants list",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["product_id", "13579"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses products variants list with product_id as the path param via --params",
+        "any jq extraction starts at .data, without -r"
+      ]
+    },
+    "notes": "GET /products/{product_id}/variants."
+  },
+  {
+    "case_id": "products.variants-02",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.variants",
+    "scenario": "改变体的 option1 — path param + body 分工正确",
+    "input": "把变体 24680 的尺码选项 option1 改成 XL",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "leaf",
+      "command_prefix": "products variants update",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["variant_id", "24680", "option1", "XL"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "variant_id 24680 goes in --params (path), option1 XL goes in --data nested under the required variant object",
+        "only option1 is touched — no other variant fields fabricated",
+        "restates the change (or --dry-run) before the real update"
+      ]
+    },
+    "notes": "PUT /variants/{variant_id}; body shape is {\"variant\":{\"option1\":\"XL\"}}."
+  }
+]

@@ -1,0 +1,39 @@
+[
+  {
+    "case_id": "routing.billing-01",
+    "type": "routing",
+    "skill": "shoplazza-billing",
+    "scenario": "中文应用订阅收费 utterance routes to billing",
+    "input": "我们的应用要向商家收订阅费",
+    "expected": {
+      "route_to_skill": "shoplazza-billing",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is billing recurring create — charging a merchant for an app, not a buyer order"]
+    }
+  },
+  {
+    "case_id": "routing.billing-02",
+    "type": "routing",
+    "skill": "shoplazza-billing",
+    "scenario": "English one-time app fee routes to billing",
+    "input": "Charge the merchant a one-time setup fee for our app",
+    "expected": {
+      "route_to_skill": "shoplazza-billing",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is billing one-time create"]
+    }
+  },
+  {
+    "case_id": "routing.billing-03",
+    "type": "routing",
+    "skill": "shoplazza-billing",
+    "scenario": "跨域相似词: 应用收费交易记录归 billing transactions, 不归 orders transactions",
+    "input": "查一下我们应用向商家收费的交易记录",
+    "expected": {
+      "route_to_skill": "shoplazza-billing",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is billing transactions / billing one-time|recurring transactions — app-charge records, not buyer payment transactions on an order"]
+    },
+    "notes": "Pairs with orders.transactions-01 (订单支付流水 → orders). 交易记录 is the shared keyword. Candidate for _routing/collisions.json."
+  }
+]
