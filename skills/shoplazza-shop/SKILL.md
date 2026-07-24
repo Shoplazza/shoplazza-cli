@@ -56,7 +56,7 @@ Intent → command, highest-fit tier first. Authoritative flags/params live in
 | Metafield ON a product/order/customer… (给商品加字段) | `shop metafields-resource create --params '{"owner_resource":"product","owner_id":"<id>"}' --data '{"definition_id":"…","namespace":"…","key":"…","type":"…","value":…}'` |
 | Define a metafield schema (元字段定义) | `shop metafields-definition create --params '{"owner_resource":"…"}' --data '{"name":"…","namespace":"…","key":"…","type":"…"}'` |
 | **Blog content** — 发博客文章 / new blog post | `shop articles create --data '{"article":{"title":"…","content":"…","blog_ids":["…"]}}'` → [references/blogs-articles.md](references/blogs-articles.md) |
-| Manage blogs (containers of articles) | `shop blogs list` / `shop blogs create --params '{"blog":{…}}'` (**no `--data` flag** — see Gotchas) |
+| Manage blogs (containers of articles) | `shop blogs list` / `shop blogs create --data '{"blog":{"Title":"…"}}'` (title key is capital **`Title`**) |
 | **Custom pages** — 自定义页面 / 关于我们 / About Us | `shop pages create --data '{"page":{"title":"…","content":"…"}}'` → [references/pages-redirects.md](references/pages-redirects.md) |
 | **URL redirect** — 301 / 跳转 | `shop redirects create --data '{"redirect":{"from_url":"…","redirect_url":"…","status":"…"}}'` (`status` required — see Gotchas) |
 | **Markets** — 建市场 / 发布到某国 | `shop markets create --data '{"name":"…","countries":["JP"]}'` → [references/markets.md](references/markets.md) |
@@ -128,7 +128,7 @@ shoplazza-common).
 | `info update` needs a `shop_id` the user can't know | `shop_id` is a required path param | Resolve first: `shop info get --jq '.data.id'` |
 | Asked to upload a **local** file | `+upload-file` takes **public URLs, NOT local files** (verbatim in its help); the API fetches the URL | Degrade: no write; ask for a public link or suggest hosting it first |
 | Upload "done" but file missing | Upload is an **async task** — POST returns a `task_id`; the shortcut auto-fetches the task once | Re-check with `shop files task --params '{"task_id":"…"}'` until `status`/`success_list` settle |
-| `unknown flag: --data` on `blogs create` | Registry quirk: `blogs create` has **no `--data`** — the blog object rides in `--params` | `shop blogs create --params '{"blog":{"title":"…"}}'` (only this leaf; `blogs update` uses `--data` normally) |
+| `blogs create` title ignored / rejected | Blog title key is capital **`Title`** (required, 1–100), not lowercase `title` | `shop blogs create --data '{"blog":{"Title":"…"}}'` — confirm fields via `schema shop.blogs.create` |
 | What values can `redirects` `status` take? | `status` is **required** but the schema documents no enum — **do not invent one** | Check `schema shop.redirects.create`, inspect existing rules (`shop redirects list --jq '.data.redirects[].status'`) or the OpenAPI docs; ask the user if still ambiguous |
 | `metafields-resource create` rejected, `metafields-shop create` fine | Asymmetry: resource-level **requires `definition_id`**; shop-level doesn't (optional). Type enums differ too (shop: `JSON`/`string`; resource: `single_line_text_field`, `integer`, …) | See [references/metafields.md](references/metafields.md) |
 | Language published but market relations vanished | `languages publish` is a **full replacement** — `market_ids: []` removes ALL relations | Always send the complete target list |
@@ -181,7 +181,7 @@ shop languages publish --params '{"language_code":"ja-JP"}' --data "{\"market_id
 
 - [references/analytics.md](references/analytics.md) — 5 POST endpoints, indicators/dimensions, sort enums, timestamp rules
 - [references/metafields.md](references/metafields.md) — definitions vs resource vs shop metafields, owner_resource enum, type enums
-- [references/blogs-articles.md](references/blogs-articles.md) — blogs (containers) vs articles (posts), the `--params` quirk
+- [references/blogs-articles.md](references/blogs-articles.md) — blogs (containers) vs articles (posts); blog title key is capital `Title`
 - [references/pages-redirects.md](references/pages-redirects.md) — custom pages CRUD/batch, redirects & the undocumented status enum
 - [references/markets.md](references/markets.md) — market lifecycle, country occupation/confirm, price/tax/domain/language
 - [references/languages.md](references/languages.md) — add → enable → publish flow, full-replacement semantics

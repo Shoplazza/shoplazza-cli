@@ -28,33 +28,18 @@ include only what the user gave.
 shop blogs list    --params '{"page_size":10}'
 shop blogs get     --params '{"id":"<id>"}'
 shop blogs count
-shop blogs create  --params '{"blog":{"Title":"…"}}'    # NOTE: --params + capital Title; see below
+shop blogs create  --data '{"blog":{"Title":"…"}}'      # NOTE: capital Title; see below
 shop blogs update  --params '{"id":"<id>"}' --data '{"blog":{…}}'
 shop blogs delete  --params '{"id":"<id>"}'             # --dry-run first
 ```
 
-### `blogs create` quirk — no `--data` flag
-
-The registry maps the blog object as a parameter, so the leaf **rejects `--data`**
-(`unknown flag: --data`). Pass the blog object through `--params`:
-
-```bash
-shop blogs create --params '{"blog":{"Title":"News"}}'
-```
-
-Only this leaf; `blogs update` takes `--data` normally.
-
 ### `blogs` body fields & casing (create + update)
 
-Both `blogs create` and `blogs update` take the same blog fields, and the title key is
-**`Title` (capital T)** — required on create (1–100 chars) — alongside lowercase `handle`
-/ `seo_title` / `seo_description` / `seo_keywords` (all optional). Sending lowercase
-`title` is the common mistake.
-
-Why it's easy to miss: `shoplazza schema shop.blogs.create` does **not** expand its body
-(the `$ref` `v202506.CreateBlogParam` stays opaque — the only create op in the CLI that
-does this). The field list above is sourced from the registry and from
-`shoplazza schema shop.blogs.update`, which *does* expand — confirm there before writing.
+Both `blogs create` and `blogs update` take the blog object under `--data` (a `blog`
+wrapper). The title key is **`Title` (capital T)** — required on create (1–100 chars) —
+alongside lowercase `handle` / `seo_title` / `seo_description` / `seo_keywords` (all
+optional). Sending lowercase `title` is the common mistake; confirm the fields with
+`shoplazza schema shop.blogs.create`, which expands them.
 
 ## Boundaries
 
