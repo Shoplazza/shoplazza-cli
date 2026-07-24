@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 // Preview-path resolution for themes +edit: map the edited template to a

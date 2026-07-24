@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // ops parsing / validation / endpoint mapping for themes +edit

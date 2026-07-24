@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 // previewShortcut prints a storefront preview URL for a theme (optionally an

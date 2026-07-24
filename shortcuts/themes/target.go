@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // Target engine for themes +page / +edit. The target string is the single

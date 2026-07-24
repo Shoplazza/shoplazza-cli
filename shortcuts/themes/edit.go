@@ -9,9 +9,9 @@ import (
 	"os"
 	"strings"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 // themes +edit — one-shot batch write for agent-driven theme editing

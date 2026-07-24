@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // resolveServer fakes the two resolve-chain endpoints: GET /themes (published

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 // themes +page — one-shot page read for agent-driven theme editing
