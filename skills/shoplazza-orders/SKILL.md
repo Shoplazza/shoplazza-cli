@@ -51,7 +51,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Get one order by internal ID | `orders get --params '{"order_id":"<id>"}'` |
 | Get order by order NUMBER (#…) | `orders get-by-number --params '{"number":"<number>"}'` |
 | List with filters `+search` lacks (multi-status arrays, ids, skus, tags, fuzzy search…) | `orders list --params '{…}'` (see `schema orders.list`) |
-| Create an order on a customer's behalf | `orders create --data '{"order":{…}}'` (heavy body — see `schema orders.create`) |
+| Create an order on a customer's behalf (手工建单 / 代客下单) | `orders create --data '{"order":{…}}'` — heavy nested body → [references/orders-create.md](references/orders-create.md) |
 | Update order note / tags / shipping address | `orders update --params '{"order_id":"<id>"}' --data '{"order":{…}}'` |
 | Cancel an order (destructive → `--dry-run` first) | `orders cancel --params '{"order_id":"<id>"}' [--data '{"reason":"…"}']` |
 | Mark an order paid | `orders pay --params '{"order_id":"<id>"}' [--data '{…}']` (no body = bogus test payment) |
@@ -97,6 +97,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 退款 / 给买家退 X 元 / refund the buyer | `+refund` | amount → `--amount` verbatim; stated reason → `--note`; "库存退回去/restock" → `--return-items` |
 | 改运单号 / 运单号填错了 / fix the tracking number | `+update-tracking` | needs all three: `--order-id`, `--fulfillment-id`, `--tracking` |
 | 订单号 #… 的详情 / look up order by number | `get-by-number` (leaf) | strip the leading `#` → `--params '{"number":"…"}'`; internal IDs go to `get` instead |
+| 手工建单 / 代客下单 / create an order for a customer | `create` (leaf) | heavy nested body under `order` → [references/orders-create.md](references/orders-create.md); resolve `variant_id` via `products +search`; never fabricate buyer identity, address, or price |
 | 取消订单 / cancel order X | `cancel` (leaf) | id → `--params`; a stated reason → `--data '{"reason":"…"}'` (optional); **not** `fulfillments cancel` |
 | 取消发货记录 / cancel a fulfillment | `fulfillments cancel` (leaf) | both `order_id` and `fulfillment_id` in `--params`; **not** `orders cancel` |
 | 标记高风险 / 像欺诈单 / flag as fraud | `risks create` (leaf) | 高/中/低 → `level` `high`/`medium`/`low`; stated reason → `details` array → [references/risks.md](references/risks.md) |
@@ -117,6 +118,7 @@ Only **no-default** flags are askable.
 | `+update-tracking` | whichever of `--order-id` / `--fulfillment-id` / `--tracking` is missing | `--company`, `--tracking-url` only if the user gave them | `--notify` (set only on explicit re-notify wording) |
 | `+search` / `+count` | *(nothing — all filters optional; never ask)* | filters from wording via the enum table | `--page-limit`; time bounds only from the user's own time words |
 | `cancel` (leaf) | order id if absent | `reason` body only if the user stated one | `reason` (optional — omit if not given) |
+| `create` (leaf) | any missing required buyer/address sub-field (`last_name`, `email`, `country_code`, `province_code`, `city`, `address`, `zip`) and the line item(s) — **never fabricate identity, address, or price**; ask or look up `variant_id` via `products +search` | `currency_code` from the store/market (add-test = GBP); a neutral `shipping_name` label ("Standard Shipping"); an omitted catalog `price` (the variant prices it) | notify flags, `tags`, `note`, `discount_application`, `payment_line` (record payment via `orders pay`) |
 
 ### Never-ask list
 
@@ -138,6 +140,8 @@ user's own time words — never invent a time range).
 | "找最近 7 天还没发货的订单" | SEARCH — `+search --fulfillment-status waiting --since <today-7d>`; no `--until` |
 | "取消订单 777，原因是买家申请" | CANCEL — `orders cancel --params '{"order_id":"777"}' --data '{"reason":"买家申请"}'`; `--dry-run` first + restate |
 | "订单 888 像欺诈单，标成高风险" | RISK — `orders risks create --params '{"order_id":"888"}' --data '{"risk":{"level":"high","details":["…"]}}'`; restate before writing |
+| "手工帮客户下个单：1 件 variant V123，单价 29.9，寄给 John Doe (john@x.com)，美国加州洛杉矶 123 Main St 90012" | CREATE — build the nested `order` body (line_items `variant_id`+`quantity`+`price`, full `shipping_address` incl. `province_code`, `shipping_line`, `tax_total`, `currency_code`), restate + `--dry-run` first → [references/orders-create.md](references/orders-create.md) |
+| "帮客户下个单" (no items / buyer given) | ASK — which variant(s) & quantity, and the buyer's shipping details (name, email, address); **never fabricate** them. `shipping_price`/`tax_total` are money — use stated amounts, or `"0.00"` only when the user implies no charge and restate that |
 
 ## Status enums (memorize these three)
 
@@ -200,7 +204,9 @@ shoplazza-common).
 | Store-wide `refunds list` for one order's records | Two different endpoints | One order → `refunds list-by-order --params '{"order_id":"…"}'` |
 | `--status` with a comma list on `+search` | Shortcut flags are single-valued | Multi-status → `orders list --params '{"status":["opened","placed"]}'` |
 | `unknown flag: --fields` | No orders command has `--fields` | Project with `--jq` |
-| `orders create` rejected for missing fields | `order.line_items` (each `quantity`), `shipping_address` (last_name, email, country_code, province, province_code, city, address, zip), `shipping_line` (shipping_name, shipping_price), `tax_total`, `currency_code` are ALL required | Run `schema orders.create --view request` and build the full body |
+| `orders create` rejected for missing fields | Whole body nests under an `order` wrapper; `line_items[].quantity`, `shipping_address` (last_name, email, country_code, province, province_code, city, address, zip), `shipping_line` (shipping_name, shipping_price), `tax_total`, `currency_code` are ALL required | Build the full nested body → [references/orders-create.md](references/orders-create.md) (verified against `schema orders.create --view request`) |
+| `orders create` order fails despite `country`/`province` set | `country_code` / `province_code` (ISO: `US`, `CA`) are the required keys — the display-name `country` / `province` are optional | Send both codes; see [references/orders-create.md](references/orders-create.md) |
+| Copied the `orders pay` `payment_line` object into `orders create` | In `orders create` the schema types `payment_line` as a **string** (registry flattening), unlike `orders pay` where it is an object | Omit `payment_line` on create; record payment afterward with `orders pay` |
 | `orders pay` with no body "succeeded" unexpectedly | Empty body = bogus **test** payment | Pass `payment_line` (payment_channel, payment_method, transaction_no) for a real channel, or `gateway` for a custom method |
 | Schema summaries say "shopping zone" | Registry typo — they mean *shipping* zone | Ignore; commands are `shipping-schemas {create,update,delete}-zone` |
 
@@ -252,6 +258,7 @@ orders refunds list-by-order --params '{"order_id":"220033"}' --jq '.data.record
 
 ## References
 
+- [references/orders-create.md](references/orders-create.md) — manual/draft order creation: full nested body (required vs optional), required-vs-ask, minimal + fuller examples
 - [references/fulfillments.md](references/fulfillments.md) — fulfillment records: leaf CRUD, cancel/complete, body shapes
 - [references/refunds.md](references/refunds.md) — refund record body (split/itemized refunds), store-wide vs per-order lists
 - [references/risks.md](references/risks.md) — fraud risk records: level enum, details, CRUD

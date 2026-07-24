@@ -1,0 +1,85 @@
+[
+  {
+    "case_id": "orders.create-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.create",
+    "scenario": "手工建单 happy path — all required buyer/address/line/price present, build nested body + dry-run",
+    "input": "手工帮客户下个单：买 1 件 variant_id dd305ee4-fb07-4467-b846-27abd038f6ea，单价 19.99 英镑（GBP），运费 0，税 0，寄给 John Doe，邮箱 john@example.com，地址美国加州洛杉矶 123 Main St，加州 California，邮编 90012。",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders create",
+      "flags_must_contain": ["--data", "--dry-run"],
+      "params_must_contain": [
+        "\"order\"",
+        "dd305ee4-fb07-4467-b846-27abd038f6ea",
+        "19.99",
+        "john@example.com",
+        "shipping_address",
+        "shipping_line",
+        "tax_total",
+        "currency_code",
+        "GBP"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "whole body nests under the required order wrapper; --data (not --params) carries it",
+        "line item: variant_id + quantity 1 + price 19.99 (all from the utterance, none fabricated)",
+        "shipping_address includes the required set (last_name Doe, email, country_code US, province California + province_code CA inferred, city Los Angeles, address, zip 90012) — codes are ISO, not display names",
+        "shipping_line present with shipping_price 0.00; shipping_name defaulted to a neutral label (e.g. Standard Shipping) — NOT blocked on and NOT asked for",
+        "tax_total 0.00 and currency_code GBP set from the utterance",
+        "money write: --dry-run first and restates the order before the real run"
+      ]
+    },
+    "notes": "POST /openapi/2026-01/orders. Required per schema orders.create: line_items[].quantity, shipping_address(last_name,email,country_code,province,province_code,city,address,zip), shipping_line(shipping_name,shipping_price), tax_total, currency_code. shipping_name is a display label the skill says to default, not ask — the fix for the triage over-ask."
+  },
+  {
+    "case_id": "orders.create-02",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.create",
+    "scenario": "手工建单 but nothing specified — must ask what to buy and buyer/address, never fabricate",
+    "input": "帮客户手工建一个订单。",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "must_ask": true,
+      "ask_must_cover": [
+        "variant|商品|买什么|买哪些|哪些商品|什么商品|货品|line item",
+        "地址|address|收货|shipping|买家|客户|email|邮箱|收件人"
+      ],
+      "semantic_rubric": [
+        "asks for the line item(s) — which variant(s) and quantity — and the buyer's shipping identity/address",
+        "does NOT emit an orders create command with an invented body",
+        "does not fabricate a customer, an address, a price, or a variant id",
+        "bundles the missing required fields into one question rather than asking serially"
+      ]
+    },
+    "notes": "Must-ask probe: no line items and no buyer/address given — all required no-default fields are missing."
+  },
+  {
+    "case_id": "orders.create-03",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.create",
+    "scenario": "no-fabricate guard — custom line has no price, buyer identity incomplete",
+    "input": "给客户手工建个单：一个定制礼品盒，数量 1，客户叫张伟。",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "must_ask": true,
+      "ask_must_cover": [
+        "price|价格|单价|多少钱|金额|售价",
+        "email|邮箱|地址|address|收货|收件人|shipping"
+      ],
+      "semantic_rubric": [
+        "custom line item (定制礼品盒, no catalog variant) has no price source — asks for the price, does NOT fabricate one",
+        "buyer identity is only a name (张伟) — asks for the required email + shipping address, does NOT fabricate them",
+        "keeps 张伟 as the buyer name and quantity 1 from the utterance",
+        "does NOT emit an orders create command with an invented body"
+      ]
+    },
+    "notes": "No-fabricate probe for a required money field (custom-line price) and buyer identity. A custom line (product_title) has no variant to price it, so price is genuinely required and unstated."
+  }
+]
