@@ -140,8 +140,10 @@ func TestDoRefresh_Gates(t *testing.T) {
 		wantHits int64 // spec endpoint hits
 	}{
 		// Whether an update is needed is the server's call now, so the client
-		// obeys the answer instead of comparing revisions itself.
-		{name: "server says up to date", body: []byte(`{"up_to_date": true}`), version: "1.0.0"},
+		// obeys the answer instead of comparing revisions itself. The body is
+		// the server's real wire shape: protojson emits unpopulated fields, so
+		// the empty ones are present rather than omitted.
+		{name: "server says up to date", body: []byte(`{"up_to_date":true,"revision":"","url":"","sha256":""}`), version: "1.0.0"},
 		{name: "server serves a manifest", version: "1.0.0", wantHits: 1},
 	}
 	for _, tc := range cases {
