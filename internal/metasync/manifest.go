@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 
 const (
 	manifestName    = "manifest.json"
-	formatVersion   = 1
 	fetchTimeout    = 5 * time.Second
 	maxManifestBody = 256 << 10 // 256 KB
 	maxSpecBody     = 8 << 20   // 8 MB compressed download
@@ -41,10 +39,9 @@ var DefaultClient *http.Client
 
 // Manifest is the small remote index the client polls.
 type Manifest struct {
-	FormatVersion int    `json:"format_version"`
-	Revision      string `json:"revision"`
-	URL           string `json:"url"`
-	SHA256        string `json:"sha256"`
+	Revision string `json:"revision"`
+	URL      string `json:"url"`
+	SHA256   string `json:"sha256"`
 }
 
 // originURL returns the metadata origin: SHOPLAZZA_CLI_META_ORIGIN, else
@@ -97,12 +94,9 @@ func getLimited(ctx context.Context, url string, limit int64) ([]byte, error) {
 
 // manifestURL declares what this build can use; the server picks the manifest
 // to serve from it. Keeping the client's revision out of the query bounds the
-// edge-cache key to one entry per (cli_version, format_version).
+// edge-cache key to one entry per cli_version.
 func manifestURL(cliVersion string) string {
-	q := url.Values{
-		"cli_version":    {cliVersion},
-		"format_version": {strconv.Itoa(formatVersion)},
-	}
+	q := url.Values{"cli_version": {cliVersion}}
 	return originURL() + manifestName + "?" + q.Encode()
 }
 

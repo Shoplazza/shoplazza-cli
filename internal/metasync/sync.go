@@ -87,10 +87,9 @@ func doRefresh(ctx context.Context, currentVersion string) (Result, error) {
 	if err != nil {
 		return res, err
 	}
-	// The server picks the manifest from the declared capabilities; the format
-	// check only guards against it picking wrong. Fully processed gates advance
+	// Nothing newer than what we already have. Fully processed gates advance
 	// the TTL clock.
-	if m.FormatVersion != formatVersion || m.Revision <= local {
+	if m.Revision <= local {
 		markChecked(origin)
 		return res, nil
 	}

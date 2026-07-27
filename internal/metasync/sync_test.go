@@ -110,7 +110,7 @@ func readCache(t *testing.T) []byte {
 }
 
 func manifestFor(raw []byte, rev string) Manifest {
-	return Manifest{FormatVersion: 1, Revision: rev, URL: "specs/spec.json.gz", SHA256: sha256Hex(raw)}
+	return Manifest{Revision: rev, URL: "specs/spec.json.gz", SHA256: sha256Hex(raw)}
 }
 
 func TestDoRefresh_HappyPath(t *testing.T) {
@@ -143,8 +143,6 @@ func TestDoRefresh_Gates(t *testing.T) {
 		wantHits int64 // spec endpoint hits
 	}{
 		{name: "old revision skipped", mutate: func(m *Manifest) { m.Revision = pastRev }, version: "1.0.0"},
-		// The server picks by declared format_version; this only fires if it picks wrong.
-		{name: "unknown format_version skipped", mutate: func(m *Manifest) { m.FormatVersion = 2 }, version: "1.0.0"},
 		{name: "newer revision downloaded", mutate: func(*Manifest) {}, version: "1.0.0", wantHits: 1},
 	}
 	for _, tc := range cases {
@@ -480,9 +478,6 @@ func TestDoRefresh_DeclaresCapabilities(t *testing.T) {
 	}
 	if got := q.Get("cli_version"); got != "2.3.0" {
 		t.Fatalf("cli_version = %q, want 2.3.0", got)
-	}
-	if got := q.Get("format_version"); got != "1" {
-		t.Fatalf("format_version = %q, want 1", got)
 	}
 	// The local revision stays out of the query: it would fragment the edge
 	// cache key per client, and "already current" is a local decision.
