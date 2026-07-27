@@ -51,7 +51,7 @@ func specJSON(rev string) []byte {
 type remote struct {
 	srv       *httptest.Server
 	manifest  []byte
-	spec      []byte // gzipped body served at specs/spec.json.gz
+	spec      []byte // gzipped body served at specs/<testSpecName>
 	specHits  atomic.Int64
 	lastQuery atomic.Value // string: raw query of the last manifest GET
 }
@@ -69,7 +69,7 @@ func newRemote(t *testing.T, manifest Manifest, gzSpec []byte) *remote {
 		r.lastQuery.Store(req.URL.RawQuery)
 		_, _ = w.Write(r.manifest)
 	})
-	mux.HandleFunc("/specs/spec.json.gz", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/specs/"+testSpecName, func(w http.ResponseWriter, _ *http.Request) {
 		r.specHits.Add(1)
 		_, _ = w.Write(r.spec)
 	})
@@ -106,8 +106,12 @@ func readCache(t *testing.T) []byte {
 	return data
 }
 
+// testSpecName is a canonical archive name; anything else is rejected by the
+// client's allowlist before a download is attempted.
+const testSpecName = "9998-01-01T000000Z.json.gz"
+
 func manifestFor(raw []byte, rev string) Manifest {
-	return Manifest{Revision: rev, URL: "specs/spec.json.gz", SHA256: sha256Hex(raw)}
+	return Manifest{Revision: rev, Filename: testSpecName, SHA256: sha256Hex(raw)}
 }
 
 func TestDoRefresh_HappyPath(t *testing.T) {
@@ -143,7 +147,7 @@ func TestDoRefresh_Gates(t *testing.T) {
 		// obeys the answer instead of comparing revisions itself. The body is
 		// the server's real wire shape: protojson emits unpopulated fields, so
 		// the empty ones are present rather than omitted.
-		{name: "server says up to date", body: []byte(`{"up_to_date":true,"revision":"","url":"","sha256":""}`), version: "1.0.0"},
+		{name: "server says up to date", body: []byte(`{"up_to_date":true,"revision":"","filename":"","sha256":""}`), version: "1.0.0"},
 		{name: "server serves a manifest", version: "1.0.0", wantHits: 1},
 	}
 	for _, tc := range cases {
@@ -355,9 +359,11 @@ func TestFetchManifest_RejectsMalformed(t *testing.T) {
 		mutate func(m *Manifest)
 	}{
 		{name: "non-canonical revision", mutate: func(m *Manifest) { m.Revision = "2026-07-13T12:00:00+08:00" }},
-		{name: "absolute url", mutate: func(m *Manifest) { m.URL = "https://evil.example/spec.json.gz" }},
-		{name: "rooted url", mutate: func(m *Manifest) { m.URL = "/etc/spec.json.gz" }},
-		{name: "traversal url", mutate: func(m *Manifest) { m.URL = "../other/spec.json.gz" }},
+		{name: "absolute filename", mutate: func(m *Manifest) { m.Filename = "https://evil.example/spec.json.gz" }},
+		{name: "rooted filename", mutate: func(m *Manifest) { m.Filename = "/etc/spec.json.gz" }},
+		{name: "traversal filename", mutate: func(m *Manifest) { m.Filename = "../other/spec.json.gz" }},
+		{name: "filename carries the specs prefix", mutate: func(m *Manifest) { m.Filename = "specs/" + testSpecName }},
+		{name: "filename is not an archive", mutate: func(m *Manifest) { m.Filename = "manifest.json" }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 
 const (
 	manifestName    = "manifest.json"
+	specDir         = "specs/"
 	fetchTimeout    = 5 * time.Second
 	maxManifestBody = 256 << 10 // 256 KB
 	maxSpecBody     = 8 << 20   // 8 MB compressed download
@@ -41,10 +43,15 @@ var DefaultClient *http.Client
 // server's "you already have this" answer, which carries no other field.
 type Manifest struct {
 	Revision string `json:"revision"`
-	URL      string `json:"url"`
+	Filename string `json:"filename"`
 	SHA256   string `json:"sha256"`
 	UpToDate bool   `json:"up_to_date,omitempty"`
 }
+
+// specNameRe is the only shape a spec archive name may take: a canonical UTC
+// revision with colons stripped. An allowlist, so a server that named anything
+// else — a path, another host — cannot steer the download.
+var specNameRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{6}Z\.json\.gz$`)
 
 // originURL returns the metadata origin: SHOPLAZZA_CLI_META_ORIGIN, else
 // derived from the auth base URL.
@@ -115,15 +122,14 @@ func fetchManifest(ctx context.Context, cliVersion, localRevision string) (*Mani
 	if m.UpToDate {
 		return &m, nil
 	}
-	if m.URL == "" || m.SHA256 == "" {
-		return nil, errors.New("metasync: manifest missing required fields")
+	if m.SHA256 == "" {
+		return nil, errors.New("metasync: manifest missing sha256")
 	}
 	if !registry.IsCanonicalRevision(m.Revision) {
 		return nil, fmt.Errorf("metasync: non-canonical manifest revision %q", m.Revision)
 	}
-	// The spec URL must stay origin-relative.
-	if strings.HasPrefix(m.URL, "/") || strings.Contains(m.URL, "://") || strings.Contains(m.URL, "..") {
-		return nil, fmt.Errorf("metasync: invalid manifest url %q", m.URL)
+	if !specNameRe.MatchString(m.Filename) {
+		return nil, fmt.Errorf("metasync: invalid spec filename %q", m.Filename)
 	}
 	return &m, nil
 }
@@ -131,7 +137,7 @@ func fetchManifest(ctx context.Context, cliVersion, localRevision string) (*Mani
 // fetchSpec downloads the gzipped spec named by m, verifies its sha256 and
 // returns the decompressed bytes.
 func fetchSpec(ctx context.Context, m *Manifest) ([]byte, error) {
-	body, err := getLimited(ctx, originURL()+m.URL, maxSpecBody)
+	body, err := getLimited(ctx, originURL()+specDir+m.Filename, maxSpecBody)
 	if err != nil {
 		return nil, err
 	}
