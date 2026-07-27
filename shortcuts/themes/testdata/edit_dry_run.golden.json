@@ -97,7 +97,7 @@
         ]
       },
       "method": "POST",
-      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/templates/\u003cdoc_id\u003e/operations",
+      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/files/\u003cdoc_id\u003e/operations",
       "query": null
     },
     {
@@ -112,7 +112,7 @@
         ]
       },
       "method": "POST",
-      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/templates/\u003cdoc_id\u003e/operations",
+      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/files/\u003cdoc_id\u003e/operations",
       "query": null
     }
   ]

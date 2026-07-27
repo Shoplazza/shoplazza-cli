@@ -238,12 +238,12 @@ func PlanPbBlockSave(body map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "POST", Path: themeBaseV202601 + "/page-builder/blocks", Body: body}
 }
 
-// PlanBatchOps describes POST .../templates/{doc}/operations (themes session
+// PlanBatchOps describes POST .../files/{doc}/operations (themes session
 // batch-ops): the whole +edit batch in one request; ops apply independently.
 func PlanBatchOps(oseid, docID string, operations []map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{
 		Method: "POST",
-		Path:   editSessionBase(oseid) + "/templates/" + docID + "/operations",
+		Path:   editSessionBase(oseid) + "/files/" + docID + "/operations",
 		Body:   map[string]any{"operations": operations},
 	}
 }
