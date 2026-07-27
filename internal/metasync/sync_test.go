@@ -12,7 +12,9 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -47,31 +49,52 @@ func specJSON(rev string) []byte {
 	return []byte(`{"version":"vTEST","generated_at":"` + rev + `","modules":[{"name":"zz-sync-probe","commands":[]}]}`)
 }
 
-// remote is a fake origin serving one manifest + one gzipped spec.
+// remote is a fake origin serving one manifest plus the spec archives on offer.
 type remote struct {
 	srv       *httptest.Server
 	manifest  []byte
-	spec      []byte // gzipped body served at specs/<testSpecName>
+	specs     map[string][]byte // every archive on offer, by name
 	specHits  atomic.Int64
 	lastQuery atomic.Value // string: raw query of the last manifest GET
 }
 
+// publish replaces what the remote offers the way meta-publish.sh does: a new
+// archive named after the revision, plus a manifest pointing at it. Earlier
+// archives stay served, as they do in the bucket.
+func (r *remote) publish(t *testing.T, rev string, raw []byte) {
+	t.Helper()
+	gz := gzipBytes(t, raw)
+	name := strings.ReplaceAll(rev, ":", "") + ".json.gz"
+	r.specs[name] = gz
+	mb, err := json.Marshal(Manifest{Revision: rev, Filename: name, SHA256: sha256Hex(gz)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.manifest = mb
+}
+
 func newRemote(t *testing.T, manifest Manifest, gzSpec []byte) *remote {
 	t.Helper()
-	r := &remote{spec: gzSpec}
+	r := &remote{}
 	mb, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
 	r.manifest = mb
+	r.specs = map[string][]byte{testSpecName: gzSpec}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/manifest.json", func(w http.ResponseWriter, req *http.Request) {
 		r.lastQuery.Store(req.URL.RawQuery)
 		_, _ = w.Write(r.manifest)
 	})
-	mux.HandleFunc("/specs/"+testSpecName, func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/specs/", func(w http.ResponseWriter, req *http.Request) {
+		body, ok := r.specs[path.Base(req.URL.Path)]
+		if !ok {
+			http.NotFound(w, req)
+			return
+		}
 		r.specHits.Add(1)
-		_, _ = w.Write(r.spec)
+		_, _ = w.Write(body)
 	})
 	r.srv = httptest.NewServer(mux)
 	t.Cleanup(r.srv.Close)
@@ -133,6 +156,54 @@ func TestDoRefresh_HappyPath(t *testing.T) {
 	s := loadState()
 	if s == nil || s.LastCheckedAt == 0 || s.Origin != originURL() {
 		t.Fatalf("unexpected state: %+v", s)
+	}
+}
+
+// The steady-state path: a client that already adopted one revision reports
+// that one and takes the next. Every other test stops at the first adoption,
+// where the reported revision still comes from the embedded spec — so this is
+// the only cover for reporting the cache instead, which is what real clients do
+// on every run after their first update.
+func TestDoRefresh_UpdatesAnAlreadyCachedSpec(t *testing.T) {
+	const secondRev = "9999-06-01T00:00:00Z"
+	firstRaw := specJSON(futureRev)
+	gz := gzipBytes(t, firstRaw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	res, err := ForceRefresh(context.Background(), "1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.NewRevision != futureRev || !bytes.Equal(readCache(t), firstRaw) {
+		t.Fatalf("first adoption failed: %+v", res)
+	}
+
+	secondRaw := specJSON(secondRev)
+	r.publish(t, secondRev, secondRaw)
+
+	res, err = ForceRefresh(context.Background(), "1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	q, err := url.ParseQuery(r.lastQuery.Load().(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The whole point: the second check reports what is cached, not what is
+	// embedded, or the server would keep offering a revision already held.
+	if got := q.Get("revision"); got != futureRev {
+		t.Fatalf("reported revision = %q, want the cached %q (embedded is %q)",
+			got, futureRev, registry.EmbeddedRevision())
+	}
+	if res.OldRevision != futureRev || res.NewRevision != secondRev || !res.Updated {
+		t.Fatalf("unexpected result: %+v", res)
+	}
+	if !bytes.Equal(readCache(t), secondRaw) {
+		t.Fatal("cache must hold the newer spec")
+	}
+	if got := r.specHits.Load(); got != 2 {
+		t.Fatalf("spec downloads = %d, want one per adopted revision", got)
 	}
 }
 
