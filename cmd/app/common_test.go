@@ -11,15 +11,15 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/app"
-	"shoplazza-cli-v2/internal/app/project"
-	internalauth "shoplazza-cli-v2/internal/auth"
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 func TestRequireLogin_NotLoggedIn(t *testing.T) {
@@ -195,9 +195,9 @@ func TestPartnerOpenapiClient_NetError_RoutesToErrNetwork(t *testing.T) {
 }
 
 // TestDashboardClient_WarnsOnUserIDFailure: a failed UserIDReady /
-// AccessTokenReady is not silent — a one-line stderr warning names the root
-// cause before the downstream 403 confuses the user. Still best-effort: the
-// client is returned without error.
+// AccessTokenReadyForProfile is not silent — a one-line stderr warning names
+// the root cause before the downstream 403 confuses the user. Still
+// best-effort: the client is returned without error.
 func TestDashboardClient_WarnsOnUserIDFailure(t *testing.T) {
 	dir := seedLoginKeychain(t)
 	var errBuf bytes.Buffer

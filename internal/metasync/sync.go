@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"shoplazza-cli-v2/internal/fsx"
-	"shoplazza-cli-v2/internal/registry"
-	"shoplazza-cli-v2/internal/updatecheck"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/updatecheck"
 )
 
 const (

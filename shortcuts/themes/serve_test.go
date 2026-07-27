@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
-	"shoplazza-cli-v2/internal/asynctask"
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/theme/devstate"
-	"shoplazza-cli-v2/internal/theme/doc"
-	"shoplazza-cli-v2/internal/theme/pack"
-	"shoplazza-cli-v2/internal/theme/watch"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/asynctask"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/devstate"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/doc"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/pack"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/watch"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 
 	"github.com/spf13/cobra"
 )

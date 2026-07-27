@@ -3,10 +3,9 @@ package auth
 import (
 	"context"
 	"errors"
-	"strings"
 
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
 )
 
 // AccountUAT reads the v2-namespaced UAT for email.
@@ -30,15 +29,29 @@ func (m *Manager) ExchangeForProfile(ctx context.Context, authDir string, p core
 	if err != nil {
 		return "", err
 	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, ProfileStoreKey(p.Name), block.AccessToken); err != nil {
-		return "", err
-	}
-	if err := SaveProfileMeta(authDir, strings.ToLower(p.Name), ProfileMeta{
-		StoreID: block.StoreID, ExpiresAt: block.ATExpiresAt, GrantedScopes: block.GrantedScopes,
-	}); err != nil {
+	if err := PersistProfileToken(authDir, p.Name, &block); err != nil {
 		return "", err
 	}
 	return block.AccessToken, nil
+}
+
+// PersistProfileToken stores a minted store token under the profile's
+// keychain key and writes its meta. Shared by ExchangeForProfile and the
+// login flow (which mints before the profile row exists).
+func PersistProfileToken(authDir, profileName string, block *storeATBlock) error {
+	if err := keychain.Set(keychain.ShoplazzaCliService, ProfileStoreKey(profileName), block.AccessToken); err != nil {
+		return err
+	}
+	return SaveProfileMeta(authDir, profileName, ProfileMeta{
+		StoreID: block.StoreID, ExpiresAt: block.ATExpiresAt, GrantedScopes: block.GrantedScopes,
+	})
+}
+
+// ForgetProfileToken drops a profile's cached store token and meta. Best
+// effort: both stores are cleaned regardless of individual failures.
+func ForgetProfileToken(authDir, profileName string) {
+	_ = keychain.Remove(keychain.ShoplazzaCliService, ProfileStoreKey(profileName))
+	_ = RemoveProfileMeta(authDir, profileName)
 }
 
 // ExchangeEphemeral mints a token for an arbitrary owned domain WITHOUT any

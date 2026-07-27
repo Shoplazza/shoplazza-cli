@@ -4,7 +4,7 @@ import (
 	"errors"
 	"regexp"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // ErrMissingThemeFlag is the sentinel returned (wrapped) by RequireThemeID

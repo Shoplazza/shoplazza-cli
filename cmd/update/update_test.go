@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/metasync"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/metasync"
 )
 
 // TestMain stubs the metadata refresh so runUpdate tests never hit the network.

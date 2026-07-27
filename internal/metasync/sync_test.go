@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"shoplazza-cli-v2/internal/build"
-	"shoplazza-cli-v2/internal/registry"
-	"shoplazza-cli-v2/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 // futureRev sorts after any real embedded generated_at.

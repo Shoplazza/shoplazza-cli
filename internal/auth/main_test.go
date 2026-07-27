@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"shoplazza-cli-v2/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 // TestMain isolates the config dir so tests calling registry.LoadSpec compare

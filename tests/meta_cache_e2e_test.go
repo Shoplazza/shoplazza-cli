@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 // metaEnv isolates the child's config dir (testenv.IsolateConfigDir redirects

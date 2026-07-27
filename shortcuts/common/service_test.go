@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 func TestAPIPrefix_Constant(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"shoplazza-cli-v2/internal/app/project"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // scanExtToml is the subset of shoplazza.extension.toml the scanner reads.

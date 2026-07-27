@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
 )
 
 func NewManager(cfg core.CliConfig, configPath string, cl *client.Client) *Manager {
@@ -72,20 +72,24 @@ func (m *Manager) Login(ctx context.Context, storeDomain string, scopes []string
 		case "ok":
 			state := stateFromPoll(pollRes, storeDomain)
 			warning := ""
+			storeBlock := pollRes.StoreToken
 			// Validate the requested store now (post-consent) unless the session
 			// pre-warmed its token; a bad store is reported, not set as current.
-			if storeDomain != "" && pollRes.StoreToken == nil {
+			// The minted token rides out on LoginResult for the command layer to
+			// persist under the profile key — not into the legacy store slot.
+			if storeDomain != "" && storeBlock == nil {
 				if block, sErr := m.exchangeStoreAT(ctx, pollRes.UAT, storeDomain); sErr != nil {
 					state.CurrentStore = ""
 					warning = storeValidationWarning(storeDomain, sErr)
 				} else {
-					applyStoreToken(&state, block, storeDomain)
+					storeBlock = &block
+					state.GrantedScopes = block.GrantedScopes
 				}
 			}
 			if err := m.persistState(state); err != nil {
 				return LoginResult{Flow: "web", AuthorizeURL: session.AuthorizeURL}, err
 			}
-			return LoginResult{Flow: "web", UAT: pollRes.UAT, AuthorizeURL: session.AuthorizeURL, Status: statusFromState(state), StoreWarning: warning}, nil
+			return LoginResult{Flow: "web", UAT: pollRes.UAT, AuthorizeURL: session.AuthorizeURL, Status: statusFromState(state), StoreWarning: warning, StoreToken: storeBlock}, nil
 		default:
 			return LoginResult{Flow: "web", AuthorizeURL: session.AuthorizeURL}, errors.New("unexpected session status: " + pollRes.Status)
 		}
@@ -103,10 +107,10 @@ func storeValidationWarning(domain string, err error) string {
 }
 
 // applyStoreToken records a freshly minted store token in state, keyed by the
-// domain the caller requested when known (the key AccessTokenReady later looks
-// up via the current store), falling back to the domain the server returned. It
-// mirrors the store-AT granted scopes to the account level and returns the key.
-func applyStoreToken(state *AuthState, block storeATBlock, requested string) string {
+// domain the caller requested when known (the key StoreIDFor later reads back
+// via LoadState), falling back to the domain the server returned. It mirrors
+// the store-AT granted scopes to the account level.
+func applyStoreToken(state *AuthState, block storeATBlock, requested string) {
 	key := requested
 	if key == "" {
 		key = block.StoreDomain
@@ -121,7 +125,6 @@ func applyStoreToken(state *AuthState, block storeATBlock, requested string) str
 		GrantedScopes: block.GrantedScopes,
 	}
 	state.GrantedScopes = block.GrantedScopes
-	return key
 }
 
 // stateFromPoll builds AuthState from a successful poll response. partner_token
@@ -143,9 +146,11 @@ func stateFromPoll(poll pollSessionTokenResponse, storeDomain string) AuthState 
 		state.CurrentStore = storeDomain
 	}
 	if poll.StoreToken != nil {
-		key := applyStoreToken(&state, *poll.StoreToken, storeDomain)
+		// Mirror the store-AT scopes to the account level; the token itself is
+		// persisted under the profile key by the command layer, not here.
+		state.GrantedScopes = poll.StoreToken.GrantedScopes
 		if state.CurrentStore == "" {
-			state.CurrentStore = key
+			state.CurrentStore = poll.StoreToken.StoreDomain
 		}
 	}
 	return state
@@ -166,17 +171,20 @@ func (m *Manager) loginWithUAT(ctx context.Context, uat, storeDomain string) (Lo
 		Stores:  map[string]StoreState{},
 		Apps:    map[string]AppState{},
 	}
+	var storeBlock *storeATBlock
 	if storeDomain != "" {
 		block, err := m.exchangeStoreAT(ctx, uat, storeDomain)
 		if err != nil {
 			return LoginResult{}, err
 		}
-		state.CurrentStore = applyStoreToken(&state, block, storeDomain)
+		storeBlock = &block
+		state.CurrentStore = storeDomain
+		state.GrantedScopes = block.GrantedScopes
 	}
 	if err := m.persistState(state); err != nil {
 		return LoginResult{}, err
 	}
-	return LoginResult{Flow: "uat", UAT: uat, Status: statusFromState(state)}, nil
+	return LoginResult{Flow: "uat", UAT: uat, Status: statusFromState(state), StoreToken: storeBlock}, nil
 }
 
 // Logout clears local state only — no server-side revocation.
@@ -287,25 +295,9 @@ func (m *Manager) RefreshAccessToken(ctx context.Context, storeDomain string) (s
 	return block.AccessToken, nil
 }
 
-// AccessTokenReady returns the store token for storeDomain, minting/refreshing
-// it when absent or within atRefreshMargin of expiry.
-func (m *Manager) AccessTokenReady(ctx context.Context, storeDomain string) (string, error) {
-	if storeDomain == "" {
-		return "", errors.New("no current store selected")
-	}
-	state, err := m.LoadState()
-	if err != nil {
-		return "", err
-	}
-	if s, ok := state.Stores[storeDomain]; ok && s.Token != "" && !isNearExpiry(s.ExpiresAt, atRefreshMargin) {
-		return s.Token, nil
-	}
-	return m.RefreshAccessToken(ctx, storeDomain)
-}
-
 // applyAppToken records a freshly minted app token in state, keyed by clientID.
 // Mirrors applyStoreToken.
-func applyAppToken(state *AuthState, block appATBlock, clientID string) string {
+func applyAppToken(state *AuthState, block appATBlock, clientID string) {
 	key := clientID
 	if key == "" {
 		key = block.ClientID
@@ -314,7 +306,6 @@ func applyAppToken(state *AuthState, block appATBlock, clientID string) string {
 		state.Apps = map[string]AppState{}
 	}
 	state.Apps[key] = AppState{Token: block.AccessToken, ExpiresAt: block.ATExpiresAt}
-	return key
 }
 
 // AppTokenReady returns the app token for clientID, minting/caching it when

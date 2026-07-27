@@ -9,10 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/ossupload"
-	"shoplazza-cli-v2/internal/output"
-	te "shoplazza-cli-v2/internal/theme_extension"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/ossupload"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	te "github.com/Shoplazza/shoplazza-cli/v2/internal/theme_extension"
 )
 
 func newCmdBuild(f *cmdutil.Factory) *cobra.Command {

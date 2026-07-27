@@ -1,27 +1,36 @@
 // Package migrate performs the one-time v1 → v2 config/credential migration.
 // Principle: migrate only non-regenerable credentials (uat, partner); derived
-// tokens (store/app) are dropped and lazily re-minted. v1 files stay on disk
-// so users can downgrade (cleanup in a later release).
+// tokens (store/app) are dropped and lazily re-minted. Store CONTEXTS are
+// preserved: every v1 store becomes a profile (with its store_id). v1 files
+// stay on disk so users can downgrade (cleanup in a later release).
 package migrate
 
 import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
-	"shoplazza-cli-v2/internal/auth"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
-	"shoplazza-cli-v2/internal/lockfile"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/lockfile"
 )
 
 // legacyAuthMeta mirrors the v1 auth.json shape (only the fields migration reads).
 type legacyAuthMeta struct {
-	Account       string   `json:"account"`
-	UserID        string   `json:"user_id"`
-	UATExpiresAt  string   `json:"uat_expires_at"`
-	GrantedScopes []string `json:"granted_scopes"`
+	Account       string                     `json:"account"`
+	UserID        string                     `json:"user_id"`
+	UATExpiresAt  string                     `json:"uat_expires_at"`
+	GrantedScopes []string                   `json:"granted_scopes"`
+	Stores        map[string]legacyStoreMeta `json:"stores"`
+}
+
+// legacyStoreMeta is the per-store slice of v1 auth.json migration keeps.
+type legacyStoreMeta struct {
+	StoreID string `json:"store_id"`
 }
 
 // accountMeta is the v2 auth/_accounts/<email>.json shape.
@@ -65,17 +74,12 @@ func doMigrate(configPath string) error {
 	if ok && meta.Account != "" {
 		email := strings.ToLower(meta.Account)
 		out.Accounts = []core.AccountConfig{{Name: email, GrantedScopes: meta.GrantedScopes}}
-		// 2) keychain: migrate only uat/partner (GetLegacy -> Set under the
-		// new naming; a missing entry is tolerated).
-		if v, err := keychain.GetLegacy(keychain.ShoplazzaCliService, "uat"); err == nil && v != "" {
-			if err := keychain.Set(keychain.ShoplazzaCliService, auth.AccountUATKey(email), v); err != nil {
-				return err
-			}
+		// 2) keychain: migrate only uat/partner, never overwriting a v2 entry.
+		if err := copyLegacyIfAbsent("uat", auth.AccountUATKey(email)); err != nil {
+			return err
 		}
-		if v, err := keychain.GetLegacy(keychain.ShoplazzaCliService, "partner"); err == nil && v != "" {
-			if err := keychain.Set(keychain.ShoplazzaCliService, auth.AccountPartnerKey(email), v); err != nil {
-				return err
-			}
+		if err := copyLegacyIfAbsent("partner", auth.AccountPartnerKey(email)); err != nil {
+			return err
 		}
 		// 3) v2 account metadata
 		if err := writeAccountMeta(dir, email, accountMeta{
@@ -83,13 +87,47 @@ func doMigrate(configPath string) error {
 		}); err != nil {
 			return err
 		}
-		// 4) current store -> the sole profile (no token migrated; other
-		// stores dropped). store_domain is no longer on core.CliConfig, so
-		// read it straight from the raw JSON.
+		// 4) profiles: one per v1 store (auth.json stores map, sorted for
+		// deterministic naming) plus the legacy current store. Tokens are NOT
+		// migrated — they re-mint lazily on first use; store_id rides along.
+		taken := func(n string) bool {
+			for i := range out.Profiles {
+				if strings.EqualFold(out.Profiles[i].Name, n) {
+					return true
+				}
+			}
+			return false
+		}
+		addProfile := func(domain, storeID string) string {
+			for i := range out.Profiles {
+				if strings.EqualFold(out.Profiles[i].StoreDomain, domain) {
+					if out.Profiles[i].StoreID == "" {
+						out.Profiles[i].StoreID = storeID
+					}
+					return out.Profiles[i].Name
+				}
+			}
+			name := core.DeriveProfileName(domain, taken)
+			out.Profiles = append(out.Profiles, core.ProfileConfig{Name: name, Account: email, StoreDomain: domain, StoreID: storeID})
+			return name
+		}
+		domains := make([]string, 0, len(meta.Stores))
+		for domain := range meta.Stores {
+			if domain != "" {
+				domains = append(domains, domain)
+			}
+		}
+		sort.Strings(domains)
+		for _, domain := range domains {
+			addProfile(domain, meta.Stores[domain].StoreID)
+		}
+		// The legacy current store stays current (store_domain is no longer on
+		// core.CliConfig, so read it straight from the raw JSON); without one,
+		// a sole migrated store becomes current, mirroring 'profile add'.
 		if storeDomain := readLegacyStoreDomain(configPath); storeDomain != "" {
-			name := core.DeriveProfileName(storeDomain, func(string) bool { return false })
-			out.Profiles = []core.ProfileConfig{{Name: name, Account: email, StoreDomain: storeDomain}}
-			out.CurrentProfile = name
+			out.CurrentProfile = addProfile(storeDomain, "")
+		} else if len(out.Profiles) == 1 {
+			out.CurrentProfile = out.Profiles[0].Name
 		}
 	}
 
@@ -100,6 +138,19 @@ func doMigrate(configPath string) error {
 		}
 	}
 	return core.SaveConfig(configPath, out)
+}
+
+// copyLegacyIfAbsent copies a legacy keychain entry to its v2 key unless the
+// v2 key already holds a value. Missing legacy entries are tolerated.
+func copyLegacyIfAbsent(legacyAccount, v2Account string) error {
+	if existing, err := keychain.Get(keychain.ShoplazzaCliService, v2Account); err == nil && existing != "" {
+		return nil
+	}
+	v, err := keychain.GetLegacy(keychain.ShoplazzaCliService, legacyAccount)
+	if err != nil || v == "" {
+		return nil
+	}
+	return keychain.Set(keychain.ShoplazzaCliService, v2Account, v)
 }
 
 // readLegacyStoreDomain reads the v1 config.json's store_domain field
@@ -139,9 +190,5 @@ func writeAccountMeta(configDir, email string, m accountMeta) error {
 	if err != nil {
 		return err
 	}
-	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, p)
+	return fsx.WriteFileAtomic(p, data, 0o600)
 }

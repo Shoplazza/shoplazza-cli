@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"shoplazza-cli-v2/internal/binmgr"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/binmgr"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 const (

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	internalauth "shoplazza-cli-v2/internal/auth"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 )
 
 // Pure scope-vocabulary functions: SupportedScopes / ValidateScopes.

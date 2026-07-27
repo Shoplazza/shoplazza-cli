@@ -5,10 +5,10 @@ import (
 	"io"
 	"strings"
 
-	internalauth "shoplazza-cli-v2/internal/auth"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
 )
 
 // SyncAfterLogin reconciles profile state after a successful login/store-use: same-account
@@ -18,12 +18,14 @@ import (
 // and, when storeDomain is set, the target profile is created or — if it
 // already exists — silently updated when the requested scope subset differs.
 //
-// SyncAfterLogin never mints or persists a store access token itself: that is
-// the Gate's job (AccessTokenReadyForProfile), done lazily on next use.
-func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomain string, scopes []string, errOut io.Writer) error {
+// SyncAfterLogin never mints or persists a store access token itself; it
+// returns the created/activated profile's name (empty without storeDomain) so
+// the caller can persist the login-time exchange result under that profile.
+func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomain string, scopes []string, errOut io.Writer) (string, error) {
 	email := strings.ToLower(res.Status.Account)
 	granted := res.Status.GrantedScopes
-	return core.UpdateConfig(f.ConfigPath, core.ConfigLockTimeout, func(c *core.CliConfig) error {
+	profileName := ""
+	err := core.UpdateConfig(f.ConfigPath, core.ConfigLockTimeout, func(c *core.CliConfig) error {
 		authDir := internalauth.AuthDir(f.ConfigPath)
 		switch {
 		case c.Account() == nil: // brand-new login
@@ -34,8 +36,7 @@ func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomai
 		default: // re-login to the same account
 			c.Accounts[0].GrantedScopes = granted
 			for i := range c.Profiles {
-				_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(c.Profiles[i].Name))
-				_ = internalauth.RemoveProfileMeta(authDir, strings.ToLower(c.Profiles[i].Name))
+				internalauth.ForgetProfileToken(authDir, c.Profiles[i].Name)
 				if trimmed, changed := intersect(c.Profiles[i].Scopes, granted); changed {
 					c.Profiles[i].Scopes = trimmed
 					fmt.Fprintf(errOut, "warning: profile %q scopes trimmed to granted set: %s\n",
@@ -50,10 +51,10 @@ func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomai
 		if p := c.FindProfileByStore(storeDomain); p != nil {
 			if scopes != nil && !equalFoldSlice(p.Scopes, scopes) {
 				p.Scopes = scopes // silent update: no output, just clear the cached AT
-				_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(p.Name))
-				_ = internalauth.RemoveProfileMeta(authDir, strings.ToLower(p.Name))
+				internalauth.ForgetProfileToken(authDir, p.Name)
 			}
 			c.PreviousProfile, c.CurrentProfile = c.CurrentProfile, p.Name
+			profileName = p.Name
 			return nil
 		}
 		name := core.DeriveProfileName(storeDomain, func(n string) bool { return c.FindProfile(n) != nil })
@@ -61,8 +62,10 @@ func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomai
 			Name: name, Account: email, StoreDomain: storeDomain, Scopes: scopes,
 		})
 		c.PreviousProfile, c.CurrentProfile = c.CurrentProfile, name
+		profileName = name
 		return nil
 	})
+	return profileName, err
 }
 
 // wipeAccount cascades an account switch or logout: clears every profile's
@@ -72,13 +75,12 @@ func SyncAfterLogin(f *cmdutil.Factory, res internalauth.LoginResult, storeDomai
 func wipeAccount(f *cmdutil.Factory, c *core.CliConfig) {
 	authDir := internalauth.AuthDir(f.ConfigPath)
 	for i := range c.Profiles {
-		_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(c.Profiles[i].Name))
-		_ = internalauth.RemoveProfileMeta(authDir, strings.ToLower(c.Profiles[i].Name))
+		internalauth.ForgetProfileToken(authDir, c.Profiles[i].Name)
 	}
 	if old := c.Account(); old != nil {
 		_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.AccountUATKey(old.Name))
 		_ = keychain.Remove(keychain.ShoplazzaCliService, internalauth.AccountPartnerKey(old.Name))
-		_ = internalauth.RemoveAccountMeta(authDir, strings.ToLower(old.Name))
+		_ = internalauth.RemoveAccountMeta(authDir, old.Name)
 	}
 	c.Accounts = nil
 	c.Profiles = nil

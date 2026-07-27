@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"shoplazza-cli-v2/internal/build"
-	"shoplazza-cli-v2/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
 )
 
 const (

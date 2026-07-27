@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/rawapi"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/rawapi"
 )
 
 // ── NormalizePath ─────────────────────────────────────────────────────────────

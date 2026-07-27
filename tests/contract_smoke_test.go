@@ -19,10 +19,10 @@ import (
 	"testing"
 	"time"
 
-	"shoplazza-cli-v2/cmd"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 
 	"github.com/spf13/cobra"
 )

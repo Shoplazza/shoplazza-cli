@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func TestExitErrorMessage(t *testing.T) {

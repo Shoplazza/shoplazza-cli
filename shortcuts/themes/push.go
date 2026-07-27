@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"time"
 
-	"shoplazza-cli-v2/internal/asynctask"
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/multipartx"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/theme"
-	"shoplazza-cli-v2/internal/theme/pack"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/asynctask"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/multipartx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/pack"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 // pushPollOpts controls the upload-task polling cadence. Declared at

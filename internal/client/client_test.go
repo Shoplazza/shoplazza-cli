@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"shoplazza-cli-v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 )
 
 // helpers

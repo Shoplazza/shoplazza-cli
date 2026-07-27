@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"shoplazza-cli-v2/internal/fsx"
-	"shoplazza-cli-v2/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
 )
 
 const stateFile = "state.json"

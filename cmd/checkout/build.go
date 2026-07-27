@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/jsbuild"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/jsbuild"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // ResolveBuildTarget resolves the build target from cwd and an optional --name.

@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"shoplazza-cli-v2/internal/theme"
-	"shoplazza-cli-v2/internal/theme/pack"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/pack"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 // packageShortcut is the `themes package` workflow: reads

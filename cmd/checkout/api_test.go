@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // ── resolveStore ──────────────────────────────────────────────────────────────
@@ -48,28 +48,6 @@ func currentStoreConfig(domain string) core.CliConfig {
 	return core.CliConfig{
 		CurrentProfile: "p",
 		Profiles:       []core.ProfileConfig{{Name: "p", StoreDomain: domain}},
-	}
-}
-
-// ── normalizeStoreDomain ─────────────────────────────────────────────────────
-
-func TestNormalizeStoreDomain(t *testing.T) {
-	cases := map[string]string{
-		"x.com":            "x.com",
-		"https://x.com":    "x.com",
-		"http://x.com":     "x.com",
-		"https://x.com/":   "x.com",
-		"x.com/":           "x.com",
-		" https://x.com/ ": "x.com",
-		// Scheme strip must be case-insensitive but preserve the domain's case.
-		"HTTPS://x.com":        "x.com",
-		"HTTP://x.com":         "x.com",
-		"HtTpS://MyStore.com/": "MyStore.com",
-	}
-	for in, want := range cases {
-		if got := normalizeStoreDomain(in); got != want {
-			t.Errorf("normalizeStoreDomain(%q) = %q, want %q", in, got, want)
-		}
 	}
 }
 

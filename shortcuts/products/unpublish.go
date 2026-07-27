@@ -1,6 +1,6 @@
 package products
 
-import "shoplazza-cli-v2/shortcuts/common"
+import "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 
 var unpublishShortcutValue = common.Shortcut{
 	Service: "products",

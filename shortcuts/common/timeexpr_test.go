@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 func TestAutoName(t *testing.T) {

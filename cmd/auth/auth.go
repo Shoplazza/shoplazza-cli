@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	internalauth "shoplazza-cli-v2/internal/auth"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/output"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -67,7 +67,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			normalizedStore := ""
 			if storeDomain != "" {
-				_, normalizedStore = parseStoreDomain(storeDomain)
+				normalizedStore = cmdutil.NormalizeStoreDomain(storeDomain)
 				if normalizedStore == "" {
 					return output.ErrValidation("--store-domain must not be empty")
 				}
@@ -137,8 +137,17 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 					return err
 				}
 			}
-			if err := SyncAfterLogin(f, result, storeArg, scope, f.IOStreams.ErrOut); err != nil {
+			profileName, err := SyncAfterLogin(f, result, storeArg, scope, f.IOStreams.ErrOut)
+			if err != nil {
 				return output.ErrInternal("failed to sync profile state: %v", err)
+			}
+			// Persist the login-time exchange under the profile key so the new
+			// profile lands ready ("valid"), instead of re-minting on first use.
+			// Best-effort: a failed write self-heals via the Gate's lazy mint.
+			if profileName != "" && result.StoreToken != nil {
+				if perr := internalauth.PersistProfileToken(internalauth.AuthDir(f.ConfigPath), profileName, result.StoreToken); perr != nil {
+					fmt.Fprintf(f.IOStreams.ErrOut, "warning: store token not cached (will re-mint on next use): %v\n", perr)
+				}
 			}
 
 			// Store warning is shown in the stderr summary only, not echoed in the JSON.
@@ -247,20 +256,6 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 
 			return output.PrintBody(cmd.OutOrStdout(), out, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
-	}
-}
-
-// parseStoreDomain splits "https://store.myshoplazza.com/" into ("https",
-// "store.myshoplazza.com"). Missing scheme defaults to https.
-func parseStoreDomain(raw string) (scheme, host string) {
-	d := strings.TrimSpace(raw)
-	switch {
-	case strings.HasPrefix(d, "https://"):
-		return "https", strings.TrimRight(strings.TrimPrefix(d, "https://"), "/")
-	case strings.HasPrefix(d, "http://"):
-		return "http", strings.TrimRight(strings.TrimPrefix(d, "http://"), "/")
-	default:
-		return "https", strings.TrimRight(d, "/")
 	}
 }
 

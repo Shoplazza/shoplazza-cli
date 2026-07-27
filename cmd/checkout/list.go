@@ -3,8 +3,8 @@ package checkout
 import (
 	"github.com/spf13/cobra"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
 func newCmdList(f *cmdutil.Factory) *cobra.Command {

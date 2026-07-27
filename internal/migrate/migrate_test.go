@@ -8,9 +8,9 @@ import (
 	"sync"
 	"testing"
 
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/keychain"
-	"shoplazza-cli-v2/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 // fixtures 构造：在 t.TempDir 下铺 v1 形态文件
@@ -120,15 +120,25 @@ func TestRun_FreshInstall_NoV1Files(t *testing.T) {
 	}
 }
 
-func TestRun_SingleStore_CreatesCurrentProfileWithoutToken(t *testing.T) {
+func TestRun_AllStores_BecomeProfiles_CurrentFromLegacy(t *testing.T) {
 	dir := t.TempDir()
 	cp := layV1Fixture(t, dir, withStoreDomain("us.myshoplazza.com"), withStores("us.myshoplazza.com", "cn.myshoplazza.com"))
 	if err := Run(cp); err != nil {
 		t.Fatal(err)
 	}
 	cfg, _ := core.LoadConfig(cp)
-	if cfg.ConfigVersion != 2 || cfg.CurrentProfile != "us" || len(cfg.Profiles) != 1 {
-		t.Fatalf("profile: %+v", cfg) // 仅 current 店建 Profile；cn 丢弃
+	if cfg.ConfigVersion != 2 || cfg.CurrentProfile != "us" || len(cfg.Profiles) != 2 {
+		t.Fatalf("profile: %+v", cfg) // 每个 v1 店建 Profile；current 跟 legacy store_domain
+	}
+	byName := map[string]core.ProfileConfig{}
+	for _, p := range cfg.Profiles {
+		byName[p.Name] = p
+	}
+	if p, ok := byName["us"]; !ok || p.StoreID != "100001" || p.StoreDomain != "us.myshoplazza.com" {
+		t.Fatalf("us profile: %+v", byName)
+	}
+	if p, ok := byName["cn"]; !ok || p.StoreID != "100002" || p.StoreDomain != "cn.myshoplazza.com" {
+		t.Fatalf("cn profile: %+v", byName)
 	}
 	if cfg.Accounts[0].Name != "alice@co.com" { // 邮箱小写归一
 		t.Fatalf("account: %+v", cfg.Accounts)
@@ -140,6 +150,65 @@ func TestRun_SingleStore_CreatesCurrentProfileWithoutToken(t *testing.T) {
 	// store token 不迁移；Get 对不存在的条目返回 ("", nil)，不是 error（T2 契约）
 	if v, err := keychain.Get(keychain.ShoplazzaCliService, "profile:us:store"); err != nil || v != "" {
 		t.Fatalf("store token must NOT be migrated, got %q, %v", v, err)
+	}
+}
+
+// 无 legacy store_domain：单店自动 current，多店留空
+func TestRun_StoresOnly_SingleBecomesCurrent(t *testing.T) {
+	cp := layV1Fixture(t, t.TempDir(), withStores("us.myshoplazza.com"))
+	if err := Run(cp); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := core.LoadConfig(cp)
+	if len(cfg.Profiles) != 1 || cfg.CurrentProfile != "us" || cfg.Profiles[0].StoreID != "100001" {
+		t.Fatalf("single store: %+v", cfg)
+	}
+}
+
+func TestRun_StoresOnly_MultipleNoCurrent(t *testing.T) {
+	cp := layV1Fixture(t, t.TempDir(), withStores("us.myshoplazza.com", "cn.myshoplazza.com"))
+	if err := Run(cp); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := core.LoadConfig(cp)
+	if len(cfg.Profiles) != 2 || cfg.CurrentProfile != "" {
+		t.Fatalf("multi store must not guess a current: %+v", cfg)
+	}
+}
+
+func TestRun_DoesNotClobberExistingV2Credentials(t *testing.T) {
+	cp := layV1Fixture(t, t.TempDir(), withStoreDomain("us.myshoplazza.com"))
+	// 先有一个 v2 登录留下的新 UAT/partner，再触发 migrate。
+	if err := keychain.Set(keychain.ShoplazzaCliService, "account:alice@co.com:uat", "fresh-uat"); err != nil {
+		t.Fatal(err)
+	}
+	if err := keychain.Set(keychain.ShoplazzaCliService, "account:alice@co.com:partner", "fresh-partner"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(cp); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := keychain.Get(keychain.ShoplazzaCliService, "account:alice@co.com:uat"); v != "fresh-uat" {
+		t.Fatalf("v2 uat clobbered by legacy: %q", v)
+	}
+	if v, _ := keychain.Get(keychain.ShoplazzaCliService, "account:alice@co.com:partner"); v != "fresh-partner" {
+		t.Fatalf("v2 partner clobbered by legacy: %q", v)
+	}
+}
+
+// 派生名冲突时后者加 -2 后缀
+func TestRun_Stores_NameCollisionGetsSuffix(t *testing.T) {
+	cp := layV1Fixture(t, t.TempDir(), withStores("shop.myshoplaza.com", "shop.stg.myshoplaza.com"))
+	if err := Run(cp); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := core.LoadConfig(cp)
+	byName := map[string]string{}
+	for _, p := range cfg.Profiles {
+		byName[p.Name] = p.StoreDomain
+	}
+	if byName["shop"] != "shop.myshoplaza.com" || byName["shop-2"] != "shop.stg.myshoplaza.com" {
+		t.Fatalf("collision naming: %+v", byName)
 	}
 }
 

@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	"shoplazza-cli-v2/internal/client"
-	"shoplazza-cli-v2/internal/cmdutil"
-	"shoplazza-cli-v2/internal/core"
-	"shoplazza-cli-v2/internal/output"
-	"shoplazza-cli-v2/internal/registry"
-	"shoplazza-cli-v2/internal/testenv"
-	"shoplazza-cli-v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 
 	"github.com/spf13/cobra"
 )
