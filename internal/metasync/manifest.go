@@ -14,7 +14,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,7 +43,6 @@ var DefaultClient *http.Client
 type Manifest struct {
 	FormatVersion int    `json:"format_version"`
 	Revision      string `json:"revision"`
-	MinCLIVersion string `json:"min_cli_version,omitempty"`
 	URL           string `json:"url"`
 	SHA256        string `json:"sha256"`
 }
@@ -94,8 +95,19 @@ func getLimited(ctx context.Context, url string, limit int64) ([]byte, error) {
 	return body, nil
 }
 
-func fetchManifest(ctx context.Context) (*Manifest, error) {
-	body, err := getLimited(ctx, originURL()+manifestName, maxManifestBody)
+// manifestURL declares what this build can use; the server picks the manifest
+// to serve from it. Keeping the client's revision out of the query bounds the
+// edge-cache key to one entry per (cli_version, format_version).
+func manifestURL(cliVersion string) string {
+	q := url.Values{
+		"cli_version":    {cliVersion},
+		"format_version": {strconv.Itoa(formatVersion)},
+	}
+	return originURL() + manifestName + "?" + q.Encode()
+}
+
+func fetchManifest(ctx context.Context, cliVersion string) (*Manifest, error) {
+	body, err := getLimited(ctx, manifestURL(cliVersion), maxManifestBody)
 	if err != nil {
 		return nil, err
 	}

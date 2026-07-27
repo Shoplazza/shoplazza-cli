@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -51,10 +52,11 @@ func specJSON(rev string) []byte {
 
 // remote is a fake origin serving one manifest + one gzipped spec.
 type remote struct {
-	srv      *httptest.Server
-	manifest []byte
-	spec     []byte // gzipped body served at specs/spec.json.gz
-	specHits atomic.Int64
+	srv       *httptest.Server
+	manifest  []byte
+	spec      []byte // gzipped body served at specs/spec.json.gz
+	specHits  atomic.Int64
+	lastQuery atomic.Value // string: raw query of the last manifest GET
 }
 
 func newRemote(t *testing.T, manifest Manifest, gzSpec []byte) *remote {
@@ -66,7 +68,8 @@ func newRemote(t *testing.T, manifest Manifest, gzSpec []byte) *remote {
 	}
 	r.manifest = mb
 	mux := http.NewServeMux()
-	mux.HandleFunc("/manifest.json", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/manifest.json", func(w http.ResponseWriter, req *http.Request) {
+		r.lastQuery.Store(req.URL.RawQuery)
 		_, _ = w.Write(r.manifest)
 	})
 	mux.HandleFunc("/specs/spec.json.gz", func(w http.ResponseWriter, _ *http.Request) {
@@ -140,9 +143,9 @@ func TestDoRefresh_Gates(t *testing.T) {
 		wantHits int64 // spec endpoint hits
 	}{
 		{name: "old revision skipped", mutate: func(m *Manifest) { m.Revision = pastRev }, version: "1.0.0"},
-		{name: "min_cli_version too high skipped", mutate: func(m *Manifest) { m.MinCLIVersion = "999.0.0" }, version: "1.0.0"},
+		// The server picks by declared format_version; this only fires if it picks wrong.
 		{name: "unknown format_version skipped", mutate: func(m *Manifest) { m.FormatVersion = 2 }, version: "1.0.0"},
-		{name: "dev build passes min gate", mutate: func(m *Manifest) { m.MinCLIVersion = "999.0.0" }, version: "dev", wantHits: 1},
+		{name: "newer revision downloaded", mutate: func(*Manifest) {}, version: "1.0.0", wantHits: 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -461,22 +464,30 @@ func TestRefresh_EndToEnd(t *testing.T) {
 	}
 }
 
-func TestTooOld(t *testing.T) {
-	cases := []struct {
-		min, current string
-		want         bool
-	}{
-		{"", "1.0.0", false},
-		{"2.0.0", "1.0.0", true},
-		{"2.0.0", "2.0.0", false},
-		{"2.0.0", "3.0.0", false},
-		{"2.0.0", "dev", false},     // non-release builds always pass
-		{"garbage", "1.0.0", false}, // unparseable min never blocks
+// The client declares what it can use; the server picks the manifest from it.
+func TestDoRefresh_DeclaresCapabilities(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	if _, err := ForceRefresh(context.Background(), "2.3.0"); err != nil {
+		t.Fatal(err)
 	}
-	for _, tc := range cases {
-		if got := tooOld(tc.min, tc.current); got != tc.want {
-			t.Errorf("tooOld(%q, %q) = %v, want %v", tc.min, tc.current, got, tc.want)
-		}
+	q, err := url.ParseQuery(r.lastQuery.Load().(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := q.Get("cli_version"); got != "2.3.0" {
+		t.Fatalf("cli_version = %q, want 2.3.0", got)
+	}
+	if got := q.Get("format_version"); got != "1" {
+		t.Fatalf("format_version = %q, want 1", got)
+	}
+	// The local revision stays out of the query: it would fragment the edge
+	// cache key per client, and "already current" is a local decision.
+	if q.Has("revision") {
+		t.Fatalf("client revision must not be sent, got %q", r.lastQuery.Load())
 	}
 }
 

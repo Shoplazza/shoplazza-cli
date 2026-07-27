@@ -83,12 +83,14 @@ func doRefresh(ctx context.Context, currentVersion string) (Result, error) {
 		local = registry.NewestLocalRevision()
 	}
 	res := Result{OldRevision: local}
-	m, err := fetchManifest(ctx)
+	m, err := fetchManifest(ctx, currentVersion)
 	if err != nil {
 		return res, err
 	}
-	// Fully processed gates advance the TTL clock.
-	if m.FormatVersion != formatVersion || tooOld(m.MinCLIVersion, currentVersion) || m.Revision <= local {
+	// The server picks the manifest from the declared capabilities; the format
+	// check only guards against it picking wrong. Fully processed gates advance
+	// the TTL clock.
+	if m.FormatVersion != formatVersion || m.Revision <= local {
 		markChecked(origin)
 		return res, nil
 	}
@@ -131,12 +133,6 @@ func markFailed() {
 	}
 	s.LastFailureAt = time.Now().Unix()
 	_ = saveState(s)
-}
-
-// tooOld reports whether the manifest requires a newer CLI; non-release
-// (dev) builds always pass.
-func tooOld(minVersion, current string) bool {
-	return minVersion != "" && updatecheck.IsReleaseVersion(current) && updatecheck.IsNewer(minVersion, current)
 }
 
 // shouldSkip mirrors updatecheck.shouldSkip with metasync's own disable knob.
