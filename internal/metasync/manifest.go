@@ -37,11 +37,13 @@ const metaRoutePrefix = "/api/saiga/cli/meta/"
 // DefaultClient overrides the HTTP client (for tests). nil -> default client with timeout.
 var DefaultClient *http.Client
 
-// Manifest is the small remote index the client polls.
+// Manifest is the small remote index the client polls. UpToDate marks the
+// server's "you already have this" answer, which carries no other field.
 type Manifest struct {
 	Revision string `json:"revision"`
 	URL      string `json:"url"`
 	SHA256   string `json:"sha256"`
+	UpToDate bool   `json:"up_to_date,omitempty"`
 }
 
 // originURL returns the metadata origin: SHOPLAZZA_CLI_META_ORIGIN, else
@@ -92,22 +94,26 @@ func getLimited(ctx context.Context, url string, limit int64) ([]byte, error) {
 	return body, nil
 }
 
-// manifestURL declares what this build can use; the server picks the manifest
-// to serve from it. Keeping the client's revision out of the query bounds the
-// edge-cache key to one entry per cli_version.
-func manifestURL(cliVersion string) string {
-	q := url.Values{"cli_version": {cliVersion}}
+// manifestURL declares what this build can use and what it already has; the
+// server picks the manifest to serve from the former and decides whether the
+// client needs it from the latter.
+func manifestURL(cliVersion, localRevision string) string {
+	q := url.Values{"cli_version": {cliVersion}, "revision": {localRevision}}
 	return originURL() + manifestName + "?" + q.Encode()
 }
 
-func fetchManifest(ctx context.Context, cliVersion string) (*Manifest, error) {
-	body, err := getLimited(ctx, manifestURL(cliVersion), maxManifestBody)
+func fetchManifest(ctx context.Context, cliVersion, localRevision string) (*Manifest, error) {
+	body, err := getLimited(ctx, manifestURL(cliVersion, localRevision), maxManifestBody)
 	if err != nil {
 		return nil, err
 	}
 	var m Manifest
 	if err := json.Unmarshal(body, &m); err != nil {
 		return nil, fmt.Errorf("metasync: manifest: %w", err)
+	}
+	// The up-to-date answer legitimately carries none of the fields below.
+	if m.UpToDate {
+		return &m, nil
 	}
 	if m.URL == "" || m.SHA256 == "" {
 		return nil, errors.New("metasync: manifest missing required fields")

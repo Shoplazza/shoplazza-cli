@@ -22,11 +22,8 @@ import (
 	"shoplazza-cli-v2/internal/testenv"
 )
 
-// futureRev sorts after any real embedded generated_at; pastRev before.
-const (
-	futureRev = "9998-01-01T00:00:00Z"
-	pastRev   = "1970-01-01T00:00:00Z"
-)
+// futureRev sorts after any real embedded generated_at.
+const futureRev = "9998-01-01T00:00:00Z"
 
 func gzipBytes(t *testing.T, data []byte) []byte {
 	t.Helper()
@@ -138,20 +135,23 @@ func TestDoRefresh_HappyPath(t *testing.T) {
 func TestDoRefresh_Gates(t *testing.T) {
 	cases := []struct {
 		name     string
-		mutate   func(m *Manifest)
+		body     []byte // manifest body override; nil = the newer manifest
 		version  string
 		wantHits int64 // spec endpoint hits
 	}{
-		{name: "old revision skipped", mutate: func(m *Manifest) { m.Revision = pastRev }, version: "1.0.0"},
-		{name: "newer revision downloaded", mutate: func(*Manifest) {}, version: "1.0.0", wantHits: 1},
+		// Whether an update is needed is the server's call now, so the client
+		// obeys the answer instead of comparing revisions itself.
+		{name: "server says up to date", body: []byte(`{"up_to_date": true}`), version: "1.0.0"},
+		{name: "server serves a manifest", version: "1.0.0", wantHits: 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			raw := specJSON(futureRev)
 			gz := gzipBytes(t, raw)
-			m := manifestFor(gz, futureRev)
-			tc.mutate(&m)
-			r := newRemote(t, m, gz)
+			r := newRemote(t, manifestFor(gz, futureRev), gz)
+			if tc.body != nil {
+				r.manifest = tc.body
+			}
 			setup(t, r)
 
 			res, err := ForceRefresh(context.Background(), tc.version)
@@ -479,10 +479,10 @@ func TestDoRefresh_DeclaresCapabilities(t *testing.T) {
 	if got := q.Get("cli_version"); got != "2.3.0" {
 		t.Fatalf("cli_version = %q, want 2.3.0", got)
 	}
-	// The local revision stays out of the query: it would fragment the edge
-	// cache key per client, and "already current" is a local decision.
-	if q.Has("revision") {
-		t.Fatalf("client revision must not be sent, got %q", r.lastQuery.Load())
+	// The local revision is what the server compares against; without it every
+	// check would download a spec the client already has.
+	if got, want := q.Get("revision"), registry.EmbeddedRevision(); got != want {
+		t.Fatalf("revision = %q, want the newest local revision %q", got, want)
 	}
 }
 

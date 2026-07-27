@@ -83,13 +83,12 @@ func doRefresh(ctx context.Context, currentVersion string) (Result, error) {
 		local = registry.NewestLocalRevision()
 	}
 	res := Result{OldRevision: local}
-	m, err := fetchManifest(ctx, currentVersion)
+	m, err := fetchManifest(ctx, currentVersion, local)
 	if err != nil {
 		return res, err
 	}
-	// Nothing newer than what we already have. Fully processed gates advance
-	// the TTL clock.
-	if m.Revision <= local {
+	// The server compared for us. Fully processed gates advance the TTL clock.
+	if m.UpToDate {
 		markChecked(origin)
 		return res, nil
 	}
