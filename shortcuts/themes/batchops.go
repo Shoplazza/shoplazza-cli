@@ -383,6 +383,7 @@ func resolvePbSectionValue(ctx context.Context, c *client.Client, templateID str
 // pb-block-save; the batch then swaps it in with remove_section + add_section.
 func generateThemeCard(ctx context.Context, c *client.Client, op editOp, inner map[string]any, oseid, docID, themeID string) (map[string]any, error) {
 	customID := phCustomID
+	var old map[string]any
 	if inner != nil {
 		section := findSectionByID(inner, op.ref.SectionID)
 		if section == nil {
@@ -392,7 +393,7 @@ func generateThemeCard(ctx context.Context, c *client.Client, op editOp, inner m
 		if !ok {
 			return nil, output.ErrValidation("update_pb: section %q is not a page-builder custom card (type %q)", op.ref.SectionID, getString(section, "type"))
 		}
-		customID = id
+		customID, old = id, section
 	}
 	resp, err := common.Send(ctx, c, PlanPbBlockSave(map[string]any{
 		"event_type": "theme", "action": "save", // fixed values
@@ -403,29 +404,55 @@ func generateThemeCard(ctx context.Context, c *client.Client, op editOp, inner m
 	if err != nil {
 		return nil, err
 	}
-	card := extractThemeCard(resp)
+	card := buildThemeCard(resp, old)
 	if card == nil {
-		return nil, output.ErrInternal("pb-block-save returned no theme card for update_pb (section %s)", op.ref.SectionID)
+		return nil, output.ErrInternal("pb-block-save returned no usable card for update_pb (section %s): expected data.type + data.block", op.ref.SectionID)
 	}
 	return card, nil
 }
 
-// extractThemeCard digs the generated section object out of a pb-block-save
-// response, tolerating data wrappers and a few plausible field names.
-func extractThemeCard(resp map[string]any) map[string]any {
+// buildThemeCard assembles the section object for a regenerated PB card from a
+// pb-block-save response: {data:{type, block:{name, settings:[…]}}}. The card
+// URI comes from data.type; block.settings is a schema definition list, so the
+// section's live settings map is rebuilt from the entries' ids and defaults
+// (passing the list through verbatim makes the server reject the numeric
+// indexes as field names). Identity fields and any still-valid values carry
+// over from the card being replaced.
+func buildThemeCard(resp map[string]any, old map[string]any) map[string]any {
 	root := resp
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if d := mapField(root, "data"); d != nil {
 			root = d
 		}
 	}
-	for _, key := range []string{"section", "card", "theme_card", "block"} {
-		if m := mapField(root, key); m != nil && getString(m, "type") != "" {
-			return m
+	typ := getString(root, "type")
+	blk := mapField(root, "block")
+	if typ == "" || blk == nil {
+		return nil
+	}
+	settings := map[string]any{}
+	for _, e := range mapSlice(blk["settings"]) {
+		if id := getString(e, "id"); id != "" {
+			settings[id] = e["default"]
 		}
 	}
-	if getString(root, "type") != "" && (root["settings"] != nil || root["schema"] != nil) {
-		return root
+	if oldSettings := mapField(old, "settings"); oldSettings != nil {
+		for k, v := range oldSettings { // keep the merchant's copy where the field survived
+			if _, ok := settings[k]; ok {
+				settings[k] = v
+			}
+		}
 	}
-	return nil
+	card := map[string]any{
+		"type":     typ,
+		"settings": settings,
+		"schema":   map[string]any{"name": blk["name"], "settings": blk["settings"]},
+		"blocks":   []any{},
+	}
+	for _, k := range []string{"name", "data_source_settings"} {
+		if v, ok := old[k]; ok && v != nil {
+			card[k] = v
+		}
+	}
+	return card
 }

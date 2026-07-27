@@ -130,10 +130,20 @@ func newEditServer(t *testing.T) *editServer {
 			es.mu.Lock()
 			es.writes = append(es.writes, map[string]any{"method": r.Method, "path": p, "body": body})
 			es.mu.Unlock()
-			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"section": map[string]any{
-				"type": "shoplazza://apps/page-builder/blocks/custom-9527/regenerated", "name": "pbcard",
-				"settings": map[string]any{}, "blocks": []any{},
-			}}})
+			// Real shape: the new card's URI at data.type, and data.block.settings
+			// as a schema definition LIST (not a value map).
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{
+				"id":   "9999",
+				"type": "shoplazza://apps/page-builder/blocks/custom-9999/regenerated",
+				"block": map[string]any{
+					"name": map[string]any{"en-US": "Regenerated", "zh-CN": "重生成"},
+					"settings": []any{
+						map[string]any{"type": "page_builder"},
+						map[string]any{"id": "uuid-a", "type": "textarea", "default": "A"},
+						map[string]any{"id": "uuid-b", "type": "text", "default": "B"},
+					},
+				},
+			}})
 		case strings.HasSuffix(p, "/promote"):
 			if es.conflict { // real behavior: HTTP 409, not a {conflict:true} body
 				w.WriteHeader(http.StatusConflict)
@@ -345,8 +355,21 @@ func TestEdit_MixedBatchRoutesPbAndBackfillsBody(t *testing.T) {
 		t.Errorf("op[1] = %v, want remove_section 222", rm)
 	}
 	card, _ := add["value"].(map[string]any)
-	if add["op"] != "add_section" || card == nil || !strings.Contains(fmt.Sprint(card["type"]), "custom-9527/regenerated") {
-		t.Errorf("op[2] = %v, want add_section with the generated card", add)
+	if add["op"] != "add_section" || card == nil || !strings.Contains(fmt.Sprint(card["type"]), "custom-9999/regenerated") {
+		t.Errorf("op[2] = %v, want add_section with the regenerated card URI", add)
+	}
+	// settings must be a uuid→value map rebuilt from the schema defaults —
+	// passing pb's schema LIST through verbatim makes the server reject the
+	// numeric indexes as field names (invalid_field:0,1,2).
+	cs, ok := card["settings"].(map[string]any)
+	if !ok || cs["uuid-a"] != "A" || cs["uuid-b"] != "B" || len(cs) != 2 {
+		t.Errorf("card settings = %#v, want {uuid-a:A, uuid-b:B}", card["settings"])
+	}
+	if _, isList := card["settings"].([]any); isList {
+		t.Error("settings must never be the schema list")
+	}
+	if sch := card["schema"].(map[string]any); sch["settings"] == nil {
+		t.Errorf("schema must carry the definition list: %v", sch)
 	}
 	// The generated section's id is recovered from the re-read.
 	if applied[1]["new_section_id"] != "sec_new1" {
