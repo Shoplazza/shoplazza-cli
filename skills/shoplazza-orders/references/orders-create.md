@@ -26,7 +26,7 @@ Top-level: a single required `order` object. Its fields:
 | `shipping_address` | **yes** | object | required sub-fields below |
 | `shipping_line` | **yes** | object | required sub-fields below |
 | `tax_total` | **yes** | string | order tax as a decimal string; `"0.00"` when none |
-| `currency_code` | **yes** | string | ISO 4217; must match the store/market currency (add-test = `GBP`) |
+| `currency_code` | **yes** | string | ISO 4217; must match the store/market currency (`shop info get --jq '.data.currency'`) |
 | `tags` | no | string[] | free labels |
 | `note` | no | string | internal order note |
 | `discount_application` | no | object | display-only: `{"discount_code","title"}` — records a code, does not price the cart |
@@ -76,7 +76,7 @@ Two usable line shapes:
 | `shipping_address.*` (buyer identity + address) | **never fabricate** a name, email, or address — ASK for any missing required sub-field |
 | `shipping_price`, `tax_total` | **money** — use the stated amounts; default `"0.00"` only when the user implies no shipping/no tax (a manual order often zeroes them) and restate that assumption |
 | `shipping_name` | a display **label**, not money/identity — default a neutral `"Standard Shipping"` (or the carrier/method the user named); do NOT block the order asking for it |
-| `currency_code` | **infer** from the store/market (add-test = `GBP`); confirm if the buyer is clearly in another currency zone |
+| `currency_code` | **infer** from the store (`shop info get --jq '.data.currency'`); confirm if the buyer is clearly in another currency zone |
 | notify flags, `tags`, `note`, `discount_application` | omit unless the user asked for them |
 | `payment_line` / `discount` / `config` | omit — record payment after creation with `orders pay` |
 
@@ -102,7 +102,7 @@ The `variant_id` above is illustrative — get a real one from `products +search
 | Sent `country`/`province` names but the order still fails | `country_code` / `province_code` (ISO) are the required keys, not the display names | Send `"country_code":"US"`, `"province_code":"CA"`; `country`/`province` display names are optional |
 | Copied the `orders pay` `payment_line` OBJECT into `create` | In `orders create` the schema types `payment_line` as a **string** (unlike `orders pay`, where it is an object) | Omit `payment_line` on create; record payment afterward with `orders pay` (see SKILL.md) |
 | Invented a `variant_id` or a unit `price` | Both are catalog/money facts | Resolve the `variant_id` via `products +search`; omit `price` on a catalog line to let the variant price it, or use the user's stated price |
-| Currency mismatch rejected | `currency_code` must match the store/market | add-test is `GBP`; confirm the market currency before sending another |
+| Currency mismatch rejected | `currency_code` must match the store/market | Check `shop info get --jq '.data.currency'` before sending another |
 
 ## References
 

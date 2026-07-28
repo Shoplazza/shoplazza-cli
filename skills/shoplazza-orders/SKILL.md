@@ -118,7 +118,7 @@ Only **no-default** flags are askable.
 | `+update-tracking` | whichever of `--order-id` / `--fulfillment-id` / `--tracking` is missing | `--company`, `--tracking-url` only if the user gave them | `--notify` (set only on explicit re-notify wording) |
 | `+search` / `+count` | *(nothing — all filters optional; never ask)* | filters from wording via the enum table | `--page-limit`; time bounds only from the user's own time words |
 | `cancel` (leaf) | order id if absent | `reason` body only if the user stated one | `reason` (optional — omit if not given) |
-| `create` (leaf) | any missing required buyer/address sub-field (`last_name`, `email`, `country_code`, `province_code`, `city`, `address`, `zip`) and the line item(s) — **never fabricate identity, address, or price**; ask or look up `variant_id` via `products +search` | `currency_code` from the store/market (add-test = GBP); a neutral `shipping_name` label ("Standard Shipping"); an omitted catalog `price` (the variant prices it) | notify flags, `tags`, `note`, `discount_application`, `payment_line` (record payment via `orders pay`) |
+| `create` (leaf) | any missing required buyer/address sub-field (`last_name`, `email`, `country_code`, `province_code`, `city`, `address`, `zip`) and the line item(s) — **never fabricate identity, address, or price**; ask or look up `variant_id` via `products +search` | `currency_code` from the store (`shop info get --jq '.data.currency'`); a neutral `shipping_name` label ("Standard Shipping"); an omitted catalog `price` (the variant prices it) | notify flags, `tags`, `note`, `discount_application`, `payment_line` (record payment via `orders pay`) |
 
 ### Never-ask list
 
