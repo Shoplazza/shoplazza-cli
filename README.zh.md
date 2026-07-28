@@ -241,28 +241,7 @@ shoplazza api rest POST /openapi/2022-01/products.json \
 npx skills add Shoplazza/shoplazza-cli -g
 ```
 
-`-g` 表示全局安装（装到 `~/.agents/skills/`，并软链到 Agent 的 skill 目录），所有项目都能用。
-去掉该 flag 则只装到当前项目（`./.agents/skills/`），可随项目提交，团队成员自动获得。
-
-<details>
-<summary>更多安装选项</summary>
-
-```bash
-# 只查看有哪些，不安装
-npx skills add Shoplazza/shoplazza-cli --list
-
-# 只装其中几个（shoplazza-common 是其余 skill 的依赖，必装）
-npx skills add Shoplazza/shoplazza-cli -s shoplazza-common shoplazza-orders -g
-
-# 管理已安装的 skill
-npx skills list
-npx skills update
-npx skills remove shoplazza-orders
-```
-
-`npx` 会临时下载并运行安装器，不会常驻。CI 或 Agent 环境中加 `-y` 可跳过下载确认。
-
-</details>
+将下列全部 skill 装到 `~/.agents/skills/`，并软链到 Agent 的 skill 目录，所有项目均可使用。
 
 ### Skill 列表
 

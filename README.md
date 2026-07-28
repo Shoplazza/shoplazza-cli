@@ -242,30 +242,8 @@ are easy to get wrong. Works with Claude Code, Codex, Cursor, Gemini CLI, Zed an
 npx skills add Shoplazza/shoplazza-cli -g
 ```
 
-`-g` installs them for every project (into `~/.agents/skills/`, linked into your agent's skill
-directory). Drop the flag to install into the current project only (`./.agents/skills/`), which
-you can commit so your team picks them up automatically.
-
-<details>
-<summary>More install options</summary>
-
-```bash
-# See what's available without installing
-npx skills add Shoplazza/shoplazza-cli --list
-
-# Install a subset (shoplazza-common is required by the others)
-npx skills add Shoplazza/shoplazza-cli -s shoplazza-common shoplazza-orders -g
-
-# Manage what's installed
-npx skills list
-npx skills update
-npx skills remove shoplazza-orders
-```
-
-`npx` runs the installer without installing it permanently. Add `-y` in CI or agent
-environments to skip the download prompt.
-
-</details>
+Installs all skills below into `~/.agents/skills/` and links them into your agent's skill
+directory, for use across every project.
 
 ### Available skills
 
