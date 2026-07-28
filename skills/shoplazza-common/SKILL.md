@@ -18,6 +18,11 @@ them, and every domain skill opens by requiring this file be read first. The aut
 source for commands/params is `shoplazza <svc> <cmd> --help` and `shoplazza schema` — this
 file teaches the mechanics, it does not memorize flags.
 
+**Reply in the user's language.** Skill prose is English, but that never sets your reply
+language — mirror the user (中文提问 → 中文回答), including questions you ask back,
+write-confirmation restatements, and error explanations. Keep CLI commands, flags, and field
+names verbatim (untranslated).
+
 ## Access tiers
 
 Start every operation at the **highest tier that fits** and stop as soon as one expresses it:

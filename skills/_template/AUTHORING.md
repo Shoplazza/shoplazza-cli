@@ -19,6 +19,8 @@ Design authority: [`docs/skill/master-plan.md`](../../docs/skill/master-plan.md)
   2. the **Trigger phrase → shortcut** table's "User says" column — real users type both.
 - Do **not** write prose in Chinese, and do **not** drop the Chinese trigger/description
   keywords. Dropping the latter degrades routing for Chinese users.
+- **Runtime reply language is owned by shoplazza-common** ("Reply in the user's language" —
+  mirror the user, 中文提问 → 中文回答). Do not restate or contradict it in domain skills.
 
 ## 1. Create the file
 
