@@ -195,49 +195,6 @@ func PlanPbSingleBlocks(sourceID string) common.PlannedRequest {
 	}
 }
 
-// PlanSetSlot describes PATCH .../sections/{section}/slot (themes set-slot):
-// merge props into a block's settings, addressed by parent_path/block_index in body.
-func PlanSetSlot(oseid, sectionID string, body map[string]any) common.PlannedRequest {
-	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/slot", Body: body}
-}
-
-// PlanSetProps describes PATCH .../sections/{section}/props (themes set-props).
-func PlanSetProps(oseid, sectionID string, body map[string]any) common.PlannedRequest {
-	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/props", Body: body}
-}
-
-// PlanAddBlock describes POST .../sections/{section}/blocks (themes add-block).
-func PlanAddBlock(oseid, sectionID string, body map[string]any) common.PlannedRequest {
-	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/blocks", Body: body}
-}
-
-// PlanRemoveBlock describes DELETE .../sections/{section}/blocks (themes remove-block).
-// Coordinates travel in the body (DELETE-with-body, see common.Send).
-func PlanRemoveBlock(oseid, sectionID string, body map[string]any) common.PlannedRequest {
-	return common.PlannedRequest{Method: "DELETE", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/blocks", Body: body}
-}
-
-// PlanAddSection describes POST .../sections (themes add-section).
-func PlanAddSection(oseid string, body map[string]any) common.PlannedRequest {
-	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/sections", Body: body}
-}
-
-// PlanRemoveSection describes DELETE .../sections/{section} (themes remove-section).
-// Body carries doc_id (+ optional area) only — no theme_id, unlike its siblings.
-func PlanRemoveSection(oseid, sectionID string, body map[string]any) common.PlannedRequest {
-	return common.PlannedRequest{Method: "DELETE", Path: editSessionBase(oseid) + "/sections/" + sectionID, Body: body}
-}
-
-// PlanMoveSection describes PATCH .../sections/{section}/move (themes move-section).
-func PlanMoveSection(oseid, sectionID string, body map[string]any) common.PlannedRequest {
-	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/move", Body: body}
-}
-
-// PlanSetVisibility describes PATCH .../sections/{section}/visibility (themes set-visibility).
-func PlanSetVisibility(oseid, sectionID string, body map[string]any) common.PlannedRequest {
-	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/sections/" + sectionID + "/visibility", Body: body}
-}
-
 // PlanPbBlockSave describes POST /themes/page-builder/blocks (themes pb-block-save).
 // The 7 required body fields are backfilled by the CLI, never by the model.
 func PlanPbBlockSave(body map[string]any) common.PlannedRequest {
