@@ -141,6 +141,10 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 	var entries []serverOp
 	var moves []postMove
 	newTargets := map[int]string{}
+	// Appends earlier in this batch, per container dot-path: the page snapshot
+	// is pre-batch, so two appends into one container would otherwise both
+	// report — and count against max_blocks at — the same index.
+	appended := map[string]int{}
 	fail := func(i int, format string, args ...any) error {
 		e := output.ErrValidation("op #%d (%s): %s", i, ops[i].Op, fmt.Sprintf(format, args...)).
 			WithField("invalid_op", i)
@@ -163,6 +167,7 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 				"op": "replace_props", "target": op.ref.SectionID, "props": op.Props,
 			}, i})
 		case "append_array_item":
+			path := dotContainerPath(op.ref)
 			if inner != nil { // schema gate + new_target echo need page data
 				section := findSectionByID(inner, op.ref.SectionID)
 				if section == nil {
@@ -172,13 +177,15 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 				if err != nil {
 					return nil, nil, nil, fail(i, "%v", err)
 				}
-				if err := validateAppend(inner, container, op.Value, len(children)); err != nil {
+				at := len(children) + appended[path]
+				if err := validateAppend(inner, container, op.Value, at); err != nil {
 					return nil, nil, nil, fail(i, "%v", err)
 				}
-				newTargets[i] = fmt.Sprintf("%s[%d]", op.Target, len(children))
+				newTargets[i] = fmt.Sprintf("%s[%d]", op.Target, at)
+				appended[path]++
 			}
 			entries = append(entries, serverOp{map[string]any{
-				"op": "append_array_item", "target": dotContainerPath(op.ref), "value": op.Value,
+				"op": "append_array_item", "target": path, "value": op.Value,
 			}, i})
 		case "remove_array_item":
 			entries = append(entries, serverOp{map[string]any{

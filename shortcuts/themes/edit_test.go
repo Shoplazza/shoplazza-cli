@@ -505,6 +505,35 @@ func TestEdit_AppendAppBlockIntoNestedGroup(t *testing.T) {
 	}
 }
 
+// TestEdit_RepeatedAppendsAdvanceTheIndex: the page snapshot is pre-batch, so
+// two appends into one container must not both report the snapshot's length.
+func TestEdit_RepeatedAppendsAdvanceTheIndex(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	body, err := editExec(t, es, map[string]any{"template": "product", "session": "ose_x",
+		"ops": `[{"op":"append_array_item","target":"333.blocks[0].blocks","value":{"type":"blocks/pd_info_title"}},
+		         {"op":"append_array_item","target":"333.blocks[0].blocks","value":{"type":"blocks/pd_info_title"}}]`})
+	if err != nil {
+		t.Fatalf("editExecute: %v", err)
+	}
+	applied := body["applied"].([]map[string]any)
+	if applied[0]["new_target"] != "333.blocks[0].blocks[1]" || applied[1]["new_target"] != "333.blocks[0].blocks[2]" {
+		t.Errorf("new_targets = %v / %v, want [1] then [2]", applied[0]["new_target"], applied[1]["new_target"])
+	}
+
+	// max_blocks (3 on the group) counts the batch's own appends: a third
+	// append onto a container already holding one block overflows.
+	_, err = editExec(t, es, map[string]any{"template": "product", "session": "ose_x",
+		"ops": `[{"op":"append_array_item","target":"333.blocks[0].blocks","value":{"type":"blocks/pd_info_title"}},
+		         {"op":"append_array_item","target":"333.blocks[0].blocks","value":{"type":"blocks/pd_info_title"}},
+		         {"op":"append_array_item","target":"333.blocks[0].blocks","value":{"type":"blocks/pd_info_title"}}]`})
+	var exitErr *output.ExitError
+	if !errors.As(err, &exitErr) || exitErr.Code != output.ExitValidation {
+		t.Fatalf("err = %v, want validation on the batch's own max_blocks overflow", err)
+	}
+}
+
 func TestEdit_AddSectionEchoesNewSectionID(t *testing.T) {
 	es := newEditServer(t)
 	defer es.srv.Close()
