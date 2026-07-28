@@ -194,7 +194,7 @@ func pageExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 			return common.ExecResult{}, output.ErrValidation("section %q not found in area %q", section, area).
 				WithHint("check the sections list of `themes +page` (or switch --area)")
 		}
-		if isPbType(getString(row, "type")) {
+		if _, isPB := pbCustomID(getString(row, "type")); isPB {
 			inc.Pb = true
 		}
 		selected = []map[string]any{row}
@@ -233,7 +233,7 @@ func pageDryRunPlans(themeID, session string, inc pageInclude) []common.PlannedR
 	}
 	plans = append(plans, PlanSchemasList(oseidRef, phDocID))
 	if inc.Pb {
-		plans = append(plans, PlanPbSummary(phCustomID, "custom"))
+		plans = append(plans, PlanPbBlocksGet(phCustomID, nil))
 	}
 	return plans
 }
@@ -356,7 +356,7 @@ func buildSectionRow(m map[string]any) map[string]any {
 		rows = append(rows, map[string]any{"type": b.Type, "settings": b.Settings, "target": b.Target})
 	}
 	row["blocks"] = rows
-	if isPbType(typ) {
+	if _, ok := pbCustomID(typ); ok {
 		row["kind"] = "pb"
 	}
 	return row
@@ -377,18 +377,18 @@ func expandPbCanvas(ctx context.Context, in common.ExecInput, rows []map[string]
 	sem := make(chan struct{}, 4)
 	var wg sync.WaitGroup
 	for _, row := range rows {
-		templateID, scope, ok := pbTemplateRef(getString(row, "type"))
+		customID, ok := pbCustomID(getString(row, "type"))
 		if !ok {
 			continue
 		}
 		wg.Add(1)
-		go func(row map[string]any, templateID, scope string) {
+		go func(row map[string]any, customID string) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			resp, err := common.Send(ctx, in.Client, PlanPbSummary(templateID, scope))
+			resp, err := common.Send(ctx, in.Client, PlanPbBlocksGet(customID, nil))
 			if err != nil {
-				row["canvas_error"] = fmt.Sprintf("pb %s template %s unavailable on this store: %v", scope, templateID, err)
+				row["canvas_error"] = fmt.Sprintf("pb template %s unavailable on this store: %v", customID, err)
 				return
 			}
 			root := resp
@@ -396,7 +396,7 @@ func expandPbCanvas(ctx context.Context, in common.ExecInput, rows []map[string]
 				root = d
 			}
 			row["canvas"] = getString(root, "text")
-		}(row, templateID, scope)
+		}(row, customID)
 	}
 	wg.Wait()
 	return nil

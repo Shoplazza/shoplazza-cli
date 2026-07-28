@@ -178,18 +178,6 @@ func PlanPbBlocksGet(templateID string, query map[string]any) common.PlannedRequ
 	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601 + "/page-builder/custom-templates/" + templateID, Query: query}
 }
 
-// PlanPbSummary describes POST /themes/page-builder/summary (themes pb summary):
-// render a PB template into canvas text by id, the engine fetching its schema
-// server-side. scope is the endpoint's "type" — "custom" (custom-templates) or
-// "global" (global-templates); the id must be bare digits, no family prefix.
-func PlanPbSummary(templateID, scope string) common.PlannedRequest {
-	return common.PlannedRequest{
-		Method: "POST",
-		Path:   themeBaseV202601 + "/page-builder/summary",
-		Body:   map[string]any{"id": templateID, "type": scope},
-	}
-}
-
 // PlanPbSingleBlocks describes GET /themes/page-builder/blocks (themes pb
 // single-blocks): resolve a pb template id (global-N / custom-N) to its full
 // hash-suffixed type URI and display name.

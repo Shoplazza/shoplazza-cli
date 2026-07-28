@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -44,16 +43,6 @@ func pageFlags(t *testing.T, vals map[string]any) common.FlagSet {
 // pageServerCounters tracks which endpoints the fake server saw.
 type pageServerCounters struct {
 	list, createSession, schemasList, pbGet, listTemplates atomic.Int32
-
-	mu       sync.Mutex
-	pbScopes map[string]string // summary request: template id → "type"
-}
-
-// scopeOf returns the scope the summary endpoint was asked for a template id.
-func (c *pageServerCounters) scopeOf(id string) string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.pbScopes[id]
 }
 
 // pageServer fakes the full +page endpoint family. sectionsPayload is served
@@ -85,18 +74,9 @@ func pageServer(t *testing.T, counters *pageServerCounters, sectionsPayload []by
 		case strings.HasSuffix(p, "/sections"):
 			counters.schemasList.Add(1)
 			_, _ = w.Write(sectionsPayload)
-		case strings.HasSuffix(p, "/page-builder/summary") && r.Method == http.MethodPost:
+		case strings.Contains(p, "/page-builder/custom-templates/"):
 			counters.pbGet.Add(1)
-			var body map[string]any
-			_ = json.NewDecoder(r.Body).Decode(&body)
-			id, _ := body["id"].(string)
-			counters.mu.Lock()
-			if counters.pbScopes == nil {
-				counters.pbScopes = map[string]string{}
-			}
-			counters.pbScopes[id], _ = body["type"].(string)
-			counters.mu.Unlock()
-			if id == "9500" { // sentinel id: this card 500s (fan-out isolation)
+			if strings.HasSuffix(p, "/9500") { // sentinel id: this card 500s (fan-out isolation)
 				w.WriteHeader(http.StatusInternalServerError)
 				_, _ = w.Write([]byte(`{"message":"record not found"}`))
 				return
@@ -393,47 +373,6 @@ func TestPage_PbFanoutIsolation(t *testing.T) {
 	}
 }
 
-// TestPage_PbGlobalCardCanvas: global- presets are PB cards too. They used to
-// be skipped outright (the id regex only matched custom-), leaving them without
-// a canvas AND without a canvas_error; summary routes them by type=global.
-func TestPage_PbGlobalCardCanvas(t *testing.T) {
-	payload := map[string]any{"data": map[string]any{
-		"schemas": map[string]any{},
-		"sections": map[string]any{
-			"page_sections": []any{
-				map[string]any{"id": 222.0, "type": "shoplazza://apps/page-builder/blocks/custom-9527", "display": true, "settings": map[string]any{}, "blocks": []any{}},
-				map[string]any{"id": 333.0, "type": "shoplazza://apps/page-builder/blocks/global-8801", "display": true, "settings": map[string]any{}, "blocks": []any{}},
-			},
-			"sections": []any{},
-		},
-	}}
-	raw, _ := json.Marshal(payload)
-
-	var c pageServerCounters
-	srv := pageServer(t, &c, raw)
-	defer srv.Close()
-
-	body, err := pageExec(t, srv, map[string]any{"template": "index", "include": "pb"})
-	if err != nil {
-		t.Fatalf("pageExecute: %v", err)
-	}
-	rows := body["sections"].([]map[string]any)
-	for _, row := range rows {
-		if row["kind"] != "pb" {
-			t.Errorf("row %v: kind = %v, want pb", row["section_id"], row["kind"])
-		}
-		if row["canvas"] != "#0 root \"Canvas\"" {
-			t.Errorf("row %v: canvas = %v", row["section_id"], row["canvas"])
-		}
-	}
-	if got := c.scopeOf("9527"); got != "custom" {
-		t.Errorf("custom-9527 routed as type=%q", got)
-	}
-	if got := c.scopeOf("8801"); got != "global" {
-		t.Errorf("global-8801 routed as type=%q", got)
-	}
-}
-
 // TestPage_ListDoctreeErrorPrecedence pins the error priority of the
 // concurrent --list pair: a doctree failure surfaces even when
 // list-templates succeeds (matching the former serial order).
@@ -539,7 +478,7 @@ func TestPage_DryRunZeroCall(t *testing.T) {
 	}
 	joined := ""
 	for _, p := range res.Plans {
-		joined += fmt.Sprintf("%s %s %v\n", p.Method, p.Path, p.Body) // pb summary carries its id in the body
+		joined += p.Method + " " + p.Path + "\n"
 	}
 	for _, ph := range []string{phThemeID, phDocID, phOseid, phCustomID} {
 		if !strings.Contains(joined, ph) {
@@ -576,9 +515,9 @@ func TestPage_IncludePbDegradesOnMissingTemplate(t *testing.T) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/doctree"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"templates": []any{map[string]any{"id": "d_index", "location": "index.liquid"}}})
-		case strings.HasSuffix(r.URL.Path, "/page-builder/summary"):
+		case strings.Contains(r.URL.Path, "/custom-templates/"):
 			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`{"message":"拉取模版失败（status=404）: record not found"}`))
+			_, _ = w.Write([]byte(`{"message":"get custom template failed: status 404"}`))
 		case strings.HasSuffix(r.URL.Path, "/sections"):
 			_, _ = w.Write(pbSectionsPayload())
 		default:
