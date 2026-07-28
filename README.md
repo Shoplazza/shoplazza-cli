@@ -8,11 +8,12 @@
 
 The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — built for humans and AI Agents. Develop apps and themes, manage products, discounts, orders and customers, all from the terminal with structured output designed for AI Agent integration.
 
-[Install](#installation--quick-start) · [Auth](#authentication) · [Development](#development-workflows) · [Commands](#three-layer-command-system) · [Advanced](#advanced-usage) · [Contributing](#contributing)
+[Install](#installation--quick-start) · [Auth](#authentication) · [Development](#development-workflows) · [Commands](#three-layer-command-system) · [Agent Skills](#agent-skills) · [Advanced](#advanced-usage) · [Contributing](#contributing)
 
 ## Why shoplazza-cli?
 
 - **Agent-Native Design** — Structured JSON output out of the box; AI Agents can operate Shoplazza stores with zero extra setup
+- **Agent Skills Included** — One command installs [skills](#agent-skills) that teach AI agents this CLI's commands, safety rules, and per-domain gotchas
 - **E-Commerce Focused** — Products, Discounts, Orders, Customers with full CRUD and 20+ shortcut commands for high-frequency operations
 - **Full Developer Workflow** — App creation, extension scaffolding (checkout / theme / function), local dev server with HMR, one-command deploy; plus theme init, live reload, and packaging
 - **Secure & Controllable** — Input injection protection, OS-native keychain credential storage, token auto-refresh
@@ -226,6 +227,71 @@ Call any Shoplazza Open Platform endpoint directly for full coverage.
 shoplazza api rest GET /openapi/2022-01/products.json
 shoplazza api rest POST /openapi/2022-01/products.json \
   --data '{"product": {"title": "New Product", "status": "active"}}'
+```
+
+## Agent Skills
+
+Ready-made [Agent Skills](https://agentskills.io) that teach an AI coding agent how to drive
+this CLI properly: which of the three command tiers to reach for, the `{"ok":true,"data":…}`
+output envelope, the `--dry-run`-before-writes safety rule, and the per-domain gotchas that
+are easy to get wrong. Works with Claude Code, Codex, Cursor, Gemini CLI, Zed and others.
+
+### Install
+
+```bash
+npx skills add Shoplazza/shoplazza-cli -g
+```
+
+`-g` installs them for every project (into `~/.agents/skills/`, linked into your agent's skill
+directory). Drop the flag to install into the current project only (`./.agents/skills/`), which
+you can commit so your team picks them up automatically.
+
+<details>
+<summary>More install options</summary>
+
+```bash
+# See what's available without installing
+npx skills add Shoplazza/shoplazza-cli --list
+
+# Install a subset (shoplazza-common is required by the others)
+npx skills add Shoplazza/shoplazza-cli -s shoplazza-common shoplazza-orders -g
+
+# Manage what's installed
+npx skills list
+npx skills update
+npx skills remove shoplazza-orders
+```
+
+`npx` runs the installer without installing it permanently. Add `-y` in CI or agent
+environments to skip the download prompt.
+
+</details>
+
+### Available skills
+
+| Skill | Covers |
+|-------|--------|
+| `shoplazza-common` | **Base skill — required by all the others.** Auth & profiles, the three command tiers, the output envelope, `--dry-run` safety, `schema` introspection |
+| `shoplazza-products` | Products, variants, inventory, collections, comments, gift cards |
+| `shoplazza-orders` | Orders, fulfillments, refunds, transactions, draft orders |
+| `shoplazza-customers` | Customers and their addresses |
+| `shoplazza-discounts` | Automatic and code discounts, coupon campaigns |
+| `shoplazza-shop` | Shop info, blogs & articles, pages, files, metafields, markets, languages, redirects, analytics |
+| `shoplazza-billing` | Application charges (one-time, recurring, usage-based) |
+| `shoplazza-webhook` | Webhook subscriptions |
+
+The sources live in [`skills/`](./skills). Skills run with full agent permissions — read them
+before use.
+
+### Authoring a skill
+
+New skills must follow [`skills/_template/`](./skills/_template) (see its `AUTHORING.md`).
+Quality is guarded by the three-layer eval harness in `skills/shoplazza-skill-eval/` — static
+drift lint, behavioral cases, and rubric scoring. Run the drift lint before opening a PR:
+
+```bash
+make build   # the lint checks your docs against the freshly built CLI
+node skills/shoplazza-skill-eval/bin/lint_drift.mjs skills/<skill>/SKILL.md --bin ./shoplazza
 ```
 
 ## Advanced Usage

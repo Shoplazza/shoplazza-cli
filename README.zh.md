@@ -8,11 +8,12 @@
 
 Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能在终端中操作 Shoplazza 店铺。开发应用和主题、管理商品、折扣、订单和客户，结构化输出天然适配 AI Agent 集成。
 
-[安装](#安装与快速开始) · [认证](#认证) · [开发工作流](#开发工作流) · [命令](#三层命令调用) · [进阶用法](#进阶用法) · [贡献](#贡献)
+[安装](#安装与快速开始) · [认证](#认证) · [开发工作流](#开发工作流) · [命令](#三层命令调用) · [Agent Skills](#agent-skills) · [进阶用法](#进阶用法) · [贡献](#贡献)
 
 ## 为什么选 shoplazza-cli？
 
 - **为 Agent 原生设计** — 结构化 JSON 输出开箱即用，AI Agent 无需额外适配即可操作 Shoplazza 店铺
+- **内置 Agent Skills** — 一条命令即可安装 [skills](#agent-skills)，让 AI Agent 掌握本 CLI 的命令体系、安全规则与各业务域的易错点
 - **电商全域覆盖** — 商品、折扣、订单、客户完整 CRUD，20+ 快捷命令覆盖高频操作
 - **完整开发者工作流** — App 创建、扩展脚手架（checkout / theme / function）、本地开发服务器 + HMR、一键部署；主题 init、实时热重载与打包
 - **安全可控** — 输入防注入、OS 原生密钥链存储凭证、Access Token 自动刷新
@@ -226,6 +227,67 @@ shoplazza customers list
 shoplazza api rest GET /openapi/2022-01/products.json
 shoplazza api rest POST /openapi/2022-01/products.json \
   --data '{"product": {"title": "新商品", "status": "active"}}'
+```
+
+## Agent Skills
+
+开箱即用的 [Agent Skills](https://agentskills.io)，教会 AI 编码 Agent 正确驱动本 CLI：
+三层命令该选哪一层、`{"ok":true,"data":…}` 输出信封怎么读、写操作前必须 `--dry-run` 的
+安全规则，以及各业务域里容易踩错的坑。适用于 Claude Code、Codex、Cursor、Gemini CLI、Zed 等。
+
+### 安装
+
+```bash
+npx skills add Shoplazza/shoplazza-cli -g
+```
+
+`-g` 表示全局安装（装到 `~/.agents/skills/`，并软链到 Agent 的 skill 目录），所有项目都能用。
+去掉该 flag 则只装到当前项目（`./.agents/skills/`），可随项目提交，团队成员自动获得。
+
+<details>
+<summary>更多安装选项</summary>
+
+```bash
+# 只查看有哪些，不安装
+npx skills add Shoplazza/shoplazza-cli --list
+
+# 只装其中几个（shoplazza-common 是其余 skill 的依赖，必装）
+npx skills add Shoplazza/shoplazza-cli -s shoplazza-common shoplazza-orders -g
+
+# 管理已安装的 skill
+npx skills list
+npx skills update
+npx skills remove shoplazza-orders
+```
+
+`npx` 会临时下载并运行安装器，不会常驻。CI 或 Agent 环境中加 `-y` 可跳过下载确认。
+
+</details>
+
+### Skill 列表
+
+| Skill | 覆盖范围 |
+|-------|---------|
+| `shoplazza-common` | **基础 skill，其余全部依赖它。** 认证与 profile、三层命令体系、输出信封、`--dry-run` 安全规则、`schema` 自省 |
+| `shoplazza-products` | 商品、变体、库存、专辑、评论、礼品卡 |
+| `shoplazza-orders` | 订单、发货、退款、交易、草稿订单 |
+| `shoplazza-customers` | 客户及其地址 |
+| `shoplazza-discounts` | 自动折扣与折扣码、优惠券活动 |
+| `shoplazza-shop` | 店铺信息、博客与文章、自定义页面、文件、metafields、市场、多语言、URL 重定向、实时分析 |
+| `shoplazza-billing` | 应用计费（一次性、订阅、按量） |
+| `shoplazza-webhook` | Webhook 订阅 |
+
+源文件在 [`skills/`](./skills)。Skill 以 Agent 的完整权限运行，使用前请先阅读其内容。
+
+### 编写 Skill
+
+新增 skill 必须遵循 [`skills/_template/`](./skills/_template)（详见其中的 `AUTHORING.md`）。
+质量由 `skills/shoplazza-skill-eval/` 下的三层评估体系保障——静态漂移检查、行为用例、
+rubric 评分。提 PR 前先跑漂移检查：
+
+```bash
+make build   # 检查会拿你的文档与刚构建出的 CLI 做比对
+node skills/shoplazza-skill-eval/bin/lint_drift.mjs skills/<skill>/SKILL.md --bin ./shoplazza
 ```
 
 ## 进阶用法
