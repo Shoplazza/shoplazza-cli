@@ -25,12 +25,13 @@ import (
 )
 
 const (
-	// manifestPath has no extension on purpose: the endpoint answers about the
-	// manifest rather than serving the bucket's manifest.json. specDir is the
-	// opposite — those archives come back verbatim.
-	manifestPath    = "manifest"
-	specDir         = "specs/"
-	fetchTimeout    = 5 * time.Second
+	manifestPath = "manifest" // answers about the manifest, does not serve it
+	specDir      = "specs/"
+	// Each request gets the budget its payload deserves: the probe is a few
+	// hundred bytes and must not stall a command, the download is up to 8 MB
+	// and a slow link has to be allowed to finish it.
+	probeTimeout    = 5 * time.Second
+	specTimeout     = 60 * time.Second
 	maxManifestBody = 256 << 10 // 256 KB
 	maxSpecBody     = 8 << 20   // 8 MB compressed download
 	maxSpecRaw      = 32 << 20  // 32 MB decompressed
@@ -39,8 +40,12 @@ const (
 // metaRoutePrefix is the CliMetaService route; it shares the saiga auth host.
 const metaRoutePrefix = "/api/saiga/cli/meta/"
 
-// DefaultClient overrides the HTTP client (for tests). nil -> default client with timeout.
-var DefaultClient *http.Client
+// metaClient serves both the manifest poll and the spec download, with no
+// client-wide timeout: those two are not the same wait, so the budget rides on
+// each request's context instead (which a client-wide Timeout would ignore).
+// Tests point SHOPLAZZA_CLI_META_ORIGIN at a local server rather than swapping
+// this out.
+var metaClient = &http.Client{}
 
 // Manifest is the small remote index the client polls. UpToDate marks the
 // server's "you already have this" answer, which carries no other field.
@@ -73,20 +78,16 @@ func originURL() string {
 	return v
 }
 
-func httpClient() *http.Client {
-	if DefaultClient != nil {
-		return DefaultClient
-	}
-	return &http.Client{Timeout: fetchTimeout}
-}
-
-// getLimited GETs url and returns at most limit bytes, erroring on overflow.
-func getLimited(ctx context.Context, url string, limit int64) ([]byte, error) {
+// getLimited GETs url within budget and returns at most limit bytes, erroring
+// on overflow. The budget covers reading the body, not just the response head.
+func getLimited(ctx context.Context, url string, limit int64, budget time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, budget)
+	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := httpClient().Do(req)
+	resp, err := metaClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -104,16 +105,15 @@ func getLimited(ctx context.Context, url string, limit int64) ([]byte, error) {
 	return body, nil
 }
 
-// manifestURL declares what this build is and what it already has. The server
-// decides from the latter whether an update is needed; the former is currently
-// unread there, kept so a per-version rollout stays a server-side change.
+// manifestURL reports what this build already has, for the server to decide on.
+// cli_version rides along unread, so a per-version rollout stays server-side.
 func manifestURL(cliVersion, localRevision string) string {
 	q := url.Values{"cli_version": {cliVersion}, "revision": {localRevision}}
 	return originURL() + manifestPath + "?" + q.Encode()
 }
 
 func fetchManifest(ctx context.Context, cliVersion, localRevision string) (*Manifest, error) {
-	body, err := getLimited(ctx, manifestURL(cliVersion, localRevision), maxManifestBody)
+	body, err := getLimited(ctx, manifestURL(cliVersion, localRevision), maxManifestBody, probeTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func fetchManifest(ctx context.Context, cliVersion, localRevision string) (*Mani
 // fetchSpec downloads the gzipped spec named by m, verifies its sha256 and
 // returns the decompressed bytes.
 func fetchSpec(ctx context.Context, m *Manifest) ([]byte, error) {
-	body, err := getLimited(ctx, originURL()+specDir+m.Filename, maxSpecBody)
+	body, err := getLimited(ctx, originURL()+specDir+m.Filename, maxSpecBody, specTimeout)
 	if err != nil {
 		return nil, err
 	}

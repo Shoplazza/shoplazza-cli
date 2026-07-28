@@ -159,11 +159,8 @@ func TestDoRefresh_HappyPath(t *testing.T) {
 	}
 }
 
-// The steady-state path: a client that already adopted one revision reports
-// that one and takes the next. Every other test stops at the first adoption,
-// where the reported revision still comes from the embedded spec — so this is
-// the only cover for reporting the cache instead, which is what real clients do
-// on every run after their first update.
+// The steady-state path: the revision reported comes from the cache, not the
+// embedded spec. No other test gets that far.
 func TestDoRefresh_UpdatesAnAlreadyCachedSpec(t *testing.T) {
 	const secondRev = "9999-06-01T00:00:00Z"
 	firstRaw := specJSON(futureRev)
@@ -214,10 +211,8 @@ func TestDoRefresh_Gates(t *testing.T) {
 		version  string
 		wantHits int64 // spec endpoint hits
 	}{
-		// Whether an update is needed is the server's call now, so the client
-		// obeys the answer instead of comparing revisions itself. The body is
-		// the server's real wire shape: protojson emits unpopulated fields, so
-		// the empty ones are present rather than omitted.
+		// protojson emits unpopulated fields, so the real up-to-date body
+		// carries the empty ones rather than omitting them.
 		{name: "server says up to date", body: []byte(`{"up_to_date":true,"revision":"","filename":"","sha256":""}`), version: "1.0.0"},
 		{name: "server serves a manifest", version: "1.0.0", wantHits: 1},
 	}
@@ -600,6 +595,41 @@ func TestOriginURL(t *testing.T) {
 	t.Setenv("SHOPLAZZA_CLI_META_ORIGIN", "http://override.test/x/")
 	if got := originURL(); got != "http://override.test/x/" {
 		t.Fatalf("originURL() = %q, explicit META_ORIGIN must win", got)
+	}
+}
+
+// The budget has to cover reading the body, not just getting a response head —
+// a server that answers instantly and then trickles is exactly what the spec
+// download has to survive, and what the old client-wide Timeout got wrong.
+func TestGetLimited_BudgetCoversTheBodyRead(t *testing.T) {
+	stall := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "2")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("x"))
+		w.(http.Flusher).Flush()
+		<-stall // never sends the second byte
+	}))
+	// Cleanup is LIFO: release the handler before Close waits on it.
+	t.Cleanup(srv.Close)
+	t.Cleanup(func() { close(stall) })
+
+	if _, err := getLimited(context.Background(), srv.URL, maxManifestBody, 100*time.Millisecond); err == nil {
+		t.Fatal("a body that never finishes must exhaust the budget, got nil error")
+	}
+}
+
+// The caller's cancellation still wins inside the budget.
+func TestGetLimited_HonorsCallerCancel(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	t.Cleanup(srv.Close)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := getLimited(ctx, srv.URL, maxManifestBody, time.Minute); err == nil {
+		t.Fatal("a cancelled caller context must abort the request, got nil error")
 	}
 }
 
