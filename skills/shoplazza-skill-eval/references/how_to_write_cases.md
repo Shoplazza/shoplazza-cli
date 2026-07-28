@@ -30,8 +30,8 @@ Field reference: [`case_schema.md`](./case_schema.md). Rubrics: [`rubrics.md`](.
    verbatim from utterance"), default handling ("永不过期 → --end forever"), and
    negative expectations ("does not ask about caps").
 6. Run the single case before committing it:
-   `/shoplazza-skill-eval --cases cases/<domain>/<file>.json` — a case that fails on a
-   known-good skill is a bad case, fix the case.
+   run the eval (see `SKILL.eval.md`) with `--cases cases/<domain>/<file>.json` — a case
+   that fails on a known-good skill is a bad case, fix the case.
 
 ## 3. Anti-patterns
 

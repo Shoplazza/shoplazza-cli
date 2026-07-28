@@ -4,16 +4,21 @@ description: >-
   Evaluate the quality of shoplazza-cli skills (skill eval / 评估 / 测评 / drift check /
   回归). Runs the three-layer eval: L0 static drift+structure lint (bin/lint_drift.mjs),
   L1 behavioral (fresh sub-agent per case, --dry-run capture, structural checks), L2
-  Claude-judge scoring against rubrics R-1…R-8. Use via /shoplazza-skill-eval [domains |
-  <domain>.<operation> | --cases <file> | --show <run_id|latest> | --drift]. Never
-  executes real writes — dry-run only, dev/stg stores only.
+  Claude-judge scoring against rubrics R-1…R-8. Invoke by pointing an agent at this
+  file with a mode (see Step 0). Never executes real writes — dry-run only, dev/stg
+  stores only.
 ---
 
 # shoplazza-skill-eval — three-layer skill evaluation
 
+> **Maintainer tool — deliberately NOT a published skill.** This file is named
+> `SKILL.eval.md`, not `SKILL.md`, so `npx skills add` never ships it to merchants
+> (discovery keys on the exact filename `SKILL.md`; same trick as `_template/`).
+> To run an eval, point an agent at this file and name a mode below.
+
 Spec authority: [`docs/skill/eval-system-design.md`](../../docs/skill/eval-system-design.md)
 (§ references below point there). Vocabulary: `docs/skill/CONTEXT.md`. This file is the
-orchestration flow the agent follows when `/shoplazza-skill-eval` is invoked.
+orchestration flow the agent follows when an eval is requested.
 
 **Hard safety rules (§11) — no exceptions:**
 - Only `--dry-run` / `--help` / `schema` ever hit the CLI. Never a real write.
@@ -34,9 +39,9 @@ orchestration flow the agent follows when `/shoplazza-skill-eval` is invoked.
 
 | Mode | Invocation | Scope |
 |---|---|---|
-| A 全量 | `/shoplazza-skill-eval` | all of `cases/` |
-| B 指定域 | `/shoplazza-skill-eval products discounts` | `cases/<domain>/*.json` for each named domain + `cases/_routing/collisions.json` (always included) |
-| C 指定 operation | `/shoplazza-skill-eval discounts.rebate` | cases whose `operation` matches |
+| A 全量 | (no args) | all of `cases/` |
+| B 指定域 | `products discounts` | `cases/<domain>/*.json` for each named domain + `cases/_routing/collisions.json` (always included) |
+| C 指定 operation | `discounts.rebate` | cases whose `operation` matches |
 | D 自定义文件 | `--cases path/to/x.json` | that file only |
 | E 看历史 | `--show <run_id\|latest>` | no run — jump to Step 8 |
 | L0-only | `--drift` | Step 2 only (cheap CI gate) |
