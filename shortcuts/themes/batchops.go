@@ -168,14 +168,14 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 				if section == nil {
 					return nil, nil, nil, fail(i, "section %q not found on this page", op.ref.SectionID)
 				}
-				container, err := containerAt(section, op.ref.ParentPath)
+				container, children, err := containerAt(section, op.ref.ParentPath)
 				if err != nil {
 					return nil, nil, nil, fail(i, "%v", err)
 				}
-				if err := validateAppend(inner, section, op.Value, len(container)); err != nil {
+				if err := validateAppend(inner, container, op.Value, len(children)); err != nil {
 					return nil, nil, nil, fail(i, "%v", err)
 				}
-				newTargets[i] = fmt.Sprintf("%s[%d]", op.Target, len(container))
+				newTargets[i] = fmt.Sprintf("%s[%d]", op.Target, len(children))
 			}
 			entries = append(entries, serverOp{map[string]any{
 				"op": "append_array_item", "target": dotContainerPath(op.ref), "value": op.Value,

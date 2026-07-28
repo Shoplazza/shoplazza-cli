@@ -73,6 +73,11 @@ func newEditServer(t *testing.T) *editServer {
 					"blocks": []any{map[string]any{"type": "slide", "settings": map[string]any{}}}},
 				map[string]any{"id": 222, "type": "shoplazza://apps/page-builder/blocks/custom-9527", "display": true,
 					"settings": map[string]any{}, "blocks": []any{}},
+				// nested container shape (real product.liquid): the group, not
+				// the section, is what declares "@app".
+				map[string]any{"id": 333, "type": "product", "display": true, "settings": map[string]any{},
+					"blocks": []any{map[string]any{"type": "blocks/pd_info_group", "settings": map[string]any{},
+						"blocks": []any{map[string]any{"type": "blocks/pd_info_title", "settings": map[string]any{}}}}}},
 			}
 			es.mu.Lock()
 			for _, id := range es.added { // sections "created" by earlier batch adds
@@ -85,6 +90,16 @@ func newEditServer(t *testing.T) *editServer {
 					"hero_slideshow": map[string]any{
 						"max_blocks": 2,
 						"blocks":     []any{map[string]any{"type": "slide", "name": map[string]any{"zh-CN": "幻灯"}}},
+					},
+					"product": map[string]any{
+						"blocks": []any{map[string]any{"type": "blocks/pd_info_group"}},
+					},
+					"blocks/pd_info_group": map[string]any{
+						"max_blocks": 3,
+						"blocks": []any{
+							map[string]any{"type": "blocks/pd_info_title"},
+							map[string]any{"type": "@app"},
+						},
 					},
 				},
 				"sections": map[string]any{
@@ -398,6 +413,95 @@ func TestEdit_AppendValidatesAndEchoesNewTarget(t *testing.T) {
 	var exitErr *output.ExitError
 	if !errors.As(err, &exitErr) || exitErr.Code != output.ExitValidation {
 		t.Fatalf("err = %v, want validation", err)
+	}
+}
+
+// TestValidateAppend_ContainerScope pins the schema gate to the container the
+// append targets, not the enclosing section, and keeps app blocks out of the
+// type check: "@app" never equals a block's URI type, and cards that accept
+// app blocks (product) do not always declare it.
+func TestValidateAppend_ContainerScope(t *testing.T) {
+	inner := map[string]any{"schemas": map[string]any{
+		"product": map[string]any{"blocks": []any{
+			map[string]any{"type": "blocks/pd_info_group"},
+		}},
+		"blocks/pd_info_group": map[string]any{"max_blocks": float64(2), "blocks": []any{ // as JSON-decoded
+			map[string]any{"type": "blocks/pd_info_title"},
+			map[string]any{"type": "@app"},
+		}},
+		"blocks/pd_info_title": map[string]any{"blocks": []any{}},
+	}}
+	section := map[string]any{"id": "333", "type": "product", "blocks": []any{
+		map[string]any{"type": "blocks/pd_info_group", "blocks": []any{
+			map[string]any{"type": "blocks/pd_info_title"},
+		}},
+	}}
+	const appBlock = "shoplazza://apps/publicapp/blocks/giftcard-index/2476"
+
+	cases := []struct {
+		name       string
+		parentPath []int
+		blockType  string
+		wantErr    string
+	}{
+		{"app block into a group that declares @app", []int{0}, appBlock, ""},
+		{"app block into the section itself", nil, appBlock, ""},
+		{"native block scoped to the group", []int{0}, "blocks/pd_info_title", ""},
+		{"group-only type rejected at section level", nil, "blocks/pd_info_title",
+			`not allowed in "product"`},
+		{"section-only type rejected inside the group", []int{0}, "blocks/pd_info_group",
+			`not allowed in "blocks/pd_info_group"`},
+		{"leaf takes nothing", []int{0, 0}, "blocks/pd_info_title",
+			`"blocks/pd_info_title" takes no sub-blocks`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			container, children, err := containerAt(section, tc.parentPath)
+			if err != nil {
+				t.Fatalf("containerAt: %v", err)
+			}
+			err = validateAppend(inner, container, map[string]any{"type": tc.blockType}, len(children))
+			switch {
+			case tc.wantErr == "" && err != nil:
+				t.Fatalf("validateAppend = %v, want allowed", err)
+			case tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)):
+				t.Fatalf("validateAppend = %v, want %q", err, tc.wantErr)
+			}
+		})
+	}
+
+	// max_blocks comes from the container too: the group's 2, not product's none.
+	container, _, err := containerAt(section, []int{0})
+	if err != nil {
+		t.Fatalf("containerAt: %v", err)
+	}
+	if err := validateAppend(inner, container, map[string]any{"type": appBlock}, 2); err == nil {
+		t.Error("append past the group's max_blocks was allowed")
+	}
+}
+
+// TestEdit_AppendAppBlockIntoNestedGroup is the end-to-end of the above: the
+// batch reaches the server with the container's dot path.
+func TestEdit_AppendAppBlockIntoNestedGroup(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	body, err := editExec(t, es, map[string]any{"template": "product", "session": "ose_x",
+		"ops": `[{"op":"append_array_item","target":"333.blocks[0].blocks",
+		          "value":{"type":"shoplazza://apps/publicapp/blocks/giftcard-index/2476","settings":{}}}]`})
+	if err != nil {
+		t.Fatalf("editExecute: %v", err)
+	}
+	batch := editWriteBody(es, http.MethodPost, "/operations")
+	if batch == nil {
+		t.Fatal("batch-ops never sent")
+	}
+	entry := batch["operations"].([]any)[0].(map[string]any)
+	if entry["op"] != "append_array_item" || entry["target"] != "333.blocks.0.blocks" {
+		t.Errorf("entry = %v, want append into the group's dot path", entry)
+	}
+	if got := body["applied"].([]map[string]any)[0]["new_target"]; got != "333.blocks[0].blocks[1]" {
+		t.Errorf("new_target = %v", got)
 	}
 }
 

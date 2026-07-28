@@ -281,34 +281,52 @@ func sectionArea(inner map[string]any, sectionID string) string {
 	return ""
 }
 
-// containerAt walks parentPath from the section root down to the container
-// the append targets and returns its current children.
-func containerAt(section map[string]any, parentPath []int) ([]any, error) {
+// containerAt walks parentPath from the section root down to the container the
+// append targets, returning the container itself (the section when parentPath
+// is empty) and its current children. The container — not the section — owns
+// the schema that governs the append.
+func containerAt(section map[string]any, parentPath []int) (map[string]any, []any, error) {
+	container := section
 	blocks, _ := section["blocks"].([]any)
 	for _, p := range parentPath {
 		if p < 0 || p >= len(blocks) {
-			return nil, fmt.Errorf("container path index %d out of range (container has %d blocks)", p, len(blocks))
+			return nil, nil, fmt.Errorf("container path index %d out of range (container has %d blocks)", p, len(blocks))
 		}
 		m := asMap(blocks[p])
 		if m == nil {
-			return nil, fmt.Errorf("container path index %d is not a block", p)
+			return nil, nil, fmt.Errorf("container path index %d is not a block", p)
 		}
+		container = m
 		blocks, _ = m["blocks"].([]any)
 	}
-	return blocks, nil
+	return container, blocks, nil
 }
 
-// validateAppend enforces the schema gate for append_array_item: value.type
-// must be a declared sub-block of the card's schema and the container must
-// stay within max_blocks.
-func validateAppend(inner, section, value map[string]any, current int) error {
-	schemas := mapField(inner, "schemas")
-	card := mapField(schemas, getString(section, "type"))
+// appBlockSentinel is the schema entry standing for "app blocks allowed here".
+const appBlockSentinel = "@app"
+
+// isAppBlockType reports whether a block type is a URI-addressed app block.
+// Schemas declare these with the "@app" sentinel rather than by type.
+func isAppBlockType(blockType string) bool {
+	return strings.HasPrefix(blockType, "shoplazza://apps/")
+}
+
+// validateAppend enforces the schema gate for append_array_item against the
+// container's own schema: value.type must be a declared sub-block and the
+// container must stay within max_blocks.
+//
+// App blocks are exempt from the type check. A schema declares them with the
+// "@app" sentinel, which never equals the block's own URI type, and cards that
+// accept them do not always declare it (product is one) — so the server, not
+// the CLI, decides whether an app block fits.
+func validateAppend(inner, container, value map[string]any, current int) error {
+	containerType := getString(container, "type")
+	card := mapField(mapField(inner, "schemas"), containerType)
 	if card == nil {
-		return nil // no schema for this card type — let the server decide
+		return nil // no schema for this container — let the server decide
 	}
 	blockType := getString(value, "type")
-	if blocks, ok := card["blocks"].([]any); ok {
+	if blocks, ok := card["blocks"].([]any); ok && !isAppBlockType(blockType) {
 		found := false
 		var known []string
 		for _, b := range blocks {
@@ -316,13 +334,21 @@ func validateAppend(inner, section, value map[string]any, current int) error {
 			if bm == nil {
 				continue
 			}
-			known = append(known, getString(bm, "type"))
-			if getString(bm, "type") == blockType {
+			t := getString(bm, "type")
+			if t == appBlockSentinel {
+				continue // not a usable value for --ops
+			}
+			known = append(known, t)
+			if t == blockType {
 				found = true
 			}
 		}
-		if !found {
-			return fmt.Errorf("block type %q is not allowed here (schema allows: %s)", blockType, strings.Join(known, ", "))
+		switch {
+		case len(known) == 0:
+			return fmt.Errorf("%q takes no sub-blocks", containerType)
+		case !found:
+			return fmt.Errorf("block type %q is not allowed in %q (schema allows: %s)",
+				blockType, containerType, strings.Join(known, ", "))
 		}
 	}
 	if maxBlocks, ok := numberValue(card["max_blocks"]); ok && current+1 > int(maxBlocks) {
