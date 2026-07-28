@@ -125,6 +125,28 @@ func TestCheckCached_SkipsInCI(t *testing.T) {
 	}
 }
 
+func TestFresh(t *testing.T) {
+	const ttl = time.Hour
+	tests := []struct {
+		name string
+		ts   time.Time
+		want bool
+	}{
+		{"within ttl", time.Now().Add(-time.Minute), true},
+		{"past ttl", time.Now().Add(-2 * ttl), false},
+		// A clock set forward and then corrected leaves a future stamp behind;
+		// counting it as fresh would latch the gate shut until the clock caught up.
+		{"future stamp after a clock rollback", time.Now().Add(24 * time.Hour), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Fresh(tt.ts, ttl); got != tt.want {
+				t.Errorf("Fresh() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestInfoMessage(t *testing.T) {
 	msg := (&Info{Current: "2.0.0", Latest: "2.5.0"}).Message()
 	for _, want := range []string{"2.5.0", "2.0.0", "shoplazza update"} {

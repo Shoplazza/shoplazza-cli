@@ -36,15 +36,14 @@ type Status struct {
 
 // Refresh is the background path: TTL-gated, backed off on failure, silent.
 func Refresh(ctx context.Context, currentVersion string) {
-	if shouldSkip(currentVersion) {
+	if updatecheck.ShouldSkip(EnvDisable, currentVersion) {
 		return
 	}
 	if s := loadState(); s != nil {
-		// Negative Since = clock rollback; treat as stale (self-heals next check).
-		if d := time.Since(time.Unix(s.LastCheckedAt, 0)); d >= 0 && d < cacheTTL {
+		if updatecheck.Fresh(time.Unix(s.LastCheckedAt, 0), cacheTTL) {
 			return
 		}
-		if d := time.Since(time.Unix(s.LastFailureAt, 0)); s.LastFailureAt > 0 && d >= 0 && d < failureBackoff {
+		if s.LastFailureAt > 0 && updatecheck.Fresh(time.Unix(s.LastFailureAt, 0), failureBackoff) {
 			return
 		}
 	}
@@ -131,15 +130,4 @@ func markFailed() {
 	}
 	s.LastFailureAt = time.Now().Unix()
 	_ = saveState(s)
-}
-
-// shouldSkip mirrors updatecheck.shouldSkip with metasync's own disable knob.
-func shouldSkip(version string) bool {
-	if os.Getenv(EnvDisable) != "" {
-		return true
-	}
-	if updatecheck.IsCIEnv() {
-		return true
-	}
-	return !updatecheck.IsReleaseVersion(version)
 }
