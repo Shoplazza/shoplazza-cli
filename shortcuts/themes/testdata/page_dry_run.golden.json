@@ -27,9 +27,12 @@
       "query": null
     },
     {
-      "body": null,
-      "method": "GET",
-      "path": "/openapi/2026-01/themes/page-builder/custom-templates/\u003ccustom_id\u003e",
+      "body": {
+        "id": "\u003ccustom_id\u003e",
+        "type": "custom"
+      },
+      "method": "POST",
+      "path": "/openapi/2026-01/themes/page-builder/summary",
       "query": null
     }
   ]

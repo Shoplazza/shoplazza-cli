@@ -222,6 +222,21 @@ func pbCustomID(sectionType string) (string, bool) {
 	return m[1], true
 }
 
+// pbTemplateTypeRe matches either PB card family and captures its scope plus
+// template id ({family}-{N} in .../page-builder/blocks/{family}-{N}).
+var pbTemplateTypeRe = regexp.MustCompile(`page-builder/blocks/(custom|global)-(\d+)`)
+
+// pbTemplateRef extracts a PB card's bare template id and the scope the summary
+// endpoint calls "type" (custom | global). Returns ok=false for theme cards,
+// app blocks, and PB cards whose type carries no numeric template id.
+func pbTemplateRef(sectionType string) (id, scope string, ok bool) {
+	m := pbTemplateTypeRe.FindStringSubmatch(sectionType)
+	if m == nil {
+		return "", "", false
+	}
+	return m[2], m[1], true
+}
+
 // isPbType reports whether a section type belongs to the page-builder app
 // (custom- and global- families) — broader than pbCustomID's custom-only capture.
 func isPbType(sectionType string) bool {
