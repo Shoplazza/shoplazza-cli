@@ -25,7 +25,10 @@ import (
 )
 
 const (
-	manifestName    = "manifest.json"
+	// manifestPath has no extension on purpose: the endpoint answers about the
+	// manifest rather than serving the bucket's manifest.json. specDir is the
+	// opposite — those archives come back verbatim.
+	manifestPath    = "manifest"
 	specDir         = "specs/"
 	fetchTimeout    = 5 * time.Second
 	maxManifestBody = 256 << 10 // 256 KB
@@ -101,12 +104,12 @@ func getLimited(ctx context.Context, url string, limit int64) ([]byte, error) {
 	return body, nil
 }
 
-// manifestURL declares what this build can use and what it already has; the
-// server picks the manifest to serve from the former and decides whether the
-// client needs it from the latter.
+// manifestURL declares what this build is and what it already has. The server
+// decides from the latter whether an update is needed; the former is currently
+// unread there, kept so a per-version rollout stays a server-side change.
 func manifestURL(cliVersion, localRevision string) string {
 	q := url.Values{"cli_version": {cliVersion}, "revision": {localRevision}}
-	return originURL() + manifestName + "?" + q.Encode()
+	return originURL() + manifestPath + "?" + q.Encode()
 }
 
 func fetchManifest(ctx context.Context, cliVersion, localRevision string) (*Manifest, error) {

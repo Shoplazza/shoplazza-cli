@@ -83,7 +83,7 @@ func newRemote(t *testing.T, manifest Manifest, gzSpec []byte) *remote {
 	r.manifest = mb
 	r.specs = map[string][]byte{testSpecName: gzSpec}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/manifest.json", func(w http.ResponseWriter, req *http.Request) {
+	mux.HandleFunc("/manifest", func(w http.ResponseWriter, req *http.Request) {
 		r.lastQuery.Store(req.URL.RawQuery)
 		_, _ = w.Write(r.manifest)
 	})
@@ -322,7 +322,7 @@ func TestDoRefresh_OversizedManifestRejected(t *testing.T) {
 
 func TestDoRefresh_ManifestHTTPError(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/manifest.json", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/manifest", func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "nope", http.StatusNotFound)
 	})
 	srv := httptest.NewServer(mux)
