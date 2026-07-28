@@ -40,6 +40,10 @@ The structured-output contract, uniform across commands:
 **Response bodies nest under `.data`**, so every `jq` path starts at `.data` (e.g.
 `.data.products[].id`). Missing the `.data` prefix is the most common extraction mistake.
 
+**Exception — local commands have no envelope.** `auth status` / `auth scopes` /
+`profile list` print their object at the top level (no `{ok,data}`, no `--jq` support);
+read fields directly (e.g. `logged_in`).
+
 ## Common flags
 
 | Flag | Notes |
@@ -83,6 +87,19 @@ Supports `--params` / `--data` (incl. `-` for stdin, `@file` for a file), `--dry
 (e.g. `shop redirects`).
 
 ## Authentication (auth)
+
+### Login-state preflight
+
+**Before the first store operation in a session, run `shoplazza auth status`** (local, instant,
+no envelope). Two independent things must both be true:
+
+- `logged_in: true` — account credentials exist. If `false` → run the login flow below.
+- `profiles` non-empty — a store is bound. `logged_in: true` with `profiles: []` still cannot
+  reach any store API; ask which store and run `auth login -s <store> --domain <modules>`.
+
+If you skip the preflight, an unauthenticated business command fails fast with a
+`validation` error — `"no profile configured"` plus a `hint` naming the fix. Treat that the
+same way: don't retry, guide the user through login first.
 
 ### Login
 
