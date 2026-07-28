@@ -105,11 +105,10 @@ func TestMetaCache_CorruptCacheFallsBack(t *testing.T) {
 		t.Fatal("corrupt cache must not register modules")
 	}
 	// Embedded tree still works.
-	stdout, stderr, code := runCLI(t, bin, env, "products", "--help")
+	_, stderr, code := runCLI(t, bin, env, "products", "--help")
 	if code != 0 {
 		t.Fatalf("embedded fallback broken, exit=%d stderr=%s", code, stderr)
 	}
-	_ = stdout
 
 	if msg := doctorMetadataMessage(t, bin, env); !strings.Contains(msg, "source=embedded") {
 		t.Fatalf("doctor should report embedded fallback, got %q", msg)
