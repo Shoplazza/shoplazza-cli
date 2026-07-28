@@ -388,7 +388,9 @@ func expandPbCanvas(ctx context.Context, in common.ExecInput, rows []map[string]
 			defer func() { <-sem }()
 			resp, err := common.Send(ctx, in.Client, PlanPbSummary(templateID, scope))
 			if err != nil {
-				row["canvas_error"] = fmt.Sprintf("pb %s template %s unavailable on this store: %v", scope, templateID, err)
+				// Identify the card, then pass the summary error through
+				// verbatim — status and body are the server's to interpret.
+				row["canvas_error"] = fmt.Sprintf("pb %s template %s: %v", scope, templateID, err)
 				return
 			}
 			root := resp

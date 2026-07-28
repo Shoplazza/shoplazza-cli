@@ -596,7 +596,12 @@ func TestPage_IncludePbDegradesOnMissingTemplate(t *testing.T) {
 	if pb["canvas"] != nil {
 		t.Errorf("canvas must be absent, got %v", pb["canvas"])
 	}
-	if ce, _ := pb["canvas_error"].(string); !strings.Contains(ce, "unavailable") {
-		t.Errorf("canvas_error = %v", pb["canvas_error"])
+	// The card is identified, then the server's status and body pass through
+	// verbatim — the CLI adds no interpretation of its own.
+	ce, _ := pb["canvas_error"].(string)
+	for _, want := range []string{"pb custom template 9527", "status=500", "拉取模版失败（status=404）"} {
+		if !strings.Contains(ce, want) {
+			t.Errorf("canvas_error = %q, missing %q", ce, want)
+		}
 	}
 }

@@ -172,12 +172,6 @@ func PlanSchemasGet(oseid, docID, sectionID string) common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: editSessionBase(oseid) + "/files/" + docID + "/sections/" + sectionID}
 }
 
-// PlanPbBlocksGet describes GET /themes/page-builder/custom-templates/{id}
-// (themes pb-blocks-get): the canvas text of a page-builder custom template.
-func PlanPbBlocksGet(templateID string, query map[string]any) common.PlannedRequest {
-	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601 + "/page-builder/custom-templates/" + templateID, Query: query}
-}
-
 // PlanPbSummary describes POST /themes/page-builder/summary (themes pb summary):
 // render a PB template into canvas text by id, the engine fetching its schema
 // server-side. scope is the endpoint's "type" — "custom" (custom-templates) or
