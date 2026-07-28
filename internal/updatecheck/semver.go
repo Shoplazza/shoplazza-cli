@@ -43,8 +43,8 @@ func parseVersion(v string) *[3]int {
 	return &out
 }
 
-// IsReleaseVersion reports whether v is a released version (strict X.Y.Z, optional v prefix).
+// isReleaseVersion reports whether v is a released version (strict X.Y.Z, optional v prefix).
 // dev/git-describe builds and any other non-three-numeric-part strings fail to parse and are treated as non-release.
-func IsReleaseVersion(v string) bool {
+func isReleaseVersion(v string) bool {
 	return parseVersion(v) != nil
 }

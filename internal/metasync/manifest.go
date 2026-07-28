@@ -27,9 +27,8 @@ import (
 const (
 	manifestPath = "manifest" // answers about the manifest, does not serve it
 	specDir      = "specs/"
-	// Each request gets the budget its payload deserves: the probe is a few
-	// hundred bytes and must not stall a command, the download is up to 8 MB
-	// and a slow link has to be allowed to finish it.
+	// Per-payload budgets: the probe must not stall a command, the download is
+	// up to 8 MB and has to be allowed to finish on a slow link.
 	probeTimeout    = 5 * time.Second
 	specTimeout     = 60 * time.Second
 	maxManifestBody = 256 << 10 // 256 KB
@@ -40,16 +39,14 @@ const (
 // metaRoutePrefix is the CliMetaService route; it shares the saiga auth host.
 const metaRoutePrefix = "/api/saiga/cli/meta/"
 
-// metaClient serves both the manifest poll and the spec download, with no
-// client-wide timeout: those two are not the same wait, so the budget rides on
-// each request's context instead (which a client-wide Timeout would ignore).
-// Tests point SHOPLAZZA_CLI_META_ORIGIN at a local server rather than swapping
-// this out.
+// metaClient carries no client-wide timeout on purpose: the poll and the
+// download are not the same wait, so each request's context holds the budget.
+// Tests redirect it with EnvOrigin rather than swapping it out.
 var metaClient = &http.Client{}
 
-// Manifest is the small remote index the client polls. UpToDate marks the
+// manifest is the small remote index the client polls. UpToDate marks the
 // server's "you already have this" answer, which carries no other field.
-type Manifest struct {
+type manifest struct {
 	Revision string `json:"revision"`
 	Filename string `json:"filename"`
 	SHA256   string `json:"sha256"`
@@ -61,10 +58,10 @@ type Manifest struct {
 // else — a path, another host — cannot steer the download.
 var specNameRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{6}Z\.json\.gz$`)
 
-// originURL returns the metadata origin: SHOPLAZZA_CLI_META_ORIGIN, else
-// derived from the auth base URL.
+// originURL returns the metadata origin: EnvOrigin, else derived from the auth
+// base URL.
 func originURL() string {
-	v := os.Getenv("SHOPLAZZA_CLI_META_ORIGIN")
+	v := os.Getenv(EnvOrigin)
 	if v == "" {
 		base := os.Getenv("SHOPLAZZA_CLI_AUTH_BASE_URL")
 		if base == "" {
@@ -112,12 +109,12 @@ func manifestURL(cliVersion, localRevision string) string {
 	return originURL() + manifestPath + "?" + q.Encode()
 }
 
-func fetchManifest(ctx context.Context, cliVersion, localRevision string) (*Manifest, error) {
+func fetchManifest(ctx context.Context, cliVersion, localRevision string) (*manifest, error) {
 	body, err := getLimited(ctx, manifestURL(cliVersion, localRevision), maxManifestBody, probeTimeout)
 	if err != nil {
 		return nil, err
 	}
-	var m Manifest
+	var m manifest
 	if err := json.Unmarshal(body, &m); err != nil {
 		return nil, fmt.Errorf("metasync: manifest: %w", err)
 	}
@@ -139,7 +136,7 @@ func fetchManifest(ctx context.Context, cliVersion, localRevision string) (*Mani
 
 // fetchSpec downloads the gzipped spec named by m, verifies its sha256 and
 // returns the decompressed bytes.
-func fetchSpec(ctx context.Context, m *Manifest) ([]byte, error) {
+func fetchSpec(ctx context.Context, m *manifest) ([]byte, error) {
 	body, err := getLimited(ctx, originURL()+specDir+m.Filename, maxSpecBody, specTimeout)
 	if err != nil {
 		return nil, err

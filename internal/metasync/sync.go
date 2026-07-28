@@ -17,8 +17,12 @@ const (
 	failureBackoff = time.Hour
 )
 
-// EnvDisable disables all metadata refreshes when set.
-const EnvDisable = "SHOPLAZZA_CLI_NO_META_UPDATE"
+const (
+	// EnvDisable disables all metadata refreshes when set.
+	EnvDisable = "SHOPLAZZA_CLI_NO_META_UPDATE"
+	// EnvOrigin overrides the metadata origin (tests, non-default environments).
+	EnvOrigin = "SHOPLAZZA_CLI_META_ORIGIN"
+)
 
 // Result describes the outcome of a refresh.
 type Result struct {
@@ -91,11 +95,9 @@ func doRefresh(ctx context.Context, currentVersion string) (Result, error) {
 		markChecked(origin)
 		return res, nil
 	}
-	// Same rule registry.loadCachedSpec adopts by, applied before we overwrite:
-	// a revision no newer than the local one is not an update. Without this a
-	// stale or rolled-back manifest replaces a good cache with a spec LoadSpec
-	// then refuses, dropping the CLI back to the embedded copy — and re-costs
-	// the download every TTL, since the local revision never advances.
+	// LoadSpec adopts by this same rule, so overwriting the cache with anything
+	// it would refuse just drops us to the embedded spec and re-downloads every
+	// TTL.
 	if m.Revision <= local {
 		markChecked(origin)
 		return res, nil
@@ -121,7 +123,7 @@ func doRefresh(ctx context.Context, currentVersion string) (Result, error) {
 	if err := fsx.WriteFileAtomic(path, raw, 0o600); err != nil {
 		return res, err
 	}
-	_ = saveState(&state{LastCheckedAt: time.Now().Unix(), Origin: origin})
+	markChecked(origin)
 	res.NewRevision, res.Updated = m.Revision, true
 	return res, nil
 }

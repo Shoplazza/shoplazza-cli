@@ -66,17 +66,17 @@ func (r *remote) publish(t *testing.T, rev string, raw []byte) {
 	gz := gzipBytes(t, raw)
 	name := strings.ReplaceAll(rev, ":", "") + ".json.gz"
 	r.specs[name] = gz
-	mb, err := json.Marshal(Manifest{Revision: rev, Filename: name, SHA256: sha256Hex(gz)})
+	mb, err := json.Marshal(manifest{Revision: rev, Filename: name, SHA256: sha256Hex(gz)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	r.manifest = mb
 }
 
-func newRemote(t *testing.T, manifest Manifest, gzSpec []byte) *remote {
+func newRemote(t *testing.T, m manifest, gzSpec []byte) *remote {
 	t.Helper()
 	r := &remote{}
-	mb, err := json.Marshal(manifest)
+	mb, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func setup(t *testing.T, r *remote) {
 	if r != nil {
 		origin = r.srv.URL + "/"
 	}
-	t.Setenv("SHOPLAZZA_CLI_META_ORIGIN", origin)
+	t.Setenv(EnvOrigin, origin)
 	for _, k := range []string{"CI", "BUILD_NUMBER", "RUN_ID", "SHOPLAZZA_CLI_NO_META_UPDATE"} {
 		t.Setenv(k, "")
 	}
@@ -133,8 +133,8 @@ func readCache(t *testing.T) []byte {
 // client's allowlist before a download is attempted.
 const testSpecName = "9998-01-01T000000Z.json.gz"
 
-func manifestFor(raw []byte, rev string) Manifest {
-	return Manifest{Revision: rev, Filename: testSpecName, SHA256: sha256Hex(raw)}
+func manifestFor(raw []byte, rev string) manifest {
+	return manifest{Revision: rev, Filename: testSpecName, SHA256: sha256Hex(raw)}
 }
 
 func TestDoRefresh_HappyPath(t *testing.T) {
@@ -247,42 +247,42 @@ func TestDoRefresh_Gates(t *testing.T) {
 func TestDoRefresh_RejectsBadPayloads(t *testing.T) {
 	valid := specJSON(futureRev)
 	cases := []struct {
-		name     string
-		manifest func(gz []byte) Manifest
-		body     func(t *testing.T) []byte
+		name  string
+		build func(gz []byte) manifest
+		body  func(t *testing.T) []byte
 	}{
 		{
-			name:     "sha256 mismatch",
-			manifest: func(gz []byte) Manifest { m := manifestFor(gz, futureRev); m.SHA256 = sha256Hex([]byte("x")); return m },
-			body:     func(t *testing.T) []byte { return gzipBytes(t, valid) },
+			name:  "sha256 mismatch",
+			build: func(gz []byte) manifest { m := manifestFor(gz, futureRev); m.SHA256 = sha256Hex([]byte("x")); return m },
+			body:  func(t *testing.T) []byte { return gzipBytes(t, valid) },
 		},
 		{
-			name:     "corrupt gzip",
-			manifest: func(gz []byte) Manifest { return manifestFor(gz, futureRev) },
-			body:     func(_ *testing.T) []byte { return []byte("not a gzip stream") },
+			name:  "corrupt gzip",
+			build: func(gz []byte) manifest { return manifestFor(gz, futureRev) },
+			body:  func(_ *testing.T) []byte { return []byte("not a gzip stream") },
 		},
 		{
-			name:     "revision mismatch inside spec",
-			manifest: func(gz []byte) Manifest { return manifestFor(gz, futureRev) },
-			body:     func(t *testing.T) []byte { return gzipBytes(t, specJSON("9997-01-01T00:00:00Z")) },
+			name:  "revision mismatch inside spec",
+			build: func(gz []byte) manifest { return manifestFor(gz, futureRev) },
+			body:  func(t *testing.T) []byte { return gzipBytes(t, specJSON("9997-01-01T00:00:00Z")) },
 		},
 		{
-			name:     "empty modules",
-			manifest: func(gz []byte) Manifest { return manifestFor(gz, futureRev) },
+			name:  "empty modules",
+			build: func(gz []byte) manifest { return manifestFor(gz, futureRev) },
 			body: func(t *testing.T) []byte {
 				return gzipBytes(t, []byte(`{"version":"v","generated_at":"`+futureRev+`","modules":[]}`))
 			},
 		},
 		{
-			name:     "spec not valid json",
-			manifest: func(gz []byte) Manifest { return manifestFor(gz, futureRev) },
-			body:     func(t *testing.T) []byte { return gzipBytes(t, []byte("{nope")) },
+			name:  "spec not valid json",
+			build: func(gz []byte) manifest { return manifestFor(gz, futureRev) },
+			body:  func(t *testing.T) []byte { return gzipBytes(t, []byte("{nope")) },
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			body := tc.body(t)
-			r := newRemote(t, tc.manifest(body), body)
+			r := newRemote(t, tc.build(body), body)
 			setup(t, r)
 
 			if _, err := ForceRefresh(context.Background(), "1.0.0"); err == nil {
@@ -323,7 +323,7 @@ func TestDoRefresh_ManifestHTTPError(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_CLI_META_ORIGIN", srv.URL+"/")
+	t.Setenv(EnvOrigin, srv.URL+"/")
 
 	if _, err := ForceRefresh(context.Background(), "1.0.0"); err == nil {
 		t.Fatal("expected error for HTTP 404 manifest")
@@ -404,7 +404,7 @@ func TestDoRefresh_OriginSwitchRepairsCache(t *testing.T) {
 	prodRaw := specJSON(prodRev)
 	prodGz := gzipBytes(t, prodRaw)
 	prod := newRemote(t, manifestFor(prodGz, prodRev), prodGz)
-	t.Setenv("SHOPLAZZA_CLI_META_ORIGIN", prod.srv.URL+"/")
+	t.Setenv(EnvOrigin, prod.srv.URL+"/")
 
 	res, err := ForceRefresh(context.Background(), "1.0.0")
 	if err != nil {
@@ -425,7 +425,7 @@ func TestDoRefresh_RejectsRevisionNotNewerThanLocal(t *testing.T) {
 	t.Run("older than embedded is never downloaded", func(t *testing.T) {
 		const staleRev = "2020-01-01T00:00:00Z"
 		gz := gzipBytes(t, specJSON(staleRev))
-		r := newRemote(t, Manifest{
+		r := newRemote(t, manifest{
 			Revision: staleRev,
 			Filename: "2020-01-01T000000Z.json.gz",
 			SHA256:   sha256Hex(gz),
@@ -486,14 +486,14 @@ func TestDoRefresh_RejectsRevisionNotNewerThanLocal(t *testing.T) {
 func TestFetchManifest_RejectsMalformed(t *testing.T) {
 	cases := []struct {
 		name   string
-		mutate func(m *Manifest)
+		mutate func(m *manifest)
 	}{
-		{name: "non-canonical revision", mutate: func(m *Manifest) { m.Revision = "2026-07-13T12:00:00+08:00" }},
-		{name: "absolute filename", mutate: func(m *Manifest) { m.Filename = "https://evil.example/spec.json.gz" }},
-		{name: "rooted filename", mutate: func(m *Manifest) { m.Filename = "/etc/spec.json.gz" }},
-		{name: "traversal filename", mutate: func(m *Manifest) { m.Filename = "../other/spec.json.gz" }},
-		{name: "filename carries the specs prefix", mutate: func(m *Manifest) { m.Filename = "specs/" + testSpecName }},
-		{name: "filename is not an archive", mutate: func(m *Manifest) { m.Filename = "manifest.json" }},
+		{name: "non-canonical revision", mutate: func(m *manifest) { m.Revision = "2026-07-13T12:00:00+08:00" }},
+		{name: "absolute filename", mutate: func(m *manifest) { m.Filename = "https://evil.example/spec.json.gz" }},
+		{name: "rooted filename", mutate: func(m *manifest) { m.Filename = "/etc/spec.json.gz" }},
+		{name: "traversal filename", mutate: func(m *manifest) { m.Filename = "../other/spec.json.gz" }},
+		{name: "filename carries the specs prefix", mutate: func(m *manifest) { m.Filename = "specs/" + testSpecName }},
+		{name: "filename is not an archive", mutate: func(m *manifest) { m.Filename = "manifest.json" }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -642,11 +642,11 @@ func TestCurrentStatus(t *testing.T) {
 }
 
 func TestOriginURL(t *testing.T) {
-	t.Setenv("SHOPLAZZA_CLI_META_ORIGIN", "http://example.test/meta")
+	t.Setenv(EnvOrigin, "http://example.test/meta")
 	if got := originURL(); got != "http://example.test/meta/" {
 		t.Fatalf("originURL() = %q, want trailing slash added", got)
 	}
-	t.Setenv("SHOPLAZZA_CLI_META_ORIGIN", "")
+	t.Setenv(EnvOrigin, "")
 	t.Setenv("SHOPLAZZA_CLI_AUTH_BASE_URL", "")
 	want := build.DefaultAuthBaseURL + metaRoutePrefix
 	if got := originURL(); got != want {
@@ -656,7 +656,7 @@ func TestOriginURL(t *testing.T) {
 	if got := originURL(); got != "https://stg-partners.example/api/saiga/cli/meta/" {
 		t.Fatalf("originURL() = %q, want auth-base derivation", got)
 	}
-	t.Setenv("SHOPLAZZA_CLI_META_ORIGIN", "http://override.test/x/")
+	t.Setenv(EnvOrigin, "http://override.test/x/")
 	if got := originURL(); got != "http://override.test/x/" {
 		t.Fatalf("originURL() = %q, explicit META_ORIGIN must win", got)
 	}
@@ -699,6 +699,6 @@ func TestGetLimited_HonorsCallerCancel(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	// Belt and braces: never let a stray test hit the real default origin.
-	os.Setenv("SHOPLAZZA_CLI_META_ORIGIN", fmt.Sprintf("http://127.0.0.1:0/unreachable-%d/", os.Getpid()))
+	os.Setenv(EnvOrigin, fmt.Sprintf("http://127.0.0.1:0/unreachable-%d/", os.Getpid()))
 	os.Exit(m.Run())
 }

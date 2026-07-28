@@ -91,28 +91,25 @@ func RefreshCache(currentVersion string) {
 	_ = saveState(&state{LatestVersion: latest, CheckedAt: time.Now().Unix()})
 }
 
-// Fresh reports whether a check stamped ts is still within ttl. A timestamp in
-// the future — the clock was set forward and then corrected — counts as stale
-// rather than fresh, so the gate self-heals on the next run instead of latching
-// shut until the clock catches back up.
+// Fresh reports whether a check stamped ts is still within ttl. A future
+// timestamp (corrected clock) counts as stale, so the gate self-heals instead
+// of latching shut.
 func Fresh(ts time.Time, ttl time.Duration) bool {
 	d := time.Since(ts)
 	return d >= 0 && d < ttl
 }
 
 // ShouldSkip reports whether a background self-maintenance check should stay
-// quiet: opted out, running in CI, or not a released build ("", "dev" and
-// git-describe builds all fail IsReleaseVersion). envDisable is the caller's
-// own opt-out var — the update check and the metadata refresh have to be
-// disablable apart.
+// quiet: opted out, in CI, or not a released build. envDisable is the caller's
+// own opt-out var, so the two callers stay separately disablable.
 func ShouldSkip(envDisable, version string) bool {
 	if os.Getenv(envDisable) != "" {
 		return true
 	}
-	return IsCIEnv() || !IsReleaseVersion(version)
+	return isCIEnv() || !isReleaseVersion(version)
 }
 
-func IsCIEnv() bool {
+func isCIEnv() bool {
 	for _, k := range []string{"CI", "BUILD_NUMBER", "RUN_ID"} {
 		if os.Getenv(k) != "" {
 			return true

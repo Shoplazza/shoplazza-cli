@@ -187,10 +187,9 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 			newVersion = v
 		}
 	}
-	// npm installed something, but both lookups failed to say what. The notice
-	// and the metadata probe still need a version — an empty cli_version leaves
-	// the server's per-version rollout nothing to key on — so fall back to the
-	// version we came from. The body keeps "" to report the lookup as unknown.
+	// npm installed something but neither lookup said what. Fall back to the
+	// version we came from, since the notice and the metadata probe both need
+	// one; the body keeps "" to report the lookup as unknown.
 	installed := newVersion
 	if installed == "" {
 		installed = current
