@@ -1,8 +1,6 @@
 package metasync
 
 import (
-	"encoding/json"
-	"os"
 	"path/filepath"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
@@ -27,20 +25,18 @@ func statePath() (string, error) {
 	return filepath.Join(dir, stateFile), nil
 }
 
+// loadState reports nil for every failure: a missing or corrupt state file
+// only costs an extra check.
 func loadState() *state {
 	path, err := statePath()
 	if err != nil {
 		return nil
 	}
-	data, err := os.ReadFile(path)
+	s, err := fsx.ReadJSON[state](path)
 	if err != nil {
 		return nil
 	}
-	var s state
-	if err := json.Unmarshal(data, &s); err != nil {
-		return nil
-	}
-	return &s
+	return s
 }
 
 func saveState(s *state) error {
@@ -48,12 +44,5 @@ func saveState(s *state) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := json.Marshal(s)
-	if err != nil {
-		return err
-	}
-	return fsx.WriteFileAtomic(path, data, 0o600)
+	return fsx.WriteJSON(path, s, 0o600)
 }

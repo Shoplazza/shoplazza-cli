@@ -2,6 +2,7 @@
 package fsx
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 )
@@ -33,4 +34,30 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	return nil
+}
+
+// ReadJSON reads path and unmarshals it into a fresh T.
+func ReadJSON[T any](path string) (*T, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var v T
+	if err := json.Unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// WriteJSON marshals v and writes it to path atomically, creating the parent
+// directory if needed.
+func WriteJSON(path string, v any, perm os.FileMode) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return WriteFileAtomic(path, data, perm)
 }
