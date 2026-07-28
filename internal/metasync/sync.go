@@ -91,6 +91,15 @@ func doRefresh(ctx context.Context, currentVersion string) (Result, error) {
 		markChecked(origin)
 		return res, nil
 	}
+	// Same rule registry.loadCachedSpec adopts by, applied before we overwrite:
+	// a revision no newer than the local one is not an update. Without this a
+	// stale or rolled-back manifest replaces a good cache with a spec LoadSpec
+	// then refuses, dropping the CLI back to the embedded copy — and re-costs
+	// the download every TTL, since the local revision never advances.
+	if m.Revision <= local {
+		markChecked(origin)
+		return res, nil
+	}
 	raw, err := fetchSpec(ctx, m)
 	if err != nil {
 		return res, err

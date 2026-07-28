@@ -418,6 +418,70 @@ func TestDoRefresh_OriginSwitchRepairsCache(t *testing.T) {
 	}
 }
 
+// A revision no newer than the local one is not an update. registry.LoadSpec
+// would refuse such a spec anyway, so adopting it would trade a good cache for
+// a silent fall back to the embedded copy.
+func TestDoRefresh_RejectsRevisionNotNewerThanLocal(t *testing.T) {
+	t.Run("older than embedded is never downloaded", func(t *testing.T) {
+		const staleRev = "2020-01-01T00:00:00Z"
+		gz := gzipBytes(t, specJSON(staleRev))
+		r := newRemote(t, Manifest{
+			Revision: staleRev,
+			Filename: "2020-01-01T000000Z.json.gz",
+			SHA256:   sha256Hex(gz),
+		}, gz)
+		setup(t, r)
+
+		res, err := ForceRefresh(context.Background(), "1.0.0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Updated || res.NewRevision != "" {
+			t.Fatalf("a stale revision must not count as an update: %+v", res)
+		}
+		if got := r.specHits.Load(); got != 0 {
+			t.Fatalf("spec downloads = %d, want 0", got)
+		}
+		if readCache(t) != nil {
+			t.Fatal("a stale revision must not be written to the cache")
+		}
+		// Still a completed check: nothing failed, so the TTL clock advances
+		// instead of re-downloading the same unusable spec every run.
+		if s := loadState(); s == nil || s.LastCheckedAt == 0 || s.LastFailureAt != 0 {
+			t.Fatalf("unexpected state: %+v", s)
+		}
+	})
+
+	t.Run("server rollback keeps the newer cache", func(t *testing.T) {
+		adoptedRaw := specJSON(futureRev) // 9998-...
+		gz := gzipBytes(t, adoptedRaw)
+		r := newRemote(t, manifestFor(gz, futureRev), gz)
+		setup(t, r)
+		if _, err := ForceRefresh(context.Background(), "1.0.0"); err != nil {
+			t.Fatal(err)
+		}
+
+		// The bucket rolls back to a revision still newer than embedded, but
+		// older than what this client already adopted.
+		const rolledBackRev = "9997-01-01T00:00:00Z"
+		r.publish(t, rolledBackRev, specJSON(rolledBackRev))
+
+		res, err := ForceRefresh(context.Background(), "1.0.0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Updated || res.OldRevision != futureRev {
+			t.Fatalf("a rollback must not count as an update: %+v", res)
+		}
+		if !bytes.Equal(readCache(t), adoptedRaw) {
+			t.Fatal("the newer cached spec must survive a server rollback")
+		}
+		if got := r.specHits.Load(); got != 1 {
+			t.Fatalf("spec downloads = %d, want only the first adoption", got)
+		}
+	})
+}
+
 // Malformed manifests are rejected before any spec download.
 func TestFetchManifest_RejectsMalformed(t *testing.T) {
 	cases := []struct {
