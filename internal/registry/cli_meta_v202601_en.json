@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-24T05:48:34Z",
+  "generated_at": "2026-07-28T06:53:45Z",
   "modules": [
     {
       "name": "billing",
@@ -11134,7 +11134,7 @@
             "save-block"
           ],
           "summary": "Save page-builder block",
-          "description": "Create or update a page-builder custom template block.",
+          "description": "Create or update a page-builder custom template block: the downstream apply-ops aggregate applies\nops to the base template and saves the card, then the new card is written into the target section\nof the edit session (skipped when the base template's event_type is not \"theme\").",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11189,7 +11189,7 @@
               {
                 "name": "origin",
                 "type": "string",
-                "description": "Origin scope: \"global\" or other"
+                "description": "Base template scope: \"custom\" or \"global\". Empty looks up custom first, then global; any other value is rejected"
               },
               {
                 "name": "ops",
@@ -11198,7 +11198,7 @@
                   "type": "object",
                   "schema": "google.protobuf.Struct"
                 },
-                "description": "Operations (AI output) applied via pbheadless/update before save; may be empty"
+                "description": "Operations (AI output) applied before save"
               },
               {
                 "name": "oseid",
@@ -11307,8 +11307,8 @@
             "pb",
             "summary"
           ],
-          "summary": "Render a full schema into a canvas text snapshot (LLM-friendly)",
-          "description": "Take a full schema and return a canvas text snapshot (with #path ids) for the LLM.",
+          "summary": "Render a template into a canvas text snapshot (LLM-friendly)",
+          "description": "Pass a template id (the engine fetches its schema server-side) or a full schema, and get back a\ncanvas text snapshot (with #path ids) for the LLM. Call it once when a conversation starts: later\npb update replies already carry the same text, so editing rounds need no repeat call.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11316,14 +11316,12 @@
             "body": "*"
           },
           "body": {
-            "required": true,
             "fields": [
               {
                 "name": "schema",
                 "type": "object",
                 "schema": "google.protobuf.Struct",
-                "required": true,
-                "description": "Full ProjectData schema"
+                "description": "Full ProjectData schema; either schema or id (prefer id)"
               },
               {
                 "name": "detail_level",
@@ -11337,6 +11335,16 @@
                   "type": "string"
                 },
                 "description": "Node paths to expand details for, e.g. \"0.1.2\""
+              },
+              {
+                "name": "id",
+                "type": "string",
+                "description": "Template id to summarize: the engine fetches its schema server-side. Either id or schema — prefer id so the full schema stays out of the request"
+              },
+              {
+                "name": "type",
+                "type": "string",
+                "description": "Template type when fetching by id: \"custom\" (default, custom-templates) | \"global\" (global-templates). Only honored with id; any other value is rejected. Same custom/global scope that save-block calls \"origin\""
               }
             ]
           },
@@ -11914,7 +11922,7 @@
           "hidden": false,
           "http": {
             "method": "POST",
-            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/templates/{template_id}/operations",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/files/{doc_id}/operations",
             "body": "*"
           },
           "parameters": [
@@ -11927,11 +11935,11 @@
               "min_length": 1
             },
             {
-              "name": "template_id",
+              "name": "doc_id",
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Template ID within the edit session",
+              "description": "Document ID of the file within the session",
               "min_length": 1
             }
           ],
