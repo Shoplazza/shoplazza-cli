@@ -13,8 +13,11 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/metasync"
 )
 
-// TestMain stubs the metadata refresh so runUpdate tests never hit the network.
+// TestMain stubs the metadata refresh so runUpdate tests never hit the network,
+// and clears the opt-out env so a developer or CI job that exports it doesn't
+// suppress the very refresh these tests assert on.
 func TestMain(m *testing.M) {
+	os.Unsetenv(metasync.EnvDisable)
 	metaRefresh = func(context.Context, string) (metasync.Result, error) {
 		return metasync.Result{OldRevision: "r0"}, nil
 	}

@@ -187,12 +187,20 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 			newVersion = v
 		}
 	}
-	fmt.Fprintf(errW, "✓ Updated %s %s → %s\n", npmPackage, current, newVersion)
+	// npm installed something, but both lookups failed to say what. The notice
+	// and the metadata probe still need a version — an empty cli_version leaves
+	// the server's per-version rollout nothing to key on — so fall back to the
+	// version we came from. The body keeps "" to report the lookup as unknown.
+	installed := newVersion
+	if installed == "" {
+		installed = current
+	}
+	fmt.Fprintf(errW, "✓ Updated %s %s → %s\n", npmPackage, current, installed)
 
 	body := map[string]any{
 		"ok": true, "package": npmPackage, "previous": current, "latest": newVersion, "updated": true,
 	}
-	meta := refreshMetadata(ctx, newVersion)
+	meta := refreshMetadata(ctx, installed)
 	meta.mergeInto(body)
 	return output.PrintBody(out, body, format, "")
 }
