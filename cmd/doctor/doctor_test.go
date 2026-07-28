@@ -106,9 +106,9 @@ func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 	}
 }
 
-// GATE-12: a pre-v2 config with no auth/locks directories yet warns on both
-// the configVersion and migration-residue checks, and the directory check
-// warns rather than fails (directories are created lazily).
+// GATE-12: a pre-v2 config warns that it has not migrated. The missing
+// auth/locks directories are not part of that — they are created on first
+// write, and the config directory here is writable, so nothing is broken.
 func TestDoctorCheck_V1MissingDirs_Warns(t *testing.T) {
 	f, configPath := newTestFactory(t)
 	cfg := core.CliConfig{} // unmigrated: ConfigVersion 0, no profiles
@@ -135,8 +135,8 @@ func TestDoctorCheck_V1MissingDirs_Warns(t *testing.T) {
 	if byName["config_version"] != "warn" {
 		t.Errorf("config_version = %q, want warn", byName["config_version"])
 	}
-	if byName["auth_locks_dirs"] != "warn" {
-		t.Errorf("auth_locks_dirs = %q, want warn", byName["auth_locks_dirs"])
+	if byName["auth_locks_dirs"] != "ok" {
+		t.Errorf("auth_locks_dirs = %q, want ok — lazily created dirs are not a finding", byName["auth_locks_dirs"])
 	}
 }
 
@@ -222,5 +222,41 @@ func TestDoctorCheck_LocksNotWritable_Fails(t *testing.T) {
 	}
 	if byName["auth_locks_dirs"] != "fail" {
 		t.Errorf("auth_locks_dirs = %q, want fail", byName["auth_locks_dirs"])
+	}
+}
+
+// Neither directory exists yet and the config directory cannot be written, so
+// the lazy creation will fail too. Absence alone is fine; absence with no way
+// to fix it is the failure the check exists to name.
+func TestDoctorCheck_ConfigDirNotWritable_Fails(t *testing.T) {
+	f, configPath := newTestFactory(t)
+	cfg := core.CliConfig{ConfigVersion: 2}
+	if err := core.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("seed config: %v", err)
+	}
+	f.Config = cfg
+
+	configDir := filepath.Dir(configPath)
+	if err := os.Chmod(configDir, 0o500); err != nil {
+		t.Fatalf("chmod config dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(configDir, 0o700) })
+	skipIfDirWritable(t, configDir)
+
+	out := runDoctorCmd(t, f, "check")
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out)
+	}
+	byName := map[string]string{}
+	for _, c := range got["checks"].([]any) {
+		m := c.(map[string]any)
+		byName[m["name"].(string)] = m["status"].(string)
+	}
+	if byName["auth_locks_dirs"] != "fail" {
+		t.Errorf("auth_locks_dirs = %q, want fail", byName["auth_locks_dirs"])
+	}
+	if got["ok"] != false {
+		t.Errorf("ok = %v, want false", got["ok"])
 	}
 }

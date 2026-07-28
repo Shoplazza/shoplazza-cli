@@ -59,14 +59,8 @@ func newCmdCheck(f *cmdutil.Factory) *cobra.Command {
 	}
 }
 
-// runChecks runs the v2 config-health checks: configVersion, the auth/+locks
-// directory layout, and metadata provenance. All are local-disk reads only —
-// no network, no keychain.
-//
-// Every non-ok check drags the overall verdict to false, so a check earns its
-// place only by reporting something actually broken. Leftover v1 files are
-// not that: they sit there harmlessly, and flagging them taught readers to
-// discount the verdict.
+// runChecks runs the local-disk health checks — no network, no keychain. Any
+// non-ok result fails the whole verdict, so a check must report real breakage.
 func runChecks(f *cmdutil.Factory) []checkResult {
 	return []checkResult{
 		checkConfigVersion(f),
@@ -94,9 +88,8 @@ func configExists(f *cmdutil.Factory) bool {
 	return err == nil
 }
 
-// checkConfigVersion verifies config.json has completed the v1->v2 migration.
-// A fresh install (no config file yet) is a pass, not a warning — there's
-// nothing to migrate.
+// checkConfigVersion verifies config.json completed the v1->v2 migration. A
+// fresh install has nothing to migrate, so it passes.
 func checkConfigVersion(f *cmdutil.Factory) checkResult {
 	if !configExists(f) {
 		return checkResult{"config_version", "ok", "no config file yet — run 'shoplazza auth login' to get started"}
@@ -108,32 +101,33 @@ func checkConfigVersion(f *cmdutil.Factory) checkResult {
 		fmt.Sprintf("config is not on v2 (configVersion=%d) — run any command to trigger migration", f.Config.ConfigVersion)}
 }
 
-// checkAuthLocksDirs verifies the auth/ and locks/ directories next to
-// config.json exist and that locks/ is writable (config updates lock there).
-// Both directories are created lazily on first use, so their absence on a
-// fresh install is expected, not an error.
+// checkAuthLocksDirs verifies the CLI can write auth/ (credentials) and locks/
+// (taken on every config.json update). Both are created on first use, so a
+// missing one only matters when the config dir itself refuses writes.
 func checkAuthLocksDirs(f *cmdutil.Factory) checkResult {
 	if !configExists(f) {
 		return checkResult{"auth_locks_dirs", "ok", "no config yet — directories are created on first use"}
 	}
-	authDir := internalauth.AuthDir(f.ConfigPath)
-	locksDir := core.LocksDir(f.ConfigPath)
+	configDir := filepath.Dir(f.ConfigPath)
 
-	var missing []string
-	if !isDir(authDir) {
-		missing = append(missing, "auth/")
+	var blocked []string
+	for _, d := range []struct{ name, path, breaks string }{
+		{"auth/", internalauth.AuthDir(f.ConfigPath), "logins cannot store credentials"},
+		{"locks/", core.LocksDir(f.ConfigPath), "every config.json update fails"},
+	} {
+		probe := d.path
+		if !isDir(probe) {
+			probe = configDir // not created yet — can it still be?
+		}
+		if !isWritable(probe) {
+			blocked = append(blocked, d.name+" — "+d.breaks)
+		}
 	}
-	if !isDir(locksDir) {
-		missing = append(missing, "locks/")
+	if len(blocked) > 0 {
+		return checkResult{"auth_locks_dirs", "fail",
+			fmt.Sprintf("not writable under %s: %s", configDir, strings.Join(blocked, "; "))}
 	}
-	if len(missing) > 0 {
-		return checkResult{"auth_locks_dirs", "warn",
-			fmt.Sprintf("missing directories: %s (created lazily on first use)", strings.Join(missing, ", "))}
-	}
-	if !isWritable(locksDir) {
-		return checkResult{"auth_locks_dirs", "fail", "locks/ directory is not writable — commands that update config.json will fail"}
-	}
-	return checkResult{"auth_locks_dirs", "ok", "auth/ and locks/ directories present; locks/ is writable"}
+	return checkResult{"auth_locks_dirs", "ok", "auth/ and locks/ are writable"}
 }
 
 func isDir(path string) bool {
