@@ -60,13 +60,17 @@ func newCmdCheck(f *cmdutil.Factory) *cobra.Command {
 }
 
 // runChecks runs the v2 config-health checks: configVersion, the auth/+locks
-// directory layout, leftover v1 migration residue, and metadata provenance.
-// All are local-disk reads only — no network, no keychain.
+// directory layout, and metadata provenance. All are local-disk reads only —
+// no network, no keychain.
+//
+// Every non-ok check drags the overall verdict to false, so a check earns its
+// place only by reporting something actually broken. Leftover v1 files are
+// not that: they sit there harmlessly, and flagging them taught readers to
+// discount the verdict.
 func runChecks(f *cmdutil.Factory) []checkResult {
 	return []checkResult{
 		checkConfigVersion(f),
 		checkAuthLocksDirs(f),
-		checkMigrationResidue(f),
 		checkMetadata(),
 	}
 }
@@ -130,25 +134,6 @@ func checkAuthLocksDirs(f *cmdutil.Factory) checkResult {
 		return checkResult{"auth_locks_dirs", "fail", "locks/ directory is not writable — commands that update config.json will fail"}
 	}
 	return checkResult{"auth_locks_dirs", "ok", "auth/ and locks/ directories present; locks/ is writable"}
-}
-
-// checkMigrationResidue flags an incomplete migration or v1 leftovers. A
-// config.json.v1.bak backup is expected and purely informational (not
-// flagged); a leftover v1 auth.json next to a v2 config is residue worth
-// cleaning up.
-func checkMigrationResidue(f *cmdutil.Factory) checkResult {
-	if !configExists(f) {
-		return checkResult{"migration_residue", "ok", "no config yet"}
-	}
-	if f.Config.ConfigVersion < 2 {
-		return checkResult{"migration_residue", "warn", "config is still pre-v2 — migration has not completed"}
-	}
-	legacyAuth := filepath.Join(filepath.Dir(f.ConfigPath), "auth.json")
-	if _, err := os.Stat(legacyAuth); err == nil {
-		return checkResult{"migration_residue", "warn",
-			"leftover v1 auth.json found next to a v2 config — safe to remove once v2 is confirmed working"}
-	}
-	return checkResult{"migration_residue", "ok", "no migration residue found"}
 }
 
 func isDir(path string) bool {

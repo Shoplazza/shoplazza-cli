@@ -60,8 +60,19 @@ func TestNewCmdDoctor_Structure(t *testing.T) {
 	}
 }
 
+// seedAuthLocksDirs creates the two directories checkAuthLocksDirs looks for.
+func seedAuthLocksDirs(t *testing.T, configPath string) {
+	t.Helper()
+	if err := os.MkdirAll(internalauth.AuthDir(configPath), 0o700); err != nil {
+		t.Fatalf("mkdir auth: %v", err)
+	}
+	if err := os.MkdirAll(core.LocksDir(configPath), 0o700); err != nil {
+		t.Fatalf("mkdir locks: %v", err)
+	}
+}
+
 // GATE-11: a healthy v2 config (configVersion=2, auth/+locks/ present and
-// writable, no leftover v1 auth.json) passes every check.
+// writable) passes every check.
 func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 	f, configPath := newTestFactory(t)
 	cfg := core.CliConfig{ConfigVersion: 2}
@@ -69,12 +80,7 @@ func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 		t.Fatalf("seed config: %v", err)
 	}
 	f.Config = cfg
-	if err := os.MkdirAll(internalauth.AuthDir(configPath), 0o700); err != nil {
-		t.Fatalf("mkdir auth: %v", err)
-	}
-	if err := os.MkdirAll(core.LocksDir(configPath), 0o700); err != nil {
-		t.Fatalf("mkdir locks: %v", err)
-	}
+	seedAuthLocksDirs(t, configPath)
 
 	out := runDoctorCmd(t, f, "check")
 	var got map[string]any
@@ -85,8 +91,8 @@ func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 		t.Fatalf("expected ok=true for a healthy v2 config, got %v", got)
 	}
 	checks, _ := got["checks"].([]any)
-	if len(checks) != 4 {
-		t.Fatalf("expected 4 checks, got %d: %v", len(checks), checks)
+	if len(checks) != 3 {
+		t.Fatalf("expected 3 checks, got %d: %v", len(checks), checks)
 	}
 	for _, c := range checks {
 		m := c.(map[string]any)
@@ -94,7 +100,7 @@ func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 			t.Errorf("check %v not ok: %v", m["name"], m)
 		}
 	}
-	meta := checks[3].(map[string]any)
+	meta := checks[2].(map[string]any)
 	if meta["name"] != "metadata" || !strings.Contains(meta["message"].(string), "source=") {
 		t.Errorf("metadata check malformed: %v", meta)
 	}
@@ -132,9 +138,6 @@ func TestDoctorCheck_V1MissingDirs_Warns(t *testing.T) {
 	if byName["auth_locks_dirs"] != "warn" {
 		t.Errorf("auth_locks_dirs = %q, want warn", byName["auth_locks_dirs"])
 	}
-	if byName["migration_residue"] != "warn" {
-		t.Errorf("migration_residue = %q, want warn", byName["migration_residue"])
-	}
 }
 
 // A fresh install (no config.json at all) is healthy, not a warning — there
@@ -151,9 +154,10 @@ func TestDoctorCheck_FreshInstall_AllOK(t *testing.T) {
 	}
 }
 
-// A v2 config with a leftover v1 auth.json alongside it is migration
-// residue: warn, even though configVersion itself is fine.
-func TestDoctorCheck_LeftoverV1AuthJSON_Warns(t *testing.T) {
+// A leftover v1 auth.json next to a healthy v2 config is not a health
+// problem, so it must not drag the verdict down — nothing about it stops a
+// command from working.
+func TestDoctorCheck_LeftoverV1AuthJSON_StaysOK(t *testing.T) {
 	f, configPath := newTestFactory(t)
 	cfg := core.CliConfig{ConfigVersion: 2}
 	if err := core.SaveConfig(configPath, cfg); err != nil {
@@ -163,14 +167,15 @@ func TestDoctorCheck_LeftoverV1AuthJSON_Warns(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(filepath.Dir(configPath), "auth.json"), []byte(`{}`), 0o600); err != nil {
 		t.Fatalf("seed legacy auth.json: %v", err)
 	}
+	seedAuthLocksDirs(t, configPath)
 
 	out := runDoctorCmd(t, f, "check")
 	var got map[string]any
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatalf("output not JSON: %v\n%s", err, out)
 	}
-	if got["ok"] != false {
-		t.Fatalf("expected ok=false with leftover v1 auth.json, got %v", got)
+	if got["ok"] != true {
+		t.Fatalf("expected ok=true with a leftover v1 auth.json, got %v", got)
 	}
 }
 
