@@ -108,8 +108,12 @@ func Execute() (exitCode int) {
 	var pendingUpdate *updatecheck.Info
 	if !isUpdateCheckSkippedCommand(rootCmd, os.Args[1:]) {
 		pendingUpdate = updatecheck.CheckCached(build.Version)
-		// Fire-and-forget: on fast-exiting commands the process may end before these
-		// finish — that's fine, they refresh the caches for the next run (no latency).
+		// Fire-and-forget, and genuinely so: a command that exits in tens of
+		// milliseconds outruns these entirely, and neither persists partial
+		// progress, so nothing carries over to the next run either. Commands
+		// that do real I/O leave enough time to finish them, and `shoplazza
+		// update` refreshes both in the foreground regardless. The trade is
+		// deliberate — no command pays latency for a cache it isn't using.
 		go updatecheck.RefreshCache(build.Version)
 		go metasync.Refresh(ctx, build.Version)
 	}
