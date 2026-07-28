@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-28T06:53:45Z",
+  "generated_at": "2026-07-28T08:57:15Z",
   "modules": [
     {
       "name": "billing",
@@ -11065,36 +11065,6 @@
           "response_schema": "v202601.DeletePbTemplateResponse"
         },
         {
-          "id": "theme-pb-blocks-get",
-          "command_path": [
-            "pb",
-            "get-template"
-          ],
-          "summary": "Get a custom page-builder template by id, return an LLM summary + raw schema",
-          "hidden": false,
-          "http": {
-            "method": "GET",
-            "path": "/openapi/2026-01/themes/page-builder/custom-templates/{template_id}"
-          },
-          "parameters": [
-            {
-              "name": "template_id",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Custom template id. Must parse to uint64 \u003e 0",
-              "min_length": 1
-            },
-            {
-              "name": "detail_level",
-              "in": "query",
-              "type": "string",
-              "description": "Summary detail level: \"minimal\" | \"tiered\" | \"verbose\". Defaults to minimal"
-            }
-          ],
-          "response_schema": "v202601.GetPbTemplateResponse"
-        },
-        {
           "id": "theme-pb-single-blocks",
           "command_path": [
             "pb",
@@ -11126,120 +11096,6 @@
             }
           ],
           "response_schema": "v202601.GetPageBuilderBlocksResponse"
-        },
-        {
-          "id": "theme-pb-block-save",
-          "command_path": [
-            "pb",
-            "save-block"
-          ],
-          "summary": "Save page-builder block",
-          "description": "Create or update a page-builder custom template block: the downstream apply-ops aggregate applies\nops to the base template and saves the card, then the new card is written into the target section\nof the edit session (skipped when the base template's event_type is not \"theme\").",
-          "hidden": false,
-          "http": {
-            "method": "POST",
-            "path": "/openapi/2026-01/themes/page-builder/blocks",
-            "body": "*"
-          },
-          "body": {
-            "required": true,
-            "fields": [
-              {
-                "name": "event_type",
-                "type": "string",
-                "required": true,
-                "description": "Event type, e.g. \"theme\"",
-                "min_length": 1
-              },
-              {
-                "name": "origin_template_id",
-                "type": "string",
-                "required": true,
-                "description": "Source template ID to derive from: server-side fetches its schema by this id, and it's the save origin. New card's own id is in the response",
-                "min_length": 1
-              },
-              {
-                "name": "title",
-                "type": "object",
-                "schema": "google.protobuf.Struct",
-                "description": "Block title (i18n map as JSON string)"
-              },
-              {
-                "name": "action",
-                "type": "string",
-                "required": true,
-                "description": "Save action: save / save_as / update (required by downstream bullterrier)",
-                "min_length": 1
-              },
-              {
-                "name": "category",
-                "type": "string",
-                "description": "Category, e.g. \"image_with_text\""
-              },
-              {
-                "name": "second_category",
-                "type": "string",
-                "description": "Second category, e.g. \"Carousal\""
-              },
-              {
-                "name": "image",
-                "type": "string",
-                "description": "Preview image filename"
-              },
-              {
-                "name": "origin",
-                "type": "string",
-                "description": "Base template scope: \"custom\" or \"global\". Empty looks up custom first, then global; any other value is rejected"
-              },
-              {
-                "name": "ops",
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "schema": "google.protobuf.Struct"
-                },
-                "description": "Operations (AI output) applied before save"
-              },
-              {
-                "name": "oseid",
-                "type": "string",
-                "required": true,
-                "description": "Edit session ID (oseid) to insert the new card into",
-                "min_length": 1
-              },
-              {
-                "name": "doc_id",
-                "type": "string",
-                "required": true,
-                "description": "Document (template file) ID for the session insert",
-                "min_length": 1
-              },
-              {
-                "name": "section_id",
-                "type": "string",
-                "required": true,
-                "description": "Target section ID whose content is replaced with the new card",
-                "min_length": 1
-              },
-              {
-                "name": "theme_id",
-                "type": "string",
-                "required": true,
-                "description": "Theme ID for the render context url of the session insert"
-              },
-              {
-                "name": "template_name",
-                "type": "string",
-                "description": "Template name for the session insert; defaults to file location without \".liquid\""
-              },
-              {
-                "name": "locale",
-                "type": "string",
-                "description": "Rendering locale for the session insert; defaults to en_US"
-              }
-            ]
-          },
-          "response_schema": "v202601.SavePageBuilderBlockResponse"
         },
         {
           "id": "theme-pb-template-save",
@@ -24281,31 +24137,6 @@
         }
       ]
     },
-    "v202601.GetPbTemplateResponse": {
-      "fields": [
-        {
-          "name": "text",
-          "type": "string"
-        },
-        {
-          "name": "title",
-          "type": "object",
-          "schema": "google.protobuf.Struct"
-        },
-        {
-          "name": "category",
-          "type": "string"
-        },
-        {
-          "name": "second_category",
-          "type": "string"
-        },
-        {
-          "name": "image",
-          "type": "string"
-        }
-      ]
-    },
     "v202601.GetSectionCardResponse": {
       "fields": [
         {
@@ -26261,32 +26092,6 @@
         {
           "name": "condition",
           "type": "string"
-        }
-      ]
-    },
-    "v202601.SavePageBuilderBlockResponse": {
-      "fields": [
-        {
-          "name": "id",
-          "type": "string"
-        },
-        {
-          "name": "series_id",
-          "type": "string"
-        },
-        {
-          "name": "show_templates",
-          "type": "integer",
-          "format": "int32"
-        },
-        {
-          "name": "type",
-          "type": "string"
-        },
-        {
-          "name": "block",
-          "type": "object",
-          "schema": "google.protobuf.Struct"
         }
       ]
     },
