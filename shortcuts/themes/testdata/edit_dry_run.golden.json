@@ -47,6 +47,7 @@
             "targetId": "0"
           }
         ],
+        "origin": "custom",
         "origin_template_id": "\u003ccustom_id\u003e",
         "oseid": "\u003coseid\u003e",
         "section_id": "222",

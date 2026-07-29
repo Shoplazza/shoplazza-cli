@@ -208,20 +208,6 @@ func mapSlice(v any) []map[string]any {
 	return out
 }
 
-// pbCustomTypeRe matches a page-builder custom card's section type and
-// captures its custom template id ({N} in .../page-builder/blocks/custom-{N}).
-var pbCustomTypeRe = regexp.MustCompile(`page-builder/blocks/custom-(\d+)`)
-
-// pbCustomID extracts the custom template id from a PB card's section type.
-// Returns ("", false) for theme cards and public app blocks.
-func pbCustomID(sectionType string) (string, bool) {
-	m := pbCustomTypeRe.FindStringSubmatch(sectionType)
-	if m == nil {
-		return "", false
-	}
-	return m[1], true
-}
-
 // pbTemplateTypeRe matches either PB card family and captures its scope plus
 // template id ({family}-{N} in .../page-builder/blocks/{family}-{N}).
 var pbTemplateTypeRe = regexp.MustCompile(`page-builder/blocks/(custom|global)-(\d+)`)
@@ -238,7 +224,7 @@ func pbTemplateRef(sectionType string) (id, scope string, ok bool) {
 }
 
 // isPbType reports whether a section type belongs to the page-builder app
-// (custom- and global- families) — broader than pbCustomID's custom-only capture.
+// (custom- and global- families), including types carrying no template id.
 func isPbType(sectionType string) bool {
 	return strings.HasPrefix(sectionType, "shoplazza://apps/page-builder/")
 }

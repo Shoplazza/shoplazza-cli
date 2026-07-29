@@ -73,6 +73,9 @@ func newEditServer(t *testing.T) *editServer {
 					"blocks": []any{map[string]any{"type": "slide", "settings": map[string]any{}}}},
 				map[string]any{"id": 222, "type": "shoplazza://apps/page-builder/blocks/custom-9527", "display": true,
 					"settings": map[string]any{}, "blocks": []any{}},
+				// global- preset: same pb family, different scope
+				map[string]any{"id": 444, "type": "shoplazza://apps/page-builder/blocks/global-8801/155b71ef", "display": true,
+					"settings": map[string]any{}, "blocks": []any{}},
 				// nested container shape (real product.liquid): the group, not
 				// the section, is what declares "@app".
 				map[string]any{"id": 333, "type": "product", "display": true, "settings": map[string]any{},
@@ -351,7 +354,7 @@ func TestEdit_MixedBatchRoutesPbAndBackfillsBody(t *testing.T) {
 		t.Fatal("update_pb never hit pb-block-save")
 	}
 	for k, want := range map[string]string{
-		"event_type": "theme", "action": "save", "origin_template_id": "9527",
+		"event_type": "theme", "action": "save", "origin_template_id": "9527", "origin": "custom",
 		"oseid": "ose_x", "doc_id": "d_index", "section_id": "222", "theme_id": "t_pub",
 	} {
 		if fmt.Sprint(pb[k]) != want {
@@ -531,6 +534,31 @@ func TestEdit_RepeatedAppendsAdvanceTheIndex(t *testing.T) {
 	var exitErr *output.ExitError
 	if !errors.As(err, &exitErr) || exitErr.Code != output.ExitValidation {
 		t.Fatalf("err = %v, want validation on the batch's own max_blocks overflow", err)
+	}
+}
+
+// TestEdit_UpdatePbGlobalCard: global- presets are page-builder cards too. The
+// scope travels as pb-block-save's "origin" and the id goes in bare, without
+// its family prefix.
+func TestEdit_UpdatePbGlobalCard(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	body, err := editExec(t, es, map[string]any{"template": "index", "session": "ose_x",
+		"ops": `[{"op":"update_pb","target":"444","ops":[{"action":"update","targetId":"0.1.0","settings":{"textColor":"rgb(0,128,0)"}}]}]`})
+	if err != nil {
+		t.Fatalf("editExecute: %v", err)
+	}
+	if applied := body["applied"].([]map[string]any); applied[0]["result"] != "success" {
+		t.Fatalf("applied = %v", applied)
+	}
+	pb := editWriteBody(es, http.MethodPost, "/page-builder/blocks")
+	if pb == nil {
+		t.Fatal("update_pb never hit pb-block-save")
+	}
+	if pb["origin_template_id"] != "8801" || pb["origin"] != "global" {
+		t.Errorf("pb body origin_template_id/origin = %v/%v, want 8801/global",
+			pb["origin_template_id"], pb["origin"])
 	}
 }
 

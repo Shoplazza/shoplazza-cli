@@ -397,6 +397,7 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote bool) []comm
 			plans = append(plans, PlanPbBlockSave(map[string]any{
 				"event_type": "theme", "action": "save",
 				"origin_template_id": phCustomID,
+				"origin":             "custom",
 				"oseid":              oseidRef, "doc_id": phDocID, "section_id": ops[i].ref.SectionID, "theme_id": themeRef,
 				"ops": ops[i].Ops,
 			}))

@@ -389,22 +389,23 @@ func resolvePbSectionValue(ctx context.Context, c *client.Client, templateID str
 // generateThemeCard turns an update_pb op into a theme-card section object via
 // pb-block-save; the batch then swaps it in with remove_section + add_section.
 func generateThemeCard(ctx context.Context, c *client.Client, op editOp, inner map[string]any, oseid, docID, themeID string) (map[string]any, error) {
-	customID := phCustomID
+	templateID, scope := phCustomID, "custom"
 	var old map[string]any
 	if inner != nil {
 		section := findSectionByID(inner, op.ref.SectionID)
 		if section == nil {
 			return nil, output.ErrValidation("update_pb: section %q not found on this page", op.ref.SectionID)
 		}
-		id, ok := pbCustomID(getString(section, "type"))
+		id, s, ok := pbTemplateRef(getString(section, "type"))
 		if !ok {
-			return nil, output.ErrValidation("update_pb: section %q is not a page-builder custom card (type %q)", op.ref.SectionID, getString(section, "type"))
+			return nil, output.ErrValidation("update_pb: section %q is not a page-builder card (type %q)", op.ref.SectionID, getString(section, "type"))
 		}
-		customID, old = id, section
+		templateID, scope, old = id, s, section
 	}
 	resp, err := common.Send(ctx, c, PlanPbBlockSave(map[string]any{
 		"event_type": "theme", "action": "save", // fixed values
-		"origin_template_id": customID,
+		"origin_template_id": templateID,
+		"origin":             scope, // custom | global; empty would guess custom-first
 		"oseid":              oseid, "doc_id": docID, "section_id": op.ref.SectionID, "theme_id": themeID,
 		"ops": op.Ops,
 	}))

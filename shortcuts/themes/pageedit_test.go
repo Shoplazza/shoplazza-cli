@@ -182,21 +182,24 @@ func TestFetchSections_RealSampleShape(t *testing.T) {
 	}
 }
 
-func TestPbCustomID(t *testing.T) {
+func TestPbTemplateRef(t *testing.T) {
 	cases := []struct {
-		typ    string
-		wantID string
-		wantOK bool
+		typ       string
+		wantID    string
+		wantScope string
+		wantOK    bool
 	}{
-		{"shoplazza://apps/page-builder/blocks/custom-1024", "1024", true},
-		{"page-builder/blocks/custom-56125487021326335", "56125487021326335", true},
-		{"shoplazza://apps/public/blocks/promotion_grid/56125487021326335", "", false},
-		{"hero_slideshow", "", false},
+		{"shoplazza://apps/page-builder/blocks/custom-1024", "1024", "custom", true},
+		{"page-builder/blocks/custom-56125487021326335", "56125487021326335", "custom", true},
+		{"shoplazza://apps/page-builder/blocks/global-66770275344686757/155b71ef", "66770275344686757", "global", true},
+		{"shoplazza://apps/public/blocks/promotion_grid/56125487021326335", "", "", false},
+		{"hero_slideshow", "", "", false},
 	}
 	for _, tc := range cases {
-		id, ok := pbCustomID(tc.typ)
-		if id != tc.wantID || ok != tc.wantOK {
-			t.Errorf("pbCustomID(%q) = (%q, %v), want (%q, %v)", tc.typ, id, ok, tc.wantID, tc.wantOK)
+		id, scope, ok := pbTemplateRef(tc.typ)
+		if id != tc.wantID || scope != tc.wantScope || ok != tc.wantOK {
+			t.Errorf("pbTemplateRef(%q) = (%q, %q, %v), want (%q, %q, %v)",
+				tc.typ, id, scope, ok, tc.wantID, tc.wantScope, tc.wantOK)
 		}
 	}
 }
