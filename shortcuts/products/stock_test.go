@@ -92,76 +92,74 @@ func TestPlaceholderOr(t *testing.T) {
 	}
 }
 
-func TestExtractInventoryLevelStock_Present(t *testing.T) {
+func TestLevelRowFor_MatchAndCount(t *testing.T) {
 	resp := map[string]any{
 		"inventory_levels": []any{
-			map[string]any{"stock": float64(42)},
+			map[string]any{"location_id": "loc-1", "stock": float64(42)},
+			map[string]any{"location_id": "loc-2", "stock": float64(7)},
 		},
 	}
-	got, err := extractInventoryLevelStock(resp)
-	if err != nil || got != 42 {
-		t.Errorf("got (%d, %v) want (42, nil)", got, err)
+	row, n, err := levelRowFor(resp, "loc-2")
+	if err != nil || n != 2 {
+		t.Fatalf("got (n=%d, %v) want (2, nil)", n, err)
+	}
+	if row == nil || asString(row["location_id"]) != "loc-2" {
+		t.Errorf("row: got %v want loc-2", row)
 	}
 }
 
-func TestExtractInventoryLevelStock_ZeroWhenMissing(t *testing.T) {
+func TestLevelRowFor_NoMatch(t *testing.T) {
 	resp := map[string]any{
 		"inventory_levels": []any{
-			map[string]any{"other_field": "x"},
+			map[string]any{"location_id": "loc-1", "stock": float64(42)},
 		},
 	}
-	got, err := extractInventoryLevelStock(resp)
-	if err != nil || got != 0 {
-		t.Errorf("missing stock: got (%d, %v) want (0, nil)", got, err)
+	row, n, err := levelRowFor(resp, "loc-9")
+	if err != nil || n != 1 || row != nil {
+		t.Errorf("got (row=%v, n=%d, %v) want (nil, 1, nil)", row, n, err)
 	}
 }
 
-func TestExtractInventoryLevelStock_EmptyList(t *testing.T) {
-	resp := map[string]any{"inventory_levels": []any{}}
-	got, err := extractInventoryLevelStock(resp)
-	if err != nil || got != 0 {
-		t.Errorf("empty list: got (%d, %v) want (0, nil)", got, err)
+func TestLevelRowFor_NumericLocationID(t *testing.T) {
+	resp := map[string]any{
+		"inventory_levels": []any{
+			map[string]any{"location_id": json.Number("583169022443404898"), "stock": float64(3)},
+		},
+	}
+	row, _, err := levelRowFor(resp, "583169022443404898")
+	if err != nil || row == nil {
+		t.Errorf("numeric location_id should match its decimal string; got (%v, %v)", row, err)
 	}
 }
 
-func TestExtractInventoryLevelStock_MissingKey(t *testing.T) {
-	_, err := extractInventoryLevelStock(map[string]any{})
-	if err == nil {
+func TestLevelRowFor_MissingKey(t *testing.T) {
+	if _, _, err := levelRowFor(map[string]any{}, "loc-1"); err == nil {
 		t.Error("expected error when inventory_levels key missing")
 	}
 }
 
-func TestExtractInventoryLevelStock_BadStockType(t *testing.T) {
-	resp := map[string]any{
-		"inventory_levels": []any{
-			map[string]any{"stock": "not-a-number"},
-		},
+func TestStockOf_PresentMissingBad(t *testing.T) {
+	if n, err := stockOf(map[string]any{"stock": float64(42)}); err != nil || n != 42 {
+		t.Errorf("present: got (%d, %v) want (42, nil)", n, err)
 	}
-	_, err := extractInventoryLevelStock(resp)
-	if err == nil {
+	if n, err := stockOf(map[string]any{"other": "x"}); err != nil || n != 0 {
+		t.Errorf("missing: got (%d, %v) want (0, nil)", n, err)
+	}
+	if _, err := stockOf(map[string]any{"stock": "not-a-number"}); err == nil {
 		t.Error("expected error when stock has unexpected type")
 	}
 }
 
-func TestWrapSingleLevel_Normal(t *testing.T) {
-	row := map[string]any{"id": "il-1", "stock": float64(10)}
-	resp := map[string]any{"inventory_levels": []any{row}}
-	got := wrapSingleLevel(resp)
+func TestWrapLevelRow(t *testing.T) {
+	got := wrapLevelRow(map[string]any{"id": "il-1"})
 	wrapped, ok := got["inventory_level"].(map[string]any)
-	if !ok {
-		t.Fatalf("inventory_level not a map: %T", got["inventory_level"])
+	if !ok || wrapped["id"] != "il-1" {
+		t.Errorf("got %v want wrapped il-1", got)
 	}
-	if wrapped["id"] != "il-1" {
-		t.Errorf("id: got %v want il-1", wrapped["id"])
-	}
-}
-
-func TestWrapSingleLevel_Empty(t *testing.T) {
-	resp := map[string]any{"inventory_levels": []any{}}
-	got := wrapSingleLevel(resp)
-	wrapped, ok := got["inventory_level"].(map[string]any)
+	got = wrapLevelRow(nil)
+	wrapped, ok = got["inventory_level"].(map[string]any)
 	if !ok || len(wrapped) != 0 {
-		t.Errorf("empty list: expected empty map, got %v", got["inventory_level"])
+		t.Errorf("nil row: expected empty map, got %v", got["inventory_level"])
 	}
 }
 

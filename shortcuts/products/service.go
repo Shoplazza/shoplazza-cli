@@ -79,3 +79,12 @@ func PlanGetInventoryLevel(inventoryItemID, locationID string) common.PlannedReq
 		},
 	}
 }
+
+// PlanListItemLevels reads one item's levels across all locations.
+func PlanListItemLevels(inventoryItemID string) common.PlannedRequest {
+	return common.PlannedRequest{
+		Method: "GET",
+		Path:   inventoryLevelsBase,
+		Query:  map[string]any{"inventory_item_ids": []string{inventoryItemID}},
+	}
+}

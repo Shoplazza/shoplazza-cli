@@ -42,10 +42,11 @@ Notable body fields (see `schema products.variants.update --view request` for al
 `option1/2/3`, `price`, `compare_at_price`, `sku`, `barcode`, `weight`, `weight_unit`,
 `cost_price`, `note`, `image_id` / `image.src`, `inventory_quantity`.
 
-`inventory_quantity` in an update body is subject to the same platform rule as everything
-else: **inventory cannot be decremented** (see
-[inventory-locations.md](inventory-locations.md)) — do not use it to sneak a stock decrease past
-the user.
+`inventory_quantity` in an update body is an **absolute set** and CAN decrease stock — but
+the write lands on the **default location**, and its semantics on multi-location items are
+unverified (see [inventory-locations.md](inventory-locations.md)). Prefer
+`products +stock --adjust -N` / `--set N`, which applies the safety gates for you; never
+call this field directly on a multi-location item.
 
 ## SKU-based access
 

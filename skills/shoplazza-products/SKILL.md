@@ -4,8 +4,8 @@ description: >-
   Use when the user wants to manage a shoplazza store's product catalog through the CLI —
   creating / publishing / unpublishing products (建品 / 新建商品 / 上新 / 上架 / 下架),
   searching or counting the catalog (搜商品 / 找商品 / 商品数量 / how many products I sell),
-  changing prices (改价 / 调价 / set price), adding stock / restocking (库存 / 补货 / 加库存 /
-  inventory — increase-only), product tags (标签), variants / SKUs (变体 / 规格), collections
+  changing prices (改价 / 调价 / set price), adjusting stock (库存 / 补货 / 加库存 / 减库存 /
+  inventory), product tags (标签), variants / SKUs (变体 / 规格), collections
   and collects (商品合集 / 商品分组), product images (商品图片 / 主图), gift cards (礼品卡 /
   储值卡 — gift cards live HERE, not in discounts), customer product reviews (买家评价 / 评论
   / product reviews), warehouse locations (仓库 / 库位), suppliers and procurement (供应商 /
@@ -46,7 +46,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Publish a product | `products +publish --id <product-id>` |
 | Unpublish (下架) a product | `products +unpublish --id <product-id>` |
 | Change a variant's price | `products +set-price (--variant-id <id> \| --sku <sku> [--all]) --price <n>` |
-| Add stock (increase-only) | `products +stock --variant-id <id> (--adjust <+n> \| --set <n>) [--location-id <id>]` |
+| Adjust stock (add or decrease) | `products +stock --variant-id <id> (--adjust <±n> \| --set <n>) [--location-id <id>]` |
 | Add / remove / replace tags | `products +tag --id <product-id> (--add a,b \| --remove c,d \| --set x,y)` |
 | Get one product | `products get --params '{"product_id":"<id>"}'` |
 | List (filters `+search` lacks: ids, handles, date ranges, spus…) | `products list --params '{…}'` |
@@ -81,9 +81,10 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 4. **All required present** → run it. `+shortcuts` are safe to run directly; use `--dry-run`
    first for deletes, batch ops, and gift-card creation (stored value = money), per
    shoplazza-common → Safety protocol.
-5. **Degrade honestly**: if the platform cannot do it (e.g. *decrease* stock — the entire
-   inventory surface is add-only), emit **no write command**; explain the limitation and offer
-   a legitimate alternative.
+5. **Degrade honestly**: if the platform cannot do it (e.g. decreasing stock at a
+   **non-default location** or on a **multi-location item** — see
+   [references/inventory-locations.md](references/inventory-locations.md)), emit **no write
+   command**; explain the limitation and offer a legitimate alternative.
 
 ### Trigger phrase → shortcut
 
@@ -96,9 +97,9 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 下架 / 隐藏商品 / unpublish | `+unpublish` | id → `--id` |
 | 改价 / 调价 / change the price to X | `+set-price` | variant id → `--variant-id`; SKU → `--sku`; new price → `--price` verbatim |
 | 划线价 / compare-at price | `+set-price --compare-price` | only when the user names it |
-| 库存加 N / 补货 N 件 / add N stock | `+stock --adjust N` | 加/增加 N = delta → `--adjust N` (> 0) |
-| 库存设为 N / set stock to N | `+stock --set N` | absolute target, **increase-only** — works only if N ≥ current level |
-| 减库存 / 库存扣掉 N / reduce stock | **none — degrade** | no CLI/API path decrements inventory; say so, no write. **`--set 0` is NOT a decrement** (`--set` only increases) — don't suggest it; offer `+unpublish` or stock-policy `deny` instead |
+| 库存加 N / 补货 N 件 / add N stock | `+stock --adjust N` | 加/增加 N = positive delta → `--adjust N` |
+| 库存设为 N / set stock to N | `+stock --set N` | absolute target (≥ 0), either direction; decreases are gated to the **default location** of a **single-location item** |
+| 减库存 / 库存扣掉 N / reduce stock | `+stock --adjust -N` | 减/扣掉 N = negative delta → `--adjust -N`; the CLI refuses if the result would go below 0, if `--location-id` isn't the default location, or if the item is stocked at multiple locations — in those cases explain and offer `+unpublish` / stock-policy `deny` instead |
 | 加标签（保留原有）/ add tags | `+tag --add` | tags comma-separated; existing tags kept |
 | 去掉某标签 / remove a tag | `+tag --remove` | missing tags are ignored |
 | 标签整个换成… / replace all tags | `+tag --set` | replaces the full list — only on explicit "replace/换成/只保留" wording |
@@ -113,7 +114,7 @@ Only **no-default** flags are askable.
 |---|---|---|---|
 | `+create` | `--price`, `--image` (one batch; **never fabricate a price or an image URL**) | `--title` from the product name in the utterance; `--published` from 上架/publish wording | `--published` (omit = draft), `--sku`, `--stock`, `--stock-policy` (default `deny`), `--compare-price`, `--tags`, `--collection-ids` |
 | `+set-price` | `--price` (never invent a number) | target flag from what the user gave: an id → `--variant-id`, a SKU → `--sku` | `--compare-price`; `--all` (only when the user explicitly wants every variant matching the SKU) |
-| `+stock` | the amount; `--variant-id` if no variant is identified | `--adjust` vs `--set` from wording (加 N = delta; 设为 N = absolute) | `--location-id` (defaults to the default location) |
+| `+stock` | the amount; `--variant-id` if no variant is identified | `--adjust` vs `--set` from wording (加 N = `--adjust N`; 减/扣 N = `--adjust -N`; 设为 N = `--set N`) | `--location-id` (defaults to the default location) |
 | `+publish` / `+unpublish` | `--id` (or resolve it via `+search` by name) | — | — (takes only `--id`) |
 | `+tag` | `--id`, the tag values | add/remove/set mode from wording | — |
 | `+search` / `+count` | *(nothing — all filters optional)* | filters from wording | `--page-limit`, `--fields` |
@@ -142,7 +143,7 @@ override only).
 | "把 SKU TSHIRT-RED-M 的价格改成 24.99" | CREATE — `+set-price --sku TSHIRT-RED-M --price 24.99`; no `--all` for a single-variant intent |
 | "给变体 998877 调一下价格" | ASK — the new price; target `--variant-id 998877` is already known |
 | "给变体 12345 的库存加 50 件" | CREATE — `+stock --variant-id 12345 --adjust 50` |
-| "把变体 88664 的库存减少 30 件" | DEGRADE — no decrement exists anywhere (shortcut or leaf); explain, offer alternatives (e.g. `+unpublish`, stock-policy `deny` at zero), emit no write |
+| "把变体 88664 的库存减少 30 件" | CREATE — `+stock --variant-id 88664 --adjust -30`; if the CLI refuses (below 0 / non-default location / multi-location item), relay the reason and offer alternatives |
 | "给老客户发一张礼品卡" | ASK — `initial_value` + `code` (money; never fabricate) |
 
 ## Boundaries
@@ -184,7 +185,7 @@ shoplazza-common).
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Asked to *reduce* stock | The whole inventory surface is **add-only**: `+stock --adjust` must be > 0, `--set` is increase-only, and the `inventory set-stock` / `update-level` leaves also only add | Don't emit a write; explain and offer alternatives (unpublish, stock-policy) |
+| Stock decrease rejected | The `inventory_levels` write leaves (`set-stock` / `update-level`) only add; decreases ride `variant.inventory_quantity`, which is default-location-only and unverified on multi-location items — `+stock` gates accordingly | Use `+stock --adjust -N` / `--set N`; when the gate fires, explain and offer alternatives (unpublish, stock-policy) |
 | Product published when the user wanted a draft | `--published` on `+create` is a bare boolean — passing it publishes | Omit `--published` entirely for a draft (draft is the default) |
 | `unknown flag: --fields` on `+count` / other shortcuts | In this module `--fields` exists on `+search` **only** | Project with `--jq` elsewhere |
 | Tags wiped out after an update | `products update` (leaf) replaces the whole tag list; so does `+tag --set` | Use `+tag --add` / `--remove` — existing tags kept |
@@ -237,7 +238,7 @@ products collects create --data '{"collect":{"collection_id":"999000","product_i
 ## References
 
 - [references/variants.md](references/variants.md) — variants CRUD, SKU lookup/update, option handling
-- [references/inventory-locations.md](references/inventory-locations.md) — inventory items vs levels, add-only semantics, locations
+- [references/inventory-locations.md](references/inventory-locations.md) — inventory items vs levels, decrement gates, locations
 - [references/collections-collects.md](references/collections-collects.md) — curated & smart collections, collects, categories
 - [references/images.md](references/images.md) — product image CRUD
 - [references/gift-cards.md](references/gift-cards.md) — gift card lifecycle (no delete; disable)

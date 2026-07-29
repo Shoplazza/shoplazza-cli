@@ -1,23 +1,30 @@
 # products inventory · locations — reference
 
 Inventory tracks stock per **inventory item** per **location**. For the everyday case
-("give variant X more stock") use the `products +stock` shortcut (SKILL.md) — it resolves the
-item and location for you. Come here for multi-location work or item-level settings.
+("give variant X more/less stock") use the `products +stock` shortcut (SKILL.md) — it resolves
+the item and location for you. Come here for multi-location work or item-level settings.
 
-## ⚠️ The whole surface is ADD-ONLY
+## ⚠️ Decreases are gated — know the two write routes
 
-There is **no way to decrease stock** through the CLI or the underlying API:
+The `inventory_levels` write leaves **only add**: `inventory set-stock` (POST
+`/inventory_levels/set`) and `inventory update-level` (PUT `/inventory_levels`) both
+increase the level despite names like "Set inventory quantity", and both reject
+`stock_adjustment ≤ 0`.
 
-- `+stock --adjust` must be > 0 (the API rejects 0 and negative values).
-- `+stock --set` sets an absolute target but is **increase-only** — a target below the
-  current level cannot be applied.
-- The `inventory set-stock` (POST `/inventory_levels/set`) and `inventory update-level`
-  (PUT `/inventory_levels`) leaves **also only add** — despite names like "Set inventory
-  quantity", both increase the level.
+Decreases exist, but ride a different primitive: `PUT /variants/{variant_id}` with
+`variant.inventory_quantity` — an **absolute set** (not a delta) that lands on the
+**default location**. `products +stock` wraps both routes and gates the decrement:
 
-A "reduce stock by N" request must **degrade**: emit no write, explain the limitation, and
-offer alternatives (`products +unpublish`, inventory policy `deny` when stock hits 0).
-Never fabricate a negative `--adjust` or an under-current `--set`.
+- `+stock --adjust N`: positive adds at any location; negative decreases.
+- `+stock --set N`: absolute target (≥ 0), either direction.
+- A decrease is **refused** by the CLI when: the result would go below 0 (the API would
+  happily store a negative — never let it), the effective `--location-id` is not the
+  default location, or the item holds levels at **multiple locations**
+  (`inventory_quantity` semantics are only verified for single-location items).
+
+When the gate fires, degrade honestly: relay the CLI's reason, offer alternatives
+(`products +unpublish`, inventory policy `deny` when stock hits 0). Never bypass the gate
+by calling `variants update` with `inventory_quantity` directly on a multi-location item.
 
 ## Concepts
 
@@ -74,6 +81,9 @@ products inventory list-levels --params "{\"inventory_item_ids\":[\"$ITEM\"]}"
 
 # Add 50 units at a specific location (shortcut — preferred)
 products +stock --variant-id 12345 --adjust 50 --location-id 777
+
+# Decrease by 30 (default location, single-location item)
+products +stock --variant-id 12345 --adjust -30
 
 # Turn off inventory tracking for an item
 products inventory update-item --params "{\"inventory_item_id\":\"$ITEM\"}" \
