@@ -538,6 +538,29 @@ func TestRefresh_FailureBackoff(t *testing.T) {
 	}
 }
 
+// Ctrl-C cancels the command context, which the in-flight refresh sees as an
+// error. Arming the hour-long backoff on it would punish the next run for
+// something the origin had no part in.
+func TestRefresh_CancelDoesNotArmBackoff(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	Refresh(ctx, "1.0.0")
+
+	if s := loadState(); s != nil && s.LastFailureAt != 0 {
+		t.Fatalf("a cancelled attempt must not record LastFailureAt, got %+v", s)
+	}
+	// And the next run still goes to the network rather than sitting out the hour.
+	Refresh(context.Background(), "1.0.0")
+	if got := r.specHits.Load(); got != 1 {
+		t.Fatalf("retry after cancel must reach the network, spec hits = %d, want 1", got)
+	}
+}
+
 func TestRefresh_TTLGuard(t *testing.T) {
 	raw := specJSON(futureRev)
 	gz := gzipBytes(t, raw)

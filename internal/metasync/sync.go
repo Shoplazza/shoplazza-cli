@@ -52,7 +52,7 @@ func Refresh(ctx context.Context, currentVersion string) {
 		}
 	}
 	if _, err := doRefresh(ctx, currentVersion); err != nil {
-		markFailed()
+		recordFailure(err)
 	}
 }
 
@@ -61,9 +61,20 @@ func Refresh(ctx context.Context, currentVersion string) {
 func ForceRefresh(ctx context.Context, currentVersion string) (Result, error) {
 	res, err := doRefresh(ctx, currentVersion)
 	if err != nil {
-		markFailed()
+		recordFailure(err)
 	}
 	return res, err
+}
+
+// recordFailure arms the backoff, except when we cancelled the attempt
+// ourselves: Ctrl-C says nothing about whether the origin is healthy, and the
+// backoff exists to leave an unhealthy one alone. A timeout still counts — that
+// one is evidence. Not writing also keeps a shutting-down process off the disk.
+func recordFailure(err error) {
+	if errors.Is(err, context.Canceled) {
+		return
+	}
+	markFailed()
 }
 
 // CurrentStatus reports the active spec provenance and last check time.
