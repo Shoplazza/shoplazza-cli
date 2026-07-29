@@ -8,12 +8,12 @@
 # Everything else — a bare write with no --dry-run — is REFUSED. A real write is
 # therefore impossible through this wrapper regardless of the profile in effect.
 #
-# The current dev-store profile (add-test) is pinned unless the caller set one.
-# Overridable for testing via SHOPLAZZA_RO_BIN / SHOPLAZZA_RO_PROFILE.
+# Set SHOPLAZZA_RO_PROFILE to pin a dev-store profile (recommended for eval runs);
+# unset, the CLI's current profile applies. Override the binary via SHOPLAZZA_RO_BIN.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN="${SHOPLAZZA_RO_BIN:-$SCRIPT_DIR/../../../shoplazza}"
-PROFILE="${SHOPLAZZA_RO_PROFILE:-add-test}"
+PROFILE="${SHOPLAZZA_RO_PROFILE:-}"
 
 allowed=0        # 1 once schema / --help / --dry-run is confirmed
 first_pos=""     # first non-flag arg (the module/verb)
@@ -49,7 +49,7 @@ fi
 # --dry-run is harmless.
 extra=()
 if [ "$first_pos" != "schema" ] && [ "$is_help" != "1" ]; then extra+=(--dry-run); fi
-if [ "$has_profile" = "1" ]; then
+if [ "$has_profile" = "1" ] || [ -z "$PROFILE" ]; then
   exec "$BIN" "$@" "${extra[@]}"
 else
   exec "$BIN" "$@" --profile "$PROFILE" "${extra[@]}"
