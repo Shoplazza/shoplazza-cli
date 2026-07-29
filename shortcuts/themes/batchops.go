@@ -3,6 +3,7 @@ package themes
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -190,6 +191,30 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 		case "remove_array_item":
 			entries = append(entries, serverOp{map[string]any{
 				"op": "remove_array_item", "target": dotBlockPath(op.ref),
+			}, i})
+		case "move_array_item":
+			at, ierr := moveItemIndex(&ops[i])
+			if ierr != nil {
+				return nil, nil, nil, fail(i, "%v", ierr)
+			}
+			if inner != nil { // range-check the container before spending a call
+				section := findSectionByID(inner, op.ref.SectionID)
+				if section == nil {
+					return nil, nil, nil, fail(i, "section %q not found on this page", op.ref.SectionID)
+				}
+				_, siblings, cerr := containerAt(section, op.ref.ParentPath)
+				if cerr != nil {
+					return nil, nil, nil, fail(i, "%v", cerr)
+				}
+				if at >= len(siblings) {
+					return nil, nil, nil, fail(i, "to_index %d is out of range: the container holds %d blocks, so 0..%d",
+						at, len(siblings), len(siblings)-1)
+				}
+			}
+			// The endpoint names the destination index "position" and types it
+			// as a string.
+			entries = append(entries, serverOp{map[string]any{
+				"op": "move_array_item", "target": dotBlockPath(op.ref), "position": strconv.Itoa(at),
 			}, i})
 		case "add_section":
 			value := sectionValue(op.Name)

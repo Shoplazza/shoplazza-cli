@@ -3,6 +3,7 @@ package themes
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
@@ -20,7 +21,7 @@ type editOp struct {
 	Value map[string]any `json:"value,omitempty"` // append_array_item: {type, settings}
 
 	Name       string `json:"name,omitempty"`        // add_section: section type
-	ToIndex    *int   `json:"to_index,omitempty"`    // add_section / move_section (numeric)
+	ToIndex    *int   `json:"to_index,omitempty"`    // add_section / move_section / move_array_item (numeric)
 	Position   string `json:"position,omitempty"`    // add_section / move_section: first|last|after:<sid>|before:<sid>
 	Pb         bool   `json:"pb,omitempty"`          // add_section: insert a saved PB card
 	TemplateID string `json:"template_id,omitempty"` // add_section pb mode source
@@ -34,7 +35,8 @@ type editOp struct {
 
 var opNames = []string{
 	"update_slot", "replace_props", "remove_array_item", "append_array_item",
-	"add_section", "remove_section", "move_section", "set_visibility", "update_pb",
+	"move_array_item", "add_section", "remove_section", "move_section",
+	"set_visibility", "update_pb",
 }
 
 // opExamples gives one minimal valid instance per op, surfaced in validation
@@ -44,11 +46,34 @@ var opExamples = map[string]string{
 	"replace_props":     `{"op":"replace_props","target":"<section_id>","props":{"<field>":"<value>"}}`,
 	"remove_array_item": `{"op":"remove_array_item","target":"<section_id>.blocks[1]"}`,
 	"append_array_item": `{"op":"append_array_item","target":"<section_id>.blocks","value":{"type":"<block_type>","settings":{}}}`,
+	"move_array_item":   `{"op":"move_array_item","target":"<section_id>.blocks[2]","to_index":0}`,
 	"add_section":       `{"op":"add_section","name":"<section_type>","position":"last"}`,
 	"remove_section":    `{"op":"remove_section","target":"<section_id>"}`,
 	"move_section":      `{"op":"move_section","target":"<section_id>","position":"after:<other_section_id>"}`,
 	"set_visibility":    `{"op":"set_visibility","target":"<section_id>","visible":false}`,
 	"update_pb":         `{"op":"update_pb","target":"<pb_section_id>","ops":[{"action":"update","targetId":"0.0.1","settings":{}}]}`,
+}
+
+// moveItemIndex resolves move_array_item's destination index within the parent
+// container. to_index is the CLI spelling (same as move_section); a digits-only
+// position is accepted too, since that is what the endpoint itself calls the
+// field. first/last stay unsupported here — they need the container length,
+// which validation does not have.
+func moveItemIndex(op *editOp) (int, error) {
+	if op.ToIndex != nil {
+		if *op.ToIndex < 0 {
+			return 0, fmt.Errorf("to_index must be >= 0, got %d", *op.ToIndex)
+		}
+		return *op.ToIndex, nil
+	}
+	if op.Position == "" {
+		return 0, fmt.Errorf("to_index is required (0-based position within the parent container)")
+	}
+	n, err := strconv.Atoi(op.Position)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("position %q is not a 0-based index — move_array_item reorders within one container, so use to_index", op.Position)
+	}
+	return n, nil
 }
 
 // validatePosition checks the add_section/move_section position surface
@@ -142,6 +167,13 @@ func validateOps(ops []editOp) error {
 			if getString(op.Value, "type") == "" {
 				return fail("value.type is required")
 			}
+		case "move_array_item":
+			if err := needTarget(targetBlock, "a block path (copy it from the +page blocks list)"); err != nil {
+				return err
+			}
+			if _, err := moveItemIndex(op); err != nil {
+				return fail("%v", err)
+			}
 		case "add_section":
 			if op.Pb {
 				if op.TemplateID == "" {
@@ -192,7 +224,7 @@ func validateOps(ops []editOp) error {
 func opsNeedImplicitRead(ops []editOp) bool {
 	for _, op := range ops {
 		switch op.Op {
-		case "update_pb", "append_array_item", "add_section", "remove_section", "move_section":
+		case "update_pb", "append_array_item", "move_array_item", "add_section", "remove_section", "move_section":
 			return true
 		}
 	}

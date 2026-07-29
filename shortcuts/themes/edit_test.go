@@ -562,6 +562,46 @@ func TestEdit_UpdatePbGlobalCard(t *testing.T) {
 	}
 }
 
+// TestEdit_MoveArrayItem pins the block-reorder op: a bracket target goes in,
+// the server's dot path plus a stringified destination index comes out, and the
+// index is range-checked against the container before any call.
+func TestEdit_MoveArrayItem(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	if _, err := editExec(t, es, map[string]any{"template": "product", "session": "ose_x",
+		"ops": `[{"op":"move_array_item","target":"333.blocks[0]","to_index":0}]`}); err != nil {
+		t.Fatalf("editExecute: %v", err)
+	}
+	entry := editWriteBody(es, http.MethodPost, "/operations")["operations"].([]any)[0].(map[string]any)
+	if entry["op"] != "move_array_item" || entry["target"] != "333.blocks.0" || entry["position"] != "0" {
+		t.Errorf(`entry = %v, want move_array_item / 333.blocks.0 / position "0"`, entry)
+	}
+
+	// The endpoint's own spelling of the index is accepted too.
+	if _, err := editExec(t, es, map[string]any{"template": "product", "session": "ose_x",
+		"ops": `[{"op":"move_array_item","target":"333.blocks[0]","position":"0"}]`}); err != nil {
+		t.Errorf("numeric position string rejected: %v", err)
+	}
+
+	for name, ops := range map[string]string{
+		"out of range":     `[{"op":"move_array_item","target":"333.blocks[0].blocks[0]","to_index":7}]`,
+		"index missing":    `[{"op":"move_array_item","target":"333.blocks[0]"}]`,
+		"negative":         `[{"op":"move_array_item","target":"333.blocks[0]","to_index":-1}]`,
+		"section target":   `[{"op":"move_array_item","target":"333","to_index":0}]`,
+		"word position":    `[{"op":"move_array_item","target":"333.blocks[0]","position":"first"}]`,
+		"container target": `[{"op":"move_array_item","target":"333.blocks","to_index":0}]`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := editExec(t, es, map[string]any{"template": "product", "session": "ose_x", "ops": ops})
+			var exitErr *output.ExitError
+			if !errors.As(err, &exitErr) || exitErr.Code != output.ExitValidation {
+				t.Fatalf("err = %v, want validation", err)
+			}
+		})
+	}
+}
+
 func TestEdit_AddSectionEchoesNewSectionID(t *testing.T) {
 	es := newEditServer(t)
 	defer es.srv.Close()
