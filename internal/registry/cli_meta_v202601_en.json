@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-23T05:29:01Z",
+  "generated_at": "2026-07-29T09:33:55Z",
   "modules": [
     {
       "name": "billing",
@@ -4830,6 +4830,37 @@
           "response_schema": "v202506.DeleteInventoryLevelResponse"
         },
         {
+          "id": "product-inventory",
+          "command_path": [
+            "inventory",
+            "get"
+          ],
+          "summary": "Get product inventory",
+          "description": "Retrieves the inventory details of a product by its unique identifier (product_id).",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/products/{product_id}/inventory"
+          },
+          "parameters": [
+            {
+              "name": "product_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Product ID"
+            },
+            {
+              "name": "location_id",
+              "in": "query",
+              "type": "integer",
+              "format": "uint64",
+              "description": "Location to filter inventory details (optional) ID"
+            }
+          ],
+          "response_schema": "v202506.GetProductInventoryResponse"
+        },
+        {
           "id": "inventory-item",
           "command_path": [
             "inventory",
@@ -7080,18 +7111,21 @@
           "hidden": false,
           "http": {
             "method": "POST",
-            "path": "/openapi/2026-01/blogs"
+            "path": "/openapi/2026-01/blogs",
+            "body": "*"
           },
-          "parameters": [
-            {
-              "name": "blog",
-              "in": "query",
-              "type": "object",
-              "schema": "v202506.CreateBlogParam",
-              "required": true,
-              "description": "Blog"
-            }
-          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "blog",
+                "type": "object",
+                "schema": "v202506.CreateBlogParam",
+                "required": true,
+                "description": "Blog"
+              }
+            ]
+          },
           "response_schema": "v202506.CreateBlogResponse"
         },
         {
@@ -14659,6 +14693,27 @@
         }
       ]
     },
+    "v202506.GetProductInventoryResponse": {
+      "fields": [
+        {
+          "name": "product_id",
+          "type": "string"
+        },
+        {
+          "name": "Stock",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "variants",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.VariantInventory"
+          }
+        }
+      ]
+    },
     "v202506.GetProductResponse": {
       "fields": [
         {
@@ -16150,6 +16205,20 @@
         {
           "name": "updated_at",
           "type": "string"
+        }
+      ]
+    },
+    "v202506.LocationItem": {
+      "fields": [
+        {
+          "name": "location_id",
+          "type": "integer",
+          "format": "uint64"
+        },
+        {
+          "name": "stock",
+          "type": "integer",
+          "format": "int32"
         }
       ]
     },
@@ -20436,6 +20505,22 @@
         {
           "name": "hs_code",
           "type": "string"
+        }
+      ]
+    },
+    "v202506.VariantInventory": {
+      "fields": [
+        {
+          "name": "variant_id",
+          "type": "string"
+        },
+        {
+          "name": "location_items",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.LocationItem"
+          }
         }
       ]
     },

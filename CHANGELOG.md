@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.0.8 - 2026-07-29
+
+### Added
+- **Remote API metadata updates** — the command tree now updates without a CLI release. New API operations reach you as soon as they are published: the CLI checks a small manifest in the background (at most once every 24h), downloads a new spec only when one is on offer, and verifies it (sha256, size caps, canonical revision) before adopting it. Every failure is silent and non-fatal — the CLI keeps whatever spec it already had, and a corrupt cache falls back to the copy embedded in the binary.
+- `shoplazza update` now refreshes the metadata as well as the binary. The two halves are independent: a missing or failing `npm` still refreshes metadata, and `--check` stays read-only. The response reports `meta_updated` and `meta_revision`.
+- `shoplazza doctor check` reports where the active spec came from: `source=embedded|cached`, its revision, and when the last check completed.
+- Two env knobs: `SHOPLAZZA_CLI_NO_META_UPDATE` disables metadata refreshes entirely; `SHOPLAZZA_CLI_META_ORIGIN` points them at a non-default environment.
+
+### Changed
+- `doctor check` no longer reports things that are not broken. Directories created on first use are not a finding, and `auth_locks_dirs` now fails only when a write would actually fail — including the case it used to miss, where the config directory itself refuses writes and so the lazy creation cannot succeed either.
+- Module path is now `github.com/Shoplazza/shoplazza-cli/v2`. Affects code importing these packages, not CLI usage.
+- Embedded API spec regenerated.
+
+### Removed
+- The `migration_residue` check in `doctor`. One of its two branches repeated what `config_version` already reports; the other flagged a leftover v1 `auth.json` — a file that stops nothing — and dragged the overall verdict to `ok: false` for it.
+
 ## 2.0.7 - 2026-07-10
 
 ### Added
