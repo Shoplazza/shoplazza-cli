@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -59,6 +60,10 @@ func (m *Manager) Login(ctx context.Context, storeDomain string, scopes []string
 
 		pollRes, err := m.pollSessionToken(deadlineCtx, session.SessionID)
 		if err != nil {
+			if transientPollError(deadlineCtx, err) {
+				time.Sleep(pollInterval)
+				continue
+			}
 			var he *client.HTTPError
 			if errors.As(err, &he) {
 				return LoginResult{Flow: "web", AuthorizeURL: session.AuthorizeURL}, parseSaigaAuthError(he)
@@ -94,6 +99,28 @@ func (m *Manager) Login(ctx context.Context, storeDomain string, scopes []string
 			return LoginResult{Flow: "web", AuthorizeURL: session.AuthorizeURL}, errors.New("unexpected session status: " + pollRes.Status)
 		}
 	}
+}
+
+// transientPollError reports whether a session-token poll failure is retryable
+// within the login deadline. The endpoint long-polls, so gateway 5xx and
+// client-side timeouts are normal while the session is pending; only a saiga
+// verdict (user_denied / session_expired) is final.
+func transientPollError(ctx context.Context, err error) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	var he *client.HTTPError
+	if !errors.As(err, &he) {
+		return true // network-level failure below the deadline
+	}
+	if he.StatusCode < 500 {
+		return false
+	}
+	var body struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal([]byte(he.Body), &body)
+	return body.Code != "user_denied" && body.Code != "session_expired"
 }
 
 // storeValidationWarning renders the login-time message for a store that failed
