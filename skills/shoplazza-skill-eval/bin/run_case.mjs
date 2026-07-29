@@ -215,7 +215,10 @@ function checkCase(c, reply, opts) {
   const checks = {};
   const notes = [];
   const cmds = reply.commands.map(normalizeCmd);
-  const isWrite = (cmd) => !/^(\S+\s)?(get|get-by-code|list|count|\+search|\+count|schema|info)\b/.test(cmd.replace(/^\S+\s+/, ''));
+  // A command with --dry-run never writes — "dry-run preview + ask for consent" is the
+  // safety protocol's canonical shape, so it must not count as writing anyway.
+  const isWrite = (cmd) => !/\s--dry-run\b/.test(cmd)
+    && !/^(\S+\s)?(get|get-by-code|list|count|\+search|\+count|schema|info)\b/.test(cmd.replace(/^\S+\s+/, ''));
 
   // routing
   const statedSkill = reply.skill;
