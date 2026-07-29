@@ -335,7 +335,7 @@ discounts +search --progress ongoing --discount-type flashsale --page-limit 250 
 # 5. Cancel a code-bearing discount by its code
 ID=$(discounts get-by-code --params '{"discount_code":"SPRING15"}' --jq '.data.discount.discount_info.id')
 discounts cancel --data "{\"ids\":[\"$ID\"]}" --dry-run     # check first
-discounts cancel --data "{\"ids\":[\"$ID\"]}"               # then run
+discounts cancel --data "{\"ids\":[\"$ID\"]}"               # only after the user agrees (next turn)
 
 # 6. Hard-delete the now-finished discount
 discounts delete --params "{\"id\":\"$ID\"}"

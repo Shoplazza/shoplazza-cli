@@ -220,9 +220,9 @@ products +publish --id "$ID"
 # 6. Append tags without clobbering the existing ones
 products +tag --id 445566 --add summer,sale
 
-# 7. Delete one product — dry-run, restate, then run
+# 7. Delete one product — dry-run, restate, wait for the user's go-ahead, then run
 products delete --params '{"product_id":"778899"}' --dry-run
-products delete --params '{"product_id":"778899"}'
+products delete --params '{"product_id":"778899"}'          # only after the user agrees (next turn)
 
 # 8. Batch delete — always dry-run first and restate the count
 products batch-delete --params '{"product_ids":["111222","333444","555666"]}' --dry-run

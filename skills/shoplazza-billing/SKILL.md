@@ -50,7 +50,7 @@ Billing writes move **real money**. Before any create / cancel:
    - recurring `create`: `name`, `price`, `return_url`
    - usage `create`: `charge_id` (the parent recurring charge), `description`, `price`
    - recurring `cancel`: `charge_id`
-3. `--dry-run` first, **restate** ("charge merchant $X — one-time / $X per month subscription / $X usage under CHG…, returns to <url>"), then execute.
+3. `--dry-run` first, **restate** ("charge merchant $X — one-time / $X per month subscription / $X usage under CHG…, returns to <url>"), **stop and wait for the user's go-ahead**, then execute.
 
 ## Permissions · Scope
 
@@ -78,7 +78,7 @@ Domain-specific only (generic `.data` / `--dry-run` / `--jq` rules are in shopla
 |---------|-------|-----|
 | Charge rejected on `price` type | **`price` type differs by charge**: one-time = **string** (`"99.99"`), recurring & usage = **number** (`29`, `0.05`) | Match the type — quote it for one-time, bare number for recurring/usage |
 | `usage create` fails without a charge | `charge_id` (the parent recurring charge) is a **required path param** | `--params '{"charge_id":"<recurring charge id>"}'` |
-| Created a real charge without preview | Charges are real money | `--dry-run` first, restate to the user, then run |
+| Created a real charge without preview | Charges are real money | `--dry-run` first, restate to the user, wait for their go-ahead, then run |
 
 ## Recipes
 

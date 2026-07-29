@@ -77,10 +77,11 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 3. **Never ask about a flag that has a CLI default or is omit-to-disable.** Let the default win.
 4. **All required present** → execute, with safety per shoplazza-common:
    - **`+refund` moves money — ALWAYS `--dry-run` first**, restate in plain language (which
-     order, how much, note, inventory returned or not), then run for real.
+     order, how much, note, inventory returned or not), wait for the user's go-ahead, then
+     run for real.
    - **Destructive leaves** (`orders cancel` / `orders delete` / `fulfillments cancel` /
      `risks delete` / `post-sales delete` / `shipping-schemas delete-zone`) — `--dry-run`
-     first + restate, then run.
+     first + restate, wait for the user's go-ahead, then run.
    - `+ship` / `+update-tracking` / `+search` / `+count` are safe to run directly once
      required values are confirmed.
 
@@ -133,7 +134,7 @@ user's own time words — never invent a time range).
 
 | User says | Verdict |
 |---|---|
-| "订单 111222 退 15.50 给买家，备注 wrong size，库存退回" | REFUND — `+refund --order-id 111222 --amount 15.50 --note "wrong size" --return-items`; `--dry-run` first, restate, then run |
+| "订单 111222 退 15.50 给买家，备注 wrong size，库存退回" | REFUND — `+refund --order-id 111222 --amount 15.50 --note "wrong size" --return-items`; `--dry-run` first, restate, wait for go-ahead, then run |
 | "给订单 333444 退个款" | ASK — the amount (money; never invent). Do NOT ask which order — it's in the utterance. May offer a full-refund lookup, still confirm |
 | "订单 555 可以发货了，运单号 YT123，中通，通知买家" | SHIP — `+ship --order-id 555 --tracking YT123 --company 中通 --notify`; safe to run directly |
 | "把订单 666 标记发货" | ASK — the tracking number (required, never fabricate); carrier is optional, offer alongside but don't block on it |
@@ -234,7 +235,7 @@ orders +ship --order-id 4300123 --tracking SF0011223344 --company "顺丰" --not
 # 7. Fix a mistyped tracking number (no re-notify)
 orders +update-tracking --order-id 991100 --fulfillment-id 77001 --tracking YT5544332211
 
-# 8. Partial refund + return inventory — dry-run, restate, then run
+# 8. Partial refund + return inventory — dry-run, restate, wait for go-ahead, then run
 orders +refund --order-id 887799 --amount 19.90 --note "wrong size" --return-items --dry-run
 orders +refund --order-id 887799 --amount 19.90 --note "wrong size" --return-items
 

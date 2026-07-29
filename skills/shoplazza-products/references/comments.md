@@ -29,7 +29,7 @@ products comments batch-create --data '{
      "created_at":"2026-06-01T10:00:00Z","content":"Great quality!"},
     {"product_id":"555777","user_name":"Bob","star":4,"like":0,
      "created_at":"2026-06-03T18:30:00Z","content":"Fits well."}
-  ]}' --dry-run          # check the payload, then run without --dry-run
+  ]}' --dry-run          # batch write: user go-ahead first, then run without --dry-run
 
 # List a product's reviews
 products comments list --params '{"product_id":"555777"}'

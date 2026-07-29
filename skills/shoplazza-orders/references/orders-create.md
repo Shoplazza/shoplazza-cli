@@ -13,7 +13,8 @@ orders create --data '{"order":{…}}'      # POST /openapi/2026-01/orders — b
 ```
 
 Money and a real person's shipping details are involved: **restate the order (buyer, items,
-prices, shipping, total) and `--dry-run` first**, then run for real. Never fabricate a buyer
+prices, shipping, total) and `--dry-run` first**, wait for the user's go-ahead, then run for
+real. Never fabricate a buyer
 identity, an address, a price, or a variant id (see the never-fabricate list below).
 
 ## Body shape (verified against `schema orders.create --view request`)

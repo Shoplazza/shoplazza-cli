@@ -189,20 +189,25 @@ shoplazza update            # update via npm (--check only reports versions, no 
 ## Safety protocol
 
 shoplazza-cli has **no** lark-style exit-10 high-risk-write gate and no `--yes` confirmation
-flag. **Do not invent a confirmation protocol.** The safety model is **`--dry-run` + restate to
-the user**:
+flag. **Do not invent a confirmation protocol.** The safety model is **`--dry-run` → restate →
+wait for the user's go-ahead**:
 
 1. **`--dry-run` first** for destructive (cancel / delete), batch, or fund-moving (billing
-   charges) operations: print the request that would be sent, confirm it's right, then execute
-   for real. For entity/campaign **creation via a `+shortcut`** (e.g. creating a discount),
+   charges) operations: print the request that would be sent, restate it, **then STOP and end
+   your turn**. For entity/campaign **creation via a `+shortcut`** (e.g. creating a discount),
    follow the domain skill — `+shortcuts` are structured and safe to run directly once the
    required, money-affecting values are confirmed (never fabricated); `--dry-run` only if the
    user asks.
-2. **Restate intent**: before executing, restate in plain language "which store, what action,
-   which key params" for the user to confirm — especially money / destructive ops.
-3. **Do not fabricate money-spending values** (discount amounts / caps / prices) — omit for the
+2. **Consent must be a user message, not your own judgment.** Showing the dry-run is not
+   consent; your own review of it is not consent. The real command may only run in a turn
+   that comes **after** the user explicitly agrees (e.g. "确认" / "yes / go ahead"). Running
+   dry-run and the real write in the **same turn** is a protocol violation even if the
+   dry-run output was perfect.
+3. **Restate intent** alongside the dry-run: plain language — which store, what action, which
+   key params — so the user knows exactly what they are agreeing to.
+4. **Do not fabricate money-spending values** (discount amounts / caps / prices) — omit for the
    default or ask; see each domain skill's required-vs-ask.
-4. Rehearse writes against **dev / stg** stores only; never practice on prod.
+5. Rehearse writes against **dev / stg** stores only; never practice on prod.
 
 ## Command discovery
 
