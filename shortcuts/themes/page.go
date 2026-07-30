@@ -417,8 +417,11 @@ func projectSchemas(schemas map[string]any, types map[string]bool) map[string]an
 		if settings, ok := card["settings"].([]any); ok {
 			proj["settings"] = projectSettings(settings)
 		}
-		if maxBlocks, ok := card["max_blocks"]; ok {
-			proj["max_blocks"] = maxBlocks
+		// Constraint metadata +edit needs before deleting / adding / reordering.
+		for _, k := range []string{"max_blocks", "limit", "deletable", "collapse", "templates"} {
+			if v, ok := card[k]; ok && v != nil {
+				proj[k] = v
+			}
 		}
 		if blocks, ok := card["blocks"].([]any); ok {
 			sub := map[string]any{}
@@ -427,21 +430,75 @@ func projectSchemas(schemas map[string]any, types map[string]bool) map[string]an
 				if bm == nil {
 					continue
 				}
-				btype := getString(bm, "type")
-				if btype == "" {
-					continue
+				if btype := getString(bm, "type"); btype != "" {
+					sub[btype] = projectBlock(schemas, bm, btype)
 				}
-				entry := map[string]any{"label": zhText(bm["name"])}
-				if bs, ok := bm["settings"].([]any); ok {
-					entry["settings"] = projectSettings(bs)
-				}
-				sub[btype] = entry
 			}
 			proj["blocks"] = sub
 		}
 		out[typ] = proj
 	}
 	return out
+}
+
+// projectBlock projects one entry of a card's blocks list. Such an entry only
+// *declares* a sub-block ({type} plus an optional static flag, and rarely
+// card-specific settings) — the block's own fields and display name live under
+// the sibling top-level schemas key of the same type.
+func projectBlock(schemas, decl map[string]any, btype string) map[string]any {
+	ref := mapField(schemas, btype)
+	entry := map[string]any{}
+	switch {
+	case btype == appBlockSentinel:
+		// Not a block type: the card accepts URI-addressed app blocks.
+		entry["app_blocks"] = true
+	case ref == nil:
+		// Declared but the payload ships no schema for it — distinct from a
+		// block that genuinely takes no fields.
+		entry["schema_missing"] = true
+	}
+	if l := blockLabel(decl, ref); l != "" {
+		entry["label"] = l
+	}
+	// Settings inlined on the declaration override the shared schema (atc_toast
+	// renames atc_success_button's field), so they win when both exist.
+	settings, _ := decl["settings"].([]any)
+	if settings == nil && ref != nil {
+		settings, _ = ref["settings"].([]any)
+	}
+	if settings != nil {
+		entry["settings"] = projectSettings(settings)
+	}
+	if v, ok := decl["static"]; ok && v != nil {
+		entry["static"] = v
+	}
+	for _, k := range []string{"limit", "max_blocks", "templates"} {
+		if v, ok := ref[k]; ok && v != nil {
+			entry[k] = v
+		}
+	}
+	return entry
+}
+
+// blockLabel resolves a sub-block's human-facing zh-CN name: the preset cname
+// is the display name, the type-slug name is the fallback.
+func blockLabel(decl, ref map[string]any) string {
+	srcs := []map[string]any{decl, ref}
+	for _, src := range srcs {
+		if presets, ok := src["presets"].([]any); ok && len(presets) > 0 {
+			if p := asMap(presets[0]); p != nil {
+				if l := zhText(p["cname"]); l != "" {
+					return l
+				}
+			}
+		}
+	}
+	for _, src := range srcs {
+		if l := zhText(src["name"]); l != "" {
+			return l
+		}
+	}
+	return ""
 }
 
 // projectSettings keeps the semantic subset of a settings schema list, labels

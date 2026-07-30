@@ -310,6 +310,98 @@ func TestPage_IncludeSchemaProjection(t *testing.T) {
 	}
 }
 
+// realSchemasPayload mirrors the production schemas-list shape: a card's blocks
+// list only declares types, and each sub-block's fields and display name live
+// under its own sibling top-level key.
+func realSchemasPayload() []byte {
+	payload := map[string]any{"data": map[string]any{
+		"schemas": map[string]any{
+			"footer": map[string]any{
+				"limit": 1.0, "deletable": false, "collapse": true, "max_blocks": 12.0,
+				"blocks": []any{
+					map[string]any{"type": "@app"},
+					map[string]any{"static": true, "type": "blocks/footer_copyright"},
+					map[string]any{"type": "blocks/footer_social_media"}, // no schema shipped
+				},
+			},
+			"blocks/footer_copyright": map[string]any{
+				"limit":     1.0,
+				"name":      "footer_copyright",
+				"templates": []any{},
+				"presets": []any{map[string]any{
+					"cname": map[string]any{"en-US": "Copyright information", "zh-CN": "版权信息"},
+				}},
+				"settings": []any{
+					map[string]any{"id": "copyright_text", "type": "text",
+						"label": map[string]any{"zh-CN": "附加版权文案"}},
+					map[string]any{"id": "position", "type": "select", "default": "left",
+						"label": map[string]any{"zh-CN": "位置"},
+						"info":  map[string]any{"zh-CN": "移动端位置仅支持居左居中"},
+						"options": []any{
+							map[string]any{"value": "left", "label": map[string]any{"zh-CN": "页尾左侧"}},
+						},
+					},
+				},
+			},
+		},
+		"sections": map[string]any{
+			"page_sections": []any{},
+			"sections": []any{
+				map[string]any{"id": "footer", "type": "footer", "display": true,
+					"settings": map[string]any{}, "blocks": []any{}},
+			},
+		},
+	}}
+	b, _ := json.Marshal(payload)
+	return b
+}
+
+// TestPage_IncludeSchemaResolvesDeclaredBlocks: a card's blocks list only names
+// its sub-blocks, so the projection has to follow the type into the sibling
+// schema for the fields, the display name, and the per-block constraints.
+func TestPage_IncludeSchemaResolvesDeclaredBlocks(t *testing.T) {
+	var c pageServerCounters
+	srv := pageServer(t, &c, realSchemasPayload())
+	defer srv.Close()
+
+	body, err := pageExec(t, srv, map[string]any{"template": "index", "include": "schema", "area": "footer"})
+	if err != nil {
+		t.Fatalf("pageExecute: %v", err)
+	}
+	footer := body["schema"].(map[string]any)["footer"].(map[string]any)
+
+	// Card-level constraints +edit checks before deleting or adding.
+	for k, want := range map[string]string{"limit": "1", "deletable": "false", "collapse": "true", "max_blocks": "12"} {
+		if got := fmt.Sprint(footer[k]); got != want {
+			t.Errorf("footer[%s] = %v, want %s", k, footer[k], want)
+		}
+	}
+
+	blocks := footer["blocks"].(map[string]any)
+	cr := blocks["blocks/footer_copyright"].(map[string]any)
+	if cr["label"] != "版权信息" { // presets[0].cname, not the type slug
+		t.Errorf("label = %v, want 版权信息", cr["label"])
+	}
+	if cr["static"] != true || fmt.Sprint(cr["limit"]) != "1" {
+		t.Errorf("static/limit = %v/%v, want true/1", cr["static"], cr["limit"])
+	}
+	settings, _ := cr["settings"].([]map[string]any)
+	if len(settings) != 2 {
+		t.Fatalf("settings = %v, want the 2 fields of the sibling schema", cr["settings"])
+	}
+	if settings[1]["info"] != "移动端位置仅支持居左居中" || settings[1]["label"] != "位置" {
+		t.Errorf("field projection lost zh-CN text: %v", settings[1])
+	}
+
+	// The two non-block entries stay distinguishable from "takes no fields".
+	if blocks["@app"].(map[string]any)["app_blocks"] != true {
+		t.Errorf("@app entry = %v, want app_blocks marker", blocks["@app"])
+	}
+	if blocks["blocks/footer_social_media"].(map[string]any)["schema_missing"] != true {
+		t.Errorf("unshipped schema = %v, want schema_missing marker", blocks["blocks/footer_social_media"])
+	}
+}
+
 // pbSectionsPayload crafts a sections payload with one PB custom card.
 func pbSectionsPayload() []byte {
 	payload := map[string]any{"data": map[string]any{
