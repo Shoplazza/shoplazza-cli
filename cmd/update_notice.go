@@ -14,10 +14,9 @@ var updateCheckSkippedCommands = map[string]bool{
 	"completion": true,
 }
 
-// isUpdateCheckSkippedCommand resolves args against the command tree and
-// reports whether the invoked top-level command should skip the update
-// checks. Cobra's Find strips flags, so `--format json update` matches
-// `update` while `products update` resolves to the products module.
+// isUpdateCheckSkippedCommand reports whether the invoked top-level command
+// should skip the update checks. It resolves through Cobra's Find, which strips
+// flags — so `--format json update` matches, `products update` does not.
 func isUpdateCheckSkippedCommand(root *cobra.Command, args []string) bool {
 	// Cobra registers __complete only inside Execute, so Find can't see it.
 	if len(args) > 0 && (args[0] == "__complete" || args[0] == "__completeNoDesc") {

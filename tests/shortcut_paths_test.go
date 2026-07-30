@@ -106,11 +106,9 @@ func templateMatches(template, concrete []string) bool {
 	return true
 }
 
-// stubFlagSet returns stub values for every flag accessor. GetString returns a
-// non-empty placeholder so that shortcuts which interpolate flag values into URL
-// path segments (e.g. --id flags) produce a non-empty segment that the
-// templateMatches wildcard logic can accept. Shortcuts that impose additional
-// validation on the flag value will return a Plan error and be skipped.
+// stubFlagSet returns stub values for every flag accessor. GetString is
+// non-empty so a flag interpolated into a path segment still matches a
+// {placeholder}; shortcuts that validate the value further error out and skip.
 type stubFlagSet struct{}
 
 func (stubFlagSet) GetString(string) string        { return "x" }

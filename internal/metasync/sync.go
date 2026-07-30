@@ -67,9 +67,8 @@ func ForceRefresh(ctx context.Context, currentVersion string) (Result, error) {
 }
 
 // recordFailure arms the backoff, except when we cancelled the attempt
-// ourselves: Ctrl-C says nothing about whether the origin is healthy, and the
-// backoff exists to leave an unhealthy one alone. A timeout still counts — that
-// one is evidence. Not writing also keeps a shutting-down process off the disk.
+// ourselves: the backoff is for leaving an unhealthy origin alone, and Ctrl-C
+// says nothing about the origin. A timeout still counts — that one is evidence.
 func recordFailure(err error) {
 	if errors.Is(err, context.Canceled) {
 		return
