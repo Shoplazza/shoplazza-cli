@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
@@ -59,8 +60,19 @@ func TestNewCmdDoctor_Structure(t *testing.T) {
 	}
 }
 
+// seedAuthLocksDirs creates the two directories checkAuthLocksDirs looks for.
+func seedAuthLocksDirs(t *testing.T, configPath string) {
+	t.Helper()
+	if err := os.MkdirAll(internalauth.AuthDir(configPath), 0o700); err != nil {
+		t.Fatalf("mkdir auth: %v", err)
+	}
+	if err := os.MkdirAll(core.LocksDir(configPath), 0o700); err != nil {
+		t.Fatalf("mkdir locks: %v", err)
+	}
+}
+
 // GATE-11: a healthy v2 config (configVersion=2, auth/+locks/ present and
-// writable, no leftover v1 auth.json) passes every check.
+// writable) passes every check.
 func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 	f, configPath := newTestFactory(t)
 	cfg := core.CliConfig{ConfigVersion: 2}
@@ -68,12 +80,7 @@ func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 		t.Fatalf("seed config: %v", err)
 	}
 	f.Config = cfg
-	if err := os.MkdirAll(internalauth.AuthDir(configPath), 0o700); err != nil {
-		t.Fatalf("mkdir auth: %v", err)
-	}
-	if err := os.MkdirAll(core.LocksDir(configPath), 0o700); err != nil {
-		t.Fatalf("mkdir locks: %v", err)
-	}
+	seedAuthLocksDirs(t, configPath)
 
 	out := runDoctorCmd(t, f, "check")
 	var got map[string]any
@@ -93,11 +100,15 @@ func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 			t.Errorf("check %v not ok: %v", m["name"], m)
 		}
 	}
+	meta := checks[2].(map[string]any)
+	if meta["name"] != "metadata" || !strings.Contains(meta["message"].(string), "source=") {
+		t.Errorf("metadata check malformed: %v", meta)
+	}
 }
 
-// GATE-12: a pre-v2 config with no auth/locks directories yet warns on both
-// the configVersion and migration-residue checks, and the directory check
-// warns rather than fails (directories are created lazily).
+// GATE-12: a pre-v2 config warns that it has not migrated. The missing
+// auth/locks directories are not part of that — they are created on first
+// write, and the config directory here is writable, so nothing is broken.
 func TestDoctorCheck_V1MissingDirs_Warns(t *testing.T) {
 	f, configPath := newTestFactory(t)
 	cfg := core.CliConfig{} // unmigrated: ConfigVersion 0, no profiles
@@ -124,11 +135,8 @@ func TestDoctorCheck_V1MissingDirs_Warns(t *testing.T) {
 	if byName["config_version"] != "warn" {
 		t.Errorf("config_version = %q, want warn", byName["config_version"])
 	}
-	if byName["auth_locks_dirs"] != "warn" {
-		t.Errorf("auth_locks_dirs = %q, want warn", byName["auth_locks_dirs"])
-	}
-	if byName["migration_residue"] != "warn" {
-		t.Errorf("migration_residue = %q, want warn", byName["migration_residue"])
+	if byName["auth_locks_dirs"] != "ok" {
+		t.Errorf("auth_locks_dirs = %q, want ok — lazily created dirs are not a finding", byName["auth_locks_dirs"])
 	}
 }
 
@@ -146,9 +154,10 @@ func TestDoctorCheck_FreshInstall_AllOK(t *testing.T) {
 	}
 }
 
-// A v2 config with a leftover v1 auth.json alongside it is migration
-// residue: warn, even though configVersion itself is fine.
-func TestDoctorCheck_LeftoverV1AuthJSON_Warns(t *testing.T) {
+// A leftover v1 auth.json next to a healthy v2 config is not a health
+// problem, so it must not drag the verdict down — nothing about it stops a
+// command from working.
+func TestDoctorCheck_LeftoverV1AuthJSON_StaysOK(t *testing.T) {
 	f, configPath := newTestFactory(t)
 	cfg := core.CliConfig{ConfigVersion: 2}
 	if err := core.SaveConfig(configPath, cfg); err != nil {
@@ -158,14 +167,15 @@ func TestDoctorCheck_LeftoverV1AuthJSON_Warns(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(filepath.Dir(configPath), "auth.json"), []byte(`{}`), 0o600); err != nil {
 		t.Fatalf("seed legacy auth.json: %v", err)
 	}
+	seedAuthLocksDirs(t, configPath)
 
 	out := runDoctorCmd(t, f, "check")
 	var got map[string]any
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatalf("output not JSON: %v\n%s", err, out)
 	}
-	if got["ok"] != false {
-		t.Fatalf("expected ok=false with leftover v1 auth.json, got %v", got)
+	if got["ok"] != true {
+		t.Fatalf("expected ok=true with a leftover v1 auth.json, got %v", got)
 	}
 }
 
@@ -212,5 +222,41 @@ func TestDoctorCheck_LocksNotWritable_Fails(t *testing.T) {
 	}
 	if byName["auth_locks_dirs"] != "fail" {
 		t.Errorf("auth_locks_dirs = %q, want fail", byName["auth_locks_dirs"])
+	}
+}
+
+// Neither directory exists yet and the config directory cannot be written, so
+// the lazy creation will fail too. Absence alone is fine; absence with no way
+// to fix it is the failure the check exists to name.
+func TestDoctorCheck_ConfigDirNotWritable_Fails(t *testing.T) {
+	f, configPath := newTestFactory(t)
+	cfg := core.CliConfig{ConfigVersion: 2}
+	if err := core.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("seed config: %v", err)
+	}
+	f.Config = cfg
+
+	configDir := filepath.Dir(configPath)
+	if err := os.Chmod(configDir, 0o500); err != nil {
+		t.Fatalf("chmod config dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(configDir, 0o700) })
+	skipIfDirWritable(t, configDir)
+
+	out := runDoctorCmd(t, f, "check")
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out)
+	}
+	byName := map[string]string{}
+	for _, c := range got["checks"].([]any) {
+		m := c.(map[string]any)
+		byName[m["name"].(string)] = m["status"].(string)
+	}
+	if byName["auth_locks_dirs"] != "fail" {
+		t.Errorf("auth_locks_dirs = %q, want fail", byName["auth_locks_dirs"])
+	}
+	if got["ok"] != false {
+		t.Errorf("ok = %v, want false", got["ok"])
 	}
 }
