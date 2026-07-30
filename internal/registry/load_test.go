@@ -9,7 +9,10 @@ import (
 // verify parse-failure and initialisation behaviour.
 func resetLoadSpec() {
 	loadOnce = sync.Once{}
-	cachedSpec = nil
+	activeSpec = nil
+	specSource = ""
+	embeddedRevOnce = sync.Once{}
+	embeddedRev = ""
 }
 
 func TestLoadSpec_EmbeddedSpec(t *testing.T) {

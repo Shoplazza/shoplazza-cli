@@ -1,0 +1,727 @@
+package metasync
+
+import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
+)
+
+// futureRev sorts after any real embedded generated_at.
+const futureRev = "9998-01-01T00:00:00Z"
+
+func gzipBytes(t *testing.T, data []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if _, err := zw.Write(data); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func sha256Hex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+func specJSON(rev string) []byte {
+	return []byte(`{"version":"vTEST","generated_at":"` + rev + `","modules":[{"name":"zz-sync-probe","commands":[]}]}`)
+}
+
+// remote is a fake origin serving one manifest plus the spec archives on offer.
+type remote struct {
+	srv       *httptest.Server
+	manifest  []byte
+	specs     map[string][]byte // every archive on offer, by name
+	specHits  atomic.Int64
+	lastQuery atomic.Value // string: raw query of the last manifest GET
+}
+
+// publish replaces what the remote offers the way meta-publish.sh does: a new
+// archive named after the revision, plus a manifest pointing at it. Earlier
+// archives stay served, as they do in the bucket.
+func (r *remote) publish(t *testing.T, rev string, raw []byte) {
+	t.Helper()
+	gz := gzipBytes(t, raw)
+	name := strings.ReplaceAll(rev, ":", "") + ".json.gz"
+	r.specs[name] = gz
+	mb, err := json.Marshal(manifest{Revision: rev, Filename: name, SHA256: sha256Hex(gz)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.manifest = mb
+}
+
+func newRemote(t *testing.T, m manifest, gzSpec []byte) *remote {
+	t.Helper()
+	r := &remote{}
+	mb, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.manifest = mb
+	r.specs = map[string][]byte{testSpecName: gzSpec}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/manifest", func(w http.ResponseWriter, req *http.Request) {
+		r.lastQuery.Store(req.URL.RawQuery)
+		_, _ = w.Write(r.manifest)
+	})
+	mux.HandleFunc("/specs/", func(w http.ResponseWriter, req *http.Request) {
+		body, ok := r.specs[path.Base(req.URL.Path)]
+		if !ok {
+			http.NotFound(w, req)
+			return
+		}
+		r.specHits.Add(1)
+		_, _ = w.Write(body)
+	})
+	r.srv = httptest.NewServer(mux)
+	t.Cleanup(r.srv.Close)
+	return r
+}
+
+// setup isolates the config dir, points the origin at the fake remote, and
+// clears every skip-guard env so tests behave the same locally and in CI.
+func setup(t *testing.T, r *remote) {
+	t.Helper()
+	testenv.IsolateConfigDir(t)
+	origin := ""
+	if r != nil {
+		origin = r.srv.URL + "/"
+	}
+	t.Setenv(EnvOrigin, origin)
+	for _, k := range []string{"CI", "BUILD_NUMBER", "RUN_ID", "SHOPLAZZA_CLI_NO_META_UPDATE"} {
+		t.Setenv(k, "")
+	}
+}
+
+func readCache(t *testing.T) []byte {
+	t.Helper()
+	path, err := registry.CachedSpecPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+// testSpecName is a canonical archive name; anything else is rejected by the
+// client's allowlist before a download is attempted.
+const testSpecName = "9998-01-01T000000Z.json.gz"
+
+func manifestFor(raw []byte, rev string) manifest {
+	return manifest{Revision: rev, Filename: testSpecName, SHA256: sha256Hex(raw)}
+}
+
+func TestDoRefresh_HappyPath(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	res, err := ForceRefresh(context.Background(), "1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Updated || res.NewRevision != futureRev {
+		t.Fatalf("unexpected result: %+v", res)
+	}
+	if !bytes.Equal(readCache(t), raw) {
+		t.Fatal("cache file must hold the decompressed spec")
+	}
+	s := loadState()
+	if s == nil || s.LastCheckedAt == 0 || s.Origin != originURL() {
+		t.Fatalf("unexpected state: %+v", s)
+	}
+}
+
+// The steady-state path: the revision reported comes from the cache, not the
+// embedded spec. No other test gets that far.
+func TestDoRefresh_UpdatesAnAlreadyCachedSpec(t *testing.T) {
+	const secondRev = "9999-06-01T00:00:00Z"
+	firstRaw := specJSON(futureRev)
+	gz := gzipBytes(t, firstRaw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	res, err := ForceRefresh(context.Background(), "1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.NewRevision != futureRev || !bytes.Equal(readCache(t), firstRaw) {
+		t.Fatalf("first adoption failed: %+v", res)
+	}
+
+	secondRaw := specJSON(secondRev)
+	r.publish(t, secondRev, secondRaw)
+
+	res, err = ForceRefresh(context.Background(), "1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	q, err := url.ParseQuery(r.lastQuery.Load().(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The whole point: the second check reports what is cached, not what is
+	// embedded, or the server would keep offering a revision already held.
+	if got := q.Get("revision"); got != futureRev {
+		t.Fatalf("reported revision = %q, want the cached %q (embedded is %q)",
+			got, futureRev, registry.EmbeddedRevision())
+	}
+	if res.OldRevision != futureRev || res.NewRevision != secondRev || !res.Updated {
+		t.Fatalf("unexpected result: %+v", res)
+	}
+	if !bytes.Equal(readCache(t), secondRaw) {
+		t.Fatal("cache must hold the newer spec")
+	}
+	if got := r.specHits.Load(); got != 2 {
+		t.Fatalf("spec downloads = %d, want one per adopted revision", got)
+	}
+}
+
+func TestDoRefresh_Gates(t *testing.T) {
+	cases := []struct {
+		name     string
+		body     []byte // manifest body override; nil = the newer manifest
+		version  string
+		wantHits int64 // spec endpoint hits
+	}{
+		// protojson emits unpopulated fields, so the real up-to-date body
+		// carries the empty ones rather than omitting them.
+		{name: "server says up to date", body: []byte(`{"up_to_date":true,"revision":"","filename":"","sha256":""}`), version: "1.0.0"},
+		{name: "server serves a manifest", version: "1.0.0", wantHits: 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := specJSON(futureRev)
+			gz := gzipBytes(t, raw)
+			r := newRemote(t, manifestFor(gz, futureRev), gz)
+			if tc.body != nil {
+				r.manifest = tc.body
+			}
+			setup(t, r)
+
+			res, err := ForceRefresh(context.Background(), tc.version)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := r.specHits.Load(); got != tc.wantHits {
+				t.Fatalf("spec hits = %d, want %d", got, tc.wantHits)
+			}
+			if res.Updated != (tc.wantHits == 1) {
+				t.Fatalf("Updated = %v, want %v", res.Updated, tc.wantHits == 1)
+			}
+			// A fully processed gate must advance the TTL clock.
+			if s := loadState(); s == nil || s.LastCheckedAt == 0 {
+				t.Fatalf("state must record the completed check, got %+v", s)
+			}
+		})
+	}
+}
+
+func TestDoRefresh_RejectsBadPayloads(t *testing.T) {
+	valid := specJSON(futureRev)
+	cases := []struct {
+		name  string
+		build func(gz []byte) manifest
+		body  func(t *testing.T) []byte
+	}{
+		{
+			name:  "sha256 mismatch",
+			build: func(gz []byte) manifest { m := manifestFor(gz, futureRev); m.SHA256 = sha256Hex([]byte("x")); return m },
+			body:  func(t *testing.T) []byte { return gzipBytes(t, valid) },
+		},
+		{
+			name:  "corrupt gzip",
+			build: func(gz []byte) manifest { return manifestFor(gz, futureRev) },
+			body:  func(_ *testing.T) []byte { return []byte("not a gzip stream") },
+		},
+		{
+			name:  "revision mismatch inside spec",
+			build: func(gz []byte) manifest { return manifestFor(gz, futureRev) },
+			body:  func(t *testing.T) []byte { return gzipBytes(t, specJSON("9997-01-01T00:00:00Z")) },
+		},
+		{
+			name:  "empty modules",
+			build: func(gz []byte) manifest { return manifestFor(gz, futureRev) },
+			body: func(t *testing.T) []byte {
+				return gzipBytes(t, []byte(`{"version":"v","generated_at":"`+futureRev+`","modules":[]}`))
+			},
+		},
+		{
+			name:  "spec not valid json",
+			build: func(gz []byte) manifest { return manifestFor(gz, futureRev) },
+			body:  func(t *testing.T) []byte { return gzipBytes(t, []byte("{nope")) },
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := tc.body(t)
+			r := newRemote(t, tc.build(body), body)
+			setup(t, r)
+
+			if _, err := ForceRefresh(context.Background(), "1.0.0"); err == nil {
+				t.Fatal("expected error")
+			}
+			if readCache(t) != nil {
+				t.Fatal("failed refresh must not write the cache file")
+			}
+			// Failures record a backoff stamp but never advance the TTL clock.
+			s := loadState()
+			if s == nil || s.LastFailureAt == 0 {
+				t.Fatalf("failed refresh must record LastFailureAt, got %+v", s)
+			}
+			if s.LastCheckedAt != 0 {
+				t.Fatalf("failed refresh must not advance LastCheckedAt, got %+v", s)
+			}
+		})
+	}
+}
+
+func TestDoRefresh_OversizedManifestRejected(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	r.manifest = bytes.Repeat([]byte("a"), maxManifestBody+1)
+	setup(t, r)
+
+	if _, err := ForceRefresh(context.Background(), "1.0.0"); err == nil {
+		t.Fatal("expected error for oversized manifest")
+	}
+}
+
+func TestDoRefresh_ManifestHTTPError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/manifest", func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "nope", http.StatusNotFound)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	testenv.IsolateConfigDir(t)
+	t.Setenv(EnvOrigin, srv.URL+"/")
+
+	if _, err := ForceRefresh(context.Background(), "1.0.0"); err == nil {
+		t.Fatal("expected error for HTTP 404 manifest")
+	}
+}
+
+func TestDoRefresh_FailureKeepsExistingCache(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+	if _, err := ForceRefresh(context.Background(), "1.0.0"); err != nil {
+		t.Fatal(err)
+	}
+	// Second refresh against a broken remote: cache must survive untouched.
+	m := manifestFor(gz, "9999-01-01T00:00:00Z")
+	m.SHA256 = sha256Hex([]byte("broken"))
+	mb, _ := json.Marshal(m)
+	r.manifest = mb
+	if _, err := ForceRefresh(context.Background(), "1.0.0"); err == nil {
+		t.Fatal("expected error")
+	}
+	if !bytes.Equal(readCache(t), raw) {
+		t.Fatal("existing cache must survive a failed refresh")
+	}
+}
+
+// An invalid-but-newer cache file must not wedge future downloads: the gate
+// compares against the newest VALID local spec, so the next refresh repairs it.
+func TestDoRefresh_InvalidCacheDoesNotWedge(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	path, err := registry.CachedSpecPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Bogus cache: revision far beyond the remote's, but unusable (no modules).
+	bogus := []byte(`{"generated_at":"9999-12-31T00:00:00Z","modules":[]}`)
+	if err := os.WriteFile(path, bogus, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Same-origin state so the gate consults the local cache revision.
+	if err := saveState(&state{LastCheckedAt: 1, Origin: originURL()}); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := ForceRefresh(context.Background(), "1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Updated {
+		t.Fatalf("refresh must repair the invalid cache, got %+v", res)
+	}
+	if !bytes.Equal(readCache(t), raw) {
+		t.Fatal("cache file must be overwritten with the valid spec")
+	}
+}
+
+// A cache pulled from one origin must not gate a different origin: after
+// switching back, the new origin's spec is adopted even if its revision is
+// lower than the foreign cache's.
+func TestDoRefresh_OriginSwitchRepairsCache(t *testing.T) {
+	stagingRaw := specJSON(futureRev) // 9998-...
+	stagingGz := gzipBytes(t, stagingRaw)
+	staging := newRemote(t, manifestFor(stagingGz, futureRev), stagingGz)
+	setup(t, staging)
+	if _, err := ForceRefresh(context.Background(), "1.0.0"); err != nil {
+		t.Fatal(err)
+	}
+
+	prodRev := "9997-01-01T00:00:00Z" // newer than embedded, older than staging's
+	prodRaw := specJSON(prodRev)
+	prodGz := gzipBytes(t, prodRaw)
+	prod := newRemote(t, manifestFor(prodGz, prodRev), prodGz)
+	t.Setenv(EnvOrigin, prod.srv.URL+"/")
+
+	res, err := ForceRefresh(context.Background(), "1.0.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Updated {
+		t.Fatalf("origin switch must repair the cache, got %+v", res)
+	}
+	if !bytes.Equal(readCache(t), prodRaw) {
+		t.Fatal("cache must hold the new origin's spec")
+	}
+}
+
+// A revision no newer than the local one is not an update. registry.LoadSpec
+// would refuse such a spec anyway, so adopting it would trade a good cache for
+// a silent fall back to the embedded copy.
+func TestDoRefresh_RejectsRevisionNotNewerThanLocal(t *testing.T) {
+	t.Run("older than embedded is never downloaded", func(t *testing.T) {
+		const staleRev = "2020-01-01T00:00:00Z"
+		gz := gzipBytes(t, specJSON(staleRev))
+		r := newRemote(t, manifest{
+			Revision: staleRev,
+			Filename: "2020-01-01T000000Z.json.gz",
+			SHA256:   sha256Hex(gz),
+		}, gz)
+		setup(t, r)
+
+		res, err := ForceRefresh(context.Background(), "1.0.0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Updated || res.NewRevision != "" {
+			t.Fatalf("a stale revision must not count as an update: %+v", res)
+		}
+		if got := r.specHits.Load(); got != 0 {
+			t.Fatalf("spec downloads = %d, want 0", got)
+		}
+		if readCache(t) != nil {
+			t.Fatal("a stale revision must not be written to the cache")
+		}
+		// Still a completed check: nothing failed, so the TTL clock advances
+		// instead of re-downloading the same unusable spec every run.
+		if s := loadState(); s == nil || s.LastCheckedAt == 0 || s.LastFailureAt != 0 {
+			t.Fatalf("unexpected state: %+v", s)
+		}
+	})
+
+	t.Run("server rollback keeps the newer cache", func(t *testing.T) {
+		adoptedRaw := specJSON(futureRev) // 9998-...
+		gz := gzipBytes(t, adoptedRaw)
+		r := newRemote(t, manifestFor(gz, futureRev), gz)
+		setup(t, r)
+		if _, err := ForceRefresh(context.Background(), "1.0.0"); err != nil {
+			t.Fatal(err)
+		}
+
+		// The bucket rolls back to a revision still newer than embedded, but
+		// older than what this client already adopted.
+		const rolledBackRev = "9997-01-01T00:00:00Z"
+		r.publish(t, rolledBackRev, specJSON(rolledBackRev))
+
+		res, err := ForceRefresh(context.Background(), "1.0.0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Updated || res.OldRevision != futureRev {
+			t.Fatalf("a rollback must not count as an update: %+v", res)
+		}
+		if !bytes.Equal(readCache(t), adoptedRaw) {
+			t.Fatal("the newer cached spec must survive a server rollback")
+		}
+		if got := r.specHits.Load(); got != 1 {
+			t.Fatalf("spec downloads = %d, want only the first adoption", got)
+		}
+	})
+}
+
+// Malformed manifests are rejected before any spec download.
+func TestFetchManifest_RejectsMalformed(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(m *manifest)
+	}{
+		{name: "non-canonical revision", mutate: func(m *manifest) { m.Revision = "2026-07-13T12:00:00+08:00" }},
+		{name: "absolute filename", mutate: func(m *manifest) { m.Filename = "https://evil.example/spec.json.gz" }},
+		{name: "rooted filename", mutate: func(m *manifest) { m.Filename = "/etc/spec.json.gz" }},
+		{name: "traversal filename", mutate: func(m *manifest) { m.Filename = "../other/spec.json.gz" }},
+		{name: "filename carries the specs prefix", mutate: func(m *manifest) { m.Filename = "specs/" + testSpecName }},
+		{name: "filename is not an archive", mutate: func(m *manifest) { m.Filename = "manifest.json" }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := specJSON(futureRev)
+			gz := gzipBytes(t, raw)
+			m := manifestFor(gz, futureRev)
+			tc.mutate(&m)
+			r := newRemote(t, m, gz)
+			setup(t, r)
+
+			if _, err := ForceRefresh(context.Background(), "1.0.0"); err == nil {
+				t.Fatal("expected error")
+			}
+			if got := r.specHits.Load(); got != 0 {
+				t.Fatalf("malformed manifest must not trigger a spec download, hits = %d", got)
+			}
+		})
+	}
+}
+
+// A completed-but-failed attempt must back off instead of retrying every run.
+func TestRefresh_FailureBackoff(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	m := manifestFor(gz, futureRev)
+	m.SHA256 = sha256Hex([]byte("broken"))
+	r := newRemote(t, m, gz)
+	setup(t, r)
+
+	Refresh(context.Background(), "1.0.0")
+	s := loadState()
+	if s == nil || s.LastFailureAt == 0 {
+		t.Fatalf("failed background refresh must record LastFailureAt, got %+v", s)
+	}
+	if got := r.specHits.Load(); got != 1 {
+		t.Fatalf("spec hits = %d, want 1", got)
+	}
+	// Within the backoff window the next run must not touch the network.
+	Refresh(context.Background(), "1.0.0")
+	if got := r.specHits.Load(); got != 1 {
+		t.Fatalf("backoff must suppress the retry, spec hits = %d", got)
+	}
+}
+
+// Ctrl-C cancels the command context, which the in-flight refresh sees as an
+// error. Arming the hour-long backoff on it would punish the next run for
+// something the origin had no part in.
+func TestRefresh_CancelDoesNotArmBackoff(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	Refresh(ctx, "1.0.0")
+
+	if s := loadState(); s != nil && s.LastFailureAt != 0 {
+		t.Fatalf("a cancelled attempt must not record LastFailureAt, got %+v", s)
+	}
+	// And the next run still goes to the network rather than sitting out the hour.
+	Refresh(context.Background(), "1.0.0")
+	if got := r.specHits.Load(); got != 1 {
+		t.Fatalf("retry after cancel must reach the network, spec hits = %d, want 1", got)
+	}
+}
+
+func TestRefresh_TTLGuard(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	if err := saveState(&state{LastCheckedAt: time.Now().Unix()}); err != nil {
+		t.Fatal(err)
+	}
+	Refresh(context.Background(), "1.0.0")
+	if got := r.specHits.Load(); got != 0 {
+		t.Fatalf("fresh TTL must skip the network, spec hits = %d", got)
+	}
+	if readCache(t) != nil {
+		t.Fatal("TTL-guarded refresh must not write cache")
+	}
+}
+
+func TestRefresh_SkipGuards(t *testing.T) {
+	cases := []struct {
+		name    string
+		env     map[string]string
+		version string
+	}{
+		{name: "disabled by env", env: map[string]string{"SHOPLAZZA_CLI_NO_META_UPDATE": "1"}, version: "1.0.0"},
+		{name: "ci env", env: map[string]string{"CI": "true"}, version: "1.0.0"},
+		{name: "dev version", env: nil, version: "dev"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := specJSON(futureRev)
+			gz := gzipBytes(t, raw)
+			r := newRemote(t, manifestFor(gz, futureRev), gz)
+			setup(t, r)
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			Refresh(context.Background(), tc.version)
+			if got := r.specHits.Load(); got != 0 {
+				t.Fatalf("skip guard must prevent download, spec hits = %d", got)
+			}
+		})
+	}
+}
+
+func TestRefresh_EndToEnd(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	Refresh(context.Background(), "1.0.0")
+	if !bytes.Equal(readCache(t), raw) {
+		t.Fatal("background refresh must write the cache")
+	}
+	// Second call inside the TTL window must be a no-op.
+	Refresh(context.Background(), "1.0.0")
+	if got := r.specHits.Load(); got != 1 {
+		t.Fatalf("TTL must suppress the second download, spec hits = %d", got)
+	}
+}
+
+// The client declares what it can use; the server picks the manifest from it.
+func TestDoRefresh_DeclaresCapabilities(t *testing.T) {
+	raw := specJSON(futureRev)
+	gz := gzipBytes(t, raw)
+	r := newRemote(t, manifestFor(gz, futureRev), gz)
+	setup(t, r)
+
+	if _, err := ForceRefresh(context.Background(), "2.3.0"); err != nil {
+		t.Fatal(err)
+	}
+	q, err := url.ParseQuery(r.lastQuery.Load().(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := q.Get("cli_version"); got != "2.3.0" {
+		t.Fatalf("cli_version = %q, want 2.3.0", got)
+	}
+	// The local revision is what the server compares against; without it every
+	// check would download a spec the client already has.
+	if got, want := q.Get("revision"), registry.EmbeddedRevision(); got != want {
+		t.Fatalf("revision = %q, want the newest local revision %q", got, want)
+	}
+}
+
+func TestCurrentStatus(t *testing.T) {
+	testenv.IsolateConfigDir(t)
+	st := CurrentStatus()
+	if st.Source == "" || st.Revision == "" {
+		t.Fatalf("status must report source and revision, got %+v", st)
+	}
+	if !st.LastCheckedAt.IsZero() {
+		t.Fatalf("no state file means zero LastCheckedAt, got %v", st.LastCheckedAt)
+	}
+	if err := saveState(&state{LastCheckedAt: 1700000000}); err != nil {
+		t.Fatal(err)
+	}
+	if got := CurrentStatus().LastCheckedAt; got.IsZero() {
+		t.Fatal("LastCheckedAt must reflect the state file")
+	}
+}
+
+func TestOriginURL(t *testing.T) {
+	t.Setenv(EnvOrigin, "http://example.test/meta")
+	if got := originURL(); got != "http://example.test/meta/" {
+		t.Fatalf("originURL() = %q, want trailing slash added", got)
+	}
+	t.Setenv(EnvOrigin, "")
+	t.Setenv("SHOPLAZZA_CLI_AUTH_BASE_URL", "")
+	want := build.DefaultAuthBaseURL + metaRoutePrefix
+	if got := originURL(); got != want {
+		t.Fatalf("originURL() = %q, want derived default %q", got, want)
+	}
+	t.Setenv("SHOPLAZZA_CLI_AUTH_BASE_URL", "https://stg-partners.example/")
+	if got := originURL(); got != "https://stg-partners.example/api/saiga/cli/meta/" {
+		t.Fatalf("originURL() = %q, want auth-base derivation", got)
+	}
+	t.Setenv(EnvOrigin, "http://override.test/x/")
+	if got := originURL(); got != "http://override.test/x/" {
+		t.Fatalf("originURL() = %q, explicit META_ORIGIN must win", got)
+	}
+}
+
+// The budget has to cover reading the body, not just getting a response head —
+// a server that answers instantly and then trickles is exactly what the spec
+// download has to survive, and what the old client-wide Timeout got wrong.
+func TestGetLimited_BudgetCoversTheBodyRead(t *testing.T) {
+	stall := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "2")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("x"))
+		w.(http.Flusher).Flush()
+		<-stall // never sends the second byte
+	}))
+	// Cleanup is LIFO: release the handler before Close waits on it.
+	t.Cleanup(srv.Close)
+	t.Cleanup(func() { close(stall) })
+
+	if _, err := getLimited(context.Background(), srv.URL, maxManifestBody, 100*time.Millisecond); err == nil {
+		t.Fatal("a body that never finishes must exhaust the budget, got nil error")
+	}
+}
+
+// The caller's cancellation still wins inside the budget.
+func TestGetLimited_HonorsCallerCancel(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	t.Cleanup(srv.Close)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := getLimited(ctx, srv.URL, maxManifestBody, time.Minute); err == nil {
+		t.Fatal("a cancelled caller context must abort the request, got nil error")
+	}
+}
+
+func TestMain(m *testing.M) {
+	// Belt and braces: never let a stray test hit the real default origin.
+	os.Setenv(EnvOrigin, fmt.Sprintf("http://127.0.0.1:0/unreachable-%d/", os.Getpid()))
+	os.Exit(m.Run())
+}

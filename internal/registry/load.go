@@ -7,17 +7,20 @@ import (
 
 var (
 	loadOnce   sync.Once
-	cachedSpec *Spec
+	activeSpec *Spec
+	specSource string
 )
 
-// LoadSpec parses the embedded cli_meta.json, caching the result. It never
-// returns nil; corrupt JSON yields an empty Spec so the CLI can still start.
+// LoadSpec returns the active spec, preferring a valid newer downloaded
+// cache over the embedded copy, caching the result. It never returns nil;
+// corrupt input yields an empty Spec so the CLI can still start.
 func LoadSpec() *Spec {
 	loadOnce.Do(func() {
-		var spec Spec
-		if err := json.Unmarshal(Embedded, &spec); err != nil {
-			cachedSpec = &Spec{}
-			return
+		spec, source := &Spec{}, SourceEmbedded
+		if cached := loadCachedSpec(); cached != nil {
+			spec, source = cached, SourceCached
+		} else if err := json.Unmarshal(Embedded, spec); err != nil {
+			spec = &Spec{}
 		}
 		if spec.Schemas == nil {
 			spec.Schemas = map[string]ObjectSchema{}
@@ -27,7 +30,14 @@ func LoadSpec() *Spec {
 		for i, m := range spec.Modules {
 			spec.moduleIndex[m.Name] = i
 		}
-		cachedSpec = &spec
+		activeSpec, specSource = spec, source
 	})
-	return cachedSpec
+	return activeSpec
+}
+
+// SpecSource reports where the active spec came from: SourceEmbedded or
+// SourceCached.
+func SpecSource() string {
+	LoadSpec()
+	return specSource
 }
