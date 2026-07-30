@@ -87,8 +87,25 @@ function checkBodyKeys(surface, path, value) {
 }
 
 // Backbone requirements (AUTHORING.md §2; heading text tolerated in EN or ZH).
+// The first three rules mirror the Agent Skills spec (agentskills.io/specification):
+// name charset, description ≤ 1024 chars, SKILL.md body < 500 lines.
+function specDescription(md) {
+  const fm = md.match(/^---\n([\s\S]*?)\n---/m);
+  if (!fm) return null;
+  const dm = fm[1].match(/description:\s*(?:>-?\s*)?([\s\S]*?)(?=\n[a-z_-]+:|$)/);
+  return dm ? dm[1].replace(/\s+/g, ' ').trim() : null;
+}
 const BACKBONE = [
   { name: 'frontmatter name+description', test: (md) => /^---\n[\s\S]*?\bname:\s*\S+[\s\S]*?\bdescription:[\s\S]*?\n---/m.test(md) },
+  { name: 'spec: name is lowercase-hyphen (agentskills.io)', test: (md) => {
+      const m = md.match(/^---\n[\s\S]*?\bname:\s*(\S+)/m);
+      return !m || /^[a-z0-9]+(-[a-z0-9]+)*$/.test(m[1]) && m[1].length <= 64;
+    } },
+  { name: 'spec: description ≤ 1024 chars (agentskills.io)', test: (md) => {
+      const d = specDescription(md);
+      return d === null || (d.length >= 1 && d.length <= 1024);
+    } },
+  { name: 'spec: SKILL.md < 500 lines (agentskills.io)', test: (md) => md.split('\n').length < 500 },
   { name: 'CRITICAL read-shoplazza-common line', test: (md) => /CRITICAL.*shoplazza-common\/SKILL\.md/.test(md) },
   { name: '## Overview', test: (md) => /^##\s+Overview\b/m.test(md) },
   { name: '## Command map', test: (md) => /^##\s+.*(Command map|命令地图)/m.test(md) },

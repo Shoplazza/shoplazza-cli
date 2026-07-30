@@ -7,15 +7,13 @@ description: >-
   report / PV UV / conversion / SKU 排行 / best-selling SKU); the media library & file
   uploads (素材库 / 媒体库 / 上传文件 / files / upload file — store assets, NOT product
   images); metafields / 元字段 / 自定义字段 — ALL metafields live HERE, including
-  "给商品加字段" metafields ON products / orders / customers (definitions + resource +
-  shop metafields); blogs & articles (博客 / 文章 / 发文章 / blog post); custom storefront
-  pages (自定义页面 / 关于我们 / About Us / policy page — content, not theme editing);
-  URL redirects (重定向 / 301 / URL 跳转); markets (市场 / 多市场 / 站点 / 发布到日本市场);
-  store languages (语言 / 多语言 / 翻译 / 开通日语); real-time shipping-rate carrier
-  services (实时运费报价 / 承运商 / carrier service — rate quoting at checkout). NOT the
-  product catalog / product images / 商品图片 (→ shoplazza-products); NOT discount codes /
-  优惠码 (→ shoplazza-discounts); NOT order search / order counts / 订单统计 / fulfillment
-  tracking carriers / 物流查询 (→ orders domain); NOT theme / template editing (→ themes).
+  metafields ON products / orders / customers (给商品加字段); blogs & articles (博客 /
+  文章 / 发文章 / blog post); custom storefront pages (自定义页面 / 关于我们 / About Us /
+  policy page); URL redirects (重定向 / 301 / URL 跳转); markets (市场 / 多市场 /
+  发布到日本市场); store languages (语言 / 多语言 / 翻译 / 开通日语); real-time
+  shipping-rate carrier services (实时运费报价 / 承运商 / carrier service). NOT product
+  catalog / 商品图片 (→ shoplazza-products); NOT 优惠码 (→ shoplazza-discounts); NOT
+  order search / 订单统计 / 物流查询 (→ orders domain); NOT theme editing (→ themes).
 ---
 
 # shoplazza CLI — shop module

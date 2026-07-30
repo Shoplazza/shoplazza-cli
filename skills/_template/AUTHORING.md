@@ -5,6 +5,16 @@ Design authority: [`docs/skill/master-plan.md`](../../docs/skill/master-plan.md)
 [ADR-0002](../../docs/skill/adr/0002-common-base-skill-scope.md). Reference implementation:
 [`../shoplazza-discounts/SKILL.md`](../shoplazza-discounts/SKILL.md).
 
+Skills follow the open **[Agent Skills specification](https://agentskills.io/specification)**
+(the standard behind `npx skills add` and 17+ agent products). The spec constraints that bind
+every skill here — enforced by the L0 lint alongside this guide's own backbone rules:
+
+- `name`: ≤ 64 chars, lowercase letters/digits/hyphens only, must equal the directory name
+- `description`: 1–1024 chars, states what the skill does AND when to use it
+- `SKILL.md` body < 500 lines — move detail into `references/*.md` (progressive disclosure;
+  file references stay one level deep from SKILL.md)
+- Verify with the official validator: `npx skills-ref validate skills/<skill>/`
+
 ## 0. Language policy (governs every skill)
 
 **Instructional prose is English; user-facing triggers stay bilingual.**

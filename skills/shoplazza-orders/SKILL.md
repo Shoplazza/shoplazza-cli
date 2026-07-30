@@ -11,7 +11,7 @@ description: >-
   fraud risk records (欺诈 / 风控 / 高风险订单 / order risk), after-sales records (售后 /
   post-sales), shipping zones and rates (运费区域 / 邮费 / 运费方案 / shipping zones — real-time
   rate carriers → shoplazza-shop carrier-services), and tracking-carrier lookup (快递承运商 /
-  运单号识别承运商 / tracking carrier detect). A customer's orders by email (按邮箱查某客户的订单)
+  运单号识别承运商). A customer's orders by email (按邮箱查某客户的订单)
   are searched HERE; the customer record itself → shoplazza-customers. NOT product stock /
   库存 / 补货 (→ shoplazza-products).
 ---
