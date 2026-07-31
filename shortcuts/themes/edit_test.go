@@ -590,9 +590,11 @@ func TestEdit_MoveArrayItem(t *testing.T) {
 		"ops": `[{"op":"move_array_item","target":"333.blocks[0]","to_index":0}]`}); err != nil {
 		t.Fatalf("editExecute: %v", err)
 	}
+	// The endpoint addresses the container and carries both indexes as strings.
 	entry := editWriteBody(es, http.MethodPost, "/operations")["operations"].([]any)[0].(map[string]any)
-	if entry["op"] != "move_array_item" || entry["target"] != "333.blocks.0" || entry["position"] != "0" {
-		t.Errorf(`entry = %v, want move_array_item / 333.blocks.0 / position "0"`, entry)
+	if entry["op"] != "move_array_item" || entry["target"] != "333.blocks" ||
+		entry["move_target"] != "0" || entry["position"] != "0" {
+		t.Errorf(`entry = %v, want move_array_item / 333.blocks / move_target "0" / position "0"`, entry)
 	}
 
 	// The endpoint's own spelling of the index is accepted too.

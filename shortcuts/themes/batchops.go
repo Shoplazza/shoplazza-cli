@@ -211,10 +211,12 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 						at, len(siblings), len(siblings)-1)
 				}
 			}
-			// The endpoint names the destination index "position" and types it
-			// as a string.
+			// The endpoint addresses the container, not the block: move_target
+			// is where the block sits now, position where it goes, both as
+			// strings. Passing the block path as target answers param_required.
 			entries = append(entries, serverOp{map[string]any{
-				"op": "move_array_item", "target": dotBlockPath(op.ref), "position": strconv.Itoa(at),
+				"op": "move_array_item", "target": dotContainerPath(op.ref),
+				"move_target": strconv.Itoa(op.ref.BlockIndex), "position": strconv.Itoa(at),
 			}, i})
 		case "add_section":
 			value := sectionValue(op.Name)
