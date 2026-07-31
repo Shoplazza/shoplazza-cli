@@ -27,6 +27,7 @@ func editFlags(t *testing.T, vals map[string]any) common.FlagSet {
 	cmd.Flags().String("session", "", "")
 	cmd.Flags().String("ops", "", "")
 	cmd.Flags().Bool("promote", false, "")
+	cmd.Flags().Bool("publish", false, "")
 	for k, v := range vals {
 		if err := cmd.Flags().Set(k, fmt.Sprint(v)); err != nil {
 			t.Fatalf("set flag %s: %v", k, err)
@@ -40,11 +41,12 @@ func editFlags(t *testing.T, vals map[string]any) common.FlagSet {
 type editServer struct {
 	srv *httptest.Server
 
-	mu          sync.Mutex
-	writes      []map[string]any
-	failResults map[int]string // batch entry index → non-success result string
-	added       []string       // section ids "created" by add_section entries
-	conflict    bool           // promote responds conflict=true
+	mu           sync.Mutex
+	writes       []map[string]any
+	failResults  map[int]string // batch entry index → non-success result string
+	added        []string       // section ids "created" by add_section entries
+	conflict     bool           // promote responds conflict=true
+	publishFails bool           // publish responds 500
 }
 
 func newEditServer(t *testing.T) *editServer {
@@ -162,7 +164,22 @@ func newEditServer(t *testing.T) *editServer {
 					},
 				},
 			}})
+		case strings.HasSuffix(p, "/publish") && r.Method == http.MethodPatch:
+			es.mu.Lock()
+			es.writes = append(es.writes, map[string]any{"method": r.Method, "path": p, "body": map[string]any{}})
+			fails := es.publishFails
+			es.mu.Unlock()
+			if fails {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(`{"message":"internal server error"}`))
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{
+				"theme": map[string]any{"id": "t_pub", "revoke_publish_id": "t_old"}}})
 		case strings.HasSuffix(p, "/promote"):
+			es.mu.Lock()
+			es.writes = append(es.writes, map[string]any{"method": r.Method, "path": p, "body": map[string]any{}})
+			es.mu.Unlock()
 			if es.conflict { // real behavior: HTTP 409, not a {conflict:true} body
 				w.WriteHeader(http.StatusConflict)
 				_, _ = w.Write([]byte(`{"message":"edit session has conflict with draft, retry with force=true to overwrite"}`))
@@ -789,6 +806,205 @@ func TestEdit_PromoteAndConflict(t *testing.T) {
 	if !strings.Contains(fmt.Sprint(env["hint"]), "force") {
 		t.Errorf("hint = %v", env["hint"])
 	}
+}
+
+// TestEdit_PublishChain covers the --publish surface end to end: the gate on
+// --promote, the batch → promote → publish order, the success body, and the
+// promoted-but-not-published error window.
+func TestEdit_PublishChain(t *testing.T) {
+	const ops = `[{"op":"replace_props","target":"111","props":{"a":"1"}}]`
+
+	t.Run("publish without promote is refused before any request", func(t *testing.T) {
+		es := newEditServer(t)
+		defer es.srv.Close()
+		_, err := editExec(t, es, map[string]any{"template": "index", "session": "ose_x", "publish": true, "ops": ops})
+		var exitErr *output.ExitError
+		if !errors.As(err, &exitErr) || exitErr.Code != output.ExitValidation {
+			t.Fatalf("err = %v, want validation", err)
+		}
+		if !strings.Contains(exitErr.Error(), "--publish requires --promote") {
+			t.Errorf("message = %v", exitErr.Error())
+		}
+		if len(es.writes) != 0 {
+			t.Errorf("network touched despite a pre-flight validation error: %v", es.writes)
+		}
+	})
+
+	t.Run("order is batch then promote then publish", func(t *testing.T) {
+		es := newEditServer(t)
+		defer es.srv.Close()
+		body, err := editExec(t, es, map[string]any{"template": "index", "session": "ose_x",
+			"promote": true, "publish": true, "ops": ops})
+		if err != nil {
+			t.Fatalf("editExecute: %v", err)
+		}
+		if body["promoted"] != true || body["published"] != true {
+			t.Errorf("promoted/published = %v/%v", body["promoted"], body["published"])
+		}
+		if body["revoke_publish_id"] != "t_old" {
+			t.Errorf("revoke_publish_id = %v, want t_old", body["revoke_publish_id"])
+		}
+		var seq []string
+		es.mu.Lock()
+		for _, wr := range es.writes {
+			p := fmt.Sprint(wr["path"])
+			switch {
+			case strings.HasSuffix(p, "/operations"):
+				seq = append(seq, "batch")
+			case strings.HasSuffix(p, "/promote"):
+				seq = append(seq, "promote")
+			case strings.HasSuffix(p, "/publish"):
+				seq = append(seq, "publish")
+			}
+		}
+		es.mu.Unlock()
+		if strings.Join(seq, ",") != "batch,promote,publish" {
+			t.Errorf("sequence = %v", seq)
+		}
+	})
+
+	t.Run("a promote conflict never reaches publish", func(t *testing.T) {
+		es := newEditServer(t)
+		defer es.srv.Close()
+		es.conflict = true
+		_, err := editExec(t, es, map[string]any{"template": "index", "session": "ose_x",
+			"promote": true, "publish": true, "ops": ops})
+		var exitErr *output.ExitError
+		if !errors.As(err, &exitErr) || exitErr.Envelope()["conflict"] != true {
+			t.Fatalf("err = %v, want the conflict envelope", err)
+		}
+		if n := editWriteCount(es, http.MethodPatch, "/publish"); n != 0 {
+			t.Errorf("publish sent %d times after a conflict, want 0", n)
+		}
+	})
+
+	t.Run("publish failure reports the promote that already landed", func(t *testing.T) {
+		es := newEditServer(t)
+		defer es.srv.Close()
+		es.publishFails = true
+		_, err := editExec(t, es, map[string]any{"template": "index", "session": "ose_x",
+			"promote": true, "publish": true, "ops": ops})
+		var exitErr *output.ExitError
+		if !errors.As(err, &exitErr) {
+			t.Fatalf("err = %v, want ExitError", err)
+		}
+		env := exitErr.Envelope()
+		if env["promoted"] != true || env["published"] != false {
+			t.Errorf("promoted/published = %v/%v, want true/false", env["promoted"], env["published"])
+		}
+		for _, k := range []string{"oseid", "applied", "preview_url"} {
+			if env[k] == nil {
+				t.Errorf("envelope is missing %s: %v", k, env)
+			}
+		}
+		if !strings.Contains(fmt.Sprint(env["hint"]), "themes publish") {
+			t.Errorf("hint = %v, want the standalone publish retry", env["hint"])
+		}
+	})
+}
+
+// TestEdit_EmptyBatchPromotePublish is the "already previewed, now ship it"
+// path: no ops to apply, so no batch request goes out at all.
+func TestEdit_EmptyBatchPromotePublish(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	body, err := editExec(t, es, map[string]any{"template": "index", "session": "ose_x",
+		"promote": true, "publish": true, "ops": `[]`})
+	if err != nil {
+		t.Fatalf("editExecute: %v", err)
+	}
+	if applied, ok := body["applied"].([]map[string]any); !ok || len(applied) != 0 {
+		t.Errorf("applied = %#v, want an empty array", body["applied"])
+	}
+	if body["promoted"] != true || body["published"] != true {
+		t.Errorf("promoted/published = %v/%v", body["promoted"], body["published"])
+	}
+	if n := editWriteCount(es, http.MethodPost, "/operations"); n != 0 {
+		t.Errorf("batch-ops sent %d times for an empty batch, want 0", n)
+	}
+	for _, m := range []struct{ method, suffix string }{{http.MethodPost, "/promote"}, {http.MethodPatch, "/publish"}} {
+		if editWriteCount(es, m.method, m.suffix) != 1 {
+			t.Errorf("%s %s not sent exactly once", m.method, m.suffix)
+		}
+	}
+}
+
+// TestEdit_DryRunPublishPlan: the confirmation card is rendered from the plan
+// list, so publish has to show up there — after promote, and without an empty
+// batch plan when there are no ops.
+func TestEdit_DryRunPublishPlan(t *testing.T) {
+	paths := func(vals map[string]any) []string {
+		t.Helper()
+		res, err := editExecute(context.Background(), common.ExecInput{
+			Flags: editFlags(t, vals), Tool: "edit", DryRun: true, Client: client.New("https://x"),
+		})
+		if err != nil {
+			t.Fatalf("dry run: %v", err)
+		}
+		var out []string
+		for _, p := range res.Plans {
+			out = append(out, p.Method+" "+p.Path)
+		}
+		return out
+	}
+
+	got := paths(map[string]any{"template": "index", "theme": "t1", "session": "ose_x",
+		"promote": true, "publish": true, "ops": `[{"op":"replace_props","target":"111","props":{"a":"1"}}]`})
+	want := []string{
+		"GET /openapi/2026-01/themes/t1/doctree",
+		"POST /openapi/2026-01/themes/edit-sessions/ose_x/files/<doc_id>/operations",
+		"POST /openapi/2026-01/themes/edit-sessions/ose_x/promote",
+		"PATCH /openapi/2026-01/themes/t1/publish",
+	}
+	if strings.Join(got, " | ") != strings.Join(want, " | ") {
+		t.Errorf("plans =\n  %v\nwant\n  %v", got, want)
+	}
+
+	empty := paths(map[string]any{"template": "index", "theme": "t1", "session": "ose_x",
+		"promote": true, "publish": true, "ops": `[]`})
+	for _, p := range empty {
+		if strings.HasSuffix(p, "/operations") {
+			t.Errorf("empty batch produced a batch plan: %v", empty)
+		}
+	}
+	if len(empty) != 3 || !strings.HasSuffix(empty[2], "/publish") {
+		t.Errorf("empty-batch plans = %v", empty)
+	}
+}
+
+func TestEdit_EmptyBatchRequiresPromoteAndSession(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	for name, flags := range map[string]map[string]any{
+		"no promote": {"template": "index", "session": "ose_x", "ops": `[]`},
+		"no session": {"template": "index", "promote": true, "ops": `[]`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := editExec(t, es, flags)
+			var exitErr *output.ExitError
+			if !errors.As(err, &exitErr) || exitErr.Code != output.ExitValidation {
+				t.Fatalf("err = %v, want validation", err)
+			}
+			if len(es.writes) != 0 {
+				t.Errorf("network touched: %v", es.writes)
+			}
+		})
+	}
+}
+
+// editWriteCount counts recorded requests matching method + path suffix.
+func editWriteCount(es *editServer, method, pathSuffix string) int {
+	es.mu.Lock()
+	defer es.mu.Unlock()
+	n := 0
+	for _, wr := range es.writes {
+		if wr["method"] == method && strings.HasSuffix(fmt.Sprint(wr["path"]), pathSuffix) {
+			n++
+		}
+	}
+	return n
 }
 
 func TestValidateOps_Table(t *testing.T) {

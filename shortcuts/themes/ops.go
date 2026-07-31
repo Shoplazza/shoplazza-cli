@@ -98,10 +98,7 @@ func parseOps(raw []byte) ([]editOp, error) {
 	if err := json.Unmarshal(raw, &ops); err != nil {
 		return nil, output.ErrValidation("--ops is not a valid JSON array: %v", err)
 	}
-	if len(ops) == 0 {
-		return nil, output.ErrValidation("--ops is empty")
-	}
-	return ops, nil
+	return ops, nil // an empty batch is syntax-legal; editExecute rules on it
 }
 
 // validateOps runs every network-free check (op whitelist, per-kind required

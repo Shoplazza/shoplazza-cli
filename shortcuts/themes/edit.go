@@ -51,7 +51,11 @@ with --session.
 
 --promote saves the edit draft back onto the theme draft after all ops apply
 (reserve it for explicit user instruction; a conflict returns an api error
-with conflict=true and never forces).`,
+with conflict=true and never forces). --publish then takes that draft live —
+it requires --promote, and a promote conflict stops the chain before it.
+
+"Already previewed, now ship it" is an empty batch: --ops '[]' with --session
+and --promote [--publish] skips the batch request entirely.`,
 	Flags: []common.Flag{
 		{Name: "template", Type: common.FlagString, Description: "Template name, e.g. index / product. Mutually exclusive with --file."},
 		{Name: "file", Type: common.FlagString, Description: "Theme file path, e.g. templates/index.liquid. Mutually exclusive with --template."},
@@ -59,6 +63,7 @@ with conflict=true and never forces).`,
 		{Name: "session", Type: common.FlagString, Description: "Edit session id (oseid) — pass the one echoed by `themes +page`. Omit to create a fresh session."},
 		{Name: "ops", Type: common.FlagString, Required: true, Description: "Edit operations: a file path, '-' for stdin, or an inline JSON array."},
 		{Name: "promote", Type: common.FlagBool, Description: "Promote the edit draft onto the theme draft after all ops apply (needs explicit user intent)."},
+		{Name: "publish", Type: common.FlagBool, Description: "Publish the theme live after a clean promote. Requires --promote; only when the user explicitly asked to go live."},
 	},
 	Execute: editExecute,
 }
@@ -69,6 +74,7 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	file := in.Flags.GetString("file")
 	session := in.Flags.GetString("session")
 	promote := in.Flags.GetBool("promote")
+	publish := in.Flags.GetBool("publish")
 
 	// All network-free checks run before any request (or side effect).
 	if _, _, err := templateLocation(template, file); err != nil {
@@ -85,9 +91,27 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	if err := validateOps(ops); err != nil {
 		return common.ExecResult{}, err
 	}
+	// Publishing rides on --promote so the agent-side high-risk gate, which
+	// keys off --promote, always covers it.
+	if publish && !promote {
+		return common.ExecResult{}, output.ErrValidation("--publish requires --promote").
+			WithHint("publishing goes live from the theme draft, so the edit has to be promoted first")
+	}
+	// An empty batch is the "already previewed, now ship it" path: nothing to
+	// apply, so it only makes sense against an existing session being promoted.
+	if len(ops) == 0 {
+		switch {
+		case !promote:
+			return common.ExecResult{}, output.ErrValidation("--ops is empty and nothing else was requested").
+				WithHint("pass ops to apply, or add --promote [--publish] to save the session as it stands")
+		case session == "":
+			return common.ExecResult{}, output.ErrValidation("--ops is empty, so --session is required").
+				WithHint("an empty batch promotes an existing session; a fresh session would have nothing in it")
+		}
+	}
 
 	if in.DryRun {
-		return common.ExecResult{Plans: editDryRunPlans(themeID, session, ops, promote)}, nil
+		return common.ExecResult{Plans: editDryRunPlans(themeID, session, ops, promote, publish)}, nil
 	}
 
 	themeID, docID, err := resolveThemeAndDoc(ctx, in.Client, themeID, template, file)
@@ -161,7 +185,11 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	for i, e := range entries {
 		operations[i] = e.entry
 	}
-	resp, err := common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
+	// An empty batch (the promote/publish-only path) sends no request at all.
+	var resp map[string]any
+	if len(operations) > 0 {
+		resp, err = common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
+	}
 	if err != nil {
 		// An invalid --session passes through verbatim — never auto-recreated.
 		// Any other request-level error applied nothing.
@@ -222,7 +250,45 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		}
 		body["promoted"] = true
 	}
+	// Publish strictly after a clean promote: a conflict returns above, so it
+	// can never go live on top of someone else's draft.
+	if publish {
+		resp, err := common.Send(ctx, in.Client, PlanPublish(themeID))
+		if err != nil {
+			return common.ExecResult{}, publishFailedErr(oseid, themeID, applied, previewURL, err)
+		}
+		body["published"] = true
+		if id := revokePublishID(resp); id != "" {
+			body["revoke_publish_id"] = id // the theme this one replaced
+		}
+	}
 	return common.ExecResult{Body: body}, nil
+}
+
+// publishFailedErr covers the promote-succeeded-publish-failed window: the work
+// is already on the theme draft, so the caller must retry publish alone rather
+// than redo the ops.
+func publishFailedErr(oseid, themeID string, applied []map[string]any, previewURL string, cause error) *output.ExitError {
+	return output.Errorf(output.ExitAPI, output.TypeAPI, "the edit was promoted to the theme draft but publishing failed: %v", cause).
+		WithField("oseid", oseid).
+		WithField("applied", applied).
+		WithField("promoted", true).
+		WithField("published", false).
+		WithField("preview_url", previewURL).
+		WithHint(fmt.Sprintf(`the changes are saved on the theme draft; retry publish alone: themes publish --params '{"theme_id":"%s"}'`, themeID))
+}
+
+// revokePublishID pulls the replaced theme's id out of a publish response,
+// tolerating the data wrapper.
+func revokePublishID(resp map[string]any) string {
+	root := resp
+	if d := mapField(root, "data"); d != nil {
+		root = d
+	}
+	if th := mapField(root, "theme"); th != nil {
+		root = th
+	}
+	return getString(root, "revoke_publish_id")
 }
 
 // readOpsInput loads the --ops value: '-' reads stdin, a leading '[' is
@@ -373,7 +439,7 @@ func numberValue(v any) (float64, bool) {
 
 // editDryRunPlans lists every intended request without sending any (strict
 // zero-call + placeholders; op bodies keep locally-derivable values real).
-func editDryRunPlans(themeID, session string, ops []editOp, promote bool) []common.PlannedRequest {
+func editDryRunPlans(themeID, session string, ops []editOp, promote, publish bool) []common.PlannedRequest {
 	themeRef := themeID
 	var plans []common.PlannedRequest
 	if themeRef == "" {
@@ -413,7 +479,9 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote bool) []comm
 		for i, e := range entries {
 			operations[i] = e.entry
 		}
-		plans = append(plans, PlanBatchOps(oseidRef, phDocID, operations))
+		if len(entries) > 0 { // an empty batch sends no request at all
+			plans = append(plans, PlanBatchOps(oseidRef, phDocID, operations))
+		}
 		if len(moves) > 0 {
 			moveOps := make([]map[string]any, 0, len(moves))
 			for _, mv := range moves {
@@ -426,6 +494,9 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote bool) []comm
 	}
 	if promote {
 		plans = append(plans, PlanPromoteSession(oseidRef, map[string]any{"force": false}))
+	}
+	if publish {
+		plans = append(plans, PlanPublish(themeRef))
 	}
 	return plans
 }
