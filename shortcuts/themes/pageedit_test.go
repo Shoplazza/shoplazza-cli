@@ -17,8 +17,9 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
-// resolveServer fakes the two resolve-chain endpoints: GET /themes (published
-// list) and GET /themes/{id}/doctree.
+// resolveServer fakes the resolve chain: GET /themes (published list),
+// GET /themes/{id}/doctree, and the list-templates fallback that carries custom
+// templates missing from a published theme's live doctree.
 func resolveServer(t *testing.T, listCalls *atomic.Int32) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -37,6 +38,14 @@ func resolveServer(t *testing.T, listCalls *atomic.Int32) *httptest.Server {
 				},
 				"configs": []any{map[string]any{"id": "d_cfg", "location": "settings_data.json"}},
 			})
+		case strings.HasSuffix(r.URL.Path, "/theme-templates"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{
+				"theme_templates": []any{
+					// draft-only custom template: no liquid file in the doctree
+					map[string]any{"id": "tt1", "type": "product", "suffix": "20260731150155",
+						"doc_id": "d_custom", "title": "draft only"},
+				},
+			}})
 		default:
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -91,6 +100,36 @@ func TestResolveThemeAndDoc_FileFlagAndPluralGroup(t *testing.T) {
 	}
 	if docID != "d_cfg" {
 		t.Fatalf("docID = %q, want d_cfg", docID)
+	}
+}
+
+// TestResolveThemeAndDoc_DraftOnlyCustomTemplate: a published theme's doctree
+// is its live snapshot, so an API-created custom template is only in
+// list-templates — the name still has to resolve.
+func TestResolveThemeAndDoc_DraftOnlyCustomTemplate(t *testing.T) {
+	var listCalls atomic.Int32
+	srv := resolveServer(t, &listCalls)
+	defer srv.Close()
+
+	_, docID, err := resolveThemeAndDoc(context.Background(), client.New(srv.URL), "t_x",
+		"product.20260731150155", "")
+	if err != nil {
+		t.Fatalf("resolveThemeAndDoc: %v", err)
+	}
+	if docID != "d_custom" {
+		t.Errorf("docID = %q, want d_custom (the list-templates doc_id)", docID)
+	}
+
+	// --file spells the same template; it must resolve the same way.
+	_, docID, err = resolveThemeAndDoc(context.Background(), client.New(srv.URL), "t_x",
+		"", "templates/product.20260731150155.liquid")
+	if err != nil || docID != "d_custom" {
+		t.Errorf("--file path: docID = %q, err = %v", docID, err)
+	}
+
+	// A doctree hit must not spend the extra request.
+	if _, docID, err = resolveThemeAndDoc(context.Background(), client.New(srv.URL), "t_x", "index", ""); err != nil || docID != "d_index" {
+		t.Errorf("doctree hit regressed: %q %v", docID, err)
 	}
 }
 

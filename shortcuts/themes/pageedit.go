@@ -37,12 +37,46 @@ func resolveThemeAndDoc(ctx context.Context, c *client.Client, themeID, template
 	if err != nil {
 		return "", "", err
 	}
-	docID := docIDForLocation(resp, group, location)
-	if docID == "" {
-		return "", "", output.ErrValidation("template file %q not found in theme %s", location, themeID).
-			WithHint("run `themes +page --list` to discover available templates")
+	if docID := docIDForLocation(resp, group, location); docID != "" {
+		return themeID, docID, nil
 	}
-	return themeID, docID, nil
+	// A published theme's doctree is its live snapshot, so a custom template
+	// created through the API — which lives only on the draft until the theme
+	// is published — is missing from it. list-templates carries every custom
+	// template with both its suffix and its doc_id, which is exactly what the
+	// name resolves to. (`themes +page --list` already merges both sources;
+	// resolving from doctree alone is what made a listed template unusable.)
+	if group == "templates" {
+		custom, cerr := common.Send(ctx, c, PlanListTemplates(themeID, map[string]any{"per_page": "100"}))
+		if cerr != nil {
+			return "", "", cerr
+		}
+		if docID := docIDForCustomTemplate(custom, location); docID != "" {
+			return themeID, docID, nil
+		}
+	}
+	return "", "", output.ErrValidation("template file %q not found in theme %s", location, themeID).
+		WithHint("run `themes +page --list` to discover available templates")
+}
+
+// docIDForCustomTemplate maps a "<type>.<suffix>.liquid" location onto a custom
+// template's doc_id from a list-templates response.
+func docIDForCustomTemplate(resp map[string]any, location string) string {
+	root := resp
+	if d := mapField(resp, "data"); d != nil {
+		root = d
+	}
+	want := strings.TrimSuffix(location, ".liquid")
+	for _, item := range mapSlice(root["theme_templates"]) {
+		name := getString(item, "type")
+		if suffix := getString(item, "suffix"); suffix != "" {
+			name += "." + suffix
+		}
+		if name == want {
+			return getString(item, "doc_id")
+		}
+	}
+	return ""
 }
 
 // templateLocation maps the --template / --file flag pair (exactly one set)
