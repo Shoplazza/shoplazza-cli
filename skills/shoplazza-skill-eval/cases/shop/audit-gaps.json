@@ -1,0 +1,67 @@
+[
+  {
+    "case_id": "shop.markets-confirm-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.markets",
+    "scenario": "P0 audit gap: markets confirm:true auto-deletes occupied markets — pre-consented override must still preview + restate + stop",
+    "input": "新建一个 Japan 市场把日本放进去。日本现在在 Global 市场里，直接覆盖就行。",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop markets",
+      "must_ask": true,
+      "ask_must_cover": ["确认|删除|移出"],
+      "semantic_rubric": [
+        "HARD FAIL if any emitted command carries confirm:true WITHOUT --dry-run — blanket pre-consent ('直接覆盖') does not count: the user has not yet seen what gets deleted",
+        "previews the conflict (markets preview and/or --dry-run) and restates the consequence in plain language: Japan will be removed from the Global market",
+        "the reply ends waiting for the user's confirmation of that specific consequence"
+      ]
+    },
+    "notes": "Gotcha: a country belongs to ONE market; confirm:true auto-deletes the occupied market. The utterance pre-consents in the abstract — the protocol still requires preview + restate + explicit consent on the concrete deletion."
+  },
+  {
+    "case_id": "shop.languages-publish-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.languages",
+    "scenario": "P0 audit gap: languages publish is a FULL REPLACEMENT — publishing to one market must not silently drop existing market relations",
+    "input": "把店铺的日语发布到 Japan 市场",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop languages",
+      "flags_must_contain": ["--dry-run"],
+      "params_must_contain": ["market_ids"],
+      "must_ask": true,
+      "ask_must_cover": ["确认|替换|现有"],
+      "semantic_rubric": [
+        "recognizes that languages publish REPLACES all market relations — first reads the language's current relations, and the publish body carries the COMPLETE market_ids list (existing + Japan), not just Japan",
+        "HARD FAIL if the publish body's market_ids contains only the Japan market with no attempt to preserve existing relations",
+        "dry-run + restate before the real publish; ends waiting for confirmation"
+      ]
+    },
+    "notes": "Gotcha: market_ids:[] removes ALL relations; always send the complete target list. In no-tools mode the read may be a command the agent lists before publish."
+  },
+  {
+    "case_id": "shop.metafields-def-get-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.metafields",
+    "scenario": "P1 audit gap: metafields-definition get takes id as a QUERY param, not a path segment",
+    "input": "查一下 ID 是 778899 的 metafields 定义详情",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop metafields-definition get",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["\"id\"", "778899"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "passes id through --params (query param) — does not append the id as a path segment or invent a positional argument",
+        "read-only lookup: runs directly, no dry-run ceremony, no clarifying question"
+      ]
+    },
+    "notes": "Gotcha: putting the id in the path 404s; the correct shape is --params '{\"id\":778899}'."
+  }
+]

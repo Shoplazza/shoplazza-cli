@@ -82,6 +82,9 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
    - **Destructive leaves** (`orders cancel` / `orders delete` / `fulfillments cancel` /
      `risks delete` / `post-sales delete` / `shipping-schemas delete-zone`) — `--dry-run`
      first + restate, wait for the user's go-ahead, then run.
+   - **`orders pay` writes a payment record — same treatment as `+refund`**: `--dry-run`
+     first, restate (which order, channel, transaction no), wait for the user's go-ahead.
+     Never send it with an empty body — no body silently records a bogus TEST payment.
    - `+ship` / `+update-tracking` / `+search` / `+count` are safe to run directly once
      required values are confirmed.
 

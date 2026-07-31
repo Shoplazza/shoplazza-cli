@@ -1,0 +1,24 @@
+[
+  {
+    "case_id": "discounts.caps-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.amount-code",
+    "scenario": "P1 audit gap: 'no usage limit' means OMIT the cap — the CLI rejects --limit-max -1",
+    "input": "建一个优惠码 SAVE10，下单立减 10 块，不限制使用次数",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "command_prefix": "discounts +amount-code",
+      "flags_must_contain": ["--code SAVE10", "--off 10", "--target order"],
+      "flags_must_not_contain": ["--limit-max", "--limit-user", "-1"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "expresses 不限制使用次数 by OMITTING the caps entirely — HARD FAIL if any cap flag appears, especially with -1 (the CLI rejects it: must be > 0)",
+        "infers --target order from 下单立减 without asking",
+        "asks nothing: code, amount and target are all present or inferable; caps/time/name are defaulted flags"
+      ]
+    },
+    "notes": "Gotcha: caps are positive-only; omit = unlimited. -1 is the classic agent mistake."
+  }
+]
