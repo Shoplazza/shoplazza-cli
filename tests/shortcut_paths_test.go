@@ -18,12 +18,16 @@ import (
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 	discountshortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/discounts"
 	productshortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/products"
 )
 
 func TestShortcutPlanPathsMatchSpec(t *testing.T) {
+	// LoadSpec would otherwise pick up a real downloaded cache on dev machines;
+	// this test must validate against the embedded spec.
+	testenv.IsolateConfigDir(t)
 	spec := registry.LoadSpec()
 	if spec == nil || len(spec.Modules) == 0 {
 		t.Skip("embedded spec is empty; nothing to validate against")
@@ -102,11 +106,9 @@ func templateMatches(template, concrete []string) bool {
 	return true
 }
 
-// stubFlagSet returns stub values for every flag accessor. GetString returns a
-// non-empty placeholder so that shortcuts which interpolate flag values into URL
-// path segments (e.g. --id flags) produce a non-empty segment that the
-// templateMatches wildcard logic can accept. Shortcuts that impose additional
-// validation on the flag value will return a Plan error and be skipped.
+// stubFlagSet returns stub values for every flag accessor. GetString is
+// non-empty so a flag interpolated into a path segment still matches a
+// {placeholder}; shortcuts that validate the value further error out and skip.
 type stubFlagSet struct{}
 
 func (stubFlagSet) GetString(string) string        { return "x" }

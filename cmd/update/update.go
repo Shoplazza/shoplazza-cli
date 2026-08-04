@@ -14,6 +14,7 @@ import (
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/metasync"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/updatecheck"
 )
@@ -52,7 +53,7 @@ func NewCmdUpdate(_ *cmdutil.Factory) *cobra.Command {
 	var checkOnly bool
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update the CLI to the latest version (via npm)",
+		Short: "Update the CLI binary (via npm) and refresh the API metadata",
 		// Attempts binary self-update.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -73,9 +74,57 @@ func upToDate(latest, current string, latestErr error) bool {
 	return !updatecheck.IsNewer(latest, current)
 }
 
+// metaRefresh is swappable in tests (the real one hits the network).
+var metaRefresh = func(ctx context.Context, version string) (metasync.Result, error) {
+	return metasync.ForceRefresh(ctx, version)
+}
+
+// metaOutcome is what a refresh attempt has to say for itself. A disabled
+// refresh (ran=false) reports nothing at all, not even that it was skipped.
+type metaOutcome struct {
+	res metasync.Result
+	err error
+	ran bool
+}
+
+// mergeInto adds the outcome to a response body. Error paths whose envelope is
+// the error itself simply don't call it.
+func (o metaOutcome) mergeInto(body map[string]any) {
+	if !o.ran {
+		return
+	}
+	if o.err != nil {
+		body["meta_error"] = o.err.Error()
+		return
+	}
+	body["meta_updated"] = o.res.Updated
+	if o.res.Updated {
+		body["meta_revision"] = o.res.NewRevision
+	} else {
+		body["meta_revision"] = o.res.OldRevision
+	}
+}
+
+// refreshMetadata force-refreshes the OpenAPI metadata cache; version is the
+// CLI version that will run next. Honors the disable env (ForceRefresh itself
+// does not); failures never affect the exit code.
+func refreshMetadata(ctx context.Context, version string) metaOutcome {
+	if os.Getenv(metasync.EnvDisable) != "" {
+		return metaOutcome{}
+	}
+	res, err := metaRefresh(ctx, version)
+	return metaOutcome{res: res, err: err, ran: true}
+}
+
+// runUpdate performs the two halves of `update` independently: the npm binary
+// update and the metadata refresh. A failed binary half (npm missing, install
+// error) still refreshes metadata before returning its error.
 func runUpdate(ctx context.Context, out, errW io.Writer, format, current string, checkOnly bool, ops npmOps) error {
 	npmPath, err := ops.lookPath()
 	if err != nil {
+		if !checkOnly {
+			refreshMetadata(ctx, current)
+		}
 		return output.ErrWithHint(
 			output.ExitValidation, output.TypeValidation,
 			"npm not found on PATH",
@@ -97,9 +146,12 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 
 	if upToDate(latest, current, latestErr) {
 		fmt.Fprintf(errW, "✓ %s is already up to date (%s)\n", npmPackage, current)
-		return output.PrintBody(out, map[string]any{
+		body := map[string]any{
 			"ok": true, "package": npmPackage, "current": current, "latest": latest, "updated": false,
-		}, format, "")
+		}
+		meta := refreshMetadata(ctx, current)
+		meta.mergeInto(body)
+		return output.PrintBody(out, body, format, "")
 	}
 
 	// A non-npm binary would be shadowed by the separate npm-managed copy on PATH.
@@ -120,6 +172,7 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 		if npmOut.Len() > 0 {
 			fmt.Fprintln(errW, strings.TrimRight(npmOut.String(), "\n"))
 		}
+		refreshMetadata(ctx, current)
 		return output.ErrWithHint(
 			output.ExitInternal, output.TypeInternal,
 			fmt.Sprintf("npm install failed: %s", runErr.Error()),
@@ -134,9 +187,19 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 			newVersion = v
 		}
 	}
-	fmt.Fprintf(errW, "✓ Updated %s %s → %s\n", npmPackage, current, newVersion)
+	// npm installed something but neither lookup said what. Fall back to the
+	// version we came from, since the notice and the metadata probe both need
+	// one; the body keeps "" to report the lookup as unknown.
+	installed := newVersion
+	if installed == "" {
+		installed = current
+	}
+	fmt.Fprintf(errW, "✓ Updated %s %s → %s\n", npmPackage, current, installed)
 
-	return output.PrintBody(out, map[string]any{
+	body := map[string]any{
 		"ok": true, "package": npmPackage, "previous": current, "latest": newVersion, "updated": true,
-	}, format, "")
+	}
+	meta := refreshMetadata(ctx, installed)
+	meta.mergeInto(body)
+	return output.PrintBody(out, body, format, "")
 }

@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-07-28T09:10:20Z",
+  "generated_at": "2026-08-04T03:17:10Z",
   "modules": [
     {
       "name": "billing",
@@ -7293,18 +7293,21 @@
           "hidden": false,
           "http": {
             "method": "POST",
-            "path": "/openapi/2026-01/blogs"
+            "path": "/openapi/2026-01/blogs",
+            "body": "*"
           },
-          "parameters": [
-            {
-              "name": "blog",
-              "in": "query",
-              "type": "object",
-              "schema": "v202506.CreateBlogParam",
-              "required": true,
-              "description": "Blog"
-            }
-          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "blog",
+                "type": "object",
+                "schema": "v202506.CreateBlogParam",
+                "required": true,
+                "description": "Blog"
+              }
+            ]
+          },
           "response_schema": "v202506.CreateBlogResponse"
         },
         {
@@ -11416,86 +11419,6 @@
           "response_schema": "v202601.RenameThemeResponse"
         },
         {
-          "id": "theme-section-add",
-          "command_path": [
-            "section",
-            "add"
-          ],
-          "summary": "Add section",
-          "description": "Create a section of the given type (from default) and insert it into the page.",
-          "hidden": false,
-          "http": {
-            "method": "POST",
-            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/sections",
-            "body": "*"
-          },
-          "parameters": [
-            {
-              "name": "oseid",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Edit session ID (oseid)",
-              "min_length": 1
-            }
-          ],
-          "body": {
-            "required": true,
-            "fields": [
-              {
-                "name": "doc_id",
-                "type": "string",
-                "required": true,
-                "description": "Document (template file) ID",
-                "min_length": 1
-              },
-              {
-                "name": "theme_id",
-                "type": "string",
-                "required": true,
-                "description": "Theme ID (for fetching the default section + rendering context)"
-              },
-              {
-                "name": "name",
-                "type": "string",
-                "description": "Section type name to add (required unless pb=true), e.g. hero_slideshow"
-              },
-              {
-                "name": "to_index",
-                "type": "integer",
-                "format": "int32",
-                "description": "0-based insert position in the page; pass -1 to append to the end"
-              },
-              {
-                "name": "template_name",
-                "type": "string",
-                "description": "Template name; defaults to file location without \".liquid\""
-              },
-              {
-                "name": "locale",
-                "type": "string",
-                "description": "Rendering locale; defaults to en_US"
-              },
-              {
-                "name": "pb",
-                "type": "boolean",
-                "description": "Page-builder mode: add a saved PB card (by template_id) as the new section, instead of a default section by type (name). --pb on the CLI."
-              },
-              {
-                "name": "template_id",
-                "type": "string",
-                "description": "PB card source id (required when pb=true); used as single-blocks source_ids"
-              },
-              {
-                "name": "area",
-                "type": "string",
-                "description": "Target area: omit = the page flow; \"header\" / \"footer\" = add into the header/footer area (section-group themes only; to_index does not apply — always appended)."
-              }
-            ]
-          },
-          "response_schema": "v202601.AddSectionResponse"
-        },
-        {
           "id": "theme-cards-list",
           "command_path": [
             "section",
@@ -11638,63 +11561,6 @@
           "response_schema": "v202601.ListSectionCardsResponse"
         },
         {
-          "id": "theme-section-move",
-          "command_path": [
-            "section",
-            "move"
-          ],
-          "summary": "Move section",
-          "description": "Reorder a section to a new position in the page within an edit session.",
-          "hidden": false,
-          "http": {
-            "method": "PATCH",
-            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/sections/{section_id}/move",
-            "body": "*"
-          },
-          "parameters": [
-            {
-              "name": "oseid",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Edit session ID (oseid)",
-              "min_length": 1
-            },
-            {
-              "name": "section_id",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Section instance ID to move",
-              "min_length": 1
-            }
-          ],
-          "body": {
-            "required": true,
-            "fields": [
-              {
-                "name": "doc_id",
-                "type": "string",
-                "required": true,
-                "description": "Document (template file) ID the section lives in",
-                "min_length": 1
-              },
-              {
-                "name": "to_index",
-                "type": "integer",
-                "format": "int32",
-                "description": "Target 0-based position. In the page flow it is the index in content_for_page; with area set it is the index within the header/footer area group."
-              },
-              {
-                "name": "area",
-                "type": "string",
-                "description": "Target area: omit = reorder within the page flow; \"header\" / \"footer\" = reorder within the header/footer area group (section-group themes only). Mirrors add/remove-section --area."
-              }
-            ]
-          },
-          "response_schema": "v202601.MoveSectionResponse"
-        },
-        {
           "id": "theme-section-remove",
           "command_path": [
             "section",
@@ -11809,73 +11675,6 @@
                 "name": "locale",
                 "type": "string",
                 "description": "Locale for the rendering context, e.g. en_US. Defaults to en_US"
-              }
-            ]
-          },
-          "response_schema": "v202601.SetSectionPropsResponse"
-        },
-        {
-          "id": "theme-section-set-visibility",
-          "command_path": [
-            "section",
-            "set-visibility"
-          ],
-          "summary": "Set section visibility",
-          "description": "Toggle a section's visibility (section.disabled) within an edit session.",
-          "hidden": false,
-          "http": {
-            "method": "PATCH",
-            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/sections/{section_id}/visibility",
-            "body": "*"
-          },
-          "parameters": [
-            {
-              "name": "oseid",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Edit session ID (oseid)",
-              "min_length": 1
-            },
-            {
-              "name": "section_id",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Section instance ID",
-              "min_length": 1
-            }
-          ],
-          "body": {
-            "required": true,
-            "fields": [
-              {
-                "name": "doc_id",
-                "type": "string",
-                "required": true,
-                "description": "Document (template file) ID",
-                "min_length": 1
-              },
-              {
-                "name": "theme_id",
-                "type": "string",
-                "required": true,
-                "description": "Theme ID (for rendering context url)"
-              },
-              {
-                "name": "visible",
-                "type": "boolean",
-                "description": "Whether the section is visible. visible=false maps to section.disabled=true"
-              },
-              {
-                "name": "template_name",
-                "type": "string",
-                "description": "Template name; defaults to file location without \".liquid\""
-              },
-              {
-                "name": "locale",
-                "type": "string",
-                "description": "Rendering locale; defaults to en_US"
               }
             ]
           },
@@ -23102,22 +22901,6 @@
     },
     "v202601.AddLanguagesResponse": {},
     "v202601.AddMarketProductsResponse": {},
-    "v202601.AddSectionResponse": {
-      "fields": [
-        {
-          "name": "section_id",
-          "type": "string"
-        },
-        {
-          "name": "content_for_page",
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      ]
-    },
     "v202601.AdditionItem": {
       "fields": [
         {
@@ -25362,18 +25145,6 @@
           "name": "price",
           "type": "object",
           "schema": "google.protobuf.ListValue"
-        }
-      ]
-    },
-    "v202601.MoveSectionResponse": {
-      "fields": [
-        {
-          "name": "content_for_page",
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "int64"
-          }
         }
       ]
     },

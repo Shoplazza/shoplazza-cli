@@ -1,17 +1,21 @@
 package updatecheck
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 )
 
 const (
 	cacheTTL  = 24 * time.Hour
 	stateFile = "update-check.json"
 )
+
+// EnvDisable disables the background update check when set.
+const EnvDisable = "SHOPLAZZA_CLI_NO_UPDATE_CHECK"
 
 // osUserConfigDir is overridable in tests.
 var osUserConfigDir = os.UserConfigDir
@@ -45,15 +49,7 @@ func loadState() (*state, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var s state
-	if err := json.Unmarshal(data, &s); err != nil {
-		return nil, err
-	}
-	return &s, nil
+	return fsx.ReadJSON[state](path)
 }
 
 func saveState(s *state) error {
@@ -61,19 +57,12 @@ func saveState(s *state) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := json.Marshal(s)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o600)
+	return fsx.WriteJSON(path, s, 0o600)
 }
 
 // CheckCached reads the local cache only (no network). Returns Info when not skipped, the cache has a latest version, and it is newer than current.
 func CheckCached(currentVersion string) *Info {
-	if shouldSkip(currentVersion) {
+	if ShouldSkip(EnvDisable, currentVersion) {
 		return nil
 	}
 	s, err := loadState()
@@ -89,11 +78,11 @@ func CheckCached(currentVersion string) *Info {
 // RefreshCache fetches the latest version over the network and writes it back when the cache is stale (>24h); no-op when fresh or skipped.
 // All errors are silenced. Safe to call from a goroutine.
 func RefreshCache(currentVersion string) {
-	if shouldSkip(currentVersion) {
+	if ShouldSkip(EnvDisable, currentVersion) {
 		return
 	}
-	if s, err := loadState(); err == nil && s != nil && time.Since(time.Unix(s.CheckedAt, 0)) < cacheTTL {
-		return // fresh
+	if s, err := loadState(); err == nil && s != nil && Fresh(time.Unix(s.CheckedAt, 0), cacheTTL) {
+		return
 	}
 	latest, err := fetchLatest()
 	if err != nil {
@@ -102,20 +91,22 @@ func RefreshCache(currentVersion string) {
 	_ = saveState(&state{LatestVersion: latest, CheckedAt: time.Now().Unix()})
 }
 
-func shouldSkip(version string) bool {
-	if os.Getenv("SHOPLAZZA_CLI_NO_UPDATE_CHECK") != "" {
+// Fresh reports whether a check stamped ts is still within ttl. A future
+// timestamp (corrected clock) counts as stale, so the gate self-heals instead
+// of latching shut.
+func Fresh(ts time.Time, ttl time.Duration) bool {
+	d := time.Since(ts)
+	return d >= 0 && d < ttl
+}
+
+// ShouldSkip reports whether a background self-maintenance check should stay
+// quiet: opted out, in CI, or not a released build. envDisable is the caller's
+// own opt-out var, so the two callers stay separately disablable.
+func ShouldSkip(envDisable, version string) bool {
+	if os.Getenv(envDisable) != "" {
 		return true
 	}
-	if isCIEnv() {
-		return true
-	}
-	if version == "" || version == "dev" || version == "DEV" {
-		return true
-	}
-	if !isReleaseVersion(version) {
-		return true
-	}
-	return false
+	return isCIEnv() || !isReleaseVersion(version)
 }
 
 func isCIEnv() bool {

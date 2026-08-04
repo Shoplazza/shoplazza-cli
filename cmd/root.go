@@ -21,6 +21,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/update"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/metasync"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/updatecheck"
@@ -105,11 +106,16 @@ func Execute() (exitCode int) {
 	// refresh in a background goroutine for the next run.
 	// Skip update/completion commands to avoid nagging mid-update and avoid corrupting completion output.
 	var pendingUpdate *updatecheck.Info
-	if !isUpdateCheckSkippedCommand(os.Args[1:]) {
+	if !isUpdateCheckSkippedCommand(rootCmd, os.Args[1:]) {
 		pendingUpdate = updatecheck.CheckCached(build.Version)
-		// Fire-and-forget: on fast-exiting commands the process may end before this
-		// finishes — that's fine, it refreshes the cache for the next run (no latency).
+		// Fire-and-forget, and genuinely so: a command that exits in tens of
+		// milliseconds outruns these entirely, and neither persists partial
+		// progress, so nothing carries over to the next run either. Commands
+		// that do real I/O leave enough time to finish them, and `shoplazza
+		// update` refreshes both in the foreground regardless. The trade is
+		// deliberate — no command pays latency for a cache it isn't using.
 		go updatecheck.RefreshCache(build.Version)
+		go metasync.Refresh(ctx, build.Version)
 	}
 
 	execErr := rootCmd.ExecuteContext(ctx)
