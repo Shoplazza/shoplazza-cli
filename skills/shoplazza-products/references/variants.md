@@ -3,6 +3,7 @@
 Variants are the sellable units (SKUs) of a product: price, options (size/color), stock,
 weight, barcode. All commands here are spec leaves — for price changes prefer the
 `products +set-price` shortcut, for stock the `products +stock` shortcut (both in SKILL.md).
+Each takes `--variant-id`, `--sku`, or `--product-id`, so you rarely need to resolve by hand.
 
 ## Command surface
 
@@ -47,6 +48,25 @@ the write lands on the **default location**, and its semantics on multi-location
 unverified (see [inventory-locations.md](inventory-locations.md)). Prefer
 `products +stock --adjust -N` / `--set N`, which applies the safety gates for you; never
 call this field directly on a multi-location item.
+
+## Resolving a product id to a variant id
+
+A product id is what a merchant has; a variant id is what the write endpoints need.
+`products +set-price --product-id` and `products +stock --product-id` make that hop for you and
+**refuse a multi-variant product** rather than guessing. Do it by hand only when the product has
+several variants and you know which one the user meant:
+
+```bash
+# All variants of a product
+products variants list --params '{"product_id":"9036f033-c605-4b6f-8a08-1b7ae090791c"}'
+
+# The variant the user named ("the XL one") — select by option, never by position
+products variants list --params '{"product_id":"9036f033-c605-4b6f-8a08-1b7ae090791c"}' \
+  --jq '.data.variants[] | select(.option2=="XL") | .id'
+```
+
+`.data.variants[0].id` is safe **only** once you have confirmed the product has exactly one
+variant. Otherwise it silently writes to the wrong sellable unit.
 
 ## SKU-based access
 

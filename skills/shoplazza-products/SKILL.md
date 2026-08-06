@@ -45,8 +45,8 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Create a single-variant product | `products +create --title <name> --price <n> --image <url> [--published]` |
 | Publish a product | `products +publish --id <product-id>` |
 | Unpublish (下架) a product | `products +unpublish --id <product-id>` |
-| Change a variant's price | `products +set-price (--variant-id <id> \| --sku <sku> [--all]) --price <n>` |
-| Adjust stock (add or decrease) | `products +stock --variant-id <id> (--adjust <±n> \| --set <n>) [--location-id <id>]` |
+| Change a variant's price | `products +set-price (--variant-id <id> \| --sku <sku> [--all] \| --product-id <id>) --price <n>` |
+| Adjust stock (add or decrease) | `products +stock (--variant-id <id> \| --sku <sku> \| --product-id <id>) (--adjust <±n> \| --set <n>) [--location-id <id>]` |
 | Add / remove / replace tags | `products +tag --id <product-id> (--add a,b \| --remove c,d \| --set x,y)` |
 | Get one product | `products get --params '{"product_id":"<id>"}'` |
 | List (filters `+search` lacks: ids, handles, date ranges, spus…) | `products list --params '{…}'` |
@@ -95,11 +95,11 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 新建商品 / 建品 / 上新 / create a new product | `+create` | product name → `--title` verbatim; 售价 → `--price`; 主图/图片 URL → `--image`; "上架" wording → add `--published`; "存草稿/draft" → **omit** `--published` |
 | 上架商品 X / publish product X | `+publish` | id → `--id`; only a name? resolve via `+search --keyword` first |
 | 下架 / 隐藏商品 / unpublish | `+unpublish` | id → `--id` |
-| 改价 / 调价 / change the price to X | `+set-price` | variant id → `--variant-id`; SKU → `--sku`; new price → `--price` verbatim; **`--price 0` CLEARS the price** (does not display ¥0) — surface that difference and get the user's confirmation before passing 0 |
+| 改价 / 调价 / change the price to X | `+set-price` | **Target**: variant id → `--variant-id`; SKU → `--sku`; **product id → `--product-id`** (resolves that product's only variant; multi-variant is refused with the candidates listed); only a name? `+search --keyword` first. New price → `--price` verbatim; **`--price 0` CLEARS the price** (does not display ¥0) — surface that difference and get the user's confirmation before passing 0 |
 | 划线价 / compare-at price | `+set-price --compare-price` | only when the user names it |
-| 库存加 N / 补货 N 件 / add N stock | `+stock --adjust N` | 加/增加 N = positive delta → `--adjust N` |
-| 库存设为 N / set stock to N | `+stock --set N` | absolute target (≥ 0), either direction; decreases are gated to the **default location** of a **single-location item** |
-| 减库存 / 库存扣掉 N / reduce stock | `+stock --adjust -N` | 减/扣掉 N = negative delta → `--adjust -N`; the CLI refuses if the result would go below 0, if `--location-id` isn't the default location, or if the item is stocked at multiple locations — in those cases explain and offer `+unpublish` / stock-policy `deny` instead |
+| 库存加 N / 补货 N 件 / add N stock | `+stock --adjust N` | 加/增加 N = positive delta → `--adjust N`. **Target**: variant id → `--variant-id`; SKU → `--sku`; product id → `--product-id` (single-variant products; multi-variant refused with candidates); only a name? `+search --keyword` first — never ask the user for a variant id |
+| 库存设为 N / set stock to N | `+stock --set N` | absolute target (≥ 0), either direction; decreases are gated to the **default location** of a **single-location item**; target flag as in the 库存加 N row |
+| 减库存 / 库存扣掉 N / reduce stock | `+stock --adjust -N` | 减/扣掉 N = negative delta → `--adjust -N`; the CLI refuses if the result would go below 0, if `--location-id` isn't the default location, or if the item is stocked at multiple locations — in those cases explain and offer `+unpublish` / stock-policy `deny` instead; target flag as in the 库存加 N row |
 | 加标签（保留原有）/ add tags | `+tag --add` | tags comma-separated; existing tags kept |
 | 去掉某标签 / remove a tag | `+tag --remove` | missing tags are ignored |
 | 标签整个换成… / replace all tags | `+tag --set` | replaces the full list — only on explicit "replace/换成/只保留" wording |
@@ -113,11 +113,25 @@ Only **no-default** flags are askable.
 | Shortcut | Must ASK if user did not specify | Infer if possible | Default silently |
 |---|---|---|---|
 | `+create` | `--price`, `--image` (one batch; **never fabricate a price or an image URL**) | `--title` from the product name in the utterance; `--published` from 上架/publish wording | `--published` (omit = draft), `--sku`, `--stock`, `--stock-policy` (default `deny`), `--compare-price`, `--tags`, `--collection-ids` |
-| `+set-price` | `--price` (never invent a number) | target flag from what the user gave: an id → `--variant-id`, a SKU → `--sku` | `--compare-price`; `--all` (only when the user explicitly wants every variant matching the SKU) |
-| `+stock` | the amount; `--variant-id` if no variant is identified | `--adjust` vs `--set` from wording (加 N = `--adjust N`; 减/扣 N = `--adjust -N`; 设为 N = `--set N`) | `--location-id` (defaults to the default location) |
+| `+set-price` | `--price` (never invent a number) | the target, from what the user gave: **variant** id → `--variant-id`, SKU → `--sku`, **product** id → `--product-id` (resolves that product's only variant). Never ask for a variant id — resolve it | `--compare-price`; `--all` (only when the user explicitly wants every variant matching the SKU) |
+| `+stock` | the amount — **and nothing else**. Never ask for a variant id or an inventory-item id; resolve them | `--adjust` vs `--set` from wording (加 N = `--adjust N`; 减/扣 N = `--adjust -N`; 设为 N = `--set N`); the target exactly as `+set-price`: variant id → `--variant-id`, SKU → `--sku`, product id → `--product-id`. No `--all` here — inventory writes target one variant | `--location-id` (defaults to the default location) |
 | `+publish` / `+unpublish` | `--id` (or resolve it via `+search` by name) | — | — (takes only `--id`) |
 | `+tag` | `--id`, the tag values | add/remove/set mode from wording | — |
 | `+search` / `+count` | *(nothing — all filters optional)* | filters from wording | `--page-limit`, `--fields` |
+
+**Identifier ladder — resolve, don't ask.** Merchants hold product names and product ids.
+Variant ids and inventory-item ids are internal plumbing they have never seen. Every rung below
+is one command, so walk down it instead of asking for an id the user does not have:
+
+```
+name  --(+search --keyword)-->  product id  --(--product-id, single-variant)-->  variant id
+                                product id  --(products variants list)-------->  variant id
+                                variant id  --(+stock resolves it internally)->  inventory item id
+```
+
+Ask only when a rung is genuinely ambiguous — the product has several variants and the user's
+words don't say which. `--product-id` refuses that case and lists the candidates: ask the user to
+pick from **that** list. Never take `variants[0]` on their behalf.
 
 **Sub-resource asks** (leaf-tier, same discipline):
 - `gift-cards create` — must ask `code` and `initial_value` if missing (**stored value = money;
@@ -190,6 +204,8 @@ shoplazza-common).
 | `unknown flag: --fields` on `+count` / other shortcuts | In this module `--fields` exists on `+search` **only** | Project with `--jq` elsewhere |
 | Tags wiped out after an update | `products update` (leaf) replaces the whole tag list; so does `+tag --set` | Use `+tag --add` / `--remove` — existing tags kept |
 | `+set-price --sku` refused with a candidate list | The SKU matched several variants — the CLI refuses a multi-match | Pick the right `--variant-id` from the listed candidates, or pass `--all` only for an explicit "all of them" |
+| A product id in `--variant-id` → 404 `No variants found` (or "no inventory item found for that variant") | `--variant-id` is variant-scoped (`PUT /variants/{variant_id}`); a product id never matches it | Pass it to `--product-id` instead — the error's `hint` says so. Or list first: `products variants list --params '{"product_id":"<id>"}'` |
+| `--product-id` refused: "product … has N variants" | A multi-variant product has no single price or stock target | Ask the user which one, using the candidates in the `hint` (capped at 10 — it names the command that lists the rest), then re-run with `--variant-id` or `--sku`. Never guess `variants[0]` |
 | Price vanished after `+set-price --price 0` | `'0'` / `'0.00'` **clears** the price rather than setting zero | Only pass 0 when the user wants the price cleared |
 | Wanted `gift-cards delete` | No delete endpoint exists (subcommands: batch-create / create / disable / get / list / update) | `gift-cards disable` stops redemption; tell the user it disables, not deletes |
 | `variants update` 404 with product_id in path | `variants get` / `update` are variant-scoped: `/variants/{variant_id}` — no product_id | Only `variants list` / `create` / `delete` are product-scoped (`delete` needs BOTH ids) |
@@ -217,24 +233,37 @@ products +create --title "Lycra 瑜伽裤" --price 39.99 --image https://cdn.exa
 ID=$(products +search --keyword "瑜伽裤" --jq '.data.products[0].id')
 products +publish --id "$ID"
 
-# 6. Append tags without clobbering the existing ones
+# 6. Restock / reprice a product you only know by product id (single-variant product)
+#    --product-id resolves the one variant. A multi-variant product is refused with
+#    its candidates listed — show them to the user and let them pick.
+products +stock --product-id 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf --adjust 50
+products +set-price --product-id 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf --price 24.99
+
+# 7. Multi-variant product: resolve the variant the user actually named, then write.
+#    Pick by the option the user said (XL), never by position. If the user named no
+#    option, ask which variant — don't take variants[0].
+VID=$(products variants list --params '{"product_id":"9036f033-c605-4b6f-8a08-1b7ae090791c"}' \
+  --jq '.data.variants[] | select(.option2=="XL") | .id')
+products +stock --variant-id "$VID" --set 20
+
+# 8. Append tags without clobbering the existing ones
 products +tag --id 445566 --add summer,sale
 
-# 7. Delete one product — dry-run, restate, wait for the user's go-ahead, then run
+# 9. Delete one product — dry-run, restate, wait for the user's go-ahead, then run
 products delete --params '{"product_id":"778899"}' --dry-run
 products delete --params '{"product_id":"778899"}'          # only after the user agrees (next turn)
 
-# 8. Batch delete — always dry-run first and restate the count
+# 10. Batch delete — always dry-run first and restate the count
 products batch-delete --params '{"product_ids":["111222","333444","555666"]}' --dry-run
 products batch-delete --params '{"product_ids":["111222","333444","555666"]}'
 
-# 9. Change one variant's size option (partial body — only the field to change)
+# 11. Change one variant's size option (partial body — only the field to change)
 products variants update --params '{"variant_id":"24680"}' --data '{"variant":{"option1":"XL"}}'
 
-# 10. Put a product into a collection
+# 12. Put a product into a collection
 products collects create --data '{"collect":{"collection_id":"999000","product_id":"555777"}}'
 
-# 11. "Delete" a gift card you only know by code — resolve the id, preview the disable
+# 13. "Delete" a gift card you only know by code — resolve the id, preview the disable
 #     (irreversible) in the SAME reply, then wait for the user's go-ahead
 ID=$(products gift-cards list --params '{"keyword":"GC9988"}' --jq '.data.gift_cards[0].id')
 products gift-cards disable --params '{"id":"'$ID'"}' --dry-run

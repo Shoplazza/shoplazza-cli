@@ -22,16 +22,21 @@ import (
 var stockShortcut = common.Shortcut{
 	Service: "products",
 	Command: "+stock",
-	Use:     "+stock --variant-id <id> (--set <n> | --adjust <±n>) [--location-id <id>]",
+	Use:     "+stock (--variant-id <id> | --sku <sku> | --product-id <id>) (--set <n> | --adjust <±n>) [--location-id <id>]",
 	Short:   "Set or adjust variant inventory level",
 	Flags: []common.Flag{
-		{Name: "variant-id", Type: common.FlagString, Required: true, Description: "Variant ID (required)."},
+		{Name: "variant-id", Type: common.FlagString, Description: "Variant ID — the unique, exact target."},
+		{Name: "sku", Type: common.FlagString, Description: "Variant SKU. Resolves to one variant; a multi-match is refused with the candidates listed (there is no --all here: inventory writes target one variant)."},
+		{Name: "product-id", Type: common.FlagString, Description: "Product ID. Resolves to that product's single variant; a multi-variant product is refused with the candidates listed."},
 		{Name: "set", Type: common.FlagInt, Description: "Set inventory to an absolute target (≥ 0). Decreases work only at the default location of a single-location item. Mutually exclusive with --adjust."},
 		{Name: "adjust", Type: common.FlagInt, Description: "Stock delta (nonzero). Positive adds at any location; negative decreases (same gates as --set). Mutex with --set."},
 		{Name: "location-id", Type: common.FlagString, Description: "Location ID (defaults to default location)."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
-		variantID := in.Flags.GetString("variant-id")
+		target, err := parseVariantTarget(in)
+		if err != nil {
+			return common.ExecResult{}, err
+		}
 		locationID := in.Flags.GetString("location-id")
 
 		gotSet := in.Flags.Changed("set")
@@ -50,16 +55,38 @@ var stockShortcut = common.Shortcut{
 			return common.ExecResult{}, output.ErrValidation("--adjust must be nonzero (positive adds, negative decreases)")
 		}
 
-		adjust := in.Flags.GetInt("adjust")
-		if gotAdjust && adjust > 0 {
-			return execStockAdd(ctx, in, variantID, locationID, adjust)
+		// Resolve after the pure gates: a bad --set/--adjust must not cost a network
+		// call. base = plans preceding the write steps, keeping their step refs correct.
+		variantID, base := target.VariantID, 0
+		var resolvePlan common.PlannedRequest
+		if target.NeedsResolve() {
+			resolvePlan, base = target.ResolvePlan(), 1
+			if in.DryRun {
+				variantID = stepRef(0)
+			} else if variantID, err = target.Resolve(ctx, in.Client); err != nil {
+				return common.ExecResult{}, err
+			}
 		}
-		return execStockSetOrDecrease(ctx, in, variantID, locationID, gotSet)
+
+		adjust := in.Flags.GetInt("adjust")
+		var res common.ExecResult
+		if gotAdjust && adjust > 0 {
+			res, err = execStockAdd(ctx, in, variantID, locationID, adjust, base)
+		} else {
+			res, err = execStockSetOrDecrease(ctx, in, variantID, locationID, gotSet, base)
+		}
+		if err != nil {
+			return common.ExecResult{}, target.hintIfDirectVariantID(err)
+		}
+		if in.DryRun && base > 0 {
+			res.Plans = append([]common.PlannedRequest{resolvePlan}, res.Plans...)
+		}
+		return res, nil
 	},
 }
 
 // execStockAdd is the fast path for --adjust > 0: no reads beyond id resolution.
-func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationID string, adjust int) (common.ExecResult, error) {
+func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationID string, adjust, base int) (common.ExecResult, error) {
 	plans := []common.PlannedRequest{}
 	invPlan := PlanInventoryItemForVariant(variantID)
 	plans = append(plans, invPlan)
@@ -72,8 +99,8 @@ func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationI
 	}
 
 	previewBody := map[string]any{
-		"inventory_item_id": "<resolved-from-step-0>",
-		"location_id":       placeholderOr(locationID, "<resolved-from-step-1>"),
+		"inventory_item_id": stepRef(base + 0),
+		"location_id":       placeholderOr(locationID, stepRef(base+1)),
 		"stock_adjustment":  adjust,
 	}
 	plans = append(plans, PlanAdjustInventoryLevel(previewBody))
@@ -106,19 +133,19 @@ func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationI
 
 // execStockSetOrDecrease handles --set and --adjust < 0: read the current level,
 // then route up (inventory_levels add) or down (variant inventory_quantity set).
-func execStockSetOrDecrease(ctx context.Context, in common.ExecInput, variantID, locationID string, gotSet bool) (common.ExecResult, error) {
+func execStockSetOrDecrease(ctx context.Context, in common.ExecInput, variantID, locationID string, gotSet bool, base int) (common.ExecResult, error) {
 	invPlan := PlanInventoryItemForVariant(variantID)
 	locPlan := PlanDefaultLocation() // always: decrement gating compares against it
-	levelsPlan := PlanListItemLevels("<resolved-from-step-0>")
+	levelsPlan := PlanListItemLevels(stepRef(base + 0))
 	plans := []common.PlannedRequest{invPlan, locPlan, levelsPlan}
 
-	effectiveLoc := placeholderOr(locationID, "<resolved-from-step-1>")
+	effectiveLoc := placeholderOr(locationID, stepRef(base+1))
 	if gotSet {
 		// Direction is unknown until the level is read: preview both writes.
 		target := in.Flags.GetInt("set")
 		plans = append(plans,
 			PlanAdjustInventoryLevel(map[string]any{
-				"inventory_item_id": "<resolved-from-step-0>",
+				"inventory_item_id": stepRef(base + 0),
 				"location_id":       effectiveLoc,
 				"stock_adjustment":  "<if target > current: target minus current>",
 			}),
@@ -304,10 +331,14 @@ func asInt(v any) (int, bool) {
 	}
 }
 
+// noInventoryItemMsg prefixes the empty variant→item lookup — a mistyped id, not a
+// CLI bug, hence validation-class. hintIfDirectVariantID matches on it.
+const noInventoryItemMsg = "no inventory item found for that variant"
+
 func extractInventoryItemID(resp map[string]any) (string, error) {
 	items, ok := resp["variant_inventory_items"].([]any)
 	if !ok || len(items) == 0 {
-		return "", output.ErrInternal("variant_inventory_items lookup returned empty array")
+		return "", output.ErrValidation("%s — the variant id matched nothing", noInventoryItemMsg)
 	}
 	m, ok := items[0].(map[string]any)
 	if !ok {

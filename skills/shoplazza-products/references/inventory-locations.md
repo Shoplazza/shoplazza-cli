@@ -88,6 +88,10 @@ products inventory list-levels --params "{\"inventory_item_ids\":[\"$ITEM\"]}"
 # Add 50 units at a specific location (shortcut — preferred)
 products +stock --variant-id 12345 --adjust 50 --location-id 777
 
+# Same, when all you have is the product id (single-variant product; a
+# multi-variant one is refused with its candidates listed)
+products +stock --product-id 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf --adjust 50
+
 # Decrease by 30 (default location, single-location item)
 products +stock --variant-id 12345 --adjust -30
 

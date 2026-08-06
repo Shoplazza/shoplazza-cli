@@ -3,6 +3,7 @@ package products
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -45,8 +46,99 @@ func newProductExecInput(t *testing.T, flags map[string]string, values map[strin
 // ── stockShortcut.Execute ─────────────────────────────────────────────────────
 
 var stockExecFlags = map[string]string{
-	"variant-id": "string", "location-id": "string",
-	"set": "int", "adjust": "int",
+	"variant-id": "string", "sku": "string", "product-id": "string",
+	"location-id": "string",
+	"set":         "int", "adjust": "int",
+}
+
+func TestStockExecute_NoTargetErrors(t *testing.T) {
+	in := newProductExecInput(t, stockExecFlags, map[string]string{"adjust": "5"}, false)
+	_, err := stockShortcut.Execute(context.Background(), in)
+	if err == nil {
+		t.Fatal("expected error when no target selector is given")
+	}
+	if !strings.Contains(err.Error(), "--product-id") {
+		t.Errorf("the error should name every accepted selector; got %v", err)
+	}
+}
+
+func TestStockExecute_TwoTargetsErrors(t *testing.T) {
+	in := newProductExecInput(t, stockExecFlags, map[string]string{
+		"variant-id": "v-1", "product-id": "p-1", "adjust": "5",
+	}, false)
+	if _, err := stockShortcut.Execute(context.Background(), in); err == nil {
+		t.Fatal("expected error when two selectors are given")
+	}
+}
+
+// A bad amount must fail before the target costs a network round trip.
+func TestStockExecute_AmountGateRunsBeforeResolution(t *testing.T) {
+	in := newProductExecInput(t, stockExecFlags, map[string]string{
+		"product-id": "p-1", "adjust": "0",
+	}, false)
+	_, err := stockShortcut.Execute(context.Background(), in)
+	if err == nil || !strings.Contains(err.Error(), "--adjust") {
+		t.Fatalf("expected the --adjust gate to fire without resolving; got %v", err)
+	}
+}
+
+func TestStockExecute_ProductIDDryRun_PrependsResolveStep(t *testing.T) {
+	in := newProductExecInput(t, stockExecFlags, map[string]string{
+		"product-id": "p-1", "adjust": "5",
+	}, true)
+	result, err := stockShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(result.Plans) < 3 {
+		t.Fatalf("expected ≥3 plans (resolve + item + write), got %d", len(result.Plans))
+	}
+	if result.Plans[0].Method != "GET" || !strings.HasSuffix(result.Plans[0].Path, "/products/p-1/variants") {
+		t.Errorf("plan 0 should be the product-scoped variant list; got %+v", result.Plans[0])
+	}
+	// The item lookup consumes the variant id the resolve step produces.
+	if !strings.Contains(planQueryString(t, result.Plans[1]), stepRef(0)) {
+		t.Errorf("plan 1 should reference %s; got %+v", stepRef(0), result.Plans[1])
+	}
+}
+
+// The renumbering regression: prepending a resolve step must shift every
+// downstream <resolved-from-step-N>, and must NOT shift them when absent.
+func TestStockExecute_PlaceholderIndicesShiftWithResolveStep(t *testing.T) {
+	direct := newProductExecInput(t, stockExecFlags, map[string]string{
+		"variant-id": "v-1", "set": "10",
+	}, true)
+	res, err := stockShortcut.Execute(context.Background(), direct)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	// Plans: item lookup, default location, levels(step-0), writes.
+	if got := planQueryString(t, res.Plans[2]); !strings.Contains(got, stepRef(0)) {
+		t.Errorf("--variant-id path: levels plan should reference %s; got %s", stepRef(0), got)
+	}
+
+	viaSKU := newProductExecInput(t, stockExecFlags, map[string]string{
+		"sku": "TEE-RED-L", "set": "10",
+	}, true)
+	res, err = stockShortcut.Execute(context.Background(), viaSKU)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	// Plans: resolve, item lookup, default location, levels(step-1), writes.
+	got := planQueryString(t, res.Plans[3])
+	if !strings.Contains(got, stepRef(1)) {
+		t.Errorf("--sku path: levels plan should reference %s; got %s", stepRef(1), got)
+	}
+	if strings.Contains(got, stepRef(0)) {
+		t.Errorf("--sku path: %s is the resolve step, not the inventory item; got %s", stepRef(0), got)
+	}
+}
+
+// planQueryString renders a plan's query values for substring assertions.
+// Not json.Marshal: it HTML-escapes the < > in the step placeholders.
+func planQueryString(t *testing.T, p common.PlannedRequest) string {
+	t.Helper()
+	return fmt.Sprintf("%v", p.Query)
 }
 
 func TestStockExecute_BothFlagsErrors(t *testing.T) {
@@ -309,7 +401,7 @@ func TestStockExecute_SetEqual_NoWrite(t *testing.T) {
 // ── setPriceShortcut.Execute ──────────────────────────────────────────────────
 
 var setPriceExecFlags = map[string]string{
-	"variant-id": "string", "sku": "string", "all": "bool",
+	"variant-id": "string", "sku": "string", "product-id": "string", "all": "bool",
 	"price": "string", "compare-price": "string",
 }
 
@@ -460,6 +552,88 @@ func TestSetPriceExecute_SKUMultiMatchRefuses(t *testing.T) {
 	}
 	if putCalled {
 		t.Error("must NOT update when the SKU matches multiple variants")
+	}
+}
+
+// --product-id -----------------------------------------------------------------
+
+func TestSetPriceExecute_ProductIDWithSKUErrors(t *testing.T) {
+	in := newProductExecInput(t, setPriceExecFlags, map[string]string{
+		"product-id": "p-1", "sku": "S", "price": "9.99",
+	}, false)
+	if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
+		t.Error("expected error when --product-id is combined with --sku")
+	}
+}
+
+func TestSetPriceExecute_ProductIDWithAllErrors(t *testing.T) {
+	in := newProductExecInput(t, setPriceExecFlags, map[string]string{
+		"product-id": "p-1", "all": "true", "price": "9.99",
+	}, false)
+	if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
+		t.Error("expected error when --all is combined with --product-id")
+	}
+}
+
+func TestSetPriceExecute_DryRun_ProductIDOnly(t *testing.T) {
+	in := newProductExecInput(t, setPriceExecFlags, map[string]string{"product-id": "p-1", "price": "9.99"}, true)
+	r, err := setPriceShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Plans) != 2 {
+		t.Fatalf("expected resolve + update, got %d plans", len(r.Plans))
+	}
+	if r.Plans[0].Method != "GET" || !strings.HasSuffix(r.Plans[0].Path, "/products/p-1/variants") {
+		t.Errorf("plan 0 should be the product-scoped variant list; got %+v", r.Plans[0])
+	}
+	if !strings.HasSuffix(r.Plans[1].Path, "/variants/"+stepRef(0)) {
+		t.Errorf("plan 1 should target %s; got %+v", stepRef(0), r.Plans[1])
+	}
+}
+
+func TestSetPriceExecute_ProductIDSingleVariantUpdates(t *testing.T) {
+	var putPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPut {
+			putPath = r.URL.Path
+			_ = json.NewEncoder(w).Encode(map[string]any{"variant": map[string]any{"id": "v-9"}})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"variants": []any{
+			map[string]any{"id": "v-9", "sku": "ONLY"},
+		}})
+	}))
+	defer srv.Close()
+	in := setPriceInputWithClient(t, map[string]string{"product-id": "p-1", "price": "9.99"}, srv.URL)
+	if _, err := setPriceShortcut.Execute(context.Background(), in); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if !strings.HasSuffix(putPath, "/variants/v-9") {
+		t.Errorf("should update the product's only variant; PUT went to %q", putPath)
+	}
+}
+
+func TestSetPriceExecute_ProductIDMultiVariantRefuses(t *testing.T) {
+	var putCalled bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPut {
+			putCalled = true
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"variants": []any{
+			map[string]any{"id": "v-1", "option1": "S"},
+			map[string]any{"id": "v-2", "option1": "M"},
+		}})
+	}))
+	defer srv.Close()
+	in := setPriceInputWithClient(t, map[string]string{"product-id": "p-1", "price": "9.99"}, srv.URL)
+	if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
+		t.Fatal("expected refusal on a multi-variant product")
+	}
+	if putCalled {
+		t.Error("must NOT reprice a guessed variant when the product has several")
 	}
 }
 

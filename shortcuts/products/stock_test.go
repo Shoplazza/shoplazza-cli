@@ -18,6 +18,13 @@ func TestStockShortcut_DeclarativeShape(t *testing.T) {
 	if err := common.ValidateShortcut(stockShortcut); err != nil {
 		t.Errorf("validate: %v", err)
 	}
+	// No flag may be Required: the target is one of three selectors, so cobra
+	// must not reject the command before Execute can say which are accepted.
+	for _, f := range stockShortcut.Flags {
+		if f.Required {
+			t.Errorf("--%s must not be Required; the target check belongs in Execute", f.Name)
+		}
+	}
 }
 
 func TestExtractInventoryItemID_OK(t *testing.T) {
@@ -40,6 +47,14 @@ func TestExtractInventoryItemID_Empty(t *testing.T) {
 	_, err := extractInventoryItemID(resp)
 	if err == nil {
 		t.Fatal("expected error on empty variant_inventory_items")
+	}
+	// An id that matches no variant is bad input, not a CLI bug.
+	var ee *output.ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *output.ExitError, got %T", err)
+	}
+	if ee.Code != output.ExitValidation {
+		t.Errorf("exit %d want %d (validation)", ee.Code, output.ExitValidation)
 	}
 }
 

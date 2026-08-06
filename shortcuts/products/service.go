@@ -45,6 +45,12 @@ func PlanListVariantsBySKU(sku string) common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: productsBase + "/sku/" + sku + "/variants"}
 }
 
+// PlanListVariantsForProduct lists one product's variants — the product-id →
+// variant-id bridge. Same {"variants":[…]} shape as PlanListVariantsBySKU.
+func PlanListVariantsForProduct(productID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: productsBase + "/" + productID + "/variants"}
+}
+
 // Inventory base paths.
 const (
 	inventoryItemsBase  = common.APIPrefix + "/inventory_items"
