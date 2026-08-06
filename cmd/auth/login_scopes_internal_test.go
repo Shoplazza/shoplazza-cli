@@ -107,3 +107,21 @@ func TestUnionWithGranted_DedupesRequest(t *testing.T) {
 		t.Fatalf("union = %v kept=%d, want dedup without counting overlaps as kept", got, kept)
 	}
 }
+
+// The default (replace) path warns about exactly the scopes the narrow
+// request is about to drop.
+func TestMissingFromRequest(t *testing.T) {
+	dropped := missingFromRequest(
+		[]string{"read_shop"},
+		[]string{"read_product", "read_shop", "write_product"},
+	)
+	if len(dropped) != 2 || !containsAll(dropped, "read_product", "write_product") {
+		t.Fatalf("dropped = %v, want the two scopes absent from the request", dropped)
+	}
+	if d := missingFromRequest([]string{"read_shop"}, []string{"read_shop"}); len(d) != 0 {
+		t.Fatalf("dropped = %v, want none when the request covers the grant", d)
+	}
+	if d := missingFromRequest([]string{"read_shop"}, nil); len(d) != 0 {
+		t.Fatalf("dropped = %v, want none without a prior grant", d)
+	}
+}

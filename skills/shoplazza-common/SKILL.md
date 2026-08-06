@@ -123,11 +123,11 @@ shoplazza auth login -s my-store.myshoplazza.com --domain discounts
   products, shop, themes, webhook, all`. **Preferred** — you don't memorize scope literals.
 - `--scope <literal,…>`: fine-grained OAuth scopes (e.g. `read_product,write_product`),
   least-privilege.
-- **Re-login scope semantics**: authorization replaces the account's grant server-side.
-  Current CLIs auto-merge previously granted scopes into the request (summary shows
-  "including N previously granted"; `--replace-scopes` narrows deliberately). On older
-  CLIs the replacement is silent — request the **union** yourself; `--domain` and
-  `--scope` combine in one login (e.g. `--domain products --scope read_inventory`).
+- **Re-login REPLACES the grant** (verified live: a 22-scope grant re-authorized with one
+  scope came back with one). Topping up permissions? Pass **`--merge-scopes`** to carry the
+  prior grant along (older CLIs lack the flag — build the union yourself via `auth scopes`;
+  `--domain` and `--scope` combine in one login). Only omit it when the user explicitly
+  wants to narrow permissions.
 
 ### Agent-driven login flow
 
@@ -136,9 +136,10 @@ When acting as an AI agent to log the user in: run `auth login` in the **backgro
 `--poll-interval` / `--timeout`, defaults 2s / 300s), **extract the authorization URL from its
 output and hand it to the user**; the command returns on its own after the user authorizes.
 
-**Re-login for a missing scope? Request the union.** Scopes are replaced, not merged (see
-Login above): first read `auth scopes` → granted, then request granted + the new scopes in
-one login. Requesting only the missing scope silently drops everything else mid-task.
+**Re-login for a missing scope? Pass `--merge-scopes`.** Scopes are replaced, not merged
+(see Login above); requesting only the missing scope drops everything else mid-task. If the
+flag is unknown (older CLI), fall back to building the union: `auth scopes` → granted, then
+request granted + the new scopes in one login.
 
 ### Non-interactive fast path (UAT)
 

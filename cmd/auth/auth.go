@@ -40,7 +40,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 		uat             string
 		timeoutSec      int
 		pollIntervalSec int
-		replaceScopes   bool
+		mergeScopes     bool
 	)
 
 	cmd := &cobra.Command{
@@ -68,14 +68,19 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			// Authorization REPLACES the account's granted set server-side, and
 			// SyncAfterLogin then trims every profile to it — so a narrow re-login
-			// (e.g. just read_inventory) would revoke unrelated scopes mid-task,
-			// including other profiles'. Default to re-requesting the union.
-			// Skipped for a pure-account login (no scopes requested); on an account
-			// switch the merged scopes are simply shown on the consent screen.
+			// (e.g. just read_inventory) revokes unrelated scopes mid-task,
+			// including other profiles'. --merge-scopes re-requests the union;
+			// the default keeps the historical replace semantics untouched and
+			// only WARNS about what the login is about to drop.
 			keptFromGrant := 0
-			if !replaceScopes && len(effectiveScopes) > 0 {
+			var droppedFromGrant []string
+			if len(effectiveScopes) > 0 {
 				if acct := f.Config.Account(); acct != nil {
-					effectiveScopes, keptFromGrant = unionWithGranted(effectiveScopes, acct.GrantedScopes)
+					if mergeScopes {
+						effectiveScopes, keptFromGrant = unionWithGranted(effectiveScopes, acct.GrantedScopes)
+					} else {
+						droppedFromGrant = missingFromRequest(effectiveScopes, acct.GrantedScopes)
+					}
 				}
 			}
 
@@ -106,7 +111,11 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "  Scopes (%d): %s\n", len(effectiveScopes), strings.Join(effectiveScopes, ", "))
 			if keptFromGrant > 0 {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  (including %d previously granted scope(s) — pass --replace-scopes to drop them)\n", keptFromGrant)
+				fmt.Fprintf(f.IOStreams.ErrOut, "  (--merge-scopes kept %d previously granted scope(s))\n", keptFromGrant)
+			}
+			if len(droppedFromGrant) > 0 {
+				fmt.Fprintf(f.IOStreams.ErrOut, "  warning: this login will DROP %d previously granted scope(s): %s\n", len(droppedFromGrant), strings.Join(droppedFromGrant, ", "))
+				fmt.Fprintf(f.IOStreams.ErrOut, "  warning: tokens and parallel tasks relying on them will start failing — pass --merge-scopes to keep them.\n")
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "\n")
 
@@ -155,11 +164,11 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 					return err
 				}
 			}
-			// The profile must track what the token can actually do: pass the full
-			// effective set (scopes + domain expansions + merged grant), not just
-			// the raw --scope flag, or a later lazy re-mint narrows the token back.
+			// Default path passes the raw --scope flag exactly as before. Under
+			// --merge-scopes the profile records the full effective set instead,
+			// so a later lazy re-mint keeps the merged token's reach.
 			syncScopes := scope
-			if len(effectiveScopes) > 0 {
+			if mergeScopes && len(effectiveScopes) > 0 {
 				syncScopes = effectiveScopes
 			}
 			profileName, err := SyncAfterLogin(f, result, storeArg, syncScopes, f.IOStreams.ErrOut)
@@ -192,7 +201,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&uat, "uat", "", "Log in non-interactively with an existing account UAT (skips the browser; obtain it from 'auth login' on another machine).")
 	cmd.Flags().IntVar(&timeoutSec, "timeout", 300, "Web-flow polling timeout in seconds.")
 	cmd.Flags().IntVar(&pollIntervalSec, "poll-interval", 2, "Web-flow poll interval in seconds.")
-	cmd.Flags().BoolVar(&replaceScopes, "replace-scopes", false, "Request exactly the scopes given, dropping previously granted ones (default merges them in so a narrow re-login cannot revoke scopes other tasks rely on).")
+	cmd.Flags().BoolVar(&mergeScopes, "merge-scopes", false, "Also re-request every previously granted scope (authorization replaces the grant server-side, so a narrow re-login otherwise revokes scopes parallel tasks rely on).")
 	return cmd
 }
 
@@ -202,6 +211,22 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 func unionWithGranted(requested, granted []string) ([]string, int) {
 	merged := internalauth.DedupePreserveOrder(append(append([]string{}, requested...), granted...))
 	return merged, len(merged) - len(internalauth.DedupePreserveOrder(requested))
+}
+
+// missingFromRequest returns the granted scopes a request does not carry —
+// the ones a replace-semantics login is about to drop.
+func missingFromRequest(requested, granted []string) []string {
+	have := make(map[string]struct{}, len(requested))
+	for _, s := range requested {
+		have[s] = struct{}{}
+	}
+	var dropped []string
+	for _, s := range internalauth.DedupePreserveOrder(granted) {
+		if _, ok := have[s]; !ok {
+			dropped = append(dropped, s)
+		}
+	}
+	return dropped
 }
 
 // domainFlagHelp builds the --domain help text from the live scope map.

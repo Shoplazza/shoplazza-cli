@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-### Fixed
-- `auth login` no longer silently revokes scopes on re-login. Authorization replaces the account's granted set server-side, so a narrow re-login (say, just `read_inventory`) used to drop every other scope and trim every profile with it — breaking any parallel task mid-flight (verified: a 22-scope grant re-authorized with one scope came back with one). The requested scopes are now merged with the prior grant by default, the summary notes how many were carried over, and the new `--replace-scopes` flag restores the old narrowing behavior when you actually want it. The store profile now records the full effective scope set (including `--domain` expansions), so lazily re-minted tokens keep the same reach as the login-time token.
+### Added
+- `auth login --merge-scopes` — also re-requests every previously granted scope. Authorization replaces the account's granted set server-side, so a narrow re-login (say, just `read_inventory`) drops every other scope and trims every profile with it, breaking parallel tasks mid-flight (verified: a 22-scope grant re-authorized with one scope came back with one). With the flag, the requested scopes are merged with the prior grant, the summary notes how many were carried over, and the store profile records the full effective scope set so lazily re-minted tokens keep the merged reach. Default behavior is unchanged — but a replace login that would drop scopes now prints a warning listing exactly what it is about to drop.
 
 ## 2.0.8 - 2026-07-29
 
