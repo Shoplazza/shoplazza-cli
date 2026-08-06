@@ -123,10 +123,11 @@ shoplazza auth login -s my-store.myshoplazza.com --domain discounts
   products, shop, themes, webhook, all`. **Preferred** — you don't memorize scope literals.
 - `--scope <literal,…>`: fine-grained OAuth scopes (e.g. `read_product,write_product`),
   least-privilege.
-- **Store-token scopes do NOT accumulate**: each `auth login -s <store>` issues a token
-  carrying only that login's scopes (verified live — a later inventory-only login dropped
-  `read_product`). Always request the **union** you need; `--domain` and `--scope` combine
-  in one login (e.g. `--domain products --scope read_inventory,write_inventory`).
+- **Re-login scope semantics**: authorization replaces the account's grant server-side.
+  Current CLIs auto-merge previously granted scopes into the request (summary shows
+  "including N previously granted"; `--replace-scopes` narrows deliberately). On older
+  CLIs the replacement is silent — request the **union** yourself; `--domain` and
+  `--scope` combine in one login (e.g. `--domain products --scope read_inventory`).
 
 ### Agent-driven login flow
 
