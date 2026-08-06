@@ -70,17 +70,11 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			// SyncAfterLogin then trims every profile to it — so a narrow re-login
 			// (e.g. just read_inventory) revokes unrelated scopes mid-task,
 			// including other profiles'. --merge-scopes re-requests the union;
-			// the default keeps the historical replace semantics untouched and
-			// only WARNS about what the login is about to drop.
+			// the default keeps the historical replace semantics untouched.
 			keptFromGrant := 0
-			var droppedFromGrant []string
-			if len(effectiveScopes) > 0 {
+			if mergeScopes && len(effectiveScopes) > 0 {
 				if acct := f.Config.Account(); acct != nil {
-					if mergeScopes {
-						effectiveScopes, keptFromGrant = unionWithGranted(effectiveScopes, acct.GrantedScopes)
-					} else {
-						droppedFromGrant = missingFromRequest(effectiveScopes, acct.GrantedScopes)
-					}
+					effectiveScopes, keptFromGrant = unionWithGranted(effectiveScopes, acct.GrantedScopes)
 				}
 			}
 
@@ -112,10 +106,6 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			fmt.Fprintf(f.IOStreams.ErrOut, "  Scopes (%d): %s\n", len(effectiveScopes), strings.Join(effectiveScopes, ", "))
 			if keptFromGrant > 0 {
 				fmt.Fprintf(f.IOStreams.ErrOut, "  (--merge-scopes kept %d previously granted scope(s))\n", keptFromGrant)
-			}
-			if len(droppedFromGrant) > 0 {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  warning: this login will DROP %d previously granted scope(s): %s\n", len(droppedFromGrant), strings.Join(droppedFromGrant, ", "))
-				fmt.Fprintf(f.IOStreams.ErrOut, "  warning: tokens and parallel tasks relying on them will start failing — pass --merge-scopes to keep them.\n")
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "\n")
 
@@ -211,22 +201,6 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 func unionWithGranted(requested, granted []string) ([]string, int) {
 	merged := internalauth.DedupePreserveOrder(append(append([]string{}, requested...), granted...))
 	return merged, len(merged) - len(internalauth.DedupePreserveOrder(requested))
-}
-
-// missingFromRequest returns the granted scopes a request does not carry —
-// the ones a replace-semantics login is about to drop.
-func missingFromRequest(requested, granted []string) []string {
-	have := make(map[string]struct{}, len(requested))
-	for _, s := range requested {
-		have[s] = struct{}{}
-	}
-	var dropped []string
-	for _, s := range internalauth.DedupePreserveOrder(granted) {
-		if _, ok := have[s]; !ok {
-			dropped = append(dropped, s)
-		}
-	}
-	return dropped
 }
 
 // domainFlagHelp builds the --domain help text from the live scope map.
