@@ -79,12 +79,16 @@ shoplazza products list --format table
 
 ### 快速开始（AI Agent）
 
-> 运行登录命令，从输出中提取授权链接并发送给用户。命令会持续轮询，直到用户在浏览器中完成 OAuth 授权。
+先装 [Agent Skills](#agent-skills) —— Agent 会从 skill 里拿到安装、授权引导和命令调用的全部规则：
 
 ```bash
-npm install -g shoplazza-cli
-shoplazza auth login --store-domain <店铺域名> --domain products,orders
-shoplazza auth status
+npx skills add Shoplazza/shoplazza-cli -g
+```
+
+装完后把这句发给 Agent，它会带你完成授权：
+
+```text
+/shoplazza-common 帮我登录 <店铺域名>
 ```
 
 ## 认证
@@ -252,7 +256,7 @@ shoplazza api rest POST /openapi/2026-01/products \
 
 开箱即用的 [Agent Skills](https://agentskills.io)，教会 AI 编码 Agent 正确驱动本 CLI：
 三层命令该选哪一层、`{"ok":true,"data":…}` 输出信封怎么读、写操作前必须 `--dry-run` 的
-安全规则，以及各业务域里容易踩错的坑。适用于 Claude Code、Codex、Cursor、Gemini CLI、Zed 等。
+安全规则，以及各业务域里容易踩错的坑。适用于 Claude Code、Codex、Cursor 等。
 
 ### 安装
 

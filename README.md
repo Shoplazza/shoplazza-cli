@@ -79,12 +79,16 @@ shoplazza products list --format table
 
 ### Quick Start (AI Agent)
 
-> Run the login command, extract the authorization URL from output, and send it to the user. The command polls until the user completes OAuth in their browser.
+Start by installing the [Agent Skills](#agent-skills) — they give the Agent everything it needs: installation, the authorization walkthrough, and how to drive the commands.
 
 ```bash
-npm install -g shoplazza-cli
-shoplazza auth login --store-domain <store-domain> --domain products,orders
-shoplazza auth status
+npx skills add Shoplazza/shoplazza-cli -g
+```
+
+Then send your Agent this line — it walks you through authorization:
+
+```text
+/shoplazza-common log me in to <store-domain>
 ```
 
 ## Authentication
@@ -253,7 +257,7 @@ shoplazza api rest POST /openapi/2026-01/products \
 Ready-made [Agent Skills](https://agentskills.io) that teach an AI coding agent how to drive
 this CLI properly: which of the three command tiers to reach for, the `{"ok":true,"data":…}`
 output envelope, the `--dry-run`-before-writes safety rule, and the per-domain gotchas that
-are easy to get wrong. Works with Claude Code, Codex, Cursor, Gemini CLI, Zed and others.
+are easy to get wrong. Works with Claude Code, Codex, Cursor and others.
 
 ### Install
 
