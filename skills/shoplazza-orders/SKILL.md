@@ -54,7 +54,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Create an order on a customer's behalf (手工建单 / 代客下单) | `orders create --data '{"order":{…}}'` — heavy nested body → [references/orders-create.md](references/orders-create.md) |
 | Update order note / tags / shipping address | `orders update --params '{"order_id":"<id>"}' --data '{"order":{…}}'` |
 | Cancel an order (destructive → `--dry-run` first) | `orders cancel --params '{"order_id":"<id>"}' [--data '{"reason":"…"}']` |
-| Mark an order paid | `orders pay --params '{"order_id":"<id>"}' [--data '{…}']` (no body = bogus test payment) |
+| Mark an order paid | `orders pay --params '{"order_id":"<id>"}' --data '{"payment_line":{"payment_channel":"<channel>","payment_method":"<method>","transaction_no":"<txn>"}}'` — **empty body = bogus TEST payment**; real channel/method/txn go in `payment_line`, custom display name in `gateway` (`schema orders.pay`) |
 | Delete an order (destructive → `--dry-run` first) | `orders delete --params '{"order_id":"<id>"}'` |
 | Fulfillment records CRUD / cancel / complete | `orders fulfillments …` → [references/fulfillments.md](references/fulfillments.md) |
 | Refund records (one order / store-wide) | `orders refunds …` → [references/refunds.md](references/refunds.md) |
@@ -85,6 +85,10 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
    - **`orders pay` writes a payment record — same treatment as `+refund`**: `--dry-run`
      first, restate (which order, channel, transaction no), wait for the user's go-ahead.
      Never send it with an empty body — no body silently records a bogus TEST payment.
+     `payment_line`'s `payment_channel` / `payment_method` / `transaction_no` are free
+     strings, not enums — fill them from the user's wording (e.g. "走的 PayPal" →
+     `"payment_channel":"paypal","payment_method":"paypal"`), `transaction_no` verbatim;
+     do not block asking which enum value to use.
    - `+ship` / `+update-tracking` / `+search` / `+count` are safe to run directly once
      required values are confirmed.
 

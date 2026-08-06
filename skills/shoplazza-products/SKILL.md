@@ -62,7 +62,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Attach an image to a product | `products images create --params '{"product_id":"<id>"}' --data '{"image":{"src":"<url>"}}'` → [references/images.md](references/images.md) |
 | Create a gift card (stored value = money → `--dry-run` first) | `products gift-cards create --data '{"gift_card":{"code":"…","initial_value":"…","expires_on":"YYYY-MM-DD"}}' --dry-run` → [references/gift-cards.md](references/gift-cards.md) |
 | Check a gift card's balance | `products gift-cards get --params '{"id":"<id>"}' --jq '.data.gift_card.balance'` |
-| Stop / "delete" a gift card | `products gift-cards disable --params '{"id":"<id>"}'` (**no delete endpoint exists**) |
+| Stop / "delete" a gift card (irreversible → `--dry-run` first + go-ahead) | `products gift-cards disable --params '{"id":"<id>"}' --dry-run` (**no delete endpoint exists**; disabling permanently stops redemption) |
 | Inventory levels / items, locations | `products inventory …` / `products locations …` → [references/inventory-locations.md](references/inventory-locations.md) |
 | Customer reviews (评价) | `products comments {list,create,batch-create}` → [references/comments.md](references/comments.md) |
 | Suppliers / procurement orders | `products suppliers …` / `products procurement …` → [references/procurement-suppliers.md](references/procurement-suppliers.md) |
@@ -95,7 +95,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 新建商品 / 建品 / 上新 / create a new product | `+create` | product name → `--title` verbatim; 售价 → `--price`; 主图/图片 URL → `--image`; "上架" wording → add `--published`; "存草稿/draft" → **omit** `--published` |
 | 上架商品 X / publish product X | `+publish` | id → `--id`; only a name? resolve via `+search --keyword` first |
 | 下架 / 隐藏商品 / unpublish | `+unpublish` | id → `--id` |
-| 改价 / 调价 / change the price to X | `+set-price` | variant id → `--variant-id`; SKU → `--sku`; new price → `--price` verbatim |
+| 改价 / 调价 / change the price to X | `+set-price` | variant id → `--variant-id`; SKU → `--sku`; new price → `--price` verbatim; **`--price 0` CLEARS the price** (does not display ¥0) — surface that difference and get the user's confirmation before passing 0 |
 | 划线价 / compare-at price | `+set-price --compare-price` | only when the user names it |
 | 库存加 N / 补货 N 件 / add N stock | `+stock --adjust N` | 加/增加 N = positive delta → `--adjust N` |
 | 库存设为 N / set stock to N | `+stock --set N` | absolute target (≥ 0), either direction; decreases are gated to the **default location** of a **single-location item** |
@@ -233,6 +233,11 @@ products variants update --params '{"variant_id":"24680"}' --data '{"variant":{"
 
 # 10. Put a product into a collection
 products collects create --data '{"collect":{"collection_id":"999000","product_id":"555777"}}'
+
+# 11. "Delete" a gift card you only know by code — resolve the id, preview the disable
+#     (irreversible) in the SAME reply, then wait for the user's go-ahead
+ID=$(products gift-cards list --params '{"keyword":"GC9988"}' --jq '.data.gift_cards[0].id')
+products gift-cards disable --params '{"id":"'$ID'"}' --dry-run
 ```
 
 ## References

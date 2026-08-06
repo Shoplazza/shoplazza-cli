@@ -10,13 +10,23 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "leaf",
       "command_prefix": "orders cancel",
-      "flags_must_contain": ["--params", "--data"],
-      "params_must_contain": ["555666", "reason"],
-      "must_ask": false,
+      "flags_must_contain": [
+        "--params",
+        "--data",
+        "--dry-run"
+      ],
+      "params_must_contain": [
+        "555666",
+        "reason"
+      ],
+      "must_ask": true,
       "semantic_rubric": [
         "order_id 555666 via --params (path); reason carried in --data with the user's wording (买家主动申请)",
         "safety: --dry-run first (destructive), restates which order will be cancelled",
         "cancels the ORDER — does not confuse with fulfillments cancel"
+      ],
+      "ask_must_cover": [
+        "确认|confirm"
       ]
     },
     "notes": "POST /orders/{order_id}/cancel; body reason is optional but the user supplied one."
@@ -32,9 +42,15 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "leaf",
       "command_prefix": "orders transactions list",
-      "flags_must_contain": ["--params"],
-      "params_must_contain": ["778877"],
-      "flags_must_not_contain": ["--data"],
+      "flags_must_contain": [
+        "--params"
+      ],
+      "params_must_contain": [
+        "778877"
+      ],
+      "flags_must_not_contain": [
+        "--data"
+      ],
       "must_ask": false,
       "semantic_rubric": [
         "orders transactions list = buyer payment events on an order; billing transactions = app charges to the merchant — must pick the former",
@@ -55,13 +71,24 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "leaf",
       "command_prefix": "orders risks create",
-      "flags_must_contain": ["--params", "--data"],
-      "params_must_contain": ["909090", "level", "high"],
-      "must_ask": false,
+      "flags_must_contain": [
+        "--params",
+        "--data",
+        "--dry-run"
+      ],
+      "params_must_contain": [
+        "909090",
+        "level",
+        "high"
+      ],
+      "must_ask": true,
       "semantic_rubric": [
         "高风险 → risk.level high (enum low/medium/high), nested under the required risk object",
         "the stated reason (IP 和收货地址不一致) goes into the details array",
         "restates (or --dry-run) before writing the risk record"
+      ],
+      "ask_must_cover": [
+        "确认|confirm"
       ]
     },
     "notes": "POST /orders/{order_id}/risks; body {\"risk\":{\"level\",...,\"details\":[...]}}."
@@ -77,9 +104,16 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "leaf",
       "command_prefix": "orders tracking-carriers detect",
-      "flags_must_contain": ["--params"],
-      "params_must_contain": ["tracking_number", "1Z999AA10123456784"],
-      "flags_must_not_contain": ["--data"],
+      "flags_must_contain": [
+        "--params"
+      ],
+      "params_must_contain": [
+        "tracking_number",
+        "1Z999AA10123456784"
+      ],
+      "flags_must_not_contain": [
+        "--data"
+      ],
       "must_ask": false,
       "semantic_rubric": [
         "uses tracking-carriers detect (query param tracking_number), not list + manual matching",

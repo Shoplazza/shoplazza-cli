@@ -10,7 +10,10 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "leaf",
       "command_prefix": "orders create",
-      "flags_must_contain": ["--data", "--dry-run"],
+      "flags_must_contain": [
+        "--data",
+        "--dry-run"
+      ],
       "params_must_contain": [
         "\"order\"",
         "dd305ee4-fb07-4467-b846-27abd038f6ea",
@@ -22,7 +25,7 @@
         "currency_code",
         "GBP"
       ],
-      "must_ask": false,
+      "must_ask": true,
       "semantic_rubric": [
         "whole body nests under the required order wrapper; --data (not --params) carries it",
         "line item: variant_id + quantity 1 + price 19.99 (all from the utterance, none fabricated)",
@@ -30,6 +33,9 @@
         "shipping_line present with shipping_price 0.00; shipping_name defaulted to a neutral label (e.g. Standard Shipping) — NOT blocked on and NOT asked for",
         "tax_total 0.00 and currency_code GBP set from the utterance",
         "money write: --dry-run first and restates the order before the real run"
+      ],
+      "ask_must_cover": [
+        "确认|confirm"
       ]
     },
     "notes": "POST /openapi/2026-01/orders. Required per schema orders.create: line_items[].quantity, shipping_address(last_name,email,country_code,province,province_code,city,address,zip), shipping_line(shipping_name,shipping_price), tax_total, currency_code. shipping_name is a display label the skill says to default, not ask — the fix for the triage over-ask."

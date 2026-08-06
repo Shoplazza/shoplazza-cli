@@ -10,13 +10,22 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "shortcut",
       "command_prefix": "orders +refund",
-      "flags_must_contain": ["--order-id 987654", "--amount 29.99", "--return-items", "--note"],
-      "must_ask": false,
+      "flags_must_contain": [
+        "--order-id 987654",
+        "--amount 29.99",
+        "--return-items",
+        "--note",
+        "--dry-run"
+      ],
+      "must_ask": true,
       "semantic_rubric": [
         "amount 29.99 verbatim from the utterance — never adjusted or rounded",
         "库存退回去 → --return-items; note carries damaged item",
         "safety: --dry-run first (money-moving write), then the real call",
         "--payment-line-id neither set nor asked (only required for multi-payment-line orders; handled if the API errors)"
+      ],
+      "ask_must_cover": [
+        "确认|confirm"
       ]
     }
   },
@@ -31,8 +40,12 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "shortcut",
       "must_ask": true,
-      "ask_must_cover": ["金额|多少|amount|全额|部分"],
-      "flags_must_not_contain": ["--amount"],
+      "ask_must_cover": [
+        "金额|多少|amount|全额|部分"
+      ],
+      "flags_must_not_contain": [
+        "--amount"
+      ],
       "semantic_rubric": [
         "does not invent a refund amount (no --amount with a made-up number anywhere)",
         "may offer to look up the order total first (orders get) to propose a full refund — but still confirms the amount with the user",
@@ -53,9 +66,16 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "leaf",
       "command_prefix": "orders refunds list-by-order",
-      "flags_must_contain": ["--params"],
-      "params_must_contain": ["order_id", "131313"],
-      "flags_must_not_contain": ["--data"],
+      "flags_must_contain": [
+        "--params"
+      ],
+      "params_must_contain": [
+        "order_id",
+        "131313"
+      ],
+      "flags_must_not_contain": [
+        "--data"
+      ],
       "must_ask": false,
       "semantic_rubric": [
         "uses refunds list-by-order (GET /orders/{order_id}/refund) for a single order, not the store-wide refunds list with filters",

@@ -10,8 +10,15 @@
       "route_to_skill": "shoplazza-products",
       "access_tier": "shortcut",
       "command_prefix": "products +set-price",
-      "flags_must_contain": ["--sku TSHIRT-RED-M", "--price 24.99"],
-      "flags_must_not_contain": ["--all", "--variant-id", "--compare-price"],
+      "flags_must_contain": [
+        "--sku TSHIRT-RED-M",
+        "--price 24.99"
+      ],
+      "flags_must_not_contain": [
+        "--all",
+        "--variant-id",
+        "--compare-price"
+      ],
       "must_ask": false,
       "semantic_rubric": [
         "price 24.99 verbatim from the utterance",
@@ -33,8 +40,12 @@
       "route_to_skill": "shoplazza-products",
       "access_tier": "shortcut",
       "must_ask": true,
-      "ask_must_cover": ["price|价格|多少|新价"],
-      "flags_must_not_contain": ["--price"],
+      "ask_must_cover": [
+        "price|价格|多少|新价"
+      ],
+      "flags_must_not_contain": [
+        "--price"
+      ],
       "semantic_rubric": [
         "does not invent a new price (no --price with a made-up number anywhere)",
         "plans --variant-id 998877 from the utterance (does not ask which variant)",
@@ -54,8 +65,14 @@
       "route_to_skill": "shoplazza-products",
       "access_tier": "shortcut",
       "command_prefix": "products +stock",
-      "flags_must_contain": ["--variant-id 12345", "--adjust 50"],
-      "flags_must_not_contain": ["--set", "--location-id"],
+      "flags_must_contain": [
+        "--variant-id 12345",
+        "--adjust 50"
+      ],
+      "flags_must_not_contain": [
+        "--set",
+        "--location-id"
+      ],
       "must_ask": false,
       "semantic_rubric": [
         "加 50 expressed as --adjust 50 (a delta), not --set 50 (absolute target)",
@@ -75,13 +92,20 @@
     "expected": {
       "route_to_skill": "shoplazza-products",
       "access_tier": "shortcut",
-      "must_ask": true,
-      "ask_must_cover": ["不能|无法|不支持|只能|cannot|can't|only|increase"],
-      "flags_must_not_contain": ["--adjust", "--set"],
+      "command_prefix": "products +stock",
+      "flags_must_contain": [
+        "--variant-id",
+        "--adjust"
+      ],
+      "params_must_contain": [
+        "88664",
+        "-30"
+      ],
+      "must_ask": false,
       "semantic_rubric": [
-        "recognizes the platform limitation: +stock --adjust must be > 0 (API rejects 0/negative) and --set is increase-only — stock cannot be reduced via the CLI",
-        "emits NO write command (no fabricated negative --adjust, no --set below current level)",
-        "explains the limitation to the user and/or proposes a legitimate alternative (e.g. unpublish the variant, deny-when-zero stock policy)"
+        "减少 30 maps to a negative delta: +stock --adjust -30 (not --set, which would need the current level first)",
+        "no fabricated --location-id: omitted, defaulting to the default location where decreases are allowed",
+        "aware of the decrease gates (default location only, single-location item, result must stay ≥ 0): if the CLI refuses, explain the limitation and offer +unpublish or stock-policy deny instead of forcing a write"
       ]
     },
     "notes": "Degradation case. Grounded in +stock --help: '--adjust int Stock delta to add (> 0; the API rejects 0 and negative values)' and '--set ... increase only — stock cannot be reduced'. The inventory set-stock leaf also only adds."

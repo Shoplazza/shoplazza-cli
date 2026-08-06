@@ -10,7 +10,9 @@
       "route_to_skill": "shoplazza-products",
       "access_tier": "shortcut",
       "command_prefix": "products +publish",
-      "flags_must_contain": ["--id 654321"],
+      "flags_must_contain": [
+        "--id 654321"
+      ],
       "must_ask": false,
       "semantic_rubric": [
         "uses +publish --id, not the update leaf with a published:true body",
@@ -29,8 +31,16 @@
       "route_to_skill": "shoplazza-products",
       "access_tier": "shortcut",
       "command_prefix": "products +tag",
-      "flags_must_contain": ["--id 445566", "--add", "summer", "sale"],
-      "flags_must_not_contain": ["--set", "--remove"],
+      "flags_must_contain": [
+        "--id 445566",
+        "--add",
+        "summer",
+        "sale"
+      ],
+      "flags_must_not_contain": [
+        "--set",
+        "--remove"
+      ],
       "must_ask": false,
       "semantic_rubric": [
         "别动原来的标签 → --add (existing tags kept per --help), NOT --set (which replaces all tags)",
@@ -51,14 +61,25 @@
       "route_to_skill": "shoplazza-products",
       "access_tier": "leaf",
       "command_prefix": "products delete",
-      "flags_must_contain": ["--params"],
-      "params_must_contain": ["product_id", "778899"],
-      "flags_must_not_contain": ["--data"],
-      "must_ask": false,
+      "flags_must_contain": [
+        "--params",
+        "--dry-run"
+      ],
+      "params_must_contain": [
+        "product_id",
+        "778899"
+      ],
+      "flags_must_not_contain": [
+        "--data"
+      ],
+      "must_ask": true,
       "semantic_rubric": [
         "uses products delete --params '{\"product_id\":\"778899\"}' — single delete, not batch-delete for one id",
         "safety: --dry-run first or an explicit restate of store/id before the real delete",
         "does not invent a +delete shortcut (none exists)"
+      ],
+      "ask_must_cover": [
+        "确认|confirm"
       ]
     },
     "notes": "DELETE /products/{product_id}; path param goes through --params."
@@ -74,13 +95,24 @@
       "route_to_skill": "shoplazza-products",
       "access_tier": "leaf",
       "command_prefix": "products batch-delete",
-      "flags_must_contain": ["--params"],
-      "params_must_contain": ["product_ids", "111222", "333444", "555666"],
-      "must_ask": false,
+      "flags_must_contain": [
+        "--params",
+        "--dry-run"
+      ],
+      "params_must_contain": [
+        "product_ids",
+        "111222",
+        "333444",
+        "555666"
+      ],
+      "must_ask": true,
       "semantic_rubric": [
         "product_ids passed as an ARRAY of the three ids from the utterance, none dropped or invented",
         "safety: --dry-run first (destructive batch op), then the real call",
         "restates that exactly 3 products will be deleted before executing"
+      ],
+      "ask_must_cover": [
+        "确认|confirm"
       ]
     },
     "notes": "DELETE /products with required query array product_ids (min 1)."
