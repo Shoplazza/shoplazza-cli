@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -110,17 +111,21 @@ func transientPollError(ctx context.Context, err error) bool {
 		return false
 	}
 	var he *client.HTTPError
-	if !errors.As(err, &he) {
-		return true // network-level failure below the deadline
+	if errors.As(err, &he) {
+		if he.StatusCode < 500 {
+			return false
+		}
+		var body struct {
+			Code string `json:"code"`
+		}
+		_ = json.Unmarshal([]byte(he.Body), &body)
+		return body.Code != "user_denied" && body.Code != "session_expired"
 	}
-	if he.StatusCode < 500 {
-		return false
-	}
-	var body struct {
-		Code string `json:"code"`
-	}
-	_ = json.Unmarshal([]byte(he.Body), &body)
-	return body.Code != "user_denied" && body.Code != "session_expired"
+	// Below the deadline, only a transport failure is worth another poll. A
+	// decode failure is a contract break that would repeat every interval until
+	// the 5-minute timeout, so surface it now rather than hanging on it.
+	var ne net.Error
+	return errors.As(err, &ne)
 }
 
 // storeValidationWarning renders the login-time message for a store that failed

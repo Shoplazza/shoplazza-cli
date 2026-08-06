@@ -600,3 +600,32 @@ func TestLoginUAT_PreservesPartnerTokenSameAccount(t *testing.T) {
 		t.Errorf("partner keychain entry should be preserved for the same account, got %q", got)
 	}
 }
+
+// A malformed poll body is a contract break, not a hiccup: it would repeat every
+// interval until the 5-minute deadline, so it must surface immediately.
+func TestLogin_PollMalformedBody_FailsFastNotAfterTimeout(t *testing.T) {
+	polls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/saiga/cli/auth/sessions":
+			json.NewEncoder(w).Encode(map[string]any{"session_id": "sess1", "authorize_url": "x"})
+		case strings.HasSuffix(r.URL.Path, "/token"):
+			polls++
+			w.Write([]byte("{not json"))
+		}
+	}))
+	defer srv.Close()
+	mgr := newTestManager(t, srv)
+
+	start := time.Now()
+	if _, err := mgr.Login(context.Background(), "", nil, "", 5*time.Second, 50*time.Millisecond, nil); err == nil {
+		t.Fatal("expected the decode failure to surface")
+	}
+	if polls != 1 {
+		t.Errorf("polls = %d, want 1 (no retry on a decode failure)", polls)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Errorf("took %v — should not have spun until the deadline", elapsed)
+	}
+}

@@ -78,9 +78,17 @@ node skills/shoplazza-skill-eval/bin/lint_drift.mjs skills/<skill>/SKILL.md --bi
 - `--drift` mode: stop after this step regardless of result.
 
 Notes: `lint_drift.mjs --backbone auto` skips the backbone check for
-`shoplazza-common` (base skill, different skeleton). Bare-token mentions on lines
-that read as negative documentation ("There is no `+update`") are skipped by a
-negation heuristic; full invocations in fences/recipes are always strict.
+`shoplazza-common` (base skill, different skeleton). Bare-token mentions that read
+as negative documentation ("There is no `+update`") are skipped by a negation
+heuristic; full invocations in fences/recipes are always strict.
+
+**Known blind spot in that heuristic.** It is scoped to the containing table
+CELL, plus the whole row for the first (Symptom) column, which by contract names
+the broken thing on purpose. So a token still escapes the check when a negation
+word sits in the *same cell* — "…re-run with `--variant-id`. Never guess" exempts
+`--variant-id`. Row-level scoping used to exempt 24 of 40 gotcha rows; cell-level
+leaves 5. A green L0 means "nothing outside those cells drifted", not "nothing
+drifted" — when editing a gotcha's Fix column, spot-check its flags by hand.
 
 ## Step 3 — L1 behavioral (serial, fresh agent per case, §7)
 

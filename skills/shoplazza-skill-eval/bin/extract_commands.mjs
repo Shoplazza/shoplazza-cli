@@ -43,12 +43,42 @@ export function extractReferences(markdown, { modules }) {
       flushCont();
       // inline code spans (includes table cells)
       for (const span of line.matchAll(/`([^`]+)`/g)) {
-        scanCodeText(span[1], lineNo, modules, refs, line);
+        scanCodeText(span[1], lineNo, modules, refs, negationContext(line, span.index));
       }
     }
   }
   flushCont();
   return refs;
+}
+
+/**
+ * The span of text the caller's negation check should see. Gotcha rows are long
+ * and negation words ("no", "never", "unknown", "rejected") cluster in the Cause
+ * column, so passing the whole ROW exempted every token in it — a misspelled
+ * flag in the Fix column rode out on a "never" three cells away.
+ *
+ * Narrow to the containing CELL, with one exception that follows the table's own
+ * contract: the FIRST cell is the Symptom, which names the broken thing on
+ * purpose ("Invented `+delete` shortcut") while its explanation sits in the
+ * adjacent Cause cell — so it stays row-scoped. Later cells prescribe, and get
+ * checked strictly. Non-table lines keep the whole line; escaped pipes (`\|`,
+ * how a literal | is written inside a cell) are not separators.
+ */
+function negationContext(line, index) {
+  if (!/^\s*\|/.test(line)) return line;
+  const seps = [];
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '|' && line[i - 1] !== '\\') seps.push(i);
+  }
+  let start = 0, cell = -1;
+  for (const s of seps) {
+    if (s >= index) break;
+    start = s + 1;
+    cell++;
+  }
+  if (cell <= 0) return line; // Symptom column
+  const end = seps.find((s) => s >= index);
+  return end === undefined ? line.slice(start) : line.slice(start, end);
 }
 
 function stripShellComment(line) {
