@@ -24,10 +24,13 @@ Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能在终�
 
 | 业务域 | 能力 |
 |--------|------|
-| 🛍️ 商品 | CRUD + 快捷命令：`+search`、`+publish`、`+unpublish`、`+create`、`+set-price`、`+stock` |
-| 🏷️ 折扣 | CRUD + 8 个快捷创建命令，覆盖自动折扣与代码折扣 |
+| 🛍️ 商品 | CRUD + 快捷命令：`+search`、`+count`、`+publish`、`+unpublish`、`+create`、`+set-price`、`+stock`、`+tag` |
+| 🏷️ 折扣 | CRUD + 8 个快捷命令：7 个创建类（覆盖自动折扣与代码折扣）+ `+search` |
 | 📦 订单 | CRUD + 快捷命令：`+search`、`+count`、`+ship`、`+refund`、`+update-tracking` |
 | 👤 客户 | CRUD + 快捷命令：`+search`、`+create` |
+| 🏪 店铺 | 店铺信息、博客与文章、自定义页面、文件（`+upload-file`）、metafields、市场、多语言、URL 重定向、数据分析 |
+| 💳 计费 | 应用收费：一次性、订阅、按量 |
+| 🔔 Webhook | Webhook 订阅 CRUD |
 | 🎨 主题 | `init`、`serve`（实时热重载）、`pull`、`push`、`package`、`share` |
 | 🧩 应用 | 完整生命周期：init → extension create → dev → deploy；扩展类型：checkout、theme、function |
 
@@ -61,11 +64,11 @@ make install
 
 ### 快速开始（人类用户）
 
-> **Note for AI assistants:** 如果你是 AI Agent 且正在协助用户执行安装，请直接跳转到[快速开始（AI Agent）](#快速开始ai-agent)。
+> **给 AI 助手：** 如果你是 AI Agent 且正在协助用户执行安装，请直接跳转到[快速开始（AI Agent）](#快速开始ai-agent)。
 
 ```bash
 # 登录授权（替换为你的店铺域名）
-shoplazza auth login --store-domain my-store.shoplazza.com --domain products,orders
+shoplazza auth login --store-domain my-store.myshoplazza.com --domain products,orders
 
 # 验证
 shoplazza auth status
@@ -102,6 +105,9 @@ shoplazza auth login --store-domain my-store.myshoplazza.com --domain products
 # UAT 快速登录（非交互式，适合 CI）
 shoplazza auth login --uat <user-access-token>
 
+# 补充权限 — 重新登录会替换（而非叠加）已授权 scopes，用 --merge-scopes 保留原有授权
+shoplazza auth login --domain discounts --merge-scopes
+
 # 切换店铺
 shoplazza auth store use --store-domain another-store.myshoplazza.com
 
@@ -110,6 +116,19 @@ shoplazza auth status
 ```
 
 凭证存储在 OS 原生密钥链中（macOS Keychain、Windows Credential Manager、Linux Secret Service）。
+
+### 多店铺 Profile
+
+Profile 是按店铺划分的执行上下文（店铺 Token + scopes）。一个账户登录后可管理多家店铺、
+随时切换而无需重新授权 — `auth login -s` 和 `auth store use` 会自动创建/切换 profile，
+也可以直接管理：
+
+```bash
+shoplazza profile add --name prod-us -s my-store.myshoplazza.com --use
+shoplazza profile list
+shoplazza profile use --name prod-us        # 或 --previous 切回上一个
+shoplazza products list --profile prod-us   # 单次调用指定 profile，无需切换
+```
 
 ## 开发工作流
 
@@ -186,7 +205,7 @@ CLI 提供三种粒度的调用方式，覆盖从快速操作到完全自定义�
 ```bash
 # 商品
 shoplazza products +search --keyword "衬衫"
-shoplazza products +publish <product-id>
+shoplazza products +publish --id <product-id>
 
 # 折扣 — 自动折扣
 shoplazza discounts +rebate --title "夏季满减" --percentage 15 --min-amount 100
@@ -197,7 +216,7 @@ shoplazza discounts +percent-code --code "SAVE20" --percentage 20
 shoplazza discounts +bxgy-code --code "BUY2GET1" --buy-quantity 2 --get-quantity 1
 
 # 订单
-shoplazza orders +ship <order-id>
+shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 
 运行 `shoplazza <domain> --help` 查看某个业务域的所有快捷命令。
@@ -224,8 +243,8 @@ shoplazza customers list
 直接调用任意 Shoplazza 开放平台端点，覆盖全量 API。
 
 ```bash
-shoplazza api rest GET /openapi/2022-01/products.json
-shoplazza api rest POST /openapi/2022-01/products.json \
+shoplazza api rest GET /openapi/2026-01/products
+shoplazza api rest POST /openapi/2026-01/products \
   --data '{"product": {"title": "新商品", "status": "active"}}'
 ```
 
@@ -265,9 +284,10 @@ npx skills add Shoplazza/shoplazza-cli -g
 | Flag | 适用范围 | 说明 |
 |------|----------|------|
 | `--format json\|pretty\|table` | 所有命令 | 输出格式（默认：`json`） |
-| `--fields "f1,f2"` | 快捷命令 | 响应字段投影 |
+| `--profile <name>` | 所有命令 | 本次调用使用的 profile（优先级高于 `SHOPLAZZA_CLI_PROFILE` 和当前 profile） |
 | `--dry-run` | API 和快捷命令 | 预览请求但不执行 |
-| `--jq "expr"` / `-q` | API 命令 | 使用 jq 表达式过滤 JSON 输出 |
+| `--jq "expr"` / `-q` | API 和快捷命令 | 使用 jq 表达式过滤 JSON 输出 |
+| `--fields "f1,f2"` | 少数搜索类快捷命令 | 响应字段投影（以 `--help` 为准；其余场景用 `--jq`） |
 
 ### Schema 自省
 
@@ -279,11 +299,25 @@ shoplazza schema products                     # 查看指定服务
 shoplazza schema products.list                # 查看指定方法
 ```
 
+### 更新
+
+```bash
+shoplazza update            # 更新二进制（npm 安装方式）并刷新 API 元数据
+shoplazza update --check    # 仅报告当前/最新版本，不安装
+```
+
+CLI 会在后台检测新版本；命令树本身也无需发版即可更新：新发布的 API 操作通过校验和验证的
+元数据刷新送达（每 24 小时至多检查一次，失败静默不影响使用）。非 npm 安装方式请用
+`brew upgrade` 或重新下载更新二进制；`shoplazza update` 仍会刷新元数据。
+
 ### 环境变量
 
 | 变量 | 说明 |
 |------|------|
 | `SHOPLAZZA_UAT` | 用于非交互式登录的 User Access Token（等同 `--uat`） |
+| `SHOPLAZZA_CLI_PROFILE` | 指定使用的 profile（`--profile` 优先） |
+| `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | 关闭后台新版本检测 |
+| `SHOPLAZZA_CLI_NO_META_UPDATE` | 关闭后台 API 元数据刷新 |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | 覆盖认证服务基础 URL（默认：`https://partners.shoplazza.com`） |
 
 ## 安全与风险提示

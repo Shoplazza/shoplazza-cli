@@ -24,10 +24,13 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 
 | Domain | Capabilities |
 |--------|-------------|
-| 🛍️ Products | CRUD + shortcuts: `+search`, `+publish`, `+unpublish`, `+create`, `+set-price`, `+stock` |
-| 🏷️ Discounts | CRUD + 8 shortcut creators for automatic & code discounts |
+| 🛍️ Products | CRUD + shortcuts: `+search`, `+count`, `+publish`, `+unpublish`, `+create`, `+set-price`, `+stock`, `+tag` |
+| 🏷️ Discounts | CRUD + 8 shortcuts: 7 creators for automatic & code discounts, plus `+search` |
 | 📦 Orders | CRUD + shortcuts: `+search`, `+count`, `+ship`, `+refund`, `+update-tracking` |
 | 👤 Customers | CRUD + shortcuts: `+search`, `+create` |
+| 🏪 Shop | Shop info, blogs & articles, pages, files (`+upload-file`), metafields, markets, languages, redirects, analytics |
+| 💳 Billing | Application charges: one-time, recurring, usage-based |
+| 🔔 Webhooks | Webhook subscription CRUD |
 | 🎨 Themes | `init`, `serve` (live reload), `pull`, `push`, `package`, `share` |
 | 🧩 App | Full lifecycle: init → extension create → dev → deploy; extensions: checkout, theme, function |
 
@@ -65,7 +68,7 @@ make install
 
 ```bash
 # Log in (replace with your store domain)
-shoplazza auth login --store-domain my-store.shoplazza.com --domain products,orders
+shoplazza auth login --store-domain my-store.myshoplazza.com --domain products,orders
 
 # Verify
 shoplazza auth status
@@ -102,6 +105,9 @@ shoplazza auth login --store-domain my-store.myshoplazza.com --domain products
 # UAT fast-path (non-interactive, for CI)
 shoplazza auth login --uat <user-access-token>
 
+# Top up permissions — re-login REPLACES the grant, so carry the prior scopes along
+shoplazza auth login --domain discounts --merge-scopes
+
 # Switch store
 shoplazza auth store use --store-domain another-store.myshoplazza.com
 
@@ -110,6 +116,19 @@ shoplazza auth status
 ```
 
 Access tokens are stored in the OS-native keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service).
+
+### Multi-store profiles
+
+A profile is a per-store execution context (store token + scopes). One logged-in account can
+manage several stores and switch between them without re-authenticating — `auth login -s` and
+`auth store use` create/switch profiles automatically, or manage them directly:
+
+```bash
+shoplazza profile add --name prod-us -s my-store.myshoplazza.com --use
+shoplazza profile list
+shoplazza profile use --name prod-us        # or --previous to toggle back
+shoplazza products list --profile prod-us   # per-invocation override, no switching
+```
 
 ## Development Workflows
 
@@ -186,7 +205,7 @@ Prefixed with `+`, designed to be friendly for both humans and AI, with smart de
 ```bash
 # Products
 shoplazza products +search --keyword "shirt"
-shoplazza products +publish <product-id>
+shoplazza products +publish --id <product-id>
 
 # Discounts — automatic
 shoplazza discounts +rebate --title "Summer Sale" --percentage 15 --min-amount 100
@@ -197,7 +216,7 @@ shoplazza discounts +percent-code --code "SAVE20" --percentage 20
 shoplazza discounts +bxgy-code --code "BUY2GET1" --buy-quantity 2 --get-quantity 1
 
 # Orders
-shoplazza orders +ship <order-id>
+shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 
 Run `shoplazza <domain> --help` to see all shortcuts for a domain.
@@ -224,8 +243,8 @@ shoplazza customers list
 Call any Shoplazza Open Platform endpoint directly for full coverage.
 
 ```bash
-shoplazza api rest GET /openapi/2022-01/products.json
-shoplazza api rest POST /openapi/2022-01/products.json \
+shoplazza api rest GET /openapi/2026-01/products
+shoplazza api rest POST /openapi/2026-01/products \
   --data '{"product": {"title": "New Product", "status": "active"}}'
 ```
 
@@ -268,9 +287,10 @@ before use.
 | Flag | Scope | Description |
 |------|-------|-------------|
 | `--format json\|pretty\|table` | All commands | Output format (default: `json`) |
-| `--fields "f1,f2"` | Shortcut commands | Response field projection |
+| `--profile <name>` | All commands | Profile for this invocation (beats `SHOPLAZZA_CLI_PROFILE` and the current profile) |
 | `--dry-run` | API & shortcut commands | Preview request without executing |
-| `--jq "expr"` / `-q` | API commands | Filter JSON output with jq expression |
+| `--jq "expr"` / `-q` | API & shortcut commands | Filter JSON output with jq expression |
+| `--fields "f1,f2"` | A few search shortcuts | Response field projection (check `--help`; elsewhere use `--jq`) |
 
 ### Schema Introspection
 
@@ -282,11 +302,26 @@ shoplazza schema products                     # Inspect a service
 shoplazza schema products.list                # Inspect a method
 ```
 
+### Updating
+
+```bash
+shoplazza update            # update the binary (npm installs) and refresh the API metadata
+shoplazza update --check    # report current/latest versions only, no install
+```
+
+The CLI notes newer versions in the background, and the command tree itself updates without a
+CLI release: newly published API operations arrive via a checksum-verified metadata refresh
+(checked at most once per 24h, silently non-fatal). Non-npm installs update the binary via
+`brew upgrade` or a re-download; `shoplazza update` still refreshes the metadata.
+
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
 | `SHOPLAZZA_UAT` | User Access Token for non-interactive login (equivalent to `--uat`) |
+| `SHOPLAZZA_CLI_PROFILE` | Profile to use (overridden by `--profile`) |
+| `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | Disable the background new-version check |
+| `SHOPLAZZA_CLI_NO_META_UPDATE` | Disable background API-metadata refreshes |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | Override auth base URL (default: `https://partners.shoplazza.com`) |
 
 ## Security & Risk Warnings
