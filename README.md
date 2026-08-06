@@ -261,17 +261,6 @@ directory, for use across every project.
 The sources live in [`skills/`](./skills). Skills run with full agent permissions — read them
 before use.
 
-### Authoring a skill
-
-New skills must follow [`skills/_template/`](./skills/_template) (see its `AUTHORING.md`).
-Quality is guarded by the three-layer eval harness in `skills/shoplazza-skill-eval/` — static
-drift lint, behavioral cases, and rubric scoring. Run the drift lint before opening a PR:
-
-```bash
-make build   # the lint checks your docs against the freshly built CLI
-node skills/shoplazza-skill-eval/bin/lint_drift.mjs skills/<skill>/SKILL.md --bin ./shoplazza
-```
-
 ## Advanced Usage
 
 ### Common Flags

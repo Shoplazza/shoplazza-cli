@@ -258,17 +258,6 @@ npx skills add Shoplazza/shoplazza-cli -g
 
 源文件在 [`skills/`](./skills)。Skill 以 Agent 的完整权限运行，使用前请先阅读其内容。
 
-### 编写 Skill
-
-新增 skill 必须遵循 [`skills/_template/`](./skills/_template)（详见其中的 `AUTHORING.md`）。
-质量由 `skills/shoplazza-skill-eval/` 下的三层评估体系保障——静态漂移检查、行为用例、
-rubric 评分。提 PR 前先跑漂移检查：
-
-```bash
-make build   # 检查会拿你的文档与刚构建出的 CLI 做比对
-node skills/shoplazza-skill-eval/bin/lint_drift.mjs skills/<skill>/SKILL.md --bin ./shoplazza
-```
-
 ## 进阶用法
 
 ### 通用 Flag
