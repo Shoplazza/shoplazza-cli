@@ -22,6 +22,12 @@ Decreases exist, but ride a different primitive: `PUT /variants/{variant_id}` wi
   default location, or the item holds levels at **multiple locations**
   (`inventory_quantity` semantics are only verified for single-location items).
 
+**Tracked zero is unreachable** (all three routes verified live): `variant.inventory_quantity: 0`
+**clears tracking** (reads back `null`, like an untracked variant) instead of setting zero;
+`set-stock` with `stock: 0` returns `ok:true` but is **silently ignored**; `update-level`
+rejects `stock_adjustment ≤ 0`. To "sell out" a variant, decrease to 1 and take the last
+unit from another variant, or ask whether untracked (`null`) is acceptable — never claim 0 was set.
+
 When the gate fires, degrade honestly: relay the CLI's reason, offer alternatives
 (`products +unpublish`, inventory policy `deny` when stock hits 0). Never bypass the gate
 by calling `variants update` with `inventory_quantity` directly on a multi-location item.
