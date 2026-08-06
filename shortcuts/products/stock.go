@@ -54,7 +54,7 @@ var stockShortcut = common.Shortcut{
 		if gotAdjust && adjust > 0 {
 			return execStockAdd(ctx, in, variantID, locationID, adjust)
 		}
-		return execStockSlow(ctx, in, variantID, locationID, gotSet)
+		return execStockSetOrDecrease(ctx, in, variantID, locationID, gotSet)
 	},
 }
 
@@ -82,20 +82,12 @@ func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationI
 		return common.ExecResult{Plans: plans}, nil
 	}
 
-	invResp, err := common.Send(ctx, in.Client, invPlan)
-	if err != nil {
-		return common.ExecResult{}, err
-	}
-	invItemID, err := extractInventoryItemID(invResp)
+	invItemID, err := resolveInventoryItemID(ctx, in.Client, invPlan)
 	if err != nil {
 		return common.ExecResult{}, err
 	}
 	if needsDefaultLoc {
-		locResp, lerr := common.Send(ctx, in.Client, locPlan)
-		if lerr != nil {
-			return common.ExecResult{}, lerr
-		}
-		locationID, err = extractDefaultLocationID(locResp)
+		locationID, err = resolveDefaultLocationID(ctx, in.Client, locPlan)
 		if err != nil {
 			return common.ExecResult{}, err
 		}
@@ -112,9 +104,9 @@ func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationI
 	return common.ExecResult{Body: resp}, nil
 }
 
-// execStockSlow handles --set and --adjust < 0: read the current level, then
-// route up (inventory_levels add) or down (variant inventory_quantity set).
-func execStockSlow(ctx context.Context, in common.ExecInput, variantID, locationID string, gotSet bool) (common.ExecResult, error) {
+// execStockSetOrDecrease handles --set and --adjust < 0: read the current level,
+// then route up (inventory_levels add) or down (variant inventory_quantity set).
+func execStockSetOrDecrease(ctx context.Context, in common.ExecInput, variantID, locationID string, gotSet bool) (common.ExecResult, error) {
 	invPlan := PlanInventoryItemForVariant(variantID)
 	locPlan := PlanDefaultLocation() // always: decrement gating compares against it
 	levelsPlan := PlanListItemLevels("<resolved-from-step-0>")
@@ -144,19 +136,11 @@ func execStockSlow(ctx context.Context, in common.ExecInput, variantID, location
 		return common.ExecResult{Plans: plans}, nil
 	}
 
-	invResp, err := common.Send(ctx, in.Client, invPlan)
+	invItemID, err := resolveInventoryItemID(ctx, in.Client, invPlan)
 	if err != nil {
 		return common.ExecResult{}, err
 	}
-	invItemID, err := extractInventoryItemID(invResp)
-	if err != nil {
-		return common.ExecResult{}, err
-	}
-	locResp, err := common.Send(ctx, in.Client, locPlan)
-	if err != nil {
-		return common.ExecResult{}, err
-	}
-	defaultLoc, err := extractDefaultLocationID(locResp)
+	defaultLoc, err := resolveDefaultLocationID(ctx, in.Client, locPlan)
 	if err != nil {
 		return common.ExecResult{}, err
 	}
@@ -232,6 +216,24 @@ func execStockSlow(ctx context.Context, in common.ExecInput, variantID, location
 	return common.ExecResult{Body: wrapLevelRow(afterRow)}, nil
 }
 
+
+// resolveInventoryItemID runs the variant→inventory-item lookup plan and extracts the id.
+func resolveInventoryItemID(ctx context.Context, c *client.Client, plan common.PlannedRequest) (string, error) {
+	resp, err := common.Send(ctx, c, plan)
+	if err != nil {
+		return "", err
+	}
+	return extractInventoryItemID(resp)
+}
+
+// resolveDefaultLocationID runs the default-location lookup plan and extracts the id.
+func resolveDefaultLocationID(ctx context.Context, c *client.Client, plan common.PlannedRequest) (string, error) {
+	resp, err := common.Send(ctx, c, plan)
+	if err != nil {
+		return "", err
+	}
+	return extractDefaultLocationID(resp)
+}
 
 // placeholderOr returns v, or the placeholder when v is empty.
 func placeholderOr(v, placeholder string) string {

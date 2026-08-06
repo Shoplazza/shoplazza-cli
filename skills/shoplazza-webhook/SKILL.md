@@ -49,11 +49,6 @@ webhook.create` / the Open Platform docs; don't invent one.
    `--dry-run` first only if the user asks (subscriptions don't move money, but `delete` is
    destructive — restate which subscription before deleting).
 
-## Permissions · Scope
-
-Authorization is by domain. Grant: `auth login --domain webhook`. Look up exact scope literals
-with `shoplazza auth scopes`.
-
 ## Boundaries
 
 Reads like an event/order/product task, actually belongs here:
@@ -65,6 +60,11 @@ Reads like an event/order/product task, actually belongs here:
 
 Subscribing to an event is a **webhook**, not an `orders`/`products` command. (Serves the
 `event-webhook` routing collision.)
+
+## Permissions · Scope
+
+Authorization is by domain. Grant: `auth login --domain webhook`. Look up exact scope literals
+with `shoplazza auth scopes`.
 
 ## Gotchas
 

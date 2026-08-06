@@ -47,14 +47,17 @@ must stay.
 Every skill has, in order:
 
 1. Frontmatter (`name` + `description`).
-2. The **`CRITICAL — 开始前先用 Read 读 ../shoplazza-common/SKILL.md`** prerequisite line.
+2. The **`CRITICAL — before anything else, use Read on ../shoplazza-common/SKILL.md`**
+   prerequisite line (English, per §0 — see the template for the exact wording).
 3. `## Overview` — what the module does + which tiers apply.
-4. `## 命令地图 (Command map)` — intent→command table, highest-fit tier first.
-5. `## 权限 · Scope` — read/write → domain grant table.
+4. `## Command map` — intent→command table, highest-fit tier first.
+5. `## Permissions · Scope` — read/write → domain grant table.
 6. `## Gotchas` — domain-specific only.
 7. `## References` — pointer to `--help` / `schema` + shoplazza-common.
 
-L0 (drift sentinel) asserts these headings exist — see §5.
+Headings are English (§0). L0 (drift sentinel) asserts these headings exist — it tolerates
+the legacy Chinese variants (`命令地图` / `权限`), but new skills must use the English ones
+above. See §5.
 
 ## 3. Conditional sections by module type
 
@@ -75,6 +78,10 @@ Rules of thumb:
   test.
 - Do **not** add Workflow to an action/config skill, and do not add the ask-matrix to a
   pure query domain.
+- **Domain-specific H2 sections beyond this menu are allowed** when the domain genuinely
+  needs its own detail (the reference implementation `shoplazza-discounts` adds several).
+  They must not displace or reorder the backbone, and enum/schema dumps still belong in
+  `references/`, not new sections.
 - Single-file `SKILL.md` by default. Spill only large enum/schema detail to a sibling
   `references/` (e.g. `products` sub-resources), never the backbone.
 

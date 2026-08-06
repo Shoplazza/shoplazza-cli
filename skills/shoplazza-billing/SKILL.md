@@ -52,11 +52,6 @@ Billing writes move **real money**. Before any create / cancel:
    - recurring `cancel`: `charge_id`
 3. `--dry-run` first, **restate** ("charge merchant $X — one-time / $X per month subscription / $X usage under CHG…, returns to <url>"), **stop and wait for the user's go-ahead**, then execute.
 
-## Permissions · Scope
-
-Authorization is by domain. Grant: `auth login --domain billing`. Look up exact scope literals
-with `shoplazza auth scopes`.
-
 ## Boundaries
 
 Reads like billing, actually belongs elsewhere:
@@ -69,6 +64,11 @@ Reads like billing, actually belongs elsewhere:
 **billing transactions = the app's charges to the merchant**; a buyer's payment for an order is
 `orders transactions`. (Serves the `app-charge-transactions` / `order-payment-transactions`
 routing collisions.)
+
+## Permissions · Scope
+
+Authorization is by domain. Grant: `auth login --domain billing`. Look up exact scope literals
+with `shoplazza auth scopes`.
 
 ## Gotchas
 
