@@ -287,7 +287,6 @@ npx skills add Shoplazza/shoplazza-cli -g
 | `--profile <name>` | 所有命令 | 本次调用使用的 profile（优先级高于 `SHOPLAZZA_CLI_PROFILE` 和当前 profile） |
 | `--dry-run` | API 和快捷命令 | 预览请求但不执行 |
 | `--jq "expr"` / `-q` | API 和快捷命令 | 使用 jq 表达式过滤 JSON 输出 |
-| `--fields "f1,f2"` | 少数搜索类快捷命令 | 响应字段投影（以 `--help` 为准；其余场景用 `--jq`） |
 
 ### Schema 自省
 
@@ -305,10 +304,6 @@ shoplazza schema products.list                # 查看指定方法
 shoplazza update            # 更新二进制（npm 安装方式）并刷新 API 元数据
 shoplazza update --check    # 仅报告当前/最新版本，不安装
 ```
-
-CLI 会在后台检测新版本；命令树本身也无需发版即可更新：新发布的 API 操作通过校验和验证的
-元数据刷新送达（每 24 小时至多检查一次，失败静默不影响使用）。非 npm 安装方式请用
-`brew upgrade` 或重新下载更新二进制；`shoplazza update` 仍会刷新元数据。
 
 ### 环境变量
 

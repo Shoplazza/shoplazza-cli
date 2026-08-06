@@ -290,7 +290,6 @@ before use.
 | `--profile <name>` | All commands | Profile for this invocation (beats `SHOPLAZZA_CLI_PROFILE` and the current profile) |
 | `--dry-run` | API & shortcut commands | Preview request without executing |
 | `--jq "expr"` / `-q` | API & shortcut commands | Filter JSON output with jq expression |
-| `--fields "f1,f2"` | A few search shortcuts | Response field projection (check `--help`; elsewhere use `--jq`) |
 
 ### Schema Introspection
 
@@ -308,11 +307,6 @@ shoplazza schema products.list                # Inspect a method
 shoplazza update            # update the binary (npm installs) and refresh the API metadata
 shoplazza update --check    # report current/latest versions only, no install
 ```
-
-The CLI notes newer versions in the background, and the command tree itself updates without a
-CLI release: newly published API operations arrive via a checksum-verified metadata refresh
-(checked at most once per 24h, silently non-fatal). Non-npm installs update the binary via
-`brew upgrade` or a re-download; `shoplazza update` still refreshes the metadata.
 
 ### Environment Variables
 
