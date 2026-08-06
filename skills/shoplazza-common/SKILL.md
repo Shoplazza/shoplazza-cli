@@ -135,6 +135,10 @@ When acting as an AI agent to log the user in: run `auth login` in the **backgro
 `--poll-interval` / `--timeout`, defaults 2s / 300s), **extract the authorization URL from its
 output and hand it to the user**; the command returns on its own after the user authorizes.
 
+**Re-login for a missing scope? Request the union.** Scopes are replaced, not merged (see
+Login above): first read `auth scopes` → granted, then request granted + the new scopes in
+one login. Requesting only the missing scope silently drops everything else mid-task.
+
 ### Non-interactive fast path (UAT)
 
 If you already ran `auth login` on another machine and have an account UAT, skip the browser:
