@@ -103,9 +103,15 @@ add/rename/drop commands silently ("drift" — see [CONTEXT.md](../../docs/skill
   there for exact flags.
 - Do not invent OAuth scope literals. Express permissions via the `--domain <module>` grant
   (confirmed) and `auth scopes`; only hardcode a scope literal you have verified.
-- `--fields` exists only on **a few shortcuts** (verified: `products +search`, `customers +search`) —
-  NOT on most commands. Verify with `<cmd> --help` before naming it. Use `--jq` for projection/
-  filtering everywhere else. Both are documented in shoplazza-common.
+- `--fields` exists only on **a few shortcuts** (verified: `products +search`) — NOT on most
+  commands. Verify with `<cmd> --help` before naming it. Use `--jq` for projection/filtering
+  everywhere else. Both are documented in shoplazza-common.
+- **A flag is not a filter until you have seen it on the wire.** The API drops query params it
+  does not recognise instead of rejecting them, so a shortcut whose param name has drifted
+  returns 200 with the *unfiltered* set. Before documenting a filter flag, check
+  `<cmd> --dry-run` against `schema <svc>.<cmd> --view request`, and confirm the filtered
+  result is actually narrower than the unfiltered one. `tests/shortcut_query_test.go` guards
+  this for every shortcut; shoplazza-common → "Reading a filtered list" is the runtime rule.
 - **When `cli_meta` is regenerated**, follow the maintenance checklist in
   [`eval-system-design.md` §13](../../docs/skill/eval-system-design.md#13-cli_meta-regeneration-maintenance-checklist)
   (run L0 — now incl. the inline `--data`/`--params` body-key check — re-run the eval, then diff the command surface).
