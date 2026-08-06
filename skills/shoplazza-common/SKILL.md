@@ -5,9 +5,11 @@ description: >-
   store-level), auth status/scopes/logout, store switching (auth store use), multi-store
   profiles (add/list/use/rename/remove/info), the three access tiers (+shortcut / spec leaf /
   api rest), the output envelope ({ok,data} / .data), --dry-run / --jq / --fields / --format,
-  schema introspection, api rest fallback, update notice, and the safety protocol. Read this
-  FIRST on first use of the shoplazza CLI, when logging in / authorizing / switching store or
-  profile, on permission errors, and before using any domain skill.
+  schema introspection, api rest fallback, update notice, the safety protocol, and how to trust
+  a filtered list read (pagination / has_more / cursor, silently-dropped filters, the exact-match
+  precision ladder). Read this FIRST on first use of the shoplazza CLI, when logging in /
+  authorizing / switching store or profile, on permission errors, when a search or filter looks
+  like it returned too much, and before using any domain skill.
 ---
 
 # shoplazza CLI — shared foundation (shoplazza-common)
@@ -55,11 +57,52 @@ read fields directly (e.g. `logged_in`).
 |---|---|
 | `--dry-run` | Print the request that would be sent, **without sending it**. **Always `--dry-run` first** for destructive / batch / money-spending writes. Read commands and shortcuts support it too. |
 | `-q, --jq <expr>` | Filter JSON output with a jq expression. **Outputs raw scalars by default** (no surrounding quotes, just a trailing newline) — **do not add `-r`**: cobra parses `-r` as a separate flag and rejects the command. It is a single-string flag. |
-| `--fields <f1,f2,…>` | Response field projection on **a few shortcuts only** — e.g. `products +search`, `customers +search` (comma-separated: `products +search --fields id,title`). **Not universal** — most commands have no `--fields`; check `<shortcut> --help` before using it. |
+| `--fields <f1,f2,…>` | Response field projection on **a few shortcuts only** — verified: `products +search` (comma-separated: `products +search --fields id,title`). **Not universal** — most commands have no `--fields`; check `<shortcut> --help` before using it. The server may still return extra base fields. |
+| `--page-limit <n>` | Page size, 1–250, on list shortcuts. **The API default is 10** — see "Reading a filtered list" below. |
 | `--format json\|pretty\|table` | Output format, default `json`. Use `json` for scripts/jq, `pretty`/`table` for humans. Global flag. |
 | `--profile <name>` | Profile to use for this invocation (see "Profiles"). Global flag. |
 
 Field projection: a few search shortcuts accept `--fields` (verify with `--help`); everywhere else, project/filter with `--jq`.
+
+## Reading a filtered list
+
+A read that returns `{"ok":true,…}` is **not** evidence that the filter or the page you asked
+for is the one you got. Two failure modes are silent, and both produce a confident wrong
+answer rather than an error:
+
+**1. Truncation — the page default is 10.** List endpoints return 10 records unless
+`--page-limit` says otherwise (max 250), with `has_more` / `cursor` marking the rest.
+`has_more` may come back `null` rather than `false`, so treat "not `true`" as the end.
+Whenever the answer depends on *completeness* — "how many", "which ones", "all of X", any
+total you compute yourself — pass `--page-limit 250` and follow the cursor. For a pure count,
+prefer the domain's `+count` shortcut over counting rows.
+
+**2. Silently-dropped filters — the API ignores query params it does not recognise.** It
+does not 400. A flag whose param name has drifted comes back 200 with the **unfiltered** set,
+which reads exactly like "this customer really has that many orders".
+
+So before a filtered read becomes an answer or feeds a write, confirm the filter landed:
+
+```bash
+shoplazza <svc> +search --<filter> <value> --dry-run   # 1. which param actually goes on the wire
+shoplazza <svc> +count                                  # 2. unfiltered total, for comparison
+shoplazza <svc> +count --<filter> <value>               # 3. filtered total — must be < the unfiltered one
+```
+
+**A filtered result equal to the unfiltered total is the tell.** Confirm it by spot-checking
+that the returned records actually satisfy the filter (`--jq` over the field you filtered on).
+If the filter is being dropped, `schema <svc>.<cmd> --view request` lists the params the
+endpoint really accepts — reach for the spec leaf or `api rest` with the documented param.
+
+**Precision ladder** — when the endpoint offers more than one way to filter on the same thing,
+prefer the narrowest: a dedicated **exact-match** param (often an array, e.g. `customer_emails`,
+`skus`, `order_tags`) beats a general **keyword** search, which beats hand-filtering with `--jq`
+over a full page. Exact params say what they match; keyword search may match a field you did
+not intend.
+
+**Report the basis, not just the number.** When you answer from a list read, say which filter
+was applied and what the completeness basis is ("3 of 3, unfiltered total 18"). It makes a
+dropped filter visible to the user instead of invisible.
 
 ## Schema introspection
 

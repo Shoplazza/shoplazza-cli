@@ -11,7 +11,8 @@ var searchShortcut = common.Shortcut{
 	Use:     "+search",
 	Short:   "Quickly search orders",
 	Flags: []common.Flag{
-		{Name: "keyword", Type: common.FlagString, Description: "Order number, customer name, email, etc."},
+		{Name: "keyword", Type: common.FlagString, Description: "Fuzzy match on order number, customer name or email. Prefer --email for a known address."},
+		{Name: "email", Type: common.FlagString, Description: "Filter by customer email (exact match)."},
 		{Name: "status", Type: common.FlagString, Description: "Order status filter.",
 			Completions: []string{"opened", "placed", "finished", "cancelled"}},
 		{Name: "financial-status", Type: common.FlagString, Description: "Financial status filter.",
@@ -29,7 +30,8 @@ var searchShortcut = common.Shortcut{
 			return common.PlannedRequest{}, err
 		}
 		q := map[string]any{}
-		cmdutil.AddString(q, "query", in.Flags.GetString("keyword"))
+		cmdutil.AddString(q, "keyword", in.Flags.GetString("keyword"))
+		cmdutil.AddSliceString(q, "customer_emails", in.Flags.GetString("email"))
 		cmdutil.AddString(q, "status", in.Flags.GetString("status"))
 		cmdutil.AddString(q, "financial_status", in.Flags.GetString("financial-status"))
 		cmdutil.AddString(q, "fulfillment_status", in.Flags.GetString("fulfillment-status"))

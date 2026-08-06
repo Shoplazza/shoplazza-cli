@@ -83,7 +83,7 @@ Only **no-default** values are askable.
 | Command | Must ASK if unspecified | Infer if possible | Default silently |
 |---|---|---|---|
 | `+create` | the contact identifier — **exactly one** of `--email` / `--phone` (if you ask, offer both and explain only ONE is needed) | `--first-name`/`--last-name` from a stated name; `--no-marketing` from opt-out wording; `--tags` if the user names tags | marketing (default subscribe), `--tags` (omit), names (optional — never ask) |
-| `+search` | which customer — an email or phone to search for, when the user wants a specific person but gave neither | filter flag from what they gave (email vs phone) | `--page-limit`, `--fields`, `--since`, `--until` (all omit) |
+| `+search` | which customer — an email or phone to search for, when the user wants a specific person but gave neither | filter flag from what they gave (email vs phone) | `--page-limit`, `--since`, `--until` (all omit) |
 | `update` | `customer_id`; the new value if wording gave none | which field from wording (标签→`tags`, 邮件营销→`accepts_marketing`, 短信→`accepts_sms_marketing`) | every field the user did not mention — never send it |
 | `addresses create` | `customer_id`; `country` + `country_code` (required body fields) | other address fields from wording | `default` and all optional fields (omit) |
 | `addresses set-default` | `customer_id` + `address_id` | — | — (no body at all) |
@@ -92,7 +92,7 @@ Only **no-default** values are askable.
 
 Optional or defaulted — never a question: `--first-name` / `--last-name` / `--tags` (`+create`,
 optional) · marketing subscription (`+create` defaults to subscribe; set `--no-marketing` only
-on explicit opt-out wording, never ask) · `--page-limit` / `--fields` / `--since` / `--until`
+on explicit opt-out wording, never ask) · `--page-limit` / `--since` / `--until`
 (`+search`; omit — never invent time bounds) · optional address fields incl. `default`.
 
 ## Boundaries
@@ -133,7 +133,8 @@ shoplazza-common).
 | Customer's old tags vanished after tagging | `update` `tags` REPLACES the whole array | Read-merge-write: `get` current tags, append, then `update` with the merged array |
 | Unsubscribed more than the user asked | Email (`accepts_marketing`) and SMS (`accepts_sms_marketing`) are separate booleans | Change only the one named; leave the other out of the body |
 | Tried to change email / phone via `update` | The update body only accepts `first_name` / `last_name` / `accepts_marketing` / `accepts_sms_marketing` / `tags` | Not expressible via `update` — check `schema customers.update` |
-| Leaf `list` ignores a `phone` param | `list` documents `email` and `contact` query params, not `phone` | Prefer `+search --phone`; on the leaf use `"contact"` (matches email or phone) |
+| Leaf `list` ignores a `phone` param | `list` documents `email` and `contact` query params, not `phone` | Prefer `+search --phone` (it sends `contact`); on the leaf use `"contact"` (matches the customer's primary contact — email or phone) |
+| `unknown flag: --fields` on `customers +search` | The customers list endpoint documents no `fields` param, so the flag was removed rather than left as a silent no-op | Project with `--jq` |
 | Wanted to delete a customer | No customer-delete command exists in this module (only `addresses delete`) | Not expressible at tiers 1–2; confirm an endpoint exists before reaching for `api rest` |
 | Set default via `addresses update` with `"default":true` | A dedicated endpoint owns this | `addresses set-default --params '{"customer_id":…,"address_id":…}'` — path params only, no `--data` |
 | `+search --since/--until` returns "wrong" customers | They map to `created_at_min`/`created_at_max` — bounds on the customer's CREATION time | Only pass them when the user asks for a signup-time window |
@@ -144,7 +145,7 @@ shoplazza-common).
 # 1. New customer with email, opted out of marketing emails
 customers +create --email jane.doe@example.com --first-name Jane --last-name Doe --no-marketing
 
-# 2. Find a customer by phone (raw record; --fields also works on +search)
+# 2. Find a customer by phone (project with --jq; +search has no --fields)
 customers +search --phone 13800138000 --jq '.data.customers[] | {id, name, email, phone}'
 
 # 3. Total registered customers

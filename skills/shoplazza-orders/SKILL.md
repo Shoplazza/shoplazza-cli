@@ -43,8 +43,8 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 
 | User intent | Command |
 |-------------|---------|
-| Search / filter orders | `orders +search [--keyword <no/name/email>] [--status …] [--financial-status …] [--fulfillment-status …] [--customer-id <id>] [--since <t>] [--until <t>]` |
-| Count orders | `orders +count` — same filters as `+search` except `--keyword` / `--customer-id` |
+| Search / filter orders | `orders +search [--email <addr>] [--keyword <no/name/email>] [--status …] [--financial-status …] [--fulfillment-status …] [--customer-id <id>] [--since <t>] [--until <t>]` |
+| Count orders | `orders +count` — same filters as `+search`, minus `--page-limit` |
 | Ship an order (发货) | `orders +ship --order-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--line-items id:qty,…] [--notify]` |
 | Refund a buyer (退款; money → `--dry-run` first) | `orders +refund --order-id <id> --amount <n> [--note <txt>] [--return-items] [--payment-line-id <id>]` |
 | Fix / update tracking info | `orders +update-tracking --order-id <id> --fulfillment-id <id> --tracking <no> [--company <name>] [--tracking-url <url>] [--notify]` |
@@ -92,9 +92,9 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 
 | User says | Shortcut | How to extract values |
 |---|---|---|
-| 查订单 / 找订单 / 今天有没有新订单 / search or list orders | `+search` | order no / customer name / email → `--keyword`; "今天/最近 N 天" → `--since` only (leave `--until` open); status words → the enum table below |
+| 查订单 / 找订单 / 今天有没有新订单 / search or list orders | `+search` | a known email → `--email`; a partial name / order-no fragment / anything else → `--keyword`; "今天/最近 N 天" → `--since` only (leave `--until` open); status words → the enum table below |
 | 还没发货的订单 / unshipped orders | `+search --fulfillment-status waiting` | 未发货 = `waiting` — there is **no** `unfulfilled` value |
-| 某客户 / 某邮箱的订单 / orders from customer X | `+search` | customer id → `--customer-id`; an email → `--keyword <email>` (keyword matches email) — never stuff an id into `--keyword` |
+| 某客户 / 某邮箱的订单 / orders from customer X | `+search` | customer id → `--customer-id`; a full email address → `--email` (exact match, the precise path); never stuff an id or an address into `--keyword` when a dedicated flag exists |
 | 有多少订单 / 订单总数 / how many orders | `+count` | "总共" = no filters, do not ask for a time range; count from `.data.count` |
 | 发货 / 标记发货 / ship order X | `+ship` | tracking no → `--tracking` verbatim; carrier name → `--company`; "通知买家" → `--notify`; whole order = omit `--line-items` |
 | 部分发货 / ship only some items | `+ship --line-items id:qty,…` | per-line quantities as `line-id:qty` pairs |
@@ -163,6 +163,21 @@ Each shortcut flag takes ONE value; to filter on several at once use the `list` 
 `+search --since/--until` bound the **placed** time (`placed_at_min`/`placed_at_max`),
 ISO date or unix ts.
 
+## Searching orders precisely
+
+`orders list` exposes three ways to match on the same field. Pick the narrowest one that
+expresses the request — shoplazza-common's precision ladder, in this domain's terms:
+
+| Tier | Params | Use when |
+|---|---|---|
+| Exact-match arrays | `customer_emails`, `shipping_emails`, `shipping_phones`, `order_tags`, `skus`, `spus`, `product_ids`, `browser_ips`, `ids` | You have the **whole** value. `+search --email` is the shortcut for `customer_emails`. |
+| Keyword | `keyword` (+ optional `keyword_scope_fields` to narrow which fields it searches) | A fragment, or the user did not say which field it is. `+search --keyword` maps here. |
+| Fuzzy trio | `fuzzy_fields` + `fuzzy_keywords` + `fuzzy_relation` | Prefix/fragment matching on **specific named fields**, or several fields AND/OR-ed together. Leaf only. |
+
+`keyword_scope_fields` and `fuzzy_fields` share one vocabulary — the field-name list in
+`schema orders.list --view request` under `fuzzy_fields` (`name`, `number`, `id`,
+`shipping_email`, `tracking_number`, `discount_code`, …). Read it there rather than guessing.
+
 ## Boundaries
 
 Reads like orders, actually belongs elsewhere (and lookalikes this domain owns):
@@ -175,7 +190,7 @@ Reads like orders, actually belongs elsewhere (and lookalikes this domain owns):
 | 快递承运商查询 / 运单号识别 / tracking carrier lookup | **HERE** | `orders tracking-carriers {detect,list}` |
 | 注册实时运费报价承运商 / real-time rate quote carriers | `shoplazza-shop` | `shop carrier-services` |
 | 运费区域 / 邮费方案 / shipping zones & rates | **HERE** | `orders shipping-schemas …` |
-| 按邮箱查某客户的订单 / a customer's orders | **HERE** (`+search --keyword <email>` or `--customer-id`) | resolving the id via `customers +search` first is fine — the final query is an orders query |
+| 按邮箱查某客户的订单 / a customer's orders | **HERE** (`+search --email <addr>` or `--customer-id`) | resolving the id via `customers +search` first is fine — the final query is an orders query |
 | 客户资料本身 / the customer record | `shoplazza-customers` | `customers +search` / `customers get` |
 | 库存 / 补货 / product stock | `shoplazza-products` | `products +stock` / `products inventory` |
 | 退款时库存退回 / restock on refund | **HERE** | `orders +refund --return-items` |
@@ -207,6 +222,8 @@ shoplazza-common).
 | Hand-built `refunds create` body for a simple refund | The leaf needs the full body incl. `refund_payments` | Prefer `+refund`; leaf only for split/itemized refunds → [references/refunds.md](references/refunds.md) |
 | Store-wide `refunds list` for one order's records | Two different endpoints | One order → `refunds list-by-order --params '{"order_id":"…"}'` |
 | `--status` with a comma list on `+search` | Shortcut flags are single-valued | Multi-status → `orders list --params '{"status":["opened","placed"]}'` |
+| A search "for one buyer" returns the whole store | The filter was dropped, or the page just looks small | Cross-check with `orders +count` filtered vs unfiltered before answering — see shoplazza-common → "Reading a filtered list" |
+| `keyword_scope_fields=["email"]` or `["order_no"]` returns 0 hits | Those are the schema **description's** example strings, not the accepted vocabulary | Use the `fuzzy_fields` field names (`shipping_email`, `number`, `name`, …) — see "Searching orders precisely" |
 | `unknown flag: --fields` | No orders command has `--fields` | Project with `--jq` |
 | `orders create` rejected for missing fields | Whole body nests under an `order` wrapper; `line_items[].quantity`, `shipping_address` (last_name, email, country_code, province, province_code, city, address, zip), `shipping_line` (shipping_name, shipping_price), `tax_total`, `currency_code` are ALL required | Build the full nested body → [references/orders-create.md](references/orders-create.md) (verified against `schema orders.create --view request`) |
 | `orders create` order fails despite `country`/`province` set | `country_code` / `province_code` (ISO: `US`, `CA`) are the required keys — the display-name `country` / `province` are optional | Send both codes; see [references/orders-create.md](references/orders-create.md) |
@@ -223,8 +240,10 @@ orders +search --fulfillment-status waiting --since <today-7d, e.g. 2026-07-16>
 # 2. Paid orders for one customer
 orders +search --customer-id 100200 --financial-status paid
 
-# 3. All orders from a buyer email
-orders +search --keyword alice@example.com
+# 3. All orders from a buyer email — exact, complete, and checked against the store total
+orders +search --email alice@example.com --page-limit 250
+orders +count --email alice@example.com --jq '.data.count'   # must be < the unfiltered count
+orders +count --jq '.data.count'
 
 # 4. Total order count, no filters
 orders +count --jq '.data.count'
