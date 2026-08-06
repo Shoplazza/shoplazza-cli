@@ -193,9 +193,6 @@ shoplazza update            # update via npm (--check only reports versions, no 
 # or: npm install -g shoplazza-cli@latest
 ```
 
-Worth mentioning when you offer: updating also **auto-refreshes any installed shoplazza
-skills** (postinstall detects them), so these instructions stay in step with the new CLI.
-
 (Set `SHOPLAZZA_CLI_NO_UPDATE_CHECK` to disable the check.)
 
 ## Safety protocol
