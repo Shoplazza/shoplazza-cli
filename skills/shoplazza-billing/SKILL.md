@@ -51,6 +51,10 @@ Billing writes move **real money**. Before any create / cancel:
    - usage `create`: `charge_id` (the parent recurring charge), `description`, `price`
    - recurring `cancel`: `charge_id`
 3. `--dry-run` first, **restate** ("charge merchant $X — one-time / $X per month subscription / $X usage under CHG…, returns to <url>"), **stop and wait for the user's go-ahead**, then execute.
+4. **If the platform rejects the charge, never retry with a different amount.** A rejected price is
+   almost always a listing-configuration problem (see Gotchas), not a value to search for — probing
+   amounts risks creating a charge the user never approved. Report the rejection, name the
+   partner-backend config it needs, and stop.
 
 ## Boundaries
 
@@ -67,8 +71,15 @@ routing collisions.)
 
 ## Permissions · Scope
 
-Authorization is by domain. Grant: `auth login --domain billing`. Look up exact scope literals
-with `shoplazza auth scopes`.
+**Billing needs no store scope.** `auth login --domain billing` expands to **zero** scopes —
+that is correct, not a bug: app-charge endpoints are authorized by the app installation itself,
+not by a store OAuth grant. Verified live — on a profile holding neither `read_finance` nor
+`write_finance`, `recurring list` returned `ok:true` and `recurring create` reached business
+validation (400 / 422), never 401/403.
+
+**So do not run `auth login --domain billing`.** Authorization *replaces* the grant server-side,
+so a 0-scope login can revoke the scopes other domains rely on. A 401/403 here means the
+**account** login is missing or expired — check `auth status`, don't chase scopes.
 
 ## Gotchas
 
@@ -79,6 +90,8 @@ Domain-specific only (generic `.data` / `--dry-run` / `--jq` rules are in shopla
 | Charge rejected on `price` type | **`price` type differs by charge**: one-time = **string** (`"99.99"`), recurring & usage = **number** (`29`, `0.05`) | Match the type — quote it for one-time, bare number for recurring/usage |
 | `usage create` fails without a charge | `charge_id` (the parent recurring charge) is a **required path param** | `--params '{"charge_id":"<recurring charge id>"}'` |
 | Created a real charge without preview | Charges are real money | `--dry-run` first, restate to the user, wait for their go-ahead, then run |
+| `recurring create` → 422 `The price configuration in the plan does not match with the listing, please check` | The platform only accepts a price matching a pricing plan configured in the app's **listing** (partner backend); arbitrary amounts are refused. **Not fixable from the CLI** — this module has no listing/plan endpoint (`schema billing` confirms) | Tell the user to add/adjust that plan in the app listing, then re-run the same command unchanged. Do NOT try other prices |
+| `recurring create` → bare `400 Bad Request`, no field info, body matches `schema` | Adding `capped_amount` makes the backend return a specific 422 instead (verified live: identical body + `capped_amount` → the listing 422 above). Whether the 400 shares that root cause, or is its own `capped_amount` check, is **unconfirmed** — `schema` marks the field optional | Don't hunt for a malformed field — re-send once with `capped_amount` **to surface the real message**, then act on it. It is a diagnostic, not a fix: never retry with other prices, and don't assume the charge will go through once it's set |
 
 ## Recipes
 
