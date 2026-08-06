@@ -1,0 +1,46 @@
+[
+  {
+    "case_id": "shop.metafields-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.metafields",
+    "scenario": "店铺级 metafield — metafields-shop create (无需 definition_id)",
+    "input": "给店铺加一个全局 metafield：namespace 用 global，key 是 support_phone，值 400-800-1234，字符串类型",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop metafields-shop create",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["global", "support_phone", "400-800-1234", "type"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "shop-owned metafield → metafields-shop, NOT metafields-resource (which is for product/order/... owners and needs a definition_id)",
+        "type set to string (documented enum: JSON | string) matching 字符串类型",
+        "value carried as the plain string 400-800-1234"
+      ]
+    },
+    "notes": "POST /metafields-shop; body namespace/key/type/value all required — no definition_id on the shop-level endpoint."
+  },
+  {
+    "case_id": "shop.metafields-02",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.metafields",
+    "scenario": "商品级 metafield — metafields-resource create, owner 走 path, definition_id 走 body",
+    "input": "用已有的定义 D8899 给商品 66880 加个 metafield：namespace specs，key material，值 cotton",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop metafields-resource create",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["product", "66880", "D8899", "specs", "material", "cotton"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "owner_resource=product and owner_id=66880 are PATH params via --params; definition_id D8899 / namespace / key / value go in --data",
+        "routes through the shop skill (metafields live in the shop module) even though the owner is a product",
+        "does not confuse with metafields-definition (schema management) — the definition already exists"
+      ]
+    },
+    "notes": "POST /metafields/{owner_resource}/{owner_id}; body requires definition_id + namespace + key + value. definition_id is required-no-default — utterance supplies it to keep one intent per case."
+  }
+]

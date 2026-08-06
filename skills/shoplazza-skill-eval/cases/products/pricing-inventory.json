@@ -1,0 +1,224 @@
+[
+  {
+    "case_id": "products.set-price-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-price",
+    "scenario": "按 SKU 改单个变体价格 — happy path",
+    "input": "把 SKU 为 TSHIRT-RED-M 的变体价格改成 24.99",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +set-price",
+      "flags_must_contain": [
+        "--sku TSHIRT-RED-M",
+        "--price 24.99"
+      ],
+      "flags_must_not_contain": [
+        "--all",
+        "--variant-id",
+        "--compare-price"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "price 24.99 verbatim from the utterance",
+        "targets by --sku (the user gave a SKU, not a variant id); --all NOT set for a single-variant intent",
+        "if the CLI refuses a multi-SKU match, surfaces the listed candidates instead of guessing or forcing --all",
+        "compare-price neither set nor asked"
+      ]
+    },
+    "notes": "+set-price refuses a multi-match SKU and lists candidates; --all is the explicit bulk override."
+  },
+  {
+    "case_id": "products.set-price-02",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-price",
+    "scenario": "调价但没给新价格 — must ask, never invent a price",
+    "input": "给变体 998877 调一下价格",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": [
+        "price|价格|多少|新价"
+      ],
+      "flags_must_not_contain": [
+        "--price"
+      ],
+      "semantic_rubric": [
+        "does not invent a new price (no --price with a made-up number anywhere)",
+        "plans --variant-id 998877 from the utterance (does not ask which variant)",
+        "does not ask about compare-price or --all (irrelevant here)"
+      ]
+    },
+    "notes": "No-fabricated-money probe: --price is required and absent from the utterance."
+  },
+  {
+    "case_id": "products.stock-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.stock",
+    "scenario": "变体库存增量 +50 — happy path",
+    "input": "给变体 12345 的库存加 50 件",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +stock",
+      "flags_must_contain": [
+        "--variant-id 12345",
+        "--adjust 50"
+      ],
+      "flags_must_not_contain": [
+        "--set",
+        "--location-id"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "加 50 expressed as --adjust 50 (a delta), not --set 50 (absolute target)",
+        "--location-id omitted (defaults to the default location) without asking",
+        "does not detour to the inventory set-stock leaf when the shortcut fits"
+      ]
+    },
+    "notes": "--adjust and --set are mutually exclusive; --adjust must be nonzero. The target is one of --variant-id / --sku / --product-id — none is cobra-required, so a missing target fails in Execute with a validation envelope."
+  },
+  {
+    "case_id": "products.stock-02",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.stock",
+    "scenario": "要求减库存 — API 只能增不能减, agent 必须优雅降级而不是硬造命令",
+    "input": "把变体 88664 的库存减少 30 件",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +stock",
+      "flags_must_contain": [
+        "--variant-id",
+        "--adjust"
+      ],
+      "params_must_contain": [
+        "88664",
+        "-30"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "减少 30 maps to a negative delta: +stock --adjust -30 (not --set, which would need the current level first)",
+        "no fabricated --location-id: omitted, defaulting to the default location where decreases are allowed",
+        "aware of the decrease gates (default location only, single-location item, result must stay ≥ 0): if the CLI refuses, explain the limitation and offer +unpublish or stock-policy deny instead of forcing a write"
+      ]
+    },
+    "notes": "Degradation case. Grounded in +stock --help: '--adjust int Stock delta (nonzero). Positive adds at any location; negative decreases (same gates as --set).' Decreases ride variant.inventory_quantity and are gated to the default location of a single-location item."
+  },
+  {
+    "case_id": "products.stock-03",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.stock",
+    "scenario": "只给商品 id 补库存 — 必须自己解析到变体, 不许回头问用户要 variant UUID",
+    "input": "把商品 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf 的库存设为 20",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +stock",
+      "flags_must_contain": [
+        "--product-id 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf",
+        "--set 20"
+      ],
+      "flags_must_not_contain": [
+        "--variant-id",
+        "--adjust"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "设为 20 expressed as --set 20 (absolute target), not --adjust 20",
+        "the product id goes to --product-id, which resolves the product's single variant",
+        "does NOT ask the user to supply a variant id, and does NOT pipe the product id into --variant-id; if the CLI refuses because the product has multiple variants, surfaces the listed candidates and asks which one rather than guessing variants[0]",
+        "--location-id omitted (defaults to the default location) without asking"
+      ]
+    },
+    "notes": "Finding C regression. The required-vs-ask matrix used to say ASK for --variant-id when no variant is identified, which sent agents back to the user for a UUID they cannot know."
+  },
+  {
+    "case_id": "products.stock-04",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.search",
+    "scenario": "只给商品名补库存 — 走标识符阶梯的第一级, 先 +search 解析",
+    "input": "给这件瑜伽裤补 30 件库存",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +search",
+      "flags_must_contain": [
+        "--keyword"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "resolves the name with +search --keyword before any write — does not ask the user for a product id or a variant id",
+        "plans to feed the resolved product id to +stock --product-id (or the variant id to --variant-id), not to guess one",
+        "补 30 is a positive delta: --adjust 30, not --set 30",
+        "if the search returns nothing, says so and stops instead of writing"
+      ]
+    },
+    "notes": "Identifier ladder rung 1: name → product id. +search --keyword matches title only."
+  },
+  {
+    "case_id": "products.set-price-03",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-price",
+    "scenario": "只给商品 id 改价 — 同一个解析规则, 与 +stock 对称",
+    "input": "把商品 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf 的价格改成 19.9",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +set-price",
+      "flags_must_contain": [
+        "--product-id 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf",
+        "--price 19.9"
+      ],
+      "flags_must_not_contain": [
+        "--variant-id",
+        "--all",
+        "--compare-price"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "price 19.9 verbatim from the utterance",
+        "the product id goes to --product-id, not --variant-id",
+        "does NOT ask the user to supply a variant id, and does NOT pipe the product id into --variant-id; if the CLI refuses because the product has multiple variants, surfaces the listed candidates and asks which one rather than guessing variants[0]",
+        "compare-price neither set nor asked"
+      ]
+    },
+    "notes": "Finding C regression, price side. The matrix's 'an id → --variant-id' rule used to swallow product ids and earn a 404."
+  },
+  {
+    "case_id": "products.stock-05",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.stock",
+    "scenario": "English twin of products.stock-03 — the suite must be bilingual",
+    "input": "set stock to 20 for product 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +stock",
+      "flags_must_contain": [
+        "--product-id 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf",
+        "--set 20"
+      ],
+      "flags_must_not_contain": [
+        "--variant-id",
+        "--adjust"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "'set stock to' is an absolute target: --set 20, not --adjust 20",
+        "the product id goes to --product-id",
+        "does NOT ask the user to supply a variant id, and does NOT pipe the product id into --variant-id; if the CLI refuses because the product has multiple variants, surfaces the listed candidates and asks which one rather than guessing variants[0]"
+      ]
+    },
+    "notes": "Bilingual pair for stock-03."
+  }
+]

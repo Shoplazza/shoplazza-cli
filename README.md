@@ -8,11 +8,12 @@
 
 The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — built for humans and AI Agents. Develop apps and themes, manage products, discounts, orders and customers, all from the terminal with structured output designed for AI Agent integration.
 
-[Install](#installation--quick-start) · [Auth](#authentication) · [Development](#development-workflows) · [Commands](#three-layer-command-system) · [Advanced](#advanced-usage) · [Contributing](#contributing)
+[Install](#installation--quick-start) · [Auth](#authentication) · [Development](#development-workflows) · [Commands](#three-layer-command-system) · [Agent Skills](#agent-skills) · [Advanced](#advanced-usage) · [Contributing](#contributing)
 
 ## Why shoplazza-cli?
 
 - **Agent-Native Design** — Structured JSON output out of the box; AI Agents can operate Shoplazza stores with zero extra setup
+- **Agent Skills Included** — One command installs [skills](#agent-skills) that teach AI agents this CLI's commands, safety rules, and per-domain gotchas
 - **E-Commerce Focused** — Products, Discounts, Orders, Customers with full CRUD and 20+ shortcut commands for high-frequency operations
 - **Full Developer Workflow** — App creation, extension scaffolding (checkout / theme / function), local dev server with HMR, one-command deploy; plus theme init, live reload, and packaging
 - **Secure & Controllable** — Input injection protection, OS-native keychain credential storage, token auto-refresh
@@ -23,10 +24,13 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 
 | Domain | Capabilities |
 |--------|-------------|
-| 🛍️ Products | CRUD + shortcuts: `+search`, `+publish`, `+unpublish`, `+create`, `+set-price`, `+stock` |
-| 🏷️ Discounts | CRUD + 8 shortcut creators for automatic & code discounts |
+| 🛍️ Products | CRUD + shortcuts: `+search`, `+count`, `+publish`, `+unpublish`, `+create`, `+set-price`, `+stock`, `+tag` |
+| 🏷️ Discounts | CRUD + 8 shortcuts: 7 creators for automatic & code discounts, plus `+search` |
 | 📦 Orders | CRUD + shortcuts: `+search`, `+count`, `+ship`, `+refund`, `+update-tracking` |
 | 👤 Customers | CRUD + shortcuts: `+search`, `+create` |
+| 🏪 Shop | Shop info, blogs & articles, pages, files (`+upload-file`), metafields, markets, languages, redirects, analytics |
+| 💳 Billing | Application charges: one-time, recurring, usage-based |
+| 🔔 Webhooks | Webhook subscription CRUD |
 | 🎨 Themes | `init`, `serve` (live reload), `pull`, `push`, `package`, `share` |
 | 🧩 App | Full lifecycle: init → extension create → dev → deploy; extensions: checkout, theme, function |
 
@@ -41,40 +45,6 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 | **Download binary** | See [GitHub Releases](https://github.com/Shoplazza/shoplazza-cli/releases) | Manual download for any platform. |
 | **Build from source** | `git clone ... && cd shoplazza-cli && make install` | Requires Go `v1.24`+. Installs to `~/.local/bin`. |
 | **Homebrew** (macOS / Linux) | `brew install Shoplazza/tap/shoplazza-cli` | Auto-updates via `brew upgrade`. |
-
-<details>
-<summary>Platform-specific binary download</summary>
-
-Release archives are versioned (`shoplazza-cli-<version>-<os>-<arch>`), so resolve the latest tag first — or grab your platform's archive straight from the [releases page](https://github.com/Shoplazza/shoplazza-cli/releases/latest).
-
-**macOS / Linux**
-
-```bash
-# Resolve the latest version (or set VERSION=x.y.z yourself):
-VERSION=$(curl -fsSL https://api.github.com/repos/Shoplazza/shoplazza-cli/releases/latest \
-  | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/')
-BASE="https://github.com/Shoplazza/shoplazza-cli/releases/download/v${VERSION}"
-
-# macOS (Apple Silicon)
-curl -fsSL "${BASE}/shoplazza-cli-${VERSION}-darwin-arm64.tar.gz" | tar -xz
-# macOS (Intel):  ${BASE}/shoplazza-cli-${VERSION}-darwin-amd64.tar.gz
-# Linux (x86_64): ${BASE}/shoplazza-cli-${VERSION}-linux-amd64.tar.gz
-# Linux (ARM64):  ${BASE}/shoplazza-cli-${VERSION}-linux-arm64.tar.gz
-
-sudo install -m755 shoplazza /usr/local/bin/
-```
-
-**Windows (PowerShell)**
-
-```powershell
-$V = (Invoke-RestMethod https://api.github.com/repos/Shoplazza/shoplazza-cli/releases/latest).tag_name.TrimStart('v')
-# arm64: swap windows-amd64 for windows-arm64
-Invoke-WebRequest "https://github.com/Shoplazza/shoplazza-cli/releases/download/v$V/shoplazza-cli-$V-windows-amd64.zip" -OutFile shoplazza.zip
-Expand-Archive shoplazza.zip -DestinationPath .
-# Move shoplazza.exe to a directory on your PATH.
-```
-
-</details>
 
 <details>
 <summary>Build from source</summary>
@@ -98,7 +68,7 @@ make install
 
 ```bash
 # Log in (replace with your store domain)
-shoplazza auth login --store-domain my-store.shoplazza.com --domain products,orders
+shoplazza auth login --store-domain my-store.myshoplazza.com --domain products,orders
 
 # Verify
 shoplazza auth status
@@ -109,12 +79,16 @@ shoplazza products list --format table
 
 ### Quick Start (AI Agent)
 
-> Run the login command, extract the authorization URL from output, and send it to the user. The command polls until the user completes OAuth in their browser.
+Start by installing the [Agent Skills](#agent-skills) — they give the Agent everything it needs: installation, the authorization walkthrough, and how to drive the commands.
 
 ```bash
-npm install -g shoplazza-cli
-shoplazza auth login --store-domain <store-domain> --domain products,orders
-shoplazza auth status
+npx skills add Shoplazza/shoplazza-cli -g
+```
+
+Then send your Agent this line — it walks you through authorization:
+
+```text
+/shoplazza-common log me in to <store-domain>
 ```
 
 ## Authentication
@@ -135,6 +109,9 @@ shoplazza auth login --store-domain my-store.myshoplazza.com --domain products
 # UAT fast-path (non-interactive, for CI)
 shoplazza auth login --uat <user-access-token>
 
+# Top up permissions — re-login REPLACES the grant, so carry the prior scopes along
+shoplazza auth login --domain discounts --merge-scopes
+
 # Switch store
 shoplazza auth store use --store-domain another-store.myshoplazza.com
 
@@ -143,6 +120,19 @@ shoplazza auth status
 ```
 
 Access tokens are stored in the OS-native keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service).
+
+### Multi-store profiles
+
+A profile is a per-store execution context (store token + scopes). One logged-in account can
+manage several stores and switch between them without re-authenticating — `auth login -s` and
+`auth store use` create/switch profiles automatically, or manage them directly:
+
+```bash
+shoplazza profile add --name prod-us -s my-store.myshoplazza.com --use
+shoplazza profile list
+shoplazza profile use --name prod-us        # or --previous to toggle back
+shoplazza products list --profile prod-us   # per-invocation override, no switching
+```
 
 ## Development Workflows
 
@@ -219,7 +209,7 @@ Prefixed with `+`, designed to be friendly for both humans and AI, with smart de
 ```bash
 # Products
 shoplazza products +search --keyword "shirt"
-shoplazza products +publish <product-id>
+shoplazza products +publish --id <product-id>
 
 # Discounts — automatic
 shoplazza discounts +rebate --title "Summer Sale" --percentage 15 --min-amount 100
@@ -230,7 +220,7 @@ shoplazza discounts +percent-code --code "SAVE20" --percentage 20
 shoplazza discounts +bxgy-code --code "BUY2GET1" --buy-quantity 2 --get-quantity 1
 
 # Orders
-shoplazza orders +ship <order-id>
+shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 
 Run `shoplazza <domain> --help` to see all shortcuts for a domain.
@@ -257,10 +247,42 @@ shoplazza customers list
 Call any Shoplazza Open Platform endpoint directly for full coverage.
 
 ```bash
-shoplazza api rest GET /openapi/2022-01/products.json
-shoplazza api rest POST /openapi/2022-01/products.json \
+shoplazza api rest GET /openapi/2026-01/products
+shoplazza api rest POST /openapi/2026-01/products \
   --data '{"product": {"title": "New Product", "status": "active"}}'
 ```
+
+## Agent Skills
+
+Ready-made [Agent Skills](https://agentskills.io) that teach an AI coding agent how to drive
+this CLI properly: which of the three command tiers to reach for, the `{"ok":true,"data":…}`
+output envelope, the `--dry-run`-before-writes safety rule, and the per-domain gotchas that
+are easy to get wrong. Works with Claude Code, Codex, Cursor and others.
+
+### Install
+
+```bash
+npx skills add Shoplazza/shoplazza-cli -g
+```
+
+Installs all skills below into `~/.agents/skills/` and links them into your agent's skill
+directory, for use across every project.
+
+### Available skills
+
+| Skill | Covers |
+|-------|--------|
+| `shoplazza-common` | **Base skill — required by all the others.** Auth & profiles, the three command tiers, the output envelope, `--dry-run` safety, `schema` introspection |
+| `shoplazza-products` | Products, variants, inventory, collections, comments, gift cards |
+| `shoplazza-orders` | Orders, fulfillments, refunds, transactions, draft orders |
+| `shoplazza-customers` | Customers and their addresses |
+| `shoplazza-discounts` | Automatic and code discounts, coupon campaigns |
+| `shoplazza-shop` | Shop info, blogs & articles, pages, files, metafields, markets, languages, redirects, analytics |
+| `shoplazza-billing` | Application charges (one-time, recurring, usage-based) |
+| `shoplazza-webhook` | Webhook subscriptions |
+
+The sources live in [`skills/`](./skills). Skills run with full agent permissions — read them
+before use.
 
 ## Advanced Usage
 
@@ -269,9 +291,9 @@ shoplazza api rest POST /openapi/2022-01/products.json \
 | Flag | Scope | Description |
 |------|-------|-------------|
 | `--format json\|pretty\|table` | All commands | Output format (default: `json`) |
-| `--fields "f1,f2"` | Shortcut commands | Response field projection |
+| `--profile <name>` | All commands | Profile for this invocation (beats `SHOPLAZZA_CLI_PROFILE` and the current profile) |
 | `--dry-run` | API & shortcut commands | Preview request without executing |
-| `--jq "expr"` / `-q` | API commands | Filter JSON output with jq expression |
+| `--jq "expr"` / `-q` | API & shortcut commands | Filter JSON output with jq expression |
 
 ### Schema Introspection
 
@@ -283,11 +305,21 @@ shoplazza schema products                     # Inspect a service
 shoplazza schema products.list                # Inspect a method
 ```
 
+### Updating
+
+```bash
+shoplazza update            # update the binary (npm installs) and refresh the API metadata
+shoplazza update --check    # report current/latest versions only, no install
+```
+
 ### Environment Variables
 
 | Variable | Description |
 |----------|-------------|
 | `SHOPLAZZA_UAT` | User Access Token for non-interactive login (equivalent to `--uat`) |
+| `SHOPLAZZA_CLI_PROFILE` | Profile to use (overridden by `--profile`) |
+| `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | Disable the background new-version check |
+| `SHOPLAZZA_CLI_NO_META_UPDATE` | Disable background API-metadata refreshes |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | Override auth base URL (default: `https://partners.shoplazza.com`) |
 
 ## Security & Risk Warnings

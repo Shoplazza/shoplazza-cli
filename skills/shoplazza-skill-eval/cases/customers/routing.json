@@ -1,0 +1,39 @@
+[
+  {
+    "case_id": "routing.customers-01",
+    "type": "routing",
+    "skill": "shoplazza-customers",
+    "scenario": "中文买家资料 utterance routes to customers",
+    "input": "帮我查一下这位买家的资料和收货地址",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is volunteered, its service prefix is customers (get / addresses list)"]
+    }
+  },
+  {
+    "case_id": "routing.customers-02",
+    "type": "routing",
+    "skill": "shoplazza-customers",
+    "scenario": "English new-customer utterance routes to customers",
+    "input": "Add a new customer named Bob with email bob@example.com",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is volunteered, it is customers +create"]
+    }
+  },
+  {
+    "case_id": "routing.customers-03",
+    "type": "routing",
+    "skill": "shoplazza-customers",
+    "scenario": "跨域相似词: 按邮箱查客户资料归 customers, 不是订单搜索",
+    "input": "查一下客户 carol@example.com 的基本资料",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is customers +search --email — the ask is profile info, not order history"]
+    },
+    "notes": "Pairs with routing.orders-05 (email → order history goes to orders). Direction matters: 资料 vs 订单."
+  }
+]

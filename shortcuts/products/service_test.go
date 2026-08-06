@@ -152,3 +152,13 @@ func TestGenerateUniqueToken_Unique(t *testing.T) {
 		seen[tok] = true
 	}
 }
+
+func TestProductPlanListVariantsForProduct_Shape(t *testing.T) {
+	p := PlanListVariantsForProduct("p-1")
+	if p.Method != "GET" || p.Path != "/openapi/2026-01/products/p-1/variants" {
+		t.Errorf("got %s %s", p.Method, p.Path)
+	}
+	if p.Body != nil {
+		t.Errorf("a list plan carries no body; got %v", p.Body)
+	}
+}

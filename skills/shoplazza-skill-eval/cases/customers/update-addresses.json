@@ -1,0 +1,66 @@
+[
+  {
+    "case_id": "customers.update-01",
+    "type": "behavior",
+    "skill": "shoplazza-customers",
+    "operation": "customers.update",
+    "scenario": "给客户打标签 — tags 是整体替换数组, 先读后并",
+    "input": "给客户 424242 打上 VIP 标签",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "access_tier": "leaf",
+      "command_prefix": "customers update",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["424242", "tags", "VIP"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "customer_id 424242 via --params (path); tags array in --data nested under the required customer object",
+        "customers has no +tag merge shortcut and tags REPLACES the array — fetches current tags first (customers get) and appends VIP instead of clobbering",
+        "does not touch first_name / accepts_marketing / other fields"
+      ]
+    },
+    "notes": "PUT /customers/{customer_id}; body {\"customer\":{\"tags\":[...]}}. Read-merge-write is the ideal; direct overwrite loses existing tags."
+  },
+  {
+    "case_id": "customers.update-02",
+    "type": "behavior",
+    "skill": "shoplazza-customers",
+    "operation": "customers.update",
+    "scenario": "退订邮件营销 — accepts_marketing=false, 不动短信订阅",
+    "input": "帮客户 887766 退订邮件营销",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "access_tier": "leaf",
+      "command_prefix": "customers update",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["887766", "accepts_marketing", "false"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "邮件营销 → accepts_marketing false; accepts_sms_marketing NOT touched (user said email only)",
+        "body nested under the required customer object",
+        "restates the change before executing"
+      ]
+    }
+  },
+  {
+    "case_id": "customers.addresses-01",
+    "type": "behavior",
+    "skill": "shoplazza-customers",
+    "operation": "customers.addresses",
+    "scenario": "设默认收货地址 — 专用 set-default 端点",
+    "input": "把客户 335577 的地址 ADDR99 设为默认收货地址",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "access_tier": "leaf",
+      "command_prefix": "customers addresses set-default",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["335577", "ADDR99"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses the dedicated set-default endpoint (PUT .../addresses/{address_id}/default), not addresses update with a default field",
+        "both customer_id and address_id are path params via --params"
+      ]
+    }
+  }
+]

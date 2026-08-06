@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **Search filters that never reached the API.** `orders +search --keyword` sent a `query` parameter the orders endpoint does not accept. Unrecognised query params are dropped server-side rather than rejected, so the request came back `200` with **every order in the store** — a wrong answer shaped exactly like a right one (a search for one buyer's email returned all 18 orders of a test store, including other buyers'). It now sends `keyword`. `customers +search --phone` had the same defect, sending `phone` where the endpoint documents `contact`; it now filters instead of returning the first page of the whole customer list.
+
+### Added
+- `orders +search --email` and `orders +count --email` — exact customer-email match (`customer_emails`), the precise path for "which orders did this buyer place". Prefer it over `--keyword`, which fuzzy-matches order number, customer name and email alike.
+- `orders +count` also gains `--keyword` and `--customer-id`, so it accepts the same filters as `orders +search`. The two could previously disagree: `+search` narrowed by customer, `+count` had no way to.
+- `auth login --merge-scopes` — also re-requests every previously granted scope. Authorization replaces the account's granted set server-side, so a narrow re-login (say, just `read_inventory`) drops every other scope and trims every profile with it, breaking parallel tasks mid-flight (verified: a 22-scope grant re-authorized with one scope came back with one). With the flag, the requested scopes are merged with the prior grant, the summary notes how many were carried over, and the store profile records the full effective scope set so lazily re-minted tokens keep the merged reach. Default behavior is unchanged.
+
+### Removed
+- `customers +search --fields`. The customers list endpoint documents no `fields` parameter, so the flag was discarded in transit and the full record came back regardless — it only ever looked like it worked. Project with `--jq` instead. `products +search --fields`, where the endpoint does document the parameter, is unaffected. **Breaking**: an invocation that passed `--fields` used to exit 0; it now fails with `unknown flag`.
+
 ## 2.0.8 - 2026-07-29
 
 ### Added

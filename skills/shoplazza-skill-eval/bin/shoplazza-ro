@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# shoplazza-ro — read-only CLI wrapper for the tool-enabled L1 eval mode (Task B).
+#
+# Deny-by-default. Only three call shapes reach the real binary:
+#   1. `schema …` as the FIRST argument (inspection-only, never sends)
+#   2. any command carrying --help
+#   3. any command carrying --dry-run
+# Everything else — a bare write with no --dry-run — is REFUSED, as is `--`.
+#
+# Cases 2 and 3 additionally get a REAL --dry-run appended, because the token
+# scan below cannot tell a flag from a flag's VALUE and must not have to: with
+# the append, a write is impossible even when it guesses wrong. Only case 1 is
+# exempt, and it keys on $1, which no value can impersonate.
+#
+# Set SHOPLAZZA_RO_PROFILE to pin a dev-store profile (recommended for eval runs);
+# unset, the CLI's current profile applies. Override the binary via SHOPLAZZA_RO_BIN.
+
+set -eo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN="${SHOPLAZZA_RO_BIN:-$SCRIPT_DIR/../../../shoplazza}"
+PROFILE="${SHOPLAZZA_RO_PROFILE:-}"
+
+allowed=0        # 1 once schema / --help / --dry-run is confirmed
+denied=0         # 1 on an explicit --dry-run=false — always fatal
+has_profile=0
+
+# The schema allow-list keys on the FIRST ARGUMENT, nothing else. Scanning for
+# "the first token without a leading dash" also matched a flag VALUE, so
+# `--profile schema products +publish --id X` both passed the gate and skipped
+# the --dry-run append below — a real write through the read-only wrapper.
+is_schema=0
+if [ "${1:-}" = "schema" ]; then is_schema=1; fi
+
+for a in "$@"; do
+  case "$a" in
+    # `--` shields everything after it from flag parsing, including the
+    # --dry-run we append. Refuse rather than reason about it.
+    --)
+      denied=1; break ;;
+    # --dry-run explicitly disabled → hard refuse (would actually send).
+    # Values are strconv.ParseBool's full false set, T/F included.
+    --dry-run=false|--dry-run=0|--dry-run=f|--dry-run=F|--dry-run=FALSE|--dry-run=False|--dry-run=no)
+      denied=1; break ;;
+    --dry-run|--dry-run=true|--dry-run=1|--dry-run=t|--dry-run=T|--dry-run=TRUE|--dry-run=True)
+      allowed=1 ;;
+    -h|--help)
+      allowed=1 ;;
+    --profile|--profile=*)
+      has_profile=1 ;;
+  esac
+done
+
+if [ "$is_schema" = "1" ]; then allowed=1; fi
+
+if [ "$denied" = "1" ] || [ "$allowed" != "1" ]; then
+  echo "shoplazza-ro: REFUSED — this read-only sandbox permits only 'schema …', '--help', or '--dry-run' calls." >&2
+  echo "shoplazza-ro: to preview a write safely, re-run the exact command with --dry-run appended (it prints the request without sending)." >&2
+  exit 3
+fi
+
+# Belt-and-suspenders: every call except `schema` gets a REAL --dry-run appended,
+# so a write is impossible even when the caller's "--dry-run" or "--help" was only
+# a flag VALUE. `products +tag --id --help --add x` is exactly that: pflag eats
+# --help as --id's value, cobra never prints help, and the write ran. Help calls
+# are appended to as well — cobra short-circuits --help before flag validation,
+# so the extra flag is ignored even on groups that do not define it. A duplicate
+# --dry-run is harmless: pflag takes the last occurrence.
+extra=()
+if [ "$is_schema" != "1" ]; then extra+=(--dry-run); fi
+
+# --profile is a GLOBAL flag, so it leads; --dry-run is per-command and must
+# follow the subcommand. `--` is refused above, so nothing can shield either.
+pre=()
+if [ "$has_profile" != "1" ] && [ -n "$PROFILE" ]; then pre+=(--profile "$PROFILE"); fi
+
+exec "$BIN" ${pre[@]+"${pre[@]}"} "$@" ${extra[@]+"${extra[@]}"}

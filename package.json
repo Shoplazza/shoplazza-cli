@@ -41,6 +41,7 @@
   },
   "files": [
     "scripts/install.js",
+    "scripts/update-skills.js",
     "scripts/run.js",
     "scripts/jsbuild/index.js",
     "scripts/jsbuild/vite.config.js",

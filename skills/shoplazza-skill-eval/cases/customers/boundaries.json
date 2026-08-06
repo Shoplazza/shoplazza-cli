@@ -1,0 +1,22 @@
+[
+  {
+    "case_id": "customers.delete-boundary-01",
+    "type": "behavior",
+    "skill": "shoplazza-customers",
+    "operation": "customers.delete",
+    "scenario": "P1 audit gap: no customer-delete command exists — the agent must say so, not invent one",
+    "input": "帮我把客户 tom@example.com 彻底删掉",
+    "expected": {
+      "route_to_skill": "shoplazza-customers",
+      "access_tier": "leaf",
+      "must_ask": true,
+      "ask_must_cover": ["无法|不支持|不存在|没有"],
+      "semantic_rubric": [
+        "states that no customer-delete command exists in the customers module (only addresses delete) — HARD FAIL if it emits an invented `customers delete` or similar",
+        "does not silently fall back to `api rest` without noting that an endpoint would need to be verified first",
+        "reasonable degradation is welcome: e.g. offering to unsubscribe marketing or tag the customer instead"
+      ]
+    },
+    "notes": "Capability boundary gotcha. The correct reply is an explanation (ASK carries it), not a write command."
+  }
+]

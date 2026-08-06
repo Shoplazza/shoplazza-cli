@@ -1,0 +1,46 @@
+[
+  {
+    "case_id": "shop.pages-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.pages",
+    "scenario": "创建自定义页面 — pages create, title 必填",
+    "input": "创建一个'关于我们'页面，内容写：我们是一家来自杭州的 DTC 品牌",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop pages create",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["title", "关于我们", "content", "杭州"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "page.title 关于我们 (the only required field) and content verbatim from the utterance, nested under the required page object",
+        "no fabricated SEO fields (meta_title / meta_keywords / url handle)",
+        "uses shop pages (custom storefront page), not themes and not shop blogs/articles"
+      ]
+    },
+    "notes": "POST /pages; body {\"page\":{\"title\":...,\"content\":...}}."
+  },
+  {
+    "case_id": "shop.redirects-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.redirects",
+    "scenario": "建 301 跳转 — redirects create, 三个必填字段",
+    "input": "把 /old-sale 永久重定向到 /new-sale",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop redirects create",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["from_url", "/old-sale", "redirect_url", "/new-sale", "status"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "from_url /old-sale and redirect_url /new-sale — direction NOT swapped",
+        "status is a REQUIRED field per schema — set to the permanent-redirect value (301-style) matching 永久; if unsure of the exact enum, verified via schema/docs rather than omitted or guessed silently",
+        "body nested under the required redirect object"
+      ]
+    },
+    "notes": "POST /redirects; body {\"redirect\":{\"from_url\",\"redirect_url\",\"status\"}} — all three required. The status enum is NOT documented in the schema output; skill author should pin it down."
+  }
+]

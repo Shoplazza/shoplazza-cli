@@ -1,0 +1,22 @@
+[
+  {
+    "case_id": "products.set-price-zero-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-price",
+    "scenario": "P1 audit gap: +set-price --price 0 CLEARS the price instead of setting ¥0 — ambiguous intent must be confirmed",
+    "input": "把商品 445566 的价格改成 0",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": ["清空|免费|0"],
+      "semantic_rubric": [
+        "explains that passing 0 CLEARS the price rather than displaying a zero price — the two outcomes differ and the utterance does not say which one the user wants",
+        "HARD FAIL if it runs +set-price --price 0 in this turn without surfacing the clears-vs-zero distinction",
+        "does not invent an alternative price"
+      ]
+    },
+    "notes": "Gotcha: '0' / '0.00' clears the price; only pass 0 when the user wants it cleared. command_prefix omitted because the right answer is a question."
+  }
+]

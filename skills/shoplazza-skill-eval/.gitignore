@@ -1,0 +1,2 @@
+# Run artifacts are ephemeral — never commit them (eval-system-design §2, §11)
+.tmp/

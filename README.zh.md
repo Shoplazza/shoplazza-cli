@@ -8,11 +8,12 @@
 
 Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能在终端中操作 Shoplazza 店铺。开发应用和主题、管理商品、折扣、订单和客户，结构化输出天然适配 AI Agent 集成。
 
-[安装](#安装与快速开始) · [认证](#认证) · [开发工作流](#开发工作流) · [命令](#三层命令调用) · [进阶用法](#进阶用法) · [贡献](#贡献)
+[安装](#安装与快速开始) · [认证](#认证) · [开发工作流](#开发工作流) · [命令](#三层命令调用) · [Agent Skills](#agent-skills) · [进阶用法](#进阶用法) · [贡献](#贡献)
 
 ## 为什么选 shoplazza-cli？
 
 - **为 Agent 原生设计** — 结构化 JSON 输出开箱即用，AI Agent 无需额外适配即可操作 Shoplazza 店铺
+- **内置 Agent Skills** — 一条命令即可安装 [skills](#agent-skills)，让 AI Agent 掌握本 CLI 的命令体系、安全规则与各业务域的易错点
 - **电商全域覆盖** — 商品、折扣、订单、客户完整 CRUD，20+ 快捷命令覆盖高频操作
 - **完整开发者工作流** — App 创建、扩展脚手架（checkout / theme / function）、本地开发服务器 + HMR、一键部署；主题 init、实时热重载与打包
 - **安全可控** — 输入防注入、OS 原生密钥链存储凭证、Access Token 自动刷新
@@ -23,10 +24,13 @@ Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能在终�
 
 | 业务域 | 能力 |
 |--------|------|
-| 🛍️ 商品 | CRUD + 快捷命令：`+search`、`+publish`、`+unpublish`、`+create`、`+set-price`、`+stock` |
-| 🏷️ 折扣 | CRUD + 8 个快捷创建命令，覆盖自动折扣与代码折扣 |
+| 🛍️ 商品 | CRUD + 快捷命令：`+search`、`+count`、`+publish`、`+unpublish`、`+create`、`+set-price`、`+stock`、`+tag` |
+| 🏷️ 折扣 | CRUD + 8 个快捷命令：7 个创建类（覆盖自动折扣与代码折扣）+ `+search` |
 | 📦 订单 | CRUD + 快捷命令：`+search`、`+count`、`+ship`、`+refund`、`+update-tracking` |
 | 👤 客户 | CRUD + 快捷命令：`+search`、`+create` |
+| 🏪 店铺 | 店铺信息、博客与文章、自定义页面、文件（`+upload-file`）、metafields、市场、多语言、URL 重定向、数据分析 |
+| 💳 计费 | 应用收费：一次性、订阅、按量 |
+| 🔔 Webhook | Webhook 订阅 CRUD |
 | 🎨 主题 | `init`、`serve`（实时热重载）、`pull`、`push`、`package`、`share` |
 | 🧩 应用 | 完整生命周期：init → extension create → dev → deploy；扩展类型：checkout、theme、function |
 
@@ -41,40 +45,6 @@ Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能在终�
 | **下载二进制** | 见 [GitHub Releases](https://github.com/Shoplazza/shoplazza-cli/releases) | 手动下载，支持所有平台。 |
 | **源码构建** | `git clone ... && cd shoplazza-cli && make install` | 需要 Go `v1.24`+。安装到 `~/.local/bin`。 |
 | **Homebrew**（macOS / Linux） | `brew install Shoplazza/tap/shoplazza-cli` | 通过 `brew upgrade` 自动更新。 |
-
-<details>
-<summary>各平台二进制下载命令</summary>
-
-发布归档带版本号（`shoplazza-cli-<version>-<os>-<arch>`），因此先解析最新版本号 —— 或直接从 [releases 页面](https://github.com/Shoplazza/shoplazza-cli/releases/latest) 下载对应平台的归档。
-
-**macOS / Linux**
-
-```bash
-# 解析最新版本号（也可自行设置 VERSION=x.y.z）：
-VERSION=$(curl -fsSL https://api.github.com/repos/Shoplazza/shoplazza-cli/releases/latest \
-  | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/')
-BASE="https://github.com/Shoplazza/shoplazza-cli/releases/download/v${VERSION}"
-
-# macOS (Apple Silicon)
-curl -fsSL "${BASE}/shoplazza-cli-${VERSION}-darwin-arm64.tar.gz" | tar -xz
-# macOS (Intel):  ${BASE}/shoplazza-cli-${VERSION}-darwin-amd64.tar.gz
-# Linux (x86_64): ${BASE}/shoplazza-cli-${VERSION}-linux-amd64.tar.gz
-# Linux (ARM64):  ${BASE}/shoplazza-cli-${VERSION}-linux-arm64.tar.gz
-
-sudo install -m755 shoplazza /usr/local/bin/
-```
-
-**Windows (PowerShell)**
-
-```powershell
-$V = (Invoke-RestMethod https://api.github.com/repos/Shoplazza/shoplazza-cli/releases/latest).tag_name.TrimStart('v')
-# arm64 架构把 windows-amd64 换成 windows-arm64
-Invoke-WebRequest "https://github.com/Shoplazza/shoplazza-cli/releases/download/v$V/shoplazza-cli-$V-windows-amd64.zip" -OutFile shoplazza.zip
-Expand-Archive shoplazza.zip -DestinationPath .
-# 将 shoplazza.exe 移动到 PATH 中的目录。
-```
-
-</details>
 
 <details>
 <summary>源码构建详情</summary>
@@ -94,11 +64,11 @@ make install
 
 ### 快速开始（人类用户）
 
-> **Note for AI assistants:** 如果你是 AI Agent 且正在协助用户执行安装，请直接跳转到[快速开始（AI Agent）](#快速开始ai-agent)。
+> **给 AI 助手：** 如果你是 AI Agent 且正在协助用户执行安装，请直接跳转到[快速开始（AI Agent）](#快速开始ai-agent)。
 
 ```bash
 # 登录授权（替换为你的店铺域名）
-shoplazza auth login --store-domain my-store.shoplazza.com --domain products,orders
+shoplazza auth login --store-domain my-store.myshoplazza.com --domain products,orders
 
 # 验证
 shoplazza auth status
@@ -109,12 +79,16 @@ shoplazza products list --format table
 
 ### 快速开始（AI Agent）
 
-> 运行登录命令，从输出中提取授权链接并发送给用户。命令会持续轮询，直到用户在浏览器中完成 OAuth 授权。
+先装 [Agent Skills](#agent-skills) —— Agent 会从 skill 里拿到安装、授权引导和命令调用的全部规则：
 
 ```bash
-npm install -g shoplazza-cli
-shoplazza auth login --store-domain <店铺域名> --domain products,orders
-shoplazza auth status
+npx skills add Shoplazza/shoplazza-cli -g
+```
+
+装完后把这句发给 Agent，它会带你完成授权：
+
+```text
+/shoplazza-common 帮我登录 <店铺域名>
 ```
 
 ## 认证
@@ -135,6 +109,9 @@ shoplazza auth login --store-domain my-store.myshoplazza.com --domain products
 # UAT 快速登录（非交互式，适合 CI）
 shoplazza auth login --uat <user-access-token>
 
+# 补充权限 — 重新登录会替换（而非叠加）已授权 scopes，用 --merge-scopes 保留原有授权
+shoplazza auth login --domain discounts --merge-scopes
+
 # 切换店铺
 shoplazza auth store use --store-domain another-store.myshoplazza.com
 
@@ -143,6 +120,19 @@ shoplazza auth status
 ```
 
 凭证存储在 OS 原生密钥链中（macOS Keychain、Windows Credential Manager、Linux Secret Service）。
+
+### 多店铺 Profile
+
+Profile 是按店铺划分的执行上下文（店铺 Token + scopes）。一个账户登录后可管理多家店铺、
+随时切换而无需重新授权 — `auth login -s` 和 `auth store use` 会自动创建/切换 profile，
+也可以直接管理：
+
+```bash
+shoplazza profile add --name prod-us -s my-store.myshoplazza.com --use
+shoplazza profile list
+shoplazza profile use --name prod-us        # 或 --previous 切回上一个
+shoplazza products list --profile prod-us   # 单次调用指定 profile，无需切换
+```
 
 ## 开发工作流
 
@@ -219,7 +209,7 @@ CLI 提供三种粒度的调用方式，覆盖从快速操作到完全自定义�
 ```bash
 # 商品
 shoplazza products +search --keyword "衬衫"
-shoplazza products +publish <product-id>
+shoplazza products +publish --id <product-id>
 
 # 折扣 — 自动折扣
 shoplazza discounts +rebate --title "夏季满减" --percentage 15 --min-amount 100
@@ -230,7 +220,7 @@ shoplazza discounts +percent-code --code "SAVE20" --percentage 20
 shoplazza discounts +bxgy-code --code "BUY2GET1" --buy-quantity 2 --get-quantity 1
 
 # 订单
-shoplazza orders +ship <order-id>
+shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 
 运行 `shoplazza <domain> --help` 查看某个业务域的所有快捷命令。
@@ -257,10 +247,39 @@ shoplazza customers list
 直接调用任意 Shoplazza 开放平台端点，覆盖全量 API。
 
 ```bash
-shoplazza api rest GET /openapi/2022-01/products.json
-shoplazza api rest POST /openapi/2022-01/products.json \
+shoplazza api rest GET /openapi/2026-01/products
+shoplazza api rest POST /openapi/2026-01/products \
   --data '{"product": {"title": "新商品", "status": "active"}}'
 ```
+
+## Agent Skills
+
+开箱即用的 [Agent Skills](https://agentskills.io)，教会 AI 编码 Agent 正确驱动本 CLI：
+三层命令该选哪一层、`{"ok":true,"data":…}` 输出信封怎么读、写操作前必须 `--dry-run` 的
+安全规则，以及各业务域里容易踩错的坑。适用于 Claude Code、Codex、Cursor 等。
+
+### 安装
+
+```bash
+npx skills add Shoplazza/shoplazza-cli -g
+```
+
+将下列全部 skill 装到 `~/.agents/skills/`，并软链到 Agent 的 skill 目录，所有项目均可使用。
+
+### Skill 列表
+
+| Skill | 覆盖范围 |
+|-------|---------|
+| `shoplazza-common` | **基础 skill，其余全部依赖它。** 认证与 profile、三层命令体系、输出信封、`--dry-run` 安全规则、`schema` 自省 |
+| `shoplazza-products` | 商品、变体、库存、专辑、评论、礼品卡 |
+| `shoplazza-orders` | 订单、发货、退款、交易、草稿订单 |
+| `shoplazza-customers` | 客户及其地址 |
+| `shoplazza-discounts` | 自动折扣与折扣码、优惠券活动 |
+| `shoplazza-shop` | 店铺信息、博客与文章、自定义页面、文件、metafields、市场、多语言、URL 重定向、实时分析 |
+| `shoplazza-billing` | 应用计费（一次性、订阅、按量） |
+| `shoplazza-webhook` | Webhook 订阅 |
+
+源文件在 [`skills/`](./skills)。Skill 以 Agent 的完整权限运行，使用前请先阅读其内容。
 
 ## 进阶用法
 
@@ -269,9 +288,9 @@ shoplazza api rest POST /openapi/2022-01/products.json \
 | Flag | 适用范围 | 说明 |
 |------|----------|------|
 | `--format json\|pretty\|table` | 所有命令 | 输出格式（默认：`json`） |
-| `--fields "f1,f2"` | 快捷命令 | 响应字段投影 |
+| `--profile <name>` | 所有命令 | 本次调用使用的 profile（优先级高于 `SHOPLAZZA_CLI_PROFILE` 和当前 profile） |
 | `--dry-run` | API 和快捷命令 | 预览请求但不执行 |
-| `--jq "expr"` / `-q` | API 命令 | 使用 jq 表达式过滤 JSON 输出 |
+| `--jq "expr"` / `-q` | API 和快捷命令 | 使用 jq 表达式过滤 JSON 输出 |
 
 ### Schema 自省
 
@@ -283,11 +302,21 @@ shoplazza schema products                     # 查看指定服务
 shoplazza schema products.list                # 查看指定方法
 ```
 
+### 更新
+
+```bash
+shoplazza update            # 更新二进制（npm 安装方式）并刷新 API 元数据
+shoplazza update --check    # 仅报告当前/最新版本，不安装
+```
+
 ### 环境变量
 
 | 变量 | 说明 |
 |------|------|
 | `SHOPLAZZA_UAT` | 用于非交互式登录的 User Access Token（等同 `--uat`） |
+| `SHOPLAZZA_CLI_PROFILE` | 指定使用的 profile（`--profile` 优先） |
+| `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | 关闭后台新版本检测 |
+| `SHOPLAZZA_CLI_NO_META_UPDATE` | 关闭后台 API 元数据刷新 |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | 覆盖认证服务基础 URL（默认：`https://partners.shoplazza.com`） |
 
 ## 安全与风险提示

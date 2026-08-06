@@ -17,7 +17,7 @@ LDFLAGS := -s -w \
 # `make install PREFIX=/usr/local` (+ sudo) for a system-wide, all-users install.
 PREFIX  ?= $(HOME)/.local
 
-.PHONY: build vet unit-test integration-test test install uninstall clean
+.PHONY: build vet unit-test integration-test test skills-lint install uninstall clean
 
 build:
 	@echo "Building $(BINARY) $(VERSION)"
@@ -32,6 +32,12 @@ unit-test:
 
 integration-test: build
 	go test -v -count=1 ./tests/...
+
+# L0 drift sentinel: every command/flag/schema-ref/body-key the skills document
+# must exist in the freshly built binary. Requires Node >= 16, no npm deps.
+skills-lint: build
+	node skills/shoplazza-skill-eval/bin/lint_drift.mjs skills/shoplazza-*/SKILL.md --bin ./$(BINARY)
+	node skills/shoplazza-skill-eval/bin/lint_drift.mjs skills/shoplazza-*/references/*.md --bin ./$(BINARY) --backbone skip
 
 test: vet unit-test integration-test
 
