@@ -118,6 +118,13 @@ func Execute() (exitCode int) {
 		go metasync.Refresh(ctx, build.Version)
 	}
 
+	// The template is a plain string built up front, so the skills line is
+	// appended only here — otherwise every command pays a read it never prints.
+	if wantsVersion(os.Args[1:]) {
+		rootCmd.SetVersionTemplate(fmt.Sprintf("shoplazza version %s (%s)\n%s\n",
+			build.DisplayVersion(), build.DisplayDate(), skillLine()))
+	}
+
 	execErr := rootCmd.ExecuteContext(ctx)
 
 	// After the command output, print a one-line notice to stderr for interactive use

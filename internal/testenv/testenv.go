@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/skillsync"
 )
 
 // configDirEnv is every env var os.UserConfigDir() / os.UserHomeDir() consult,
@@ -32,6 +34,28 @@ func IsolateConfigDir(t *testing.T) string {
 		t.Setenv(kv[0], kv[1])
 	}
 	return dir
+}
+
+// SkillsDir creates and returns the Agent Skills directory for the current home.
+// Isolate the home first, or this touches the developer's own ~/.agents/skills.
+func SkillsDir(t *testing.T) string {
+	t.Helper()
+	dir := skillsync.Dir()
+	if dir == "" {
+		t.Fatal("skills dir unresolved: isolate the home directory first")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir skills dir: %v", err)
+	}
+	return dir
+}
+
+// IsolateSkillsDir redirects the home to a temp dir and returns the empty skills
+// directory inside it — the only relocation `npx skills add -g` also follows.
+func IsolateSkillsDir(t *testing.T) string {
+	t.Helper()
+	IsolateConfigDir(t)
+	return SkillsDir(t)
 }
 
 // RunMainIsolated is the whole body of a TestMain that needs an isolated config

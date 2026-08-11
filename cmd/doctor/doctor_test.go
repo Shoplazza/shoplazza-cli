@@ -32,7 +32,9 @@ func runDoctorCmd(t *testing.T, f *cmdutil.Factory, args ...string) string {
 	return buf.String()
 }
 
-// newTestFactory builds a Factory pointed at an isolated, empty config dir.
+// newTestFactory builds a Factory pointed at an isolated, empty config dir. The
+// same home redirect also hides the real ~/.agents/skills, so the skills check
+// reports a machine-independent state.
 func newTestFactory(t *testing.T) (*cmdutil.Factory, string) {
 	t.Helper()
 	dir := testenv.IsolateConfigDir(t)
@@ -91,8 +93,8 @@ func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 		t.Fatalf("expected ok=true for a healthy v2 config, got %v", got)
 	}
 	checks, _ := got["checks"].([]any)
-	if len(checks) != 3 {
-		t.Fatalf("expected 3 checks, got %d: %v", len(checks), checks)
+	if len(checks) != 4 {
+		t.Fatalf("expected 4 checks, got %d: %v", len(checks), checks)
 	}
 	for _, c := range checks {
 		m := c.(map[string]any)
@@ -103,6 +105,75 @@ func TestDoctorCheck_V2Config_AllOK(t *testing.T) {
 	meta := checks[2].(map[string]any)
 	if meta["name"] != "metadata" || !strings.Contains(meta["message"].(string), "source=") {
 		t.Errorf("metadata check malformed: %v", meta)
+	}
+	// The skills are opt-in, so an empty skills dir is still an ok verdict —
+	// otherwise doctor would fail for everyone who never installed them.
+	skills := checks[3].(map[string]any)
+	if skills["name"] != "skills" || skills["message"] != "not installed" {
+		t.Errorf("skills check malformed: %v", skills)
+	}
+}
+
+// A skills directory with our skills in it flips the message, and stays ok.
+func TestDoctorCheck_SkillsInstalled(t *testing.T) {
+	f, configPath := newTestFactory(t)
+	cfg := core.CliConfig{ConfigVersion: 2}
+	if err := core.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("seed config: %v", err)
+	}
+	f.Config = cfg
+	seedAuthLocksDirs(t, configPath)
+
+	skillsDir := testenv.SkillsDir(t)
+	if err := os.MkdirAll(filepath.Join(skillsDir, "shoplazza-common"), 0o755); err != nil {
+		t.Fatalf("mkdir skill: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillsDir, "shoplazza-common", "SKILL.md"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("write skill: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal([]byte(runDoctorCmd(t, f, "check")), &got); err != nil {
+		t.Fatalf("output not JSON: %v", err)
+	}
+	checks, _ := got["checks"].([]any)
+	skills := checks[3].(map[string]any)
+	if skills["status"] != "ok" || skills["message"] != "installed" {
+		t.Errorf("skills check should report installed and stay ok: %v", skills)
+	}
+}
+
+// An unreadable skills dir silences every future refresh — it must not pass as
+// an ok "not installed".
+func TestDoctorCheck_SkillsUnreadable_Warns(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads any directory")
+	}
+	f, configPath := newTestFactory(t)
+	cfg := core.CliConfig{ConfigVersion: 2}
+	if err := core.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("seed config: %v", err)
+	}
+	f.Config = cfg
+	seedAuthLocksDirs(t, configPath)
+
+	skillsDir := testenv.SkillsDir(t)
+	if err := os.Chmod(skillsDir, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(skillsDir, 0o755) })
+
+	var got map[string]any
+	if err := json.Unmarshal([]byte(runDoctorCmd(t, f, "check")), &got); err != nil {
+		t.Fatalf("output not JSON: %v", err)
+	}
+	if got["ok"] != false {
+		t.Errorf("an unreadable skills dir must drag the overall verdict down: %v", got)
+	}
+	checks, _ := got["checks"].([]any)
+	skills := checks[3].(map[string]any)
+	if skills["status"] != "warn" || !strings.Contains(skills["message"].(string), "unreadable") {
+		t.Errorf("skills check should warn: %v", skills)
 	}
 }
 

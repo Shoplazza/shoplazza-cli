@@ -7,21 +7,42 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/metasync"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/skillsync"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
-// TestMain stubs the metadata refresh so runUpdate tests never hit the network,
-// and clears the opt-out env so a developer or CI job that exports it doesn't
-// suppress the very refresh these tests assert on.
+// TestMain stubs both refreshes so runUpdate tests never hit the network, clears
+// the opt-out envs a developer or CI job may export, and isolates the home so
+// the skills read as "not installed" whatever is under the real one.
 func TestMain(m *testing.M) {
 	os.Unsetenv(metasync.EnvDisable)
+	os.Unsetenv(skillsync.EnvSkip)
 	metaRefresh = func(context.Context, string) (metasync.Result, error) {
 		return metasync.Result{OldRevision: "r0"}, nil
 	}
-	os.Exit(m.Run())
+	skillRefresh = func(context.Context) (skillsync.Result, error) {
+		return skillsync.Result{Installed: true, Count: 1, Ran: true}, nil
+	}
+	testenv.RunMainIsolated(m)
+}
+
+// seedSkills makes the skills directory look like the user installed n skills.
+func seedSkills(t *testing.T, names ...string) {
+	t.Helper()
+	dir := testenv.IsolateSkillsDir(t)
+	for _, n := range names {
+		if err := os.MkdirAll(filepath.Join(dir, n), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", n, err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, n, "SKILL.md"), []byte("x"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", n, err)
+		}
+	}
 }
 
 func TestNewCmdUpdate_Structure(t *testing.T) {
@@ -229,6 +250,193 @@ func TestRunUpdate_MetaRefreshOutcomes(t *testing.T) {
 		}
 		if called {
 			t.Error("--check must not force a metadata refresh")
+		}
+	})
+}
+
+func TestRunUpdate_SkillOutcomes(t *testing.T) {
+	saved := skillRefresh
+	t.Cleanup(func() { skillRefresh = saved })
+
+	// The gap this whole feature closes: an already-current binary never runs
+	// npm, so the postinstall hook never fires and the skills used to go stale.
+	t.Run("already latest refreshes the installed skills", func(t *testing.T) {
+		seedSkills(t, "shoplazza-common", "shoplazza-orders")
+		called := false
+		skillRefresh = func(context.Context) (skillsync.Result, error) {
+			called = true
+			return skillsync.Result{Installed: true, Count: 2, Ran: true}, nil
+		}
+		f := &fakeOps{latestVer: "2.0.1"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !called {
+			t.Error("an up-to-date binary must still refresh the skills")
+		}
+		if decodeBody(t, out.Bytes())["skill_installed"] != true {
+			t.Errorf("body should report the skills as installed: %s", out.String())
+		}
+		if !strings.Contains(errW.String(), "Refreshed 2 skill(s)") {
+			t.Errorf("stderr should report the refresh; got %q", errW.String())
+		}
+	})
+
+	t.Run("not installed is reported without shelling out", func(t *testing.T) {
+		testenv.IsolateSkillsDir(t)
+		called := false
+		skillRefresh = func(context.Context) (skillsync.Result, error) {
+			called = true
+			return skillsync.Result{}, nil
+		}
+		f := &fakeOps{latestVer: "2.0.1"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if called {
+			t.Error("skills the user never installed must not be pulled")
+		}
+		if decodeBody(t, out.Bytes())["skill_installed"] != false {
+			t.Errorf("body should report skill_installed=false: %s", out.String())
+		}
+		if strings.Contains(errW.String(), "skill") {
+			t.Errorf("stderr must stay quiet when the skills are not installed; got %q", errW.String())
+		}
+	})
+
+	// Read as "none installed", a broken dir would stop every refresh, silently.
+	t.Run("unreadable skills dir warns instead of passing as not installed", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("root reads any directory")
+		}
+		dir := testenv.IsolateSkillsDir(t)
+		if err := os.Chmod(dir, 0o000); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { os.Chmod(dir, 0o755) })
+		called := false
+		skillRefresh = func(context.Context) (skillsync.Result, error) {
+			called = true
+			return skillsync.Result{}, nil
+		}
+		f := &fakeOps{latestVer: "2.0.1"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if called {
+			t.Error("a dir we cannot read must not be handed to npx")
+		}
+		if !strings.Contains(errW.String(), "cannot read the Agent Skills directory") {
+			t.Errorf("stderr should surface the unreadable dir; got %q", errW.String())
+		}
+		if decodeBody(t, out.Bytes())["skill_installed"] != false {
+			t.Errorf("body should not claim skills are installed: %s", out.String())
+		}
+	})
+
+	t.Run("refresh failure never fails the command", func(t *testing.T) {
+		seedSkills(t, "shoplazza-common")
+		skillRefresh = func(context.Context) (skillsync.Result, error) {
+			return skillsync.Result{Installed: true, Count: 1, Ran: true, Output: "npm ERR! boom"}, errors.New("boom")
+		}
+		f := &fakeOps{latestVer: "2.0.1"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err != nil {
+			t.Fatalf("skill refresh failure must not fail update: %v", err)
+		}
+		body := decodeBody(t, out.Bytes())
+		if body["skill_installed"] != true || body["ok"] != true {
+			t.Errorf("body mismatch: %s", out.String())
+		}
+		// npx output stays its own block, so the hint below isn't buried in it.
+		if !strings.Contains(errW.String(), "npm ERR! boom\nwarning: skill refresh did not complete") {
+			t.Errorf("npx output should precede the warning as its own line; got %q", errW.String())
+		}
+		if !strings.Contains(errW.String(), "manually") {
+			t.Errorf("stderr should carry the manual command; got %q", errW.String())
+		}
+	})
+
+	t.Run("skip env suppresses the whole step", func(t *testing.T) {
+		seedSkills(t, "shoplazza-common")
+		t.Setenv(skillsync.EnvSkip, "1")
+		called := false
+		skillRefresh = func(context.Context) (skillsync.Result, error) {
+			called = true
+			return skillsync.Result{}, nil
+		}
+		f := &fakeOps{latestVer: "2.0.1"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if called {
+			t.Error("skip env must suppress the skill refresh")
+		}
+		if _, ok := decodeBody(t, out.Bytes())["skill_installed"]; ok {
+			t.Errorf("a suppressed step must add no skill key: %s", out.String())
+		}
+	})
+
+	// npm's postinstall hook already refreshed them; pulling again would be a
+	// second download of the same content.
+	t.Run("install path reports without refreshing again", func(t *testing.T) {
+		seedSkills(t, "shoplazza-common")
+		called := false
+		skillRefresh = func(context.Context) (skillsync.Result, error) {
+			called = true
+			return skillsync.Result{}, nil
+		}
+		f := &fakeOps{latestVer: "2.0.2"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, f.build()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if called {
+			t.Error("the install path must not refresh the skills a second time")
+		}
+		if decodeBody(t, out.Bytes())["skill_installed"] != true {
+			t.Errorf("body should still report the skills: %s", out.String())
+		}
+	})
+
+	t.Run("check-only reports without refreshing", func(t *testing.T) {
+		seedSkills(t, "shoplazza-common")
+		called := false
+		skillRefresh = func(context.Context) (skillsync.Result, error) {
+			called = true
+			return skillsync.Result{}, nil
+		}
+		f := &fakeOps{latestVer: "2.0.1"}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", true, f.build()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if called {
+			t.Error("--check must not refresh the skills")
+		}
+		if decodeBody(t, out.Bytes())["skill_installed"] != true {
+			t.Errorf("--check should still report the state: %s", out.String())
+		}
+	})
+
+	t.Run("npm missing skips the skill step", func(t *testing.T) {
+		seedSkills(t, "shoplazza-common")
+		called := false
+		skillRefresh = func(context.Context) (skillsync.Result, error) {
+			called = true
+			return skillsync.Result{}, nil
+		}
+		ops := npmOps{lookPath: func() (string, error) { return "", errors.New("not found") }}
+		var out, errW bytes.Buffer
+		if err := runUpdate(context.Background(), &out, &errW, "json", "2.0.1", false, ops); err == nil {
+			t.Fatal("npm missing must still be an error")
+		}
+		if called {
+			t.Error("no npm means no npx — the skill step must not run")
 		}
 	})
 }

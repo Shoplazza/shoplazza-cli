@@ -227,9 +227,10 @@ env var and the current profile.
 
 ## Update notice
 
-When the CLI detects a new version after running, the JSON output carries a `_notice` field
-(with the latest version). **Do not silently ignore it**: after finishing the user's current
-request, tell them the current / latest version and offer to update:
+When the CLI detects a new version after running, it prints a one-line notice **to stderr**
+(`⚡ shoplazza-cli X is available …`). It never appears in the JSON on stdout. **Do not
+silently ignore it**: after finishing the user's current request, tell them the current /
+latest version and offer to update:
 
 ```bash
 shoplazza update            # update via npm (--check only reports versions, no install)
@@ -237,6 +238,30 @@ shoplazza update            # update via npm (--check only reports versions, no 
 ```
 
 (Set `SHOPLAZZA_CLI_NO_UPDATE_CHECK` to disable the check.)
+
+`update` does three things and reports each in its JSON body:
+
+| Field | Means |
+|---|---|
+| `updated` | the binary was reinstalled. `false` = already current, **not** a failure |
+| `meta_updated` / `meta_revision` | the API metadata cache was rewritten, and at which revision |
+| `skill_installed` | the Agent Skills **are installed** — nothing more |
+
+`skill_installed` answers "are they there", not "were they just refreshed": `shoplazza update`
+does refresh them when it is `true`, but `update --check` reports the same `true` while
+refreshing nothing, and a refresh that failed also still reports `true` (with a warning on
+stderr). **Never tell the user their skills were updated on the strength of this field alone** —
+read the stderr lines (`✓ Refreshed N skill(s)`) for that.
+
+The skills are **opt-in**: `false` means the user never installed them and `update` left them
+alone rather than installing them. To install:
+
+```bash
+npx skills add Shoplazza/shoplazza-cli -g
+```
+
+(Set `SHOPLAZZA_CLI_SKIP_SKILLS=1` to suppress the skill step; the field then disappears from the
+body entirely — an absent field means "suppressed", `false` means "not installed".)
 
 ## Safety protocol
 
