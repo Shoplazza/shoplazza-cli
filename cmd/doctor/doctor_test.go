@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -146,6 +147,9 @@ func TestDoctorCheck_SkillsInstalled(t *testing.T) {
 // An unreadable skills dir silences every future refresh — it must not pass as
 // an ok "not installed".
 func TestDoctorCheck_SkillsUnreadable_Warns(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0000 does not deny access on Windows")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("root reads any directory")
 	}

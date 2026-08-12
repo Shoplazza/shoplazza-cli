@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -82,6 +83,9 @@ func TestInstalled_EmptyAndMissingDir(t *testing.T) {
 
 // An unreadable dir must not masquerade as "never installed".
 func TestInstalled_UnreadableDirIsAnError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0000 does not deny access on Windows")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("root reads any directory")
 	}

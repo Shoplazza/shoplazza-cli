@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -308,6 +309,9 @@ func TestRunUpdate_SkillOutcomes(t *testing.T) {
 
 	// Read as "none installed", a broken dir would stop every refresh, silently.
 	t.Run("unreadable skills dir warns instead of passing as not installed", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("chmod 0000 does not deny access on Windows")
+		}
 		if os.Geteuid() == 0 {
 			t.Skip("root reads any directory")
 		}
