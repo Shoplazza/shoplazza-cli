@@ -34,22 +34,17 @@
     "expected": {
       "route_to_skill": "shoplazza-products",
       "access_tier": "shortcut",
-      "command_prefix": "products +set-variants",
-      "flags_must_contain": [
-        "--id 24680",
-        "--action add"
-      ],
       "must_ask": true,
       "ask_must_cover": [
         "重建|rebuild|sku|库存"
       ],
       "semantic_rubric": [
-        "recognizes a NEW dimension name → full rebuild: every variant recreated, skus/stock reset — states this to the user BEFORE running",
-        "asks for --price (all rebuilt variants are new and need one); never invents a number",
-        "--option payload is \"Size:S,M,L\" (or the user's dimension name verbatim), values in the user's order"
+        "recognizes a NEW dimension name → full rebuild: every variant recreated, skus/stock reset — states this BEFORE any command",
+        "asks for --price (all rebuilt variants are new); never invents a number",
+        "emits no write command until the user answers (ask-first)"
       ]
     },
-    "notes": "Dimension-set change = full rebuild; the shortcut reports every deleted variant in deleted_detail."
+    "notes": "Ask-first case: rebuild warning + price question; no command expected in the same reply."
   },
   {
     "case_id": "products.set-variants-03",
@@ -64,19 +59,24 @@
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
         "--id 13579",
-        "--action remove"
+        "--action remove",
+        "--dry-run"
       ],
       "flags_must_not_contain": [
         "--price"
       ],
-      "must_ask": false,
+      "must_ask": true,
       "semantic_rubric": [
         "--option carries only the value to drop (\"Color:Pink\") — a bare dimension name would drop the whole dimension",
         "no --price: removal creates no variants",
-        "after the run, relays the deleted variants (deleted_detail: id/sku/inventory) so the user knows what was removed"
+        "destructive delete → previews with --dry-run and waits for the user's go-ahead before the real run",
+        "after the real run, relays deleted_detail (id/sku/inventory)"
+      ],
+      "ask_must_cover": [
+        "确认|删除|confirm"
       ]
     },
-    "notes": "Removing a value deletes its variants; the output lists each with sku/stock."
+    "notes": "Removing a value deletes variants — safety protocol: dry-run + confirm first."
   },
   {
     "case_id": "products.set-variants-04",
@@ -88,10 +88,10 @@
     "expected": {
       "route_to_skill": "shoplazza-products",
       "access_tier": "shortcut",
-      "command_prefix": "products +create",
+      "command_prefix": "products +set-variants",
       "flags_must_contain": [
-        "--price 29.99",
-        "--image https://cdn.example.com/yoga.jpg"
+        "--action add",
+        "--price 29.99"
       ],
       "must_ask": false,
       "semantic_rubric": [
