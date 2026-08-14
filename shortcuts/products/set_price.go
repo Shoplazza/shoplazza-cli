@@ -134,13 +134,9 @@ func sendUpdate(ctx context.Context, in common.ExecInput, plan common.PlannedReq
 // buildVariantBody parses --price (required, >= 0) and --compare-price into the
 // variant payload.
 func buildVariantBody(in common.ExecInput) (map[string]any, error) {
-	priceStr := in.Flags.GetString("price")
-	price, err := strconv.ParseFloat(priceStr, 64)
+	price, err := parsePrice("--price", in.Flags.GetString("price"))
 	if err != nil {
-		return nil, output.ErrValidation("--price must be a number, got %q", priceStr)
-	}
-	if price < 0 {
-		return nil, output.ErrValidation("--price must be >= 0, got %v", price)
+		return nil, err
 	}
 	out := map[string]any{"price": price}
 	if cp := in.Flags.GetString("compare-price"); cp != "" {

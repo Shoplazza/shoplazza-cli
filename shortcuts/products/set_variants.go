@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
@@ -98,6 +97,18 @@ detail), never the full product body. Preview requests with --dry-run.`,
 type optionDim struct {
 	Name   string
 	Values []string
+	// pos is the server-side option position (1-based) when the dimension was
+	// read from a product; 0 for dimensions built from --option payloads.
+	pos int
+}
+
+// slot returns the option1/2/3 slot this dimension's values live in on the
+// server, falling back when the dimension carries no position.
+func (d optionDim) slot(fallback int) int {
+	if d.pos >= 1 {
+		return d.pos
+	}
+	return fallback
 }
 
 // parseOptionSpecs parses repeated `--option "Name:v1,v2"` payloads.
@@ -188,12 +199,9 @@ func parseOptionalPrice(s string) (float64, bool, error) {
 	if strings.TrimSpace(s) == "" {
 		return 0, false, nil
 	}
-	p, err := strconv.ParseFloat(s, 64)
+	p, err := parsePrice("--price", s)
 	if err != nil {
-		return 0, false, output.ErrValidation("--price must be a number, got %q", s)
-	}
-	if p < 0 {
-		return 0, false, output.ErrValidation("--price must be >= 0, got %v", p)
+		return 0, false, err
 	}
 	return p, true, nil
 }
@@ -228,12 +236,35 @@ func validateSKUTemplate(tpl string, dims []optionDim) error {
 }
 
 // renderSKU fills {Option Name} placeholders with the combo's values.
+// Placeholders match dimension names by normKey — the same rule
+// validateSKUTemplate accepts them with.
 func renderSKU(tpl string, dims []optionDim, combo []string) string {
-	out := tpl
-	for i, d := range dims {
-		out = strings.ReplaceAll(out, "{"+d.Name+"}", combo[i])
+	var b strings.Builder
+	rest := tpl
+	for {
+		before, after, ok := strings.Cut(rest, "{")
+		b.WriteString(before)
+		if !ok {
+			return b.String()
+		}
+		ph, tail, ok := strings.Cut(after, "}")
+		if !ok { // unclosed; validateSKUTemplate rejects this earlier
+			b.WriteString("{" + after)
+			return b.String()
+		}
+		replaced := false
+		for i, d := range dims {
+			if normKey(d.Name) == normKey(ph) {
+				b.WriteString(combo[i])
+				replaced = true
+				break
+			}
+		}
+		if !replaced { // unknown; validateSKUTemplate rejects this earlier
+			b.WriteString("{" + ph + "}")
+		}
+		rest = tail
 	}
-	return out
 }
 
 // optionsBody renders dims as the API's options array.
@@ -295,9 +326,9 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 	// Dimension sets are compared by option NAME (normalized): same names in
 	// any order → variants are matchable; otherwise a full rebuild.
 	sameDims := len(currentDims) == len(dims)
-	oldPosByName := map[string]int{} // normalized name → 1-based old option position
+	oldPosByName := map[string]int{} // normalized name → 1-based old option slot
 	for i, cd := range currentDims {
-		oldPosByName[normKey(cd.Name)] = i + 1
+		oldPosByName[normKey(cd.Name)] = cd.slot(i + 1)
 		if sameDims {
 			found := false
 			for _, d := range dims {
@@ -402,9 +433,14 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 //	        dimension; missing names/values are no-ops.
 func applyMatrixAction(current []optionDim, action string, specs []optionDim) ([]optionDim, error) {
 	// Deep-copy so the caller's view of the current matrix stays intact.
+	// Preserve nil-ness: the no-change guard compares with reflect.DeepEqual.
 	dims := make([]optionDim, len(current))
 	for i, d := range current {
-		dims[i] = optionDim{Name: d.Name, Values: append([]string{}, d.Values...)}
+		vals := d.Values
+		if vals != nil {
+			vals = append([]string{}, vals...)
+		}
+		dims[i] = optionDim{Name: d.Name, Values: vals, pos: d.pos}
 	}
 	find := func(name string) int {
 		for i, d := range dims {
@@ -468,6 +504,13 @@ func applyMatrixAction(current []optionDim, action string, specs []optionDim) ([
 	}
 	if len(dims) > 3 {
 		return nil, output.ErrValidation("at most 3 option dimensions are supported (the platform caps variants at option1/2/3), got %d", len(dims))
+	}
+	// A dimension with no values would collapse the cartesian product to zero
+	// combos and the update would wipe every variant.
+	for _, d := range dims {
+		if len(d.Values) == 0 {
+			return nil, output.ErrValidation("option %q has no values — the update would delete every variant; give it values with --action update or drop it with --action remove", d.Name)
+		}
 	}
 	return dims, nil
 }
@@ -541,7 +584,7 @@ func readProductMatrix(resp map[string]any) (dims []optionDim, variants []oldVar
 					}
 				}
 			}
-			named = append(named, posDim{pos: pos, dim: optionDim{Name: name, Values: values}})
+			named = append(named, posDim{pos: pos, dim: optionDim{Name: name, Values: values, pos: pos}})
 		}
 		for i := 0; i < len(named); i++ { // insertion sort: options are ≤3
 			for j := i; j > 0 && named[j].pos < named[j-1].pos; j-- {
@@ -581,7 +624,7 @@ func readProductMatrix(resp map[string]any) (dims []optionDim, variants []oldVar
 		}
 		seen := map[string]bool{}
 		for _, ov := range variants {
-			v := ov.optionValue(i + 1)
+			v := ov.optionValue(dims[i].slot(i + 1))
 			if v != "" && !seen[normKey(v)] {
 				seen[normKey(v)] = true
 				dims[i].Values = append(dims[i].Values, v)

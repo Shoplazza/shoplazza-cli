@@ -178,6 +178,25 @@ func TestValidateSKUTemplate(t *testing.T) {
 	}
 }
 
+// Rendering matches placeholders by the same normalized rule validation uses:
+// a template that passes validation always substitutes.
+func TestRenderSKU_CaseInsensitivePlaceholders(t *testing.T) {
+	dims := []optionDim{
+		{Name: "Color", Values: []string{"Red"}},
+		{Name: "Size", Values: []string{"S"}},
+	}
+	combo := []string{"Red", "S"}
+	if err := validateSKUTemplate("TS-{color}-{SIZE}", dims); err != nil {
+		t.Fatalf("template should validate: %v", err)
+	}
+	if got := renderSKU("TS-{color}-{SIZE}", dims, combo); got != "TS-Red-S" {
+		t.Errorf("case-mismatched placeholders must still render, got %q", got)
+	}
+	if got := renderSKU("A-{Color}x", dims, combo); got != "A-Redx" {
+		t.Errorf("exact-case render broken: %q", got)
+	}
+}
+
 // ── applyMatrixAction ─────────────────────────────────────────────────────────
 
 func TestApplyMatrixAction(t *testing.T) {
@@ -478,6 +497,69 @@ func TestSetVariants_UpdateRenameIsDeletePlusCreate(t *testing.T) {
 	}
 	if res.Body["created"] != 1 || res.Body["inherited"] != 1 || res.Body["deleted"] != 1 {
 		t.Errorf("rename must be delete+create: %+v", res.Body)
+	}
+}
+
+// A dimension whose values cannot be determined must refuse the update: the
+// cartesian product would collapse to zero combos and the PUT would carry an
+// empty variants array, deleting every variant.
+func TestSetVariants_EmptyValueDimensionRefusesWipe(t *testing.T) {
+	product := map[string]any{
+		"id": "p-1",
+		"options": []any{
+			map[string]any{"name": "Color", "position": float64(1)}, // no values
+		},
+		"variants": []any{
+			map[string]any{"id": "v-1", "sku": "K", "inventory_quantity": float64(3)}, // empty option1
+		},
+	}
+	var captured map[string]any
+	srv := matrixServer(t, product, &captured, nil)
+	defer srv.Close()
+
+	in := newSetVariantsInput(t, []string{"Size:S,M"}, map[string]string{"id": "p-1", "action": "add", "price": "5"}, false)
+	in.Client = client.New(srv.URL)
+
+	_, err := setVariantsShortcut.Execute(context.Background(), in)
+	if err == nil || !strings.Contains(err.Error(), `"Color"`) {
+		t.Fatalf("want refusal naming the empty dimension, got %v", err)
+	}
+	if captured != nil {
+		t.Error("the PUT must not be sent when a dimension has no values")
+	}
+}
+
+// Option slots follow the server's real position values, not array order:
+// positions [1,3] still match every variant.
+func TestSetVariants_NonContiguousPositionsStillMatch(t *testing.T) {
+	product := map[string]any{
+		"id": "p-1",
+		"options": []any{
+			map[string]any{"name": "Fit", "values": []any{"Slim"}, "position": float64(3)},
+			map[string]any{"name": "Color", "values": []any{"Red"}, "position": float64(1)},
+		},
+		"variants": []any{
+			map[string]any{"id": "v-1", "option1": "Red", "option3": "Slim", "sku": "K", "inventory_quantity": float64(3)},
+		},
+	}
+	var captured map[string]any
+	srv := matrixServer(t, product, &captured, nil)
+	defer srv.Close()
+
+	in := newSetVariantsInput(t, []string{"Color:Green"}, map[string]string{"id": "p-1", "action": "add", "price": "7"}, false)
+	in.Client = client.New(srv.URL)
+
+	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Body["inherited"] != 1 || res.Body["created"] != 1 || res.Body["deleted"] != 0 {
+		t.Errorf("old variant in slots 1/3 must match: %+v", res.Body)
+	}
+	variants := capturedVariants(t, captured)
+	red := variantByOptions(t, variants, "Red", "Slim", "")
+	if red["id"] != "v-1" {
+		t.Errorf("Red/Slim must carry the old id, got %v", red["id"])
 	}
 }
 

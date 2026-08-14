@@ -9,6 +9,8 @@
 
 ### Fixed
 - Login polling now treats every 5xx as transient. The session endpoint answers with 200 or a 4xx verdict; a 5xx is only ever infrastructure in between (and the CDN replaces its body), so polling continues until the login deadline instead of aborting on a gateway hiccup.
+- `products +create --price -5` was accepted and sent to the API; every price flag now shares the same parser and rejects negative values.
+- `products +set-variants` hardening: a dimension that ends up with no values now refuses the update instead of submitting an empty variants array (which would delete every variant); `--sku-template` placeholders match dimension names case-insensitively in rendering, matching validation (a case-mismatched placeholder used to overwrite every sku with the same literal); variant matching follows the server's real option positions, so non-contiguous positions no longer force a spurious rebuild.
 
 ## 2.0.9 - 2026-08-06
 
