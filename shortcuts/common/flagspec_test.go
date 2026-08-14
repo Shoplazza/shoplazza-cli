@@ -92,6 +92,7 @@ func (s stubFlags) GetInt(_ string) int              { return s.pageLimit }
 func (s stubFlags) GetFloat(_ string) float64        { return 0 }
 func (s stubFlags) GetBool(_ string) bool            { return false }
 func (s stubFlags) GetStringSlice(_ string) []string { return nil }
+func (s stubFlags) GetStringArray(_ string) []string { return nil }
 func (s stubFlags) Changed(_ string) bool            { return false }
 
 func TestGetValidatedPageLimit_Zero(t *testing.T) {

@@ -130,4 +130,5 @@ func (stubFlagSet) GetInt(string) int              { return 0 }
 func (stubFlagSet) GetFloat(string) float64        { return 0 }
 func (stubFlagSet) GetBool(string) bool            { return false }
 func (stubFlagSet) GetStringSlice(string) []string { return nil }
+func (stubFlagSet) GetStringArray(string) []string { return nil }
 func (stubFlagSet) Changed(string) bool            { return false }

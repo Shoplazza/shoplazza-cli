@@ -117,6 +117,7 @@ func (s queryStub) GetString(name string) string {
 }
 
 func (s queryStub) GetStringSlice(name string) []string { return []string{s.GetString(name)} }
+func (s queryStub) GetStringArray(name string) []string { return []string{s.GetString(name)} }
 func (queryStub) GetInt(string) int                     { return 1 }
 func (queryStub) GetFloat(string) float64               { return 1 }
 func (queryStub) GetBool(string) bool                   { return false }

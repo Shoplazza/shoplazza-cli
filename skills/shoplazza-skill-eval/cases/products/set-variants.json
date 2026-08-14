@@ -1,0 +1,129 @@
+[
+  {
+    "case_id": "products.set-variants-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-variants",
+    "scenario": "给已有商品加一个规格值 — happy path",
+    "input": "给商品 13579 加一个 White 颜色，新变体卖 19.99",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +set-variants",
+      "flags_must_contain": [
+        "--id 13579",
+        "--action add",
+        "--price 19.99"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "--option carries exactly the delta (\"Color:White\") — never the full value list of the dimension",
+        "price 19.99 verbatim from the utterance (new combos need a price)",
+        "no --sku-template / --stock invented — user never mentioned them"
+      ]
+    },
+    "notes": "Value add on an existing dimension: matched variants keep id/sku/stock; only White is created."
+  },
+  {
+    "case_id": "products.set-variants-02",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-variants",
+    "scenario": "加一个新规格维度 — 全量重建，必须先告知",
+    "input": "给商品 24680 加一个尺码规格，S、M、L 三个码",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +set-variants",
+      "flags_must_contain": [
+        "--id 24680",
+        "--action add"
+      ],
+      "must_ask": true,
+      "ask_must_cover": [
+        "重建|rebuild|sku|库存"
+      ],
+      "semantic_rubric": [
+        "recognizes a NEW dimension name → full rebuild: every variant recreated, skus/stock reset — states this to the user BEFORE running",
+        "asks for --price (all rebuilt variants are new and need one); never invents a number",
+        "--option payload is \"Size:S,M,L\" (or the user's dimension name verbatim), values in the user's order"
+      ]
+    },
+    "notes": "Dimension-set change = full rebuild; the shortcut reports every deleted variant in deleted_detail."
+  },
+  {
+    "case_id": "products.set-variants-03",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-variants",
+    "scenario": "下掉一个规格值 — remove，变体会被删并报告",
+    "input": "把商品 13579 的 Pink 色下掉",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +set-variants",
+      "flags_must_contain": [
+        "--id 13579",
+        "--action remove"
+      ],
+      "flags_must_not_contain": [
+        "--price"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "--option carries only the value to drop (\"Color:Pink\") — a bare dimension name would drop the whole dimension",
+        "no --price: removal creates no variants",
+        "after the run, relays the deleted variants (deleted_detail: id/sku/inventory) so the user knows what was removed"
+      ]
+    },
+    "notes": "Removing a value deletes its variants; the output lists each with sku/stock."
+  },
+  {
+    "case_id": "products.set-variants-04",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-variants",
+    "scenario": "建多规格商品 — 两步：+create 建草稿，再 +set-variants 加维度",
+    "input": "建一个瑜伽服商品，颜色有 Black/White/Pink，尺码 S/M，统一卖 29.99，图片用 https://cdn.example.com/yoga.jpg",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +create",
+      "flags_must_contain": [
+        "--price 29.99",
+        "--image https://cdn.example.com/yoga.jpg"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "two steps: products +create (draft) first, then products +set-variants --id <new-id> --action add with BOTH dimensions (--option \"Color:Black,White,Pink\" --option \"Size:S,M\") and --price 29.99",
+        "does NOT hand-write a variants array on the products create leaf",
+        "publish only if the user asked to 上架 (they didn't — stays a draft)"
+      ]
+    },
+    "notes": "Multi-spec creation route: +create then +set-variants --action add. +set-variants has no create mode."
+  },
+  {
+    "case_id": "products.set-variants-05",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-variants",
+    "scenario": "值集整体替换 — update，没列出的值会被删",
+    "input": "商品 13579 的颜色只保留 Red 和 Blue",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +set-variants",
+      "flags_must_contain": [
+        "--id 13579",
+        "--action update"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "只保留 → --action update with --option \"Color:Red,Blue\" (values not listed are removed) — not a series of removes",
+        "value spelling verbatim from the utterance",
+        "relays which variants got deleted (deleted_detail) after the run"
+      ]
+    },
+    "notes": "update replaces one dimension's value list; other dimensions untouched."
+  }
+]
