@@ -1,14 +1,22 @@
 # Changelog
 
-## Unreleased
-
-### Fixed
-- Login polling now treats every 5xx as transient. The session endpoint answers with 200 or a 4xx verdict; a 5xx is only ever infrastructure in between (and the CDN replaces its body), so polling continues until the login deadline instead of aborting on a gateway hiccup.
-- **Search filters that never reached the API.** `orders +search --keyword` sent a `query` parameter the orders endpoint does not accept. Unrecognised query params are dropped server-side rather than rejected, so the request came back `200` with **every order in the store** — a wrong answer shaped exactly like a right one (a search for one buyer's email returned all 18 orders of a test store, including other buyers'). It now sends `keyword`. `customers +search --phone` had the same defect, sending `phone` where the endpoint documents `contact`; it now filters instead of returning the first page of the whole customer list.
+## 2.0.10 - 2026-08-14
 
 ### Added
 - `products +set-variants` — edit a product's option matrix (spec dimensions × values) without hand-writing the variants array. `--option "Name:v1,v2"` carries the payload, `--action add|remove|update` the verb; the CLI merges the delta into the current matrix, expands the cartesian product, and submits one request. While dimension names are unchanged, existing variants are matched by option values and keep their id — the API then preserves their sku/stock/image; a dimension change rebuilds every variant and lists each deleted one (id/sku/inventory) in the output. Output is a bounded summary, never the full product, so a 270-variant matrix no longer overflows agent tool-result limits. `--price` applies to newly created variants only; `--sku-template "T-{Color}"` renders per-combo skus. Multi-spec creation is two steps: `+create` (draft), then `+set-variants --action add`.
 - `orders refunds finish` — finish a custom-channel refund (new `order-refund-finish` endpoint in the command registry).
+- `shoplazza update` now also refreshes installed Agent Skills, and `shoplazza doctor` reports their install state.
+
+### Fixed
+- Login polling now treats every 5xx as transient. The session endpoint answers with 200 or a 4xx verdict; a 5xx is only ever infrastructure in between (and the CDN replaces its body), so polling continues until the login deadline instead of aborting on a gateway hiccup.
+
+## 2.0.9 - 2026-08-06
+
+### Fixed
+- **Search filters that never reached the API.** `orders +search --keyword` sent a `query` parameter the orders endpoint does not accept. Unrecognised query params are dropped server-side rather than rejected, so the request came back `200` with **every order in the store** — a wrong answer shaped exactly like a right one (a search for one buyer's email returned all 18 orders of a test store, including other buyers'). It now sends `keyword`. `customers +search --phone` had the same defect, sending `phone` where the endpoint documents `contact`; it now filters instead of returning the first page of the whole customer list.
+
+### Added
+- `products +set-price --product-id` and `products +stock --product-id` — resolve a single-variant product's variant automatically; a multi-variant product is refused with its candidates listed, so merchants never need to hunt for internal variant ids.
 - `orders +search --email` and `orders +count --email` — exact customer-email match (`customer_emails`), the precise path for "which orders did this buyer place". Prefer it over `--keyword`, which fuzzy-matches order number, customer name and email alike.
 - `orders +count` also gains `--keyword` and `--customer-id`, so it accepts the same filters as `orders +search`. The two could previously disagree: `+search` narrowed by customer, `+count` had no way to.
 - `auth login --merge-scopes` — also re-requests every previously granted scope. Authorization replaces the account's granted set server-side, so a narrow re-login (say, just `read_inventory`) drops every other scope and trims every profile with it, breaking parallel tasks mid-flight (verified: a 22-scope grant re-authorized with one scope came back with one). With the flag, the requested scopes are merged with the prior grant, the summary notes how many were carried over, and the store profile records the full effective scope set so lazily re-minted tokens keep the merged reach. Default behavior is unchanged.
