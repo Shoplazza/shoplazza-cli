@@ -24,7 +24,7 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 
 | Domain | Capabilities |
 |--------|-------------|
-| 🛍️ Products | CRUD + shortcuts: `+search`, `+count`, `+publish`, `+unpublish`, `+create`, `+set-price`, `+stock`, `+tag` |
+| 🛍️ Products | CRUD + shortcuts: `+search`, `+count`, `+publish`, `+unpublish`, `+create`, `+set-price`, `+set-variants`, `+stock`, `+tag` |
 | 🏷️ Discounts | CRUD + 8 shortcuts: 7 creators for automatic & code discounts, plus `+search` |
 | 📦 Orders | CRUD + shortcuts: `+search`, `+count`, `+ship`, `+refund`, `+update-tracking` |
 | 👤 Customers | CRUD + shortcuts: `+search`, `+create` |

@@ -24,7 +24,7 @@ Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能在终�
 
 | 业务域 | 能力 |
 |--------|------|
-| 🛍️ 商品 | CRUD + 快捷命令：`+search`、`+count`、`+publish`、`+unpublish`、`+create`、`+set-price`、`+stock`、`+tag` |
+| 🛍️ 商品 | CRUD + 快捷命令：`+search`、`+count`、`+publish`、`+unpublish`、`+create`、`+set-price`、`+set-variants`、`+stock`、`+tag` |
 | 🏷️ 折扣 | CRUD + 8 个快捷命令：7 个创建类（覆盖自动折扣与代码折扣）+ `+search` |
 | 📦 订单 | CRUD + 快捷命令：`+search`、`+count`、`+ship`、`+refund`、`+update-tracking` |
 | 👤 客户 | CRUD + 快捷命令：`+search`、`+create` |
