@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -103,23 +102,16 @@ func (m *Manager) Login(ctx context.Context, storeDomain string, scopes []string
 }
 
 // transientPollError reports whether a session-token poll failure is retryable
-// within the login deadline. The endpoint long-polls, so gateway 5xx and
-// client-side timeouts are normal while the session is pending; only a saiga
-// verdict (user_denied / session_expired) is final.
+// within the login deadline. saiga answers about the session with 200 or a 4xx
+// verdict, so a 5xx is never that answer — only infrastructure in between. Do
+// not try to read a verdict out of a 5xx body: the CDN replaces it.
 func transientPollError(ctx context.Context, err error) bool {
 	if ctx.Err() != nil {
 		return false
 	}
 	var he *client.HTTPError
 	if errors.As(err, &he) {
-		if he.StatusCode < 500 {
-			return false
-		}
-		var body struct {
-			Code string `json:"code"`
-		}
-		_ = json.Unmarshal([]byte(he.Body), &body)
-		return body.Code != "user_denied" && body.Code != "session_expired"
+		return he.StatusCode >= 500
 	}
 	// Below the deadline, only a transport failure is worth another poll. A
 	// decode failure is a contract break that would repeat every interval until
