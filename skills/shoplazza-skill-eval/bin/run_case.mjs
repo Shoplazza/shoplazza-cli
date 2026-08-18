@@ -370,9 +370,11 @@ function execDryRun(cmd, bin) {
 // ---------- main ----------
 
 const [mode, ...rest] = process.argv.slice(2);
-// `--tool-enabled` is a boolean; strip it before valued-arg parsing.
+// Boolean flags must be stripped before parseArgs, which treats every `--flag` as valued
+// (an unstripped `--exec` silently ate the next arg, or no-op'd when it came last).
 const toolEnabled = rest.includes('--tool-enabled');
-const args = parseArgs(rest.filter(a => a !== '--tool-enabled'));
+const execDryRunEnabled = rest.includes('--exec');
+const args = parseArgs(rest.filter(a => a !== '--tool-enabled' && a !== '--exec'));
 const skillsDir = args['skills-dir'] || 'skills';
 const wrapper = args.wrapper || 'skills/shoplazza-skill-eval/bin/shoplazza-ro';
 
@@ -384,7 +386,7 @@ if (mode === 'prompt') {
   const replyText = readFileSync(args.reply, 'utf8');
   const reply = parseReply(replyText);
   let dryRunOutput = null;
-  if (args.exec !== undefined && reply.commands.length) {
+  if (execDryRunEnabled && reply.commands.length) {
     dryRunOutput = reply.commands.map(cmd => execDryRun(cmd, args.bin || './shoplazza'));
   }
   const artifact = checkCase(c, reply, { skillsDir, dryRunOutput });

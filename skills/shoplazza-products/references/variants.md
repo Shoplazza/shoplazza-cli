@@ -2,7 +2,11 @@
 
 Variants are the sellable units (SKUs) of a product: price, options (size/color), stock,
 weight, barcode. All commands here are spec leaves — for price changes prefer the
-`products +set-price` shortcut, for stock the `products +stock` shortcut (both in SKILL.md).
+`products +set-price` shortcut, for stock the `products +stock` shortcut, and for anything
+touching the option matrix (adding/removing spec values or dimensions, multi-spec creation)
+the `products +set-variants` shortcut (all in SKILL.md). Never hand-write a `variants` array
+in a `products update` body: it is a full replace — unlisted variants are deleted, and listed
+variants without their `id` are recreated with sku/stock reset.
 Each takes `--variant-id`, `--sku`, or `--product-id`, so you rarely need to resolve by hand.
 
 ## Command surface

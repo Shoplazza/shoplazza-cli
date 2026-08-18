@@ -203,6 +203,13 @@ func bindFlag(cmd *cobra.Command, f Flag) {
 		} else {
 			cmd.Flags().StringSlice(f.Name, def, f.Description)
 		}
+	case FlagStringArray:
+		def := defaultStringArray(f)
+		if f.Short != "" {
+			cmd.Flags().StringArrayP(f.Name, f.Short, def, f.Description)
+		} else {
+			cmd.Flags().StringArray(f.Name, def, f.Description)
+		}
 	default:
 		panic(fmt.Errorf("shortcuts: flag %q has unknown FlagType %v", f.Name, f.Type))
 	}
@@ -259,6 +266,17 @@ func defaultStringSlice(f Flag) []string {
 	v, ok := f.Default.([]string)
 	if !ok {
 		panic(fmt.Errorf("shortcuts: flag %q has Type=FlagStringSlice but Default is %T", f.Name, f.Default))
+	}
+	return v
+}
+
+func defaultStringArray(f Flag) []string {
+	if f.Default == nil {
+		return nil
+	}
+	v, ok := f.Default.([]string)
+	if !ok {
+		panic(fmt.Errorf("shortcuts: flag %q has Type=FlagStringArray but Default is %T", f.Name, f.Default))
 	}
 	return v
 }

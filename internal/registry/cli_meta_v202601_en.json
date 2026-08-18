@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-08-06T08:01:06Z",
+  "generated_at": "2026-08-13T02:19:23Z",
   "modules": [
     {
       "name": "billing",
@@ -1523,7 +1523,7 @@
         },
         "refunds": {
           "summary": "Create and query refund records for orders",
-          "description": "Refund records track money returned to customers for an order — full or partial,\ncovering products, shipping, tips, and additional fees, across one or more\npayment channels. Merchants create these records after deciding to refund a\ncustomer and the platform settles the money back through the original payment\nchannels.\nProvides endpoints to list all refund records across orders (with filters and\npagination), count refund records matching filters, list refund records for a\nspecific order, and create a new refund record on an order."
+          "description": "Refund records track money returned to customers for an order — full or partial,\ncovering products, shipping, tips, and additional fees, across one or more\npayment channels. Merchants create these records after deciding to refund a\ncustomer and the platform settles the money back through the original payment\nchannels.\nProvides endpoints to list all refund records across orders (with filters and\npagination), count refund records matching filters, list refund records for a\nspecific order, create a new refund record on an order, and mark an order's\nin-progress refund records as refunded successfully."
         },
         "risks": {
           "summary": "Assess and record fraud risk for individual orders",
@@ -2840,6 +2840,72 @@
             ]
           },
           "response_schema": "v202506.CreateOrderRefundRecordResponse"
+        },
+        {
+          "id": "order-refund-finish",
+          "command_path": [
+            "refunds",
+            "finish"
+          ],
+          "summary": "Finish refund",
+          "description": "Marks the order's in-progress refund records as refunded successfully; afterwards the order is partially refunded or fully refunded.\nThis endpoint applies only to orders paid through a custom payment channel or the test payment channel (bogus).",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/orders/{order_id}/refund/finish",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "order_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Order ID",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "post_sale_id",
+                "type": "string",
+                "required": true,
+                "description": "After-sales (post-sale) record ID",
+                "min_length": 1
+              },
+              {
+                "name": "refund_record_id",
+                "type": "string",
+                "required": true,
+                "description": "Refund record ID",
+                "min_length": 1
+              },
+              {
+                "name": "refund_time",
+                "type": "string",
+                "description": "Time when the third-party refund completed, in RFC3339 (e.g., 2018-11-02T12:30:10Z)"
+              },
+              {
+                "name": "transaction_number",
+                "type": "string",
+                "description": "Refund transaction number"
+              },
+              {
+                "name": "payment_channel",
+                "type": "string",
+                "description": "Refund payment channel"
+              },
+              {
+                "name": "extra_info",
+                "type": "object",
+                "schema": "v202601.RefundRecordExtraInfo",
+                "description": "Extra information attached to the refund record"
+              }
+            ]
+          },
+          "response_schema": "v202601.FinishRefundResponse"
         },
         {
           "id": "order-refund-records",
@@ -6215,11 +6281,6 @@
           ],
           "body": {
             "fields": [
-              {
-                "name": "no_entity",
-                "type": "boolean",
-                "description": "If `no_entity` is true, an empty object is returned after a successful update"
-              },
               {
                 "name": "product",
                 "type": "object",
@@ -21636,6 +21697,23 @@
         }
       ]
     },
+    "v202601.FinishRefundResponse": {
+      "fields": [
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "post_sale_id",
+          "type": "string"
+        },
+        {
+          "name": "refund_record",
+          "type": "object",
+          "schema": "v202601.V202601RefundRecord"
+        }
+      ]
+    },
     "v202601.Fulfillment": {
       "fields": [
         {
@@ -23356,6 +23434,80 @@
       ]
     },
     "v202601.PublishLanguageToMarketsResponse": {},
+    "v202601.RefundLineItem": {
+      "fields": [
+        {
+          "name": "line_item_id",
+          "type": "string"
+        },
+        {
+          "name": "refund_quantity",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "tax",
+          "type": "string"
+        },
+        {
+          "name": "discount",
+          "type": "string"
+        },
+        {
+          "name": "sub_total",
+          "type": "string"
+        },
+        {
+          "name": "total",
+          "type": "string"
+        },
+        {
+          "name": "delete_quantity",
+          "type": "integer",
+          "format": "int32"
+        }
+      ]
+    },
+    "v202601.RefundPaymentDetail": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "payment_line_id",
+          "type": "string"
+        },
+        {
+          "name": "payment_channel",
+          "type": "string"
+        },
+        {
+          "name": "payment_method",
+          "type": "string"
+        },
+        {
+          "name": "refund_price",
+          "type": "string"
+        },
+        {
+          "name": "refund_status",
+          "type": "string"
+        },
+        {
+          "name": "finished_at",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.RefundRecordExtraInfo": {
+      "fields": [
+        {
+          "name": "pos",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.Rule": {
       "fields": [
         {
@@ -23772,6 +23924,87 @@
           "name": "collection",
           "type": "object",
           "schema": "v202601.Collection"
+        }
+      ]
+    },
+    "v202601.V202601RefundRecord": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "refund_price",
+          "type": "string"
+        },
+        {
+          "name": "refund_shipping",
+          "type": "string"
+        },
+        {
+          "name": "refund_shipping_tax",
+          "type": "string"
+        },
+        {
+          "name": "refund_method",
+          "type": "string"
+        },
+        {
+          "name": "refund_status",
+          "type": "string"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        },
+        {
+          "name": "refund_line_items",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.RefundLineItem"
+          }
+        },
+        {
+          "name": "payment_details",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.RefundPaymentDetail"
+          }
+        },
+        {
+          "name": "additional_total",
+          "type": "string"
+        },
+        {
+          "name": "additional_prices",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.AdditionalPrice"
+          }
+        },
+        {
+          "name": "refund_tip",
+          "type": "string"
+        },
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "extra_info",
+          "type": "object",
+          "schema": "v202601.RefundRecordExtraInfo"
         }
       ]
     },

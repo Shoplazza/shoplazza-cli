@@ -13,6 +13,7 @@ leaf only for split / itemized refunds the shortcut can't express.
 | Store-wide refund records | `orders refunds list --params '{…}'` → `.data.records[]` (cursor; `page_size` 1-100, default 10) |
 | Count store-wide records | `orders refunds count --params '{…}'` → `.data.count` |
 | Create a refund record (money → `--dry-run` first) | `orders refunds create --params '{"order_id":"<id>"}' --data '{"refund":{…}}'` → `.data.refund_record_id` + `.data.post_sale_id` |
+| Finish an in-progress refund (write → `--dry-run` first) | `orders refunds finish --params '{"order_id":"<id>"}' --data '{"post_sale_id":"<id>","refund_record_id":"<id>"}'` → `.data.refund_record` |
 
 Store-wide `list` / `count` filters: `order_ids` (≤10) · `refund_order_ids` (≤20) ·
 `refund_statuses` (enum `pending` in progress / `finished` / `failed`) · `sort_by`
@@ -47,3 +48,15 @@ store-wide `list` is for cross-order dashboards.
 - Creating a refund also creates an after-sales record (`post_sale_id` in the response) —
   see [post-sales.md](post-sales.md).
 - Refund amounts are money: never fabricate; confirm with the user, `--dry-run` first.
+
+## `refunds finish` — mark an in-progress refund as refunded
+
+Marks the order's in-progress refund records as refunded successfully; the order then becomes
+partially or fully refunded. **Only for orders paid through a custom payment channel or the
+test channel (`bogus`)** — platform-settled channels finish on their own.
+
+- Required: path `order_id`; body `post_sale_id` + `refund_record_id` (both returned by
+  `refunds create` / `+refund`, or from `refunds list-by-order` records).
+- Optional body: `refund_time` (RFC3339 third-party completion time), `transaction_number`,
+  `payment_channel`, `extra_info` (`{"pos":"…"}`).
+- Finalizes a refund's status — restate and `--dry-run` first like other order writes.

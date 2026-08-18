@@ -12,6 +12,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/metasync"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/skillsync"
 
 	"github.com/spf13/cobra"
 )
@@ -66,6 +67,21 @@ func runChecks(f *cmdutil.Factory) []checkResult {
 		checkConfigVersion(f),
 		checkAuthLocksDirs(f),
 		checkMetadata(),
+		checkSkills(),
+	}
+}
+
+// checkSkills reports whether the Agent Skills are installed. Absence is a
+// choice; a directory we cannot read is breakage, so it warns.
+func checkSkills() checkResult {
+	installed, err := skillsync.Installed()
+	switch {
+	case err != nil:
+		return checkResult{"skills", "warn", "directory unreadable: " + err.Error()}
+	case installed:
+		return checkResult{"skills", "ok", "installed"}
+	default:
+		return checkResult{"skills", "ok", "not installed"}
 	}
 }
 

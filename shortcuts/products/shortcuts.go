@@ -11,6 +11,7 @@ func Shortcuts() []common.Shortcut {
 		unpublishShortcutValue,
 		createShortcut,
 		setPriceShortcut,
+		setVariantsShortcut,
 		stockShortcut,
 		tagShortcut,
 	}

@@ -33,7 +33,7 @@ Intent → command. Authoritative params/body live in `shoplazza schema webhook.
 | Count webhooks (optionally filtered) | `webhook count --params '{"address":"<url>","topic":"<event>"}'` (params optional) |
 | Get one webhook | `webhook get --params '{"id":"<id>"}'` |
 | Update a webhook's address / topic | `webhook update --params '{"id":"<id>"}' --data '{"webhook":{"address":"<url>","topic":"<event>"}}'` |
-| Delete a webhook | `webhook delete --params '{"id":"<id>"}'` |
+| Delete a webhook (destructive → `--dry-run` first) | `webhook delete --params '{"id":"<id>"}' --dry-run` |
 
 **Event topics** look like `orders/create`, `orders/fulfilled`, `products/update`, etc. The full
 topic list isn't introspectable from the binary — confirm a topic with `shoplazza schema
@@ -45,9 +45,11 @@ webhook.create` / the Open Platform docs; don't invent one.
 2. `create` needs two required fields — **ask with `AskUserQuestion` if either is missing, never
    fabricate**: the **event topic** and the **address** (HTTPS endpoint). For `update`/`get`/
    `delete`, the webhook **`id`** is required.
-3. `create`/`update`/`delete` are safe to run directly once required fields are present; use
-   `--dry-run` first only if the user asks (subscriptions don't move money, but `delete` is
-   destructive — restate which subscription before deleting).
+3. `create`/`update` are safe to run directly once required fields are present (subscriptions
+   don't move money); use `--dry-run` first only if the user asks.
+4. `delete` is destructive — it silently stops event delivery and cannot be undone. It follows
+   the shoplazza-common safety protocol: `--dry-run` first, restate **which** subscription
+   (topic + address, not just the id), then **stop and wait for the user's go-ahead**.
 
 ## Boundaries
 
@@ -88,8 +90,9 @@ webhook list
 # 3. Update a webhook's address
 webhook update --params '{"id":"246"}' --data '{"webhook":{"address":"https://new.example.com/hook"}}'
 
-# 4. Delete a subscription (restate which one first)
-webhook delete --params '{"id":"135"}'
+# 4. Delete a subscription: look up what it is, preview, then STOP for the user's go-ahead
+webhook get --params '{"id":"135"}' --jq '.data.webhook | {topic, address}'
+webhook delete --params '{"id":"135"}' --dry-run
 
 # 5. Count webhooks pointing at an address
 webhook count --params '{"address":"https://api.myapp.com/hooks"}'

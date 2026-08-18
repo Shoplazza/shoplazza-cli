@@ -16,6 +16,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/metasync"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/skillsync"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/updatecheck"
 )
 
@@ -116,9 +117,78 @@ func refreshMetadata(ctx context.Context, version string) metaOutcome {
 	return metaOutcome{res: res, err: err, ran: true}
 }
 
-// runUpdate performs the two halves of `update` independently: the npm binary
-// update and the metadata refresh. A failed binary half (npm missing, install
-// error) still refreshes metadata before returning its error.
+// skillRefresh is swappable in tests (the real one shells out to npx).
+var skillRefresh = skillsync.Refresh
+
+// skillOutcome is what the Agent Skills half has to say. A step suppressed by
+// the env (ran=false) reports nothing at all, mirroring metaOutcome.
+type skillOutcome struct {
+	installed bool
+	ran       bool
+}
+
+// mergeInto adds the outcome to a response body. An absent key means the env
+// suppressed the step; false means the skills are not installed.
+func (o skillOutcome) mergeInto(body map[string]any) {
+	if !o.ran {
+		return
+	}
+	body["skill_installed"] = o.installed
+}
+
+// refreshSkills re-pulls the installed Agent Skills: the half npm's postinstall
+// hook does, which the already-up-to-date path never triggers. Never fatal.
+func refreshSkills(ctx context.Context, errW io.Writer) skillOutcome {
+	if os.Getenv(skillsync.EnvSkip) == "1" {
+		return skillOutcome{}
+	}
+	installed, err := skillsync.Installed()
+	if err != nil {
+		warnSkillDir(errW, err)
+		return skillOutcome{ran: true}
+	}
+	// Opt-in by prior action: skills the user never installed are left alone.
+	if !installed {
+		return skillOutcome{ran: true}
+	}
+	step := output.NewProgress(errW).Begin("Updating skills")
+	res, err := skillRefresh(ctx)
+	if err != nil {
+		step.Fail()
+		// Keep npx's own output as its own block, as the npm half below does.
+		if res.Output != "" {
+			fmt.Fprintln(errW, res.Output)
+		}
+		fmt.Fprintf(errW, "warning: skill refresh did not complete: %s\n", err)
+		fmt.Fprintf(errW, "  update manually: %s\n", skillsync.ManualCommand())
+		return skillOutcome{installed: true, ran: true}
+	}
+	step.Done()
+	fmt.Fprintf(errW, "✓ Refreshed %d skill(s)\n", res.Count)
+	return skillOutcome{installed: res.Installed, ran: true}
+}
+
+// reportSkills fills in the skill half without refreshing: the install path's
+// postinstall hook already did, and --check must not touch anything.
+func reportSkills(errW io.Writer) skillOutcome {
+	if os.Getenv(skillsync.EnvSkip) == "1" {
+		return skillOutcome{}
+	}
+	installed, err := skillsync.Installed()
+	if err != nil {
+		warnSkillDir(errW, err)
+	}
+	return skillOutcome{installed: installed, ran: true}
+}
+
+// warnSkillDir surfaces an unreadable dir, else it looks like an opt-out.
+func warnSkillDir(errW io.Writer, err error) {
+	fmt.Fprintf(errW, "warning: cannot read the Agent Skills directory: %s\n", err)
+}
+
+// runUpdate performs the three halves of `update` independently: the binary, the
+// metadata and the Agent Skills. A failed binary half still refreshes metadata,
+// but skips the skills — without npm, npx is unlikely to work either.
 func runUpdate(ctx context.Context, out, errW io.Writer, format, current string, checkOnly bool, ops npmOps) error {
 	npmPath, err := ops.lookPath()
 	if err != nil {
@@ -141,6 +211,7 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 		} else {
 			body["up_to_date"] = upToDate(latest, current, nil)
 		}
+		reportSkills(errW).mergeInto(body)
 		return output.PrintBody(out, body, format, "")
 	}
 
@@ -149,6 +220,7 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 		body := map[string]any{
 			"ok": true, "package": npmPackage, "current": current, "latest": latest, "updated": false,
 		}
+		refreshSkills(ctx, errW).mergeInto(body)
 		meta := refreshMetadata(ctx, current)
 		meta.mergeInto(body)
 		return output.PrintBody(out, body, format, "")
@@ -199,6 +271,9 @@ func runUpdate(ctx context.Context, out, errW io.Writer, format, current string,
 	body := map[string]any{
 		"ok": true, "package": npmPackage, "previous": current, "latest": newVersion, "updated": true,
 	}
+	// npm's postinstall hook already refreshed the skills, so only report here —
+	// refreshing again would be a second pull of the same content.
+	reportSkills(errW).mergeInto(body)
 	meta := refreshMetadata(ctx, installed)
 	meta.mergeInto(body)
 	return output.PrintBody(out, body, format, "")

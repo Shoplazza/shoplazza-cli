@@ -57,7 +57,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Mark an order paid | `orders pay --params '{"order_id":"<id>"}' --data '{"payment_line":{"payment_channel":"<channel>","payment_method":"<method>","transaction_no":"<txn>"}}'` — **empty body = bogus TEST payment**; real channel/method/txn go in `payment_line`, custom display name in `gateway` (`schema orders.pay`) |
 | Delete an order (destructive → `--dry-run` first) | `orders delete --params '{"order_id":"<id>"}'` |
 | Fulfillment records CRUD / cancel / complete | `orders fulfillments …` → [references/fulfillments.md](references/fulfillments.md) |
-| Refund records (one order / store-wide) | `orders refunds …` → [references/refunds.md](references/refunds.md) |
+| Refund records (one order / store-wide / finish) | `orders refunds …` → [references/refunds.md](references/refunds.md) |
 | Fraud risk records (标记高风险) | `orders risks …` → [references/risks.md](references/risks.md) |
 | Payment transactions on an order (支付流水) | `orders transactions list --params '{"order_id":"<id>"}'` → [references/transactions.md](references/transactions.md) |
 | After-sales records (售后) | `orders post-sales …` → [references/post-sales.md](references/post-sales.md) |
@@ -287,7 +287,7 @@ orders refunds list-by-order --params '{"order_id":"220033"}' --jq '.data.record
 
 - [references/orders-create.md](references/orders-create.md) — manual/draft order creation: full nested body (required vs optional), required-vs-ask, minimal + fuller examples
 - [references/fulfillments.md](references/fulfillments.md) — fulfillment records: leaf CRUD, cancel/complete, body shapes
-- [references/refunds.md](references/refunds.md) — refund record body (split/itemized refunds), store-wide vs per-order lists
+- [references/refunds.md](references/refunds.md) — refund record body (split/itemized refunds), store-wide vs per-order lists, `finish` for custom-channel refunds
 - [references/risks.md](references/risks.md) — fraud risk records: level enum, details, CRUD
 - [references/transactions.md](references/transactions.md) — buyer payment transactions, status enum
 - [references/post-sales.md](references/post-sales.md) — after-sales records: list filters, delete

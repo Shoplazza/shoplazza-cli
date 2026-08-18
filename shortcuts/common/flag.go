@@ -13,14 +13,19 @@ const (
 	FlagFloat
 	FlagBool
 	FlagStringSlice
+	// FlagStringArray is a repeatable string flag that does NOT split on commas
+	// (unlike FlagStringSlice). Use it when a single value may legitimately
+	// contain commas, e.g. --option "Color:Red,Blue".
+	FlagStringArray
 )
 
 // Flag declares one CLI flag for a Shortcut.
 //
 // Default must be of the Go type implied by Type (string for FlagString, int
 // for FlagInt, float64 for FlagFloat, bool for FlagBool, []string for
-// FlagStringSlice) — or nil, in which case the Go zero value of the type is
-// used. The engine panics at startup if Default's runtime type does not match.
+// FlagStringSlice and FlagStringArray) — or nil, in which case the Go zero
+// value of the type is used. The engine panics at startup if Default's runtime
+// type does not match.
 type Flag struct {
 	Name        string
 	Short       string // optional one-char short alias (e.g. "t" for -t)
@@ -40,6 +45,7 @@ type FlagSet interface {
 	GetFloat(name string) float64
 	GetBool(name string) bool
 	GetStringSlice(name string) []string
+	GetStringArray(name string) []string
 	Changed(name string) bool
 }
 
@@ -81,6 +87,11 @@ func (f *cobraFlagSet) GetBool(name string) bool {
 
 func (f *cobraFlagSet) GetStringSlice(name string) []string {
 	v, _ := f.cmd.Flags().GetStringSlice(name)
+	return v
+}
+
+func (f *cobraFlagSet) GetStringArray(name string) []string {
+	v, _ := f.cmd.Flags().GetStringArray(name)
 	return v
 }
 

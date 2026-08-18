@@ -77,7 +77,7 @@ func TestParseSaigaAuthError(t *testing.T) {
 		want   string
 	}{
 		{403, `{"code":"user_denied","errors":["denied"]}`, "denied"},
-		{504, `{"code":"session_expired"}`, "expired"},
+		{400, `{"code":"session_expired"}`, "expired"},
 		{500, `{"code":"boom"}`, "authentication failed"},
 		{500, `not json`, "authentication failed"},
 	}
