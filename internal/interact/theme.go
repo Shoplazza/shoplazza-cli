@@ -83,7 +83,7 @@ func freeze() {
 	brandTitle = pick("#C62828", "#FF7A7A")
 }
 
-// Theme recolors Charm with the brand palette. The cursor stays brand red; the
+// theme recolors Charm with the brand palette. The cursor stays brand red; the
 // SELECTED row goes peach rather than a second red, so "where I am" and "what I
 // picked" never blur together.
 func theme() *huh.Theme {
@@ -120,7 +120,7 @@ func theme() *huh.Theme {
 	return t
 }
 
-// KeyMap adds esc alongside shift+tab for "go back a step".
+// keyMap adds esc alongside shift+tab for "go back a step".
 //
 // esc is safe to overload: huh enables its filter bindings conditionally
 // (SetFilter only while filtering, ClearFilter only when a stale filter
@@ -162,14 +162,14 @@ func NewForm(groups ...*huh.Group) *huh.Form {
 func Run(build func() *huh.Form) error {
 	if err := sized(build).Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
-			return &output.ExitError{Code: output.ExitCanceled}
+			return output.ErrCanceled()
 		}
 		return output.ErrInternal("interactive prompt failed: %v", err)
 	}
 	return nil
 }
 
-// Sized enforces the one hard rule about form height: the frame must never be
+// sized enforces the one hard rule about form height: the frame must never be
 // as tall as the terminal, or the renderer's trailing newline scrolls the first
 // line — the title — off screen.
 //
@@ -187,13 +187,13 @@ func sized(build func() *huh.Form) *huh.Form {
 // tested: pass a synthetic terminal size and assert the frame never fills it.
 // h <= 0 means "not a terminal", where sizing is huh's business.
 func sizedFor(build func() *huh.Form, w, h int) *huh.Form {
-	if h <= 0 || needed(build, w)+1 <= h {
+	if h <= 0 || neededRows(build, w)+1 <= h {
 		return build()
 	}
 	return build().WithHeight(h - 2)
 }
 
-// needed asks huh itself how tall a form wants to be: render it once, offline,
+// neededRows asks huh itself how tall a form wants to be: render it once, offline,
 // against an absurdly TALL terminal and count the lines.
 //
 // The WIDTH must be the real one — lipgloss pads every line out to it, so a
@@ -201,7 +201,7 @@ func sizedFor(build func() *huh.Form, w, h int) *huh.Form {
 //
 // Verified: the probe does not write back into the bound variables (huh only
 // does that on field submit), so passing the real builder is safe.
-func needed(build func() *huh.Form, w int) int {
+func neededRows(build func() *huh.Form, w int) int {
 	f := build()
 	f.Init()
 	m, _ := f.Update(tea.WindowSizeMsg{Width: w, Height: 9999})

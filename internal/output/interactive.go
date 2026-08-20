@@ -12,7 +12,8 @@ var interactiveOffEnv = []string{"SHOPLAZZA_CLI_NO_INTERACTIVE", "CI"}
 // terminal). It takes any so one implementation serves both writers (Progress)
 // and *os.File streams (the gate below): values with no Stat method, such as a
 // bytes.Buffer, are never terminals, and neither are files that are not
-// character devices (pipes, redirects). Pure stdlib, no x/term dependency.
+// character devices (pipes, redirects). Stdlib only — the interaction package
+// pulls in x/term for terminal SIZE, but this check needs nothing beyond Stat.
 func IsTerminal(v any) bool {
 	f, ok := v.(interface{ Stat() (os.FileInfo, error) })
 	if !ok {

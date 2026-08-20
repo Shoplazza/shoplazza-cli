@@ -76,12 +76,16 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			// re-expand. Invalid values already failed above, before any prompt.
 			// plan() returns no steps for pipes, CI and agents, so everything
 			// below stays exactly as it was.
+			// One reading of "is this the UAT fast path", used both to skip the
+			// wizard and to exempt a store login from needing scopes.
+			effectiveUAT := firstNonEmpty(uat, os.Getenv("SHOPLAZZA_UAT"))
+
 			wizardRan := false
 			if steps := plan(loginFlags{
 				storeDomain: storeDomain,
 				domain:      domain,
 				scope:       scope,
-				uat:         firstNonEmpty(uat, os.Getenv("SHOPLAZZA_UAT")),
+				uat:         effectiveUAT,
 				mergeScopes: mergeScopes,
 			}, cmdutil.Interactive(f)); len(steps) > 0 {
 				if err := runLoginWizard(steps, &storeDomain, &domain); err != nil {
@@ -118,7 +122,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			// Interactive store login requires scopes; the --uat / SHOPLAZZA_UAT path
 			// is exempt (the store token inherits the UAT's account scopes).
-			if normalizedStore != "" && len(effectiveScopes) == 0 && uat == "" && os.Getenv("SHOPLAZZA_UAT") == "" {
+			if normalizedStore != "" && len(effectiveScopes) == 0 && effectiveUAT == "" {
 				return output.ErrWithHint(
 					output.ExitValidation, output.TypeValidation,
 					"selecting a store with --store-domain requires at least one scope",

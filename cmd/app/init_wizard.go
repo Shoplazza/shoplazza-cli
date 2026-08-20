@@ -59,7 +59,7 @@ func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags
 		return fl, err
 	}
 
-	steps := plan(fl, true)
+	steps := stepsFor(fl)
 	if len(steps) == 0 {
 		return fl, nil
 	}

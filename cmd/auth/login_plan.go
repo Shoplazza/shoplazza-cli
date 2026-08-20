@@ -35,6 +35,7 @@ type loginFlags struct {
 // derived once here rather than again per screen.
 func plan(fl loginFlags, gateOpen bool) []loginStep {
 	// No human present (pipe / CI / agent, or the escape hatch): ask nothing,
+	// so a scripted `auth login` behaves exactly as it did before the wizard.
 	// ever. This is the core invariant — the non-interactive path must stay
 	// byte-for-byte what it was.
 	if !gateOpen {

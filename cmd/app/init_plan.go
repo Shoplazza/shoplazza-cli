@@ -40,11 +40,17 @@ type initFlags struct {
 // the decision rather than one here and another in each screen's hide func.
 func plan(fl initFlags, gateOpen bool) []initStep {
 	// No human present (pipe / CI / agent, or the escape hatch): ask nothing,
-	// ever. This is the core invariant — the non-interactive path must stay
-	// byte-for-byte what it was.
+	// ever. Every other rule lives in stepsFor.
 	if !gateOpen {
 		return nil
 	}
+	return stepsFor(fl)
+}
+
+// stepsFor is the gate-free half: which screens the flags leave unanswered.
+// The wizard calls this directly — it only ever runs with the gate open, and
+// passing a literal true would make the parameter a lie.
+func stepsFor(fl initFlags) []initStep {
 	// Link mode is complete on its own: resolveAppRef derives the owning partner
 	// FROM the app via /info, so even screen 1 has nothing to add.
 	if fl.clientID != "" {

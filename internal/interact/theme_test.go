@@ -96,10 +96,10 @@ func TestSizedFor_NoTerminalDefersToHuh(t *testing.T) {
 	}
 }
 
-// TestNeeded_DoesNotMutateBindings guards the probe. sizedFor renders the form
+// TestNeededRows_DoesNotMutateBindings guards the probe. sizedFor renders the form
 // once to ask how tall it wants to be; if that wrote answers back into the
 // caller's variables, every pre-filled flag would be silently clobbered.
-func TestNeeded_DoesNotMutateBindings(t *testing.T) {
+func TestNeededRows_DoesNotMutateBindings(t *testing.T) {
 	text := "my-store.myshoplaza.com"
 	sel := []string{"products"}
 	build := func() *huh.Form {
@@ -110,7 +110,7 @@ func TestNeeded_DoesNotMutateBindings(t *testing.T) {
 				Value(&sel)),
 		)
 	}
-	_ = needed(build, 80)
+	_ = neededRows(build, 80)
 	if text != "my-store.myshoplaza.com" {
 		t.Errorf("probe mutated the input binding: %q", text)
 	}
