@@ -315,9 +315,12 @@ shoplazza update --check    # 仅报告当前/最新版本，不安装
 |------|------|
 | `SHOPLAZZA_UAT` | 用于非交互式登录的 User Access Token（等同 `--uat`） |
 | `SHOPLAZZA_CLI_PROFILE` | 指定使用的 profile（`--profile` 优先） |
+| `SHOPLAZZA_CLI_NO_INTERACTIVE` | 关闭交互式提问（会分配伪终端的 Agent harness 需设置） |
 | `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | 关闭后台新版本检测 |
 | `SHOPLAZZA_CLI_NO_META_UPDATE` | 关闭后台 API 元数据刷新 |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | 覆盖认证服务基础 URL（默认：`https://partners.shoplazza.com`） |
+
+交互式提问按终端自动判定，且只能关、不能强开 — 不存在对应的 `--interactive` flag。
 
 ## 安全与风险提示
 

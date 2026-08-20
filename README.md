@@ -318,9 +318,12 @@ shoplazza update --check    # report current/latest versions only, no install
 |----------|-------------|
 | `SHOPLAZZA_UAT` | User Access Token for non-interactive login (equivalent to `--uat`) |
 | `SHOPLAZZA_CLI_PROFILE` | Profile to use (overridden by `--profile`) |
+| `SHOPLAZZA_CLI_NO_INTERACTIVE` | Disable interactive prompts (set it in Agent harnesses that allocate a pty) |
 | `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | Disable the background new-version check |
 | `SHOPLAZZA_CLI_NO_META_UPDATE` | Disable background API-metadata refreshes |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | Override auth base URL (default: `https://partners.shoplazza.com`) |
+
+Interactive prompts are auto-detected from the terminal and can only be switched **off** — there is no `--interactive` flag to force them on.
 
 ## Security & Risk Warnings
 

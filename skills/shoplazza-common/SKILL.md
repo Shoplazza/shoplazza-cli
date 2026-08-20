@@ -179,6 +179,16 @@ When acting as an AI agent to log the user in: run `auth login` in the **backgro
 `--poll-interval` / `--timeout`, defaults 2s / 300s), **extract the authorization URL from its
 output and hand it to the user**; the command returns on its own after the user authorizes.
 
+**Missing flags become on-screen questions when a terminal is present.** `auth login` (and
+`app init`) asks for what you left out only when stdin **and** stderr are both real terminals and
+neither `SHOPLAZZA_CLI_NO_INTERACTIVE` nor `CI` is set (present and non-empty = set); otherwise a
+missing flag is an error pointing at that flag. **A harness that hands the child process a pty
+passes that check** and the command waits on a keypress that never comes — export
+`SHOPLAZZA_CLI_NO_INTERACTIVE=1` once for the session if yours does.
+
+It only switches prompting **off**. There is no `--interactive` flag and no env var to force it
+on — deliberately, since forcing it would hang for good wherever no terminal exists.
+
 **Re-login for a missing scope? Pass `--merge-scopes`.** Scopes are replaced, not merged
 (see Login above); requesting only the missing scope drops everything else mid-task. If the
 flag is unknown (older CLI), fall back to building the union: `auth scopes` → granted, then
@@ -191,6 +201,10 @@ If you already ran `auth login` on another machine and have an account UAT, skip
 ```bash
 shoplazza auth login --uat <UAT>     # or set env SHOPLAZZA_UAT=<UAT>
 ```
+
+`--uat` is promptless whatever the terminal looks like — a second, whole-command off-switch on
+top of the gate above. Browser logins driven from a pty-allocating harness still need
+`SHOPLAZZA_CLI_NO_INTERACTIVE=1`.
 
 ### Store switching and status
 
