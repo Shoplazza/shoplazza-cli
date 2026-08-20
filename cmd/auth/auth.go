@@ -9,6 +9,7 @@ import (
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/spf13/cobra"
@@ -57,12 +58,41 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 						"Run 'shoplazza auth scopes' to see all supported scopes")
 				}
 			}
-			domainScopes, err := internalauth.ExpandDomains(domain)
-			if err != nil {
-				return output.ErrWithHint(
-					output.ExitValidation, output.TypeValidation, err.Error(),
-					"Pass a top-level CLI command name as --domain, e.g. products, orders, shop")
+			expandDomains := func(domains []string) ([]string, error) {
+				scopes, err := internalauth.ExpandDomains(domains)
+				if err != nil {
+					return nil, output.ErrWithHint(
+						output.ExitValidation, output.TypeValidation, err.Error(),
+						"Pass a top-level CLI command name as --domain, e.g. products, orders, shop")
+				}
+				return scopes, nil
 			}
+			domainScopes, err := expandDomains(domain)
+			if err != nil {
+				return err
+			}
+
+			// Interactive path: ask only for what the flags left unanswered, then
+			// re-expand. Invalid values already failed above, before any prompt.
+			// plan() returns no steps for pipes, CI and agents, so everything
+			// below stays exactly as it was.
+			wizardRan := false
+			if steps := plan(loginFlags{
+				storeDomain: storeDomain,
+				domain:      domain,
+				scope:       scope,
+				uat:         firstNonEmpty(uat, os.Getenv("SHOPLAZZA_UAT")),
+				mergeScopes: mergeScopes,
+			}, loginGateOpen(f)); len(steps) > 0 {
+				if err := runLoginWizard(steps, storeDomain, &domain); err != nil {
+					return err
+				}
+				if domainScopes, err = expandDomains(domain); err != nil {
+					return err
+				}
+				wizardRan = true
+			}
+
 			// scope is OPTIONAL: pure-account login (no flags) is valid.
 			effectiveScopes := internalauth.DedupePreserveOrder(append(append([]string{}, scope...), domainScopes...))
 
@@ -97,13 +127,19 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
 
-			fmt.Fprintf(f.IOStreams.ErrOut, "Summary:\n")
-			if normalizedStore != "" {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      %s\n", normalizedStore)
+			// After the wizard the summary is the card, which expands the "all"
+			// sentinel into the domains it granted. Untouched otherwise.
+			if wizardRan {
+				interact.Summary(f.IOStreams.ErrOut, loginSummaryRows(normalizedStore, domain, scope)...)
 			} else {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      (account only)\n")
+				fmt.Fprintf(f.IOStreams.ErrOut, "Summary:\n")
+				if normalizedStore != "" {
+					fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      %s\n", normalizedStore)
+				} else {
+					fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      (account only)\n")
+				}
+				fmt.Fprintf(f.IOStreams.ErrOut, "  Scopes (%d): %s\n", len(effectiveScopes), strings.Join(effectiveScopes, ", "))
 			}
-			fmt.Fprintf(f.IOStreams.ErrOut, "  Scopes (%d): %s\n", len(effectiveScopes), strings.Join(effectiveScopes, ", "))
 			if keptFromGrant > 0 {
 				fmt.Fprintf(f.IOStreams.ErrOut, "  (--merge-scopes kept %d previously granted scope(s))\n", keptFromGrant)
 			}
@@ -193,6 +229,16 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().IntVar(&pollIntervalSec, "poll-interval", 2, "Web-flow poll interval in seconds.")
 	cmd.Flags().BoolVar(&mergeScopes, "merge-scopes", false, "Also re-request every previously granted scope (authorization replaces the grant server-side, so a narrow re-login otherwise revokes scopes parallel tasks rely on).")
 	return cmd
+}
+
+// firstNonEmpty returns the first non-empty string, or "".
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // unionWithGranted merges previously granted account scopes into a scope
