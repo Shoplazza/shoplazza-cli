@@ -379,3 +379,39 @@ func TestRunInit_TargetExists_Validation(t *testing.T) {
 		t.Fatalf("expected 'already exists', got %q", ee.Error())
 	}
 }
+
+// TestRunInit_TargetExists_CreateMode_NoRemoteApp locks the create-path ordering:
+// the --name slug is checked against the filesystem BEFORE the app is created
+// server-side. A late check would leave an orphaned remote app (there is no
+// `app delete`) with no local project to show for it.
+func TestRunInit_TargetExists_CreateMode_NoRemoteApp(t *testing.T) {
+	dest := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dest, "my-app"), 0o755); err != nil { // slug("My App")
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Any request at all means the pre-check did not run first; the create POST
+		// (/partners/<pid>/apps) is the one that would really create the app.
+		t.Errorf("dashboard must not be called once the target dir collides, got %s %s", r.Method, r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	d := app.NewDashboard(client.New(srv.URL), "ptok")
+
+	p, _ := project.Open(dest)
+	var buf bytes.Buffer
+	err := runInit(context.Background(), d, p, initOpts{Create: true, Name: "My App"}, &buf, io.Discard, "json", "")
+	if err == nil {
+		t.Fatal("expected validation error when the target sub-dir already exists")
+	}
+	var ee *output.ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *output.ExitError, got %T: %v", err, err)
+	}
+	if ee.Code != output.ExitValidation {
+		t.Fatalf("expected validation exit code %d, got %d", output.ExitValidation, ee.Code)
+	}
+	if !strings.Contains(ee.Error(), "already exists") {
+		t.Fatalf("expected 'already exists', got %q", ee.Error())
+	}
+}

@@ -61,6 +61,21 @@ func ensureGitignore(root, entry string) error {
 	return os.WriteFile(path, []byte(body), 0o644)
 }
 
+// targetDirFor slugifies base into a sub-directory of root and fails when that
+// directory already exists — init clones the app template into it.
+func targetDirFor(root, base string) (dirName, targetDir string, err error) {
+	dirName = sanitizeConfigName(base) // slugify (lowercase, hyphenate) — mirrors v1 slugify
+	targetDir = filepath.Join(root, dirName)
+	if _, statErr := os.Stat(targetDir); statErr == nil {
+		return dirName, targetDir, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"a directory named '"+dirName+"' already exists at "+targetDir,
+			"choose a different --name, or remove the existing directory")
+	} else if !os.IsNotExist(statErr) {
+		return dirName, targetDir, output.ErrInternal("failed to check target dir: %v", statErr)
+	}
+	return dirName, targetDir, nil
+}
+
 func runInit(ctx context.Context, d *app.Dashboard, p *project.Project, o initOpts, w, errW io.Writer, format, jq string) (err error) {
 	// Link mode derives the owning partner FROM the app via /info (see
 	// resolveAppRef) — a --partner flag is never consulted there. Warn instead
@@ -68,6 +83,16 @@ func runInit(ctx context.Context, d *app.Dashboard, p *project.Project, o initOp
 	// likewise only used by create mode).
 	if !o.Create && o.Partner != "" {
 		fmt.Fprintln(errW, "warning: --partner is ignored when linking an existing app (the partner is derived from the app info)")
+	}
+
+	// Create mode resolves by really creating the app server-side, so the target
+	// dir must be checked FIRST: a late failure would leave an orphaned remote app
+	// (there is no `app delete`) with no local project. The link path's calls are
+	// read-only, so it only needs the post-resolve check below.
+	if o.Create && o.Name != "" {
+		if _, _, dErr := targetDirFor(p.Root, o.Name); dErr != nil {
+			return dErr
+		}
 	}
 
 	// Live elapsed timer per phase on a TTY (output.Progress) — resolving/creating
@@ -103,14 +128,11 @@ func runInit(ctx context.Context, d *app.Dashboard, p *project.Project, o initOp
 	if base == "" {
 		base = clientID
 	}
-	dirName := sanitizeConfigName(base) // slugify (lowercase, hyphenate) — mirrors v1 slugify
-	targetDir := filepath.Join(p.Root, dirName)
-	if _, statErr := os.Stat(targetDir); statErr == nil {
-		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-			"a directory named '"+dirName+"' already exists at "+targetDir,
-			"choose a different --name, or remove the existing directory")
-	} else if !os.IsNotExist(statErr) {
-		return output.ErrInternal("failed to check target dir: %v", statErr)
+	// Backstop: base is the server-returned name in create mode, which can slugify
+	// differently than the --name already checked above.
+	dirName, targetDir, dErr := targetDirFor(p.Root, base)
+	if dErr != nil {
+		return dErr
 	}
 
 	step = prog.Begin("[init] fetching app template")
