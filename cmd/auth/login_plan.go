@@ -5,9 +5,16 @@ package auth
 // never shown pre-filled for confirmation.
 type loginStep string
 
-// stepDomains is the business-domain multi-select. Flag: --domain (--scope
-// answers the same question in the other vocabulary, so it suppresses it too).
-const stepDomains loginStep = "domains"
+const (
+	// stepStore is the store input. Flag: -s. Blank is a real answer, not a
+	// non-answer: it means "log in to the account only", the same thing as not
+	// passing -s — which is why account-only login needs no flag of its own.
+	stepStore loginStep = "store"
+
+	// stepDomains is the business-domain multi-select. Flag: --domain (--scope
+	// answers the same question in the other vocabulary, so it suppresses it too).
+	stepDomains loginStep = "domains"
+)
 
 // loginFlags is the flag state that decides which screens get asked. uat covers
 // both --uat and SHOPLAZZA_UAT: same caller, same fast path.
@@ -24,8 +31,8 @@ type loginFlags struct {
 // testable — at the command seam a screen skipped by its flag and a screen
 // skipped by a closed gate are indistinguishable.
 //
-// The wizard calls this to decide what to build, so there is one derivation of
-// the decision rather than one here and another in each screen's hide func.
+// The wizard builds exactly the screens this returns, so the decision is
+// derived once here rather than again per screen.
 func plan(fl loginFlags, gateOpen bool) []loginStep {
 	// No human present (pipe / CI / agent, or the escape hatch): ask nothing,
 	// ever. This is the core invariant — the non-interactive path must stay
@@ -43,6 +50,11 @@ func plan(fl loginFlags, gateOpen bool) []loginStep {
 	}
 
 	var steps []loginStep
+	// Which store, before what it may reach. Order matters: the wizard builds
+	// its groups from this slice and huh walks them in build order.
+	if fl.storeDomain == "" {
+		steps = append(steps, stepStore)
+	}
 	// Permissions are asked as domains only. --scope states the answer in
 	// scopes, which is just as complete, so either flag closes the screen.
 	if len(fl.domain) == 0 && len(fl.scope) == 0 {

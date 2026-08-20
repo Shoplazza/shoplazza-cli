@@ -84,7 +84,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 				uat:         firstNonEmpty(uat, os.Getenv("SHOPLAZZA_UAT")),
 				mergeScopes: mergeScopes,
 			}, loginGateOpen(f)); len(steps) > 0 {
-				if err := runLoginWizard(steps, storeDomain, &domain); err != nil {
+				if err := runLoginWizard(steps, &storeDomain, &domain); err != nil {
 					return err
 				}
 				if domainScopes, err = expandDomains(domain); err != nil {

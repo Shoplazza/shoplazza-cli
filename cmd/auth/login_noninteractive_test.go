@@ -49,8 +49,9 @@ func exitDetail(t *testing.T, err error) (int, string, string) {
 	return ee.Code, ee.Detail.Type, ee.Detail.Hint
 }
 
-// webFlowServer mocks the browser flow endpoints a login without --uat hits,
-// counting requests so a fail-fast case can assert it made none.
+// webFlowServer mocks the endpoints a login hits — the browser flow, the UAT
+// fast path's /me, and the store exchange — counting requests so a fail-fast
+// case can assert it made none.
 func webFlowServer(t *testing.T, hits *atomic.Int32) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -61,23 +62,38 @@ func webFlowServer(t *testing.T, hits *atomic.Int32) *httptest.Server {
 			_ = json.NewEncoder(w).Encode(map[string]any{"session_id": "sess1", "authorize_url": "https://example.com/authorize"})
 		case "/api/saiga/cli/auth/sessions/sess1/token":
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "uat": "uat_web", "account": "alice@example.com"})
+		case "/api/saiga/cli/auth/me":
+			_ = json.NewEncoder(w).Encode(map[string]any{"account": "alice@example.com", "user_id": "u-1"})
+		case "/api/saiga/cli/auth/exchange/store-at":
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success", "data": map[string]any{
+				"access_token": "at-1", "store_id": "100001", "store_domain": "my-store.myshoplaza.com",
+				"granted_scopes": []string{"read_product"}, "at_expires_at": "2099-01-01T00:00:00Z",
+			}})
 		default:
 			t.Errorf("unexpected path %s", r.URL.Path)
 		}
 	}))
 }
 
-// Bare run and the two permission flags each go straight through to the browser
-// flow, exactly as before the wizard existed.
+// Every flag combination the two screens bind to goes straight through, exactly
+// as before the wizard existed: no prompt, the same envelope. The screens are
+// suppressed by the closed gate here, so this covers the combinations that
+// would otherwise ask (bare run, -s alone answers only screen one) as well as
+// the ones a terminal would also run unprompted.
 func TestLogin_OffTTY_RunsWithoutPrompting(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		args []string
+		flow string
 	}{
-		{"bare run", []string{"login"}},
-		{"domain only", []string{"login", "--domain", "products"}},
-		{"domain all", []string{"login", "--domain", "all"}},
-		{"scope only", []string{"login", "--scope", "read_product"}},
+		{"bare run", []string{"login"}, "web"},
+		{"domain only", []string{"login", "--domain", "products"}, "web"},
+		{"domain all", []string{"login", "--domain", "all"}, "web"},
+		{"scope only", []string{"login", "--scope", "read_product"}, "web"},
+		{"store and domain", []string{"login", "-s", "my-store.myshoplaza.com", "--domain", "products"}, "web"},
+		{"store and scope", []string{"login", "-s", "my-store.myshoplaza.com", "--scope", "read_product"}, "web"},
+		{"uat", []string{"login", "--uat", "uat_ci"}, "uat"},
+		{"uat and store", []string{"login", "--uat", "uat_ci", "-s", "my-store.myshoplaza.com"}, "uat"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var hits atomic.Int32
@@ -92,8 +108,8 @@ func TestLogin_OffTTY_RunsWithoutPrompting(t *testing.T) {
 			if err := json.Unmarshal(out.Bytes(), &env); err != nil {
 				t.Fatalf("stdout is not the result envelope: %v\n%s", err, out.String())
 			}
-			if env["ok"] != true || env["action"] != "login" || env["flow"] != "web" {
-				t.Errorf("envelope = %v, want the pre-wizard login envelope", env)
+			if env["ok"] != true || env["action"] != "login" || env["flow"] != tc.flow {
+				t.Errorf("envelope = %v, want the pre-wizard login envelope with flow %q", env, tc.flow)
 			}
 		})
 	}

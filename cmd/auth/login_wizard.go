@@ -34,38 +34,65 @@ func loginGateOpen(f *cmdutil.Factory) bool {
 // on the command line. Nothing here sends a request: every option comes from
 // the embedded scope map.
 //
-// storeDomain is the -s value, read only by the validation rule below: a store
-// login is the case where zero domains cannot work.
-func runLoginWizard(steps []loginStep, storeDomain string, domain *[]string) error {
+// A screen plan() skipped writes nothing back: its flag stays exactly as the
+// command line set it.
+func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) error {
 	domains := internalauth.TopLevelDomains()
+	askStore := slices.Contains(steps, stepStore)
+	askDomains := slices.Contains(steps, stepDomains)
+
+	store := *storeDomain
 	var selected []string
 
-	// Every step is a group of ONE form — separate forms per step cannot go
-	// back. A step plan() did not select is hidden, so the hide funcs read that
-	// one decision instead of re-deriving it.
+	// Every step that runs is a group of ONE form — separate forms cannot go back.
+	//
+	// Only planned steps get a group. WithHideFunc would read better, but huh
+	// v1.0.0 consults it only when moving BETWEEN groups, so a hidden FIRST
+	// group still draws (measured ~0.5s, with the -s value in the box) before
+	// Init's nextGroup lands. Not building it keeps "given means the step never
+	// appears" literally true.
 	build := func() *huh.Form {
-		return interact.NewForm(
-			huh.NewGroup(
+		var groups []*huh.Group
+		// The store, typed straight in. Blank is the skip — it means an
+		// account-only login, exactly what omitting -s means. No preceding
+		// "account or store?" question: blank already says it.
+		if askStore {
+			groups = append(groups, huh.NewGroup(
+				huh.NewInput().
+					Title("Which store?").
+					Description("Leave blank to log in to the account only.").
+					Placeholder("my-store.myshoplaza.com").
+					Value(&store),
+			))
+		}
+		if askDomains {
+			groups = append(groups, huh.NewGroup(
 				huh.NewMultiSelect[string]().
 					Title("Which domains do you need access to?").
 					Description("Each domain grants the scopes its commands need.").
 					Options(domainOptions(domains)...).
 					Validate(func(v []string) error {
-						if len(v) == 0 && strings.TrimSpace(storeDomain) != "" {
+						// Read the store live, not as it was when this group was
+						// built: the user may have gone back and changed it.
+						if len(v) == 0 && strings.TrimSpace(store) != "" {
 							return fmt.Errorf("a store login needs at least one domain")
 						}
 						return nil
 					}).
 					Value(&selected),
-			).WithHideFunc(func() bool { return !slices.Contains(steps, stepDomains) }),
-		)
+			))
+		}
+		return interact.NewForm(groups...)
 	}
 
 	if err := interact.Run(build); err != nil {
 		return err
 	}
 
-	if slices.Contains(steps, stepDomains) {
+	if askStore {
+		*storeDomain = strings.TrimSpace(store)
+	}
+	if askDomains {
 		// "all" checked, or every domain checked one by one, collapses to the
 		// sentinel the flag and the server already speak.
 		if slices.Contains(selected, internalauth.DomainAll) || len(selected) == len(domains) {
