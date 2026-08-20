@@ -129,7 +129,7 @@ func Execute() (exitCode int) {
 
 	// After the command output, print a one-line notice to stderr for interactive use
 	// (printed on both success and failure paths — never touches stdout).
-	if pendingUpdate != nil && stderrIsTTY() {
+	if pendingUpdate != nil && output.IsTerminal(os.Stderr) {
 		fmt.Fprintln(os.Stderr, "\n"+pendingUpdate.Message())
 	}
 
