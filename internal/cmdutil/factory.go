@@ -64,7 +64,9 @@ func NewDefaultFactory() *Factory {
 
 // Interactive reports whether this invocation may draw prompts: the factory's
 // stdin and stderr must both be real terminals, and neither escape hatch set.
-// Lives here because Factory owns the streams — cmd/auth and cmd/app both had a
+// A stream that is not an *os.File carries no TTY (a test buffer, an in-memory
+// pipe), so a failed assertion closes the gate rather than guessing. Lives here
+// because Factory owns the streams — cmd/auth and cmd/app both had a
 // byte-identical copy of these four lines.
 func Interactive(f *Factory) bool {
 	in, inOK := f.IOStreams.In.(*os.File)
