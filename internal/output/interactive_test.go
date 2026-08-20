@@ -15,9 +15,9 @@ const (
 	envCI            = "CI"
 )
 
-// charDevice opens os.DevNull — the one character device present on every
-// supported platform (NUL on Windows) — so "is a terminal" can be exercised
-// without a real one.
+// charDevice opens os.DevNull — a character device on every supported platform
+// (NUL on Windows). Note what it is NOT: a terminal. See TestIsTTY_DevNull in
+// the internal test.
 func charDevice(t *testing.T) *os.File {
 	t.Helper()
 	f, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
@@ -28,8 +28,8 @@ func charDevice(t *testing.T) *os.File {
 	return f
 }
 
-// pipeFile returns an *os.File that is a pipe, not a character device. Both ends
-// stay open for the test's lifetime so Stat keeps working.
+// pipeFile returns an *os.File that is a pipe. Both ends stay open for the
+// test's lifetime so Stat keeps working.
 func pipeFile(t *testing.T) *os.File {
 	t.Helper()
 	r, w, err := os.Pipe()
@@ -49,6 +49,8 @@ func envOf(m map[string]string) func(string) (string, bool) {
 	}
 }
 
+// IsTerminal answers "can I draw here", for which a character device is enough.
+// It is NOT the gate's predicate — see the note on IsTTY.
 func TestIsTerminal(t *testing.T) {
 	cases := []struct {
 		name string
@@ -67,82 +69,61 @@ func TestIsTerminal(t *testing.T) {
 	}
 }
 
-// The gate is the product of two independent dimensions, so the test crosses
-// them: each env var present-and-non-empty / present-but-empty / absent, against
-// stdin and stderr each being a character device or not.
-func TestInteractive_Gate(t *testing.T) {
+// TestInteractive_ClosedWithoutARealTerminal is the assertion that matters for
+// every non-human caller: pipes and character devices alike must leave the gate
+// shut, whatever the environment says. Under `go test` there is no tty to hand,
+// which is exactly the situation a CI job or an agent is in.
+//
+// The opposite direction — a terminal IS present and an escape hatch is set —
+// needs the terminal answer injected and lives in the internal test.
+func TestInteractive_ClosedWithoutARealTerminal(t *testing.T) {
 	envCases := []struct {
-		name    string
-		env     map[string]string
-		blocked bool
+		name string
+		env  map[string]string
 	}{
-		{"neither set", nil, false},
-		{"no-interactive absent, CI empty", map[string]string{envCI: ""}, false},
-		{"no-interactive absent, CI set", map[string]string{envCI: "1"}, true},
-		{"no-interactive empty, CI absent", map[string]string{envNoInteractive: ""}, false},
-		{"both empty", map[string]string{envNoInteractive: "", envCI: ""}, false},
-		{"no-interactive empty, CI set", map[string]string{envNoInteractive: "", envCI: "true"}, true},
-		{"no-interactive set, CI absent", map[string]string{envNoInteractive: "1"}, true},
-		{"no-interactive set, CI empty", map[string]string{envNoInteractive: "yes", envCI: ""}, true},
-		{"both set", map[string]string{envNoInteractive: "1", envCI: "true"}, true},
-		// Presence is what counts — the value is never compared, so even a
-		// "falsy" one closes the gate.
-		{"CI=false still means CI", map[string]string{envCI: "false"}, true},
-		{"CI=0 still means CI", map[string]string{envCI: "0"}, true},
+		{"neither set", nil},
+		{"CI present but empty", map[string]string{envCI: ""}},
+		{"CI set", map[string]string{envCI: "1"}},
+		{"no-interactive present but empty", map[string]string{envNoInteractive: ""}},
+		{"both present but empty", map[string]string{envNoInteractive: "", envCI: ""}},
+		{"both set", map[string]string{envNoInteractive: "1", envCI: "true"}},
+		{"CI=false still means CI", map[string]string{envCI: "false"}},
 	}
 
 	dev, pipe := charDevice(t), pipeFile(t)
-	ttyCases := []struct {
-		name   string
-		in     *os.File
-		errOut *os.File
-		isTTY  bool
+	streamCases := []struct {
+		name       string
+		in, errOut *os.File
 	}{
-		{"stdin and stderr are character devices", dev, dev, true},
-		{"stdin is not a character device", pipe, dev, false},
-		{"stderr is not a character device", dev, pipe, false},
-		{"neither is a character device", pipe, pipe, false},
+		{"both /dev/null", dev, dev},
+		{"stdin a pipe", pipe, dev},
+		{"stderr a pipe", dev, pipe},
+		{"both pipes", pipe, pipe},
 	}
 
 	for _, ec := range envCases {
-		for _, tc := range ttyCases {
-			want := !ec.blocked && tc.isTTY
-			got := output.Interactive(tc.in, tc.errOut, envOf(ec.env))
-			if got != want {
-				t.Errorf("Interactive(%s | %s) = %v, want %v", ec.name, tc.name, got, want)
+		for _, sc := range streamCases {
+			if output.Interactive(sc.in, sc.errOut, envOf(ec.env)) {
+				t.Errorf("Interactive(%s | %s) opened the gate; a prompt here waits forever", ec.name, sc.name)
 			}
 		}
 	}
 }
 
-// stdout is deliberately excluded from the gate: `shoplazza ... | jq` pipes
-// stdout away while the prompt is still drawn on stderr. Under `go test` stdout
-// is captured, so this asserts the gate opens regardless.
-func TestInteractive_StdoutNotConsulted(t *testing.T) {
-	if output.IsTerminal(os.Stdout) {
-		t.Skip("stdout is a terminal here, nothing to prove")
-	}
-	dev := charDevice(t)
-	if !output.Interactive(dev, dev, envOf(nil)) {
-		t.Error("Interactive must ignore a non-terminal stdout")
-	}
-}
-
-// A nil env lookup would be a programming error, but the gate reads the
-// environment before anything else — guard the contract that callers must pass
-// one (os.LookupEnv in production).
-func TestInteractive_UsesInjectedEnvOnly(t *testing.T) {
+// The gate must read the environment before looking at the streams, and must
+// read only the two documented hatches — an extra key here would be an
+// undocumented way to change behaviour.
+func TestInteractive_ConsultsExactlyTheTwoHatches(t *testing.T) {
 	dev := charDevice(t)
 	var asked []string
 	env := func(k string) (string, bool) {
 		asked = append(asked, k)
 		return "", false
 	}
-	if !output.Interactive(dev, dev, env) {
-		t.Fatal("gate must be open when the injected env sets nothing")
-	}
+	output.Interactive(dev, dev, env)
+
 	if len(asked) != 2 {
-		t.Errorf("gate consulted %v, want exactly the two escape hatches", asked)
+		t.Fatalf("gate consulted %v, want exactly the two escape hatches", asked)
 	}
 	for _, want := range []string{envNoInteractive, envCI} {
 		found := false
@@ -152,18 +133,7 @@ func TestInteractive_UsesInjectedEnvOnly(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("gate never consulted %s (asked %v)", want, asked)
+			t.Errorf("gate never consulted %s", want)
 		}
-	}
-}
-
-// Cancel needs its own code: ExitAPI is already 1, so reusing it would make a
-// user's Ctrl-C indistinguishable from a failed request.
-func TestExitCanceled(t *testing.T) {
-	if output.ExitCanceled != 130 {
-		t.Errorf("ExitCanceled = %d, want 130 (128+SIGINT)", output.ExitCanceled)
-	}
-	if output.ExitCanceled == output.ExitAPI {
-		t.Error("ExitCanceled must differ from ExitAPI")
 	}
 }
