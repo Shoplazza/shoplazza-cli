@@ -9,6 +9,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/migrate"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // IOStreams groups command IO handles.
@@ -59,4 +60,14 @@ func NewDefaultFactory() *Factory {
 		Client:     client.New(""),
 		AuthClient: client.New(authBaseURL),
 	}
+}
+
+// Interactive reports whether this invocation may draw prompts: the factory's
+// stdin and stderr must both be real terminals, and neither escape hatch set.
+// Lives here because Factory owns the streams — cmd/auth and cmd/app both had a
+// byte-identical copy of these four lines.
+func Interactive(f *Factory) bool {
+	in, inOK := f.IOStreams.In.(*os.File)
+	errOut, errOK := f.IOStreams.ErrOut.(*os.File)
+	return inOK && errOK && output.Interactive(in, errOut, os.LookupEnv)
 }

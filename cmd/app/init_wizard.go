@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
@@ -32,17 +30,6 @@ const (
 // nameColWidth bounds the first column of the two-column pickers so one long
 // name cannot push every client_id off a narrow terminal.
 const nameColWidth = 32
-
-// initGateOpen reports whether a human is there to answer prompts, reusing the
-// single gate predicate in internal/output rather than testing terminals again.
-// Streams that are not *os.File — every test factory, and anything captured
-// in-process — can be neither read for keystrokes nor drawn on, so they close
-// the gate.
-func initGateOpen(f *cmdutil.Factory) bool {
-	in, inOK := f.IOStreams.In.(*os.File)
-	errOut, errOK := f.IOStreams.ErrOut.(*os.File)
-	return inOK && errOK && output.Interactive(in, errOut, os.LookupEnv)
-}
 
 // wizardInit asks the screens plan() selected and returns the flags as if the
 // answers had been typed on the command line, so runInit sees no difference.

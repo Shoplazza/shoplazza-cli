@@ -32,7 +32,7 @@ var (
 	brandDarkGray = lipgloss.Color("#4C5D66")
 )
 
-// Colors that depend on the terminal background, frozen by WarmUp.
+// Colors that depend on the terminal background, frozen by warmUp.
 var (
 	warm sync.Once
 
@@ -46,7 +46,7 @@ var (
 	brandTitle lipgloss.Color
 )
 
-// WarmUp freezes the palette against the terminal, once, before anything draws.
+// warmUp freezes the palette against the terminal, once, before anything draws.
 //
 // Why not lipgloss.AdaptiveColor: it resolves lazily, at Render time, sending
 // the terminal an OSC-11 background query plus a cursor position report —
@@ -56,7 +56,7 @@ var (
 // init would make `... | jq` and every unrelated command pay for a terminal
 // query they never use. Interactive commands call this on the interactive path
 // only; every accessor below calls it too, so it can never be skipped.
-func WarmUp() { warm.Do(freeze) }
+func warmUp() { warm.Do(freeze) }
 
 func freeze() {
 	// Probe BOTH channels. Our own colors are frozen against stderr (where
@@ -86,8 +86,8 @@ func freeze() {
 // Theme recolors Charm with the brand palette. The cursor stays brand red; the
 // SELECTED row goes peach rather than a second red, so "where I am" and "what I
 // picked" never blur together.
-func Theme() *huh.Theme {
-	WarmUp()
+func theme() *huh.Theme {
+	warmUp()
 	t := huh.ThemeCharm()
 
 	t.Focused.Title = t.Focused.Title.Foreground(brandTitle).Bold(true)
@@ -126,7 +126,7 @@ func Theme() *huh.Theme {
 // (SetFilter only while filtering, ClearFilter only when a stale filter
 // remains), disables Prev while filtering, and matches those cases earlier. So
 // esc escalates — exit filter, then clear filter, then go back a step.
-func KeyMap() *huh.KeyMap {
+func keyMap() *huh.KeyMap {
 	km := huh.NewDefaultKeyMap()
 	back := key.NewBinding(key.WithKeys("shift+tab", "esc"), key.WithHelp("esc", "back"))
 	km.Input.Prev = back
@@ -146,12 +146,12 @@ func KeyMap() *huh.KeyMap {
 // Pass every step as a group of ONE form. Separate forms per step cannot go
 // back; conditional steps use WithHideFunc instead.
 func NewForm(groups ...*huh.Group) *huh.Form {
-	WarmUp()
+	warmUp()
 	return huh.NewForm(groups...).
 		WithInput(os.Stdin).
 		WithOutput(os.Stderr).
-		WithTheme(Theme()).
-		WithKeyMap(KeyMap())
+		WithTheme(theme()).
+		WithKeyMap(keyMap())
 }
 
 // Run renders build's form at a safe height and translates the outcome:
@@ -160,7 +160,7 @@ func NewForm(groups ...*huh.Group) *huh.Form {
 // internal error. build must construct fresh groups on each call: Sized may
 // call it twice.
 func Run(build func() *huh.Form) error {
-	if err := Sized(build).Run(); err != nil {
+	if err := sized(build).Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
 			return &output.ExitError{Code: output.ExitCanceled}
 		}
@@ -178,8 +178,15 @@ func Run(build func() *huh.Form) error {
 // and the title is lost. So leave it alone when it fits, cap it when it does
 // not. No estimate, no magic constant — a fixed WithHeight is worse than
 // nothing on a short terminal.
-func Sized(build func() *huh.Form) *huh.Form {
+func sized(build func() *huh.Form) *huh.Form {
 	w, h := termSize()
+	return sizedFor(build, w, h)
+}
+
+// sizedFor is the decision, split out from the terminal read so it can be
+// tested: pass a synthetic terminal size and assert the frame never fills it.
+// h <= 0 means "not a terminal", where sizing is huh's business.
+func sizedFor(build func() *huh.Form, w, h int) *huh.Form {
 	if h <= 0 || needed(build, w)+1 <= h {
 		return build()
 	}

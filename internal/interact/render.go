@@ -11,10 +11,10 @@ import (
 // Styles for the output a command prints OUTSIDE the form — the summary card,
 // status lines, closing hints. They live here with the form theme so the two
 // halves of one command's output cannot drift apart, nor two commands from each
-// other. Built on call, not at init: the palette is only valid after WarmUp.
+// other. Built on call, not at init: the palette is only valid after warmUp.
 
 // Dim renders secondary text: labels, placeholders, hints.
-func Dim(s string) string { WarmUp(); return lipgloss.NewStyle().Foreground(brandMuted).Render(s) }
+func Dim(s string) string { warmUp(); return lipgloss.NewStyle().Foreground(brandMuted).Render(s) }
 
 // Bold renders text lifted by weight alone — for an option that ranks above its
 // neighbours while staying left-aligned with them (no indent, no grey aside).
@@ -22,7 +22,7 @@ func Bold(s string) string { return lipgloss.NewStyle().Bold(true).Render(s) }
 
 // cardStyle is the rounded box the closing summary sits in.
 func cardStyle() lipgloss.Style {
-	WarmUp()
+	warmUp()
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(brandMuted).
@@ -73,16 +73,4 @@ func FieldList(label string, items []string, width int) string {
 // stdout carries the result envelope alone.
 func Summary(errOut io.Writer, rows ...string) {
 	fmt.Fprintln(errOut, "\n"+cardStyle().Render(strings.Join(rows, "\n")))
-}
-
-// Step prints one completed-phase line. The check mark reuses the selection
-// accent rather than adding a fourth color family.
-func Step(errOut io.Writer, msg string) {
-	WarmUp()
-	fmt.Fprintf(errOut, "%s %s\n", lipgloss.NewStyle().Foreground(brandPeach).Render("✓"), msg)
-}
-
-// Next prints the closing "what to run now" hint.
-func Next(errOut io.Writer, cmd string) {
-	fmt.Fprintf(errOut, "\n%s  %s\n\n", Dim("Next:"), cmd)
 }

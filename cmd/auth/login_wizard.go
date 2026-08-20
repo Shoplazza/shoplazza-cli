@@ -2,14 +2,11 @@ package auth
 
 import (
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/charmbracelet/huh"
 )
@@ -17,17 +14,6 @@ import (
 // summaryListWidth wraps the summary card's value column, keeping the card
 // narrower than a default terminal.
 const summaryListWidth = 48
-
-// loginGateOpen reports whether a human is there to answer prompts. It reuses
-// the single gate predicate in internal/output rather than testing terminals
-// again here. Streams that are not *os.File — every test factory, and anything
-// captured in-process — can be neither read for keystrokes nor drawn on, so
-// they close the gate.
-func loginGateOpen(f *cmdutil.Factory) bool {
-	in, inOK := f.IOStreams.In.(*os.File)
-	errOut, errOK := f.IOStreams.ErrOut.(*os.File)
-	return inOK && errOK && output.Interactive(in, errOut, os.LookupEnv)
-}
 
 // runLoginWizard asks the screens plan() selected and writes the answers back
 // into the flag variables, so the rest of RunE runs as if they had been typed

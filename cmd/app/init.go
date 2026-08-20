@@ -208,7 +208,7 @@ the owning partner is derived from the app.`,
 			// stderr and exit 2 byte-identical (see cmd/root.go's non-ExitError
 			// branch). On a real terminal the wizard answers it instead, which is the
 			// whole reason the check had to move in here.
-			gateOpen := initGateOpen(f)
+			gateOpen := cmdutil.Interactive(f)
 			if !gateOpen && !cmd.Flags().Changed("client-id") && !cmd.Flags().Changed("name") {
 				return errors.New("at least one of the flags in the group [client-id name] is required")
 			}
