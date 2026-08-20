@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"slices"
 	"strings"
 
@@ -50,17 +51,26 @@ func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) er
 					Value(&store),
 			))
 		}
-		// No Validate on this field, deliberately. MultiSelect.Focus() runs
-		// Validate before any keypress, and huh refuses to go back while a group
-		// holds an error — so "a store login needs a domain" would greet the user
-		// on arrival AND silently swallow esc until they ticked something. The
-		// same rule is enforced after the wizard, where it already lived.
 		if askDomains {
 			groups = append(groups, huh.NewGroup(
 				huh.NewMultiSelect[string]().
 					Title("Which domains do you need access to?").
 					Description("Each domain grants the scopes its commands need.").
 					Options(domainOptions(domains)...).
+					// Wrapped so the screen does not arrive already red — see
+					// interact.NotOnArrival. The same rule is also enforced
+					// after the wizard, for the non-interactive path.
+					Validate(interact.NotOnArrival(func(v []string) error {
+						// Read the store live: the user may have gone back and
+						// changed it.
+						if len(v) == 0 && strings.TrimSpace(store) != "" {
+							// The message doubles as the way out: huh blocks
+							// going back while this error stands, so it has to
+							// say what clears it.
+							return errors.New("a store login needs at least one domain — press x to pick one")
+						}
+						return nil
+					})).
 					Value(&selected),
 			))
 		}

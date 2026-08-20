@@ -217,3 +217,31 @@ func termSize() (int, int) {
 	}
 	return w, h
 }
+
+// NotOnArrival wraps a field validator so it stays quiet until the user has
+// actually done something.
+//
+// huh runs Validate once when the field takes focus, before any keypress, and
+// it refuses to leave a group that holds an error. Together those two turn a
+// plain constraint into a trap: the screen arrives already red, and esc is
+// silently swallowed until the user satisfies a rule they have not yet had a
+// chance to break. Measured in a pty: esc produced no frame at all.
+//
+// Skipping that first call gives the intended behaviour — nothing on arrival,
+// the error on enter. The call pattern this relies on (exactly one call from
+// Init) is pinned by TestHuhCallsValidateOnceOnFocus; if a huh upgrade changes
+// it, that test fails rather than this quietly reverting to the trap.
+//
+// Residual, and inherent: emptying a selection back to nothing does raise the
+// error, and esc is blocked while it stands. That follows a deliberate action
+// and one keypress clears it, unlike the arrival case.
+func NotOnArrival[T any](check func(T) error) func(T) error {
+	arrived := false
+	return func(v T) error {
+		if !arrived {
+			arrived = true
+			return nil
+		}
+		return check(v)
+	}
+}

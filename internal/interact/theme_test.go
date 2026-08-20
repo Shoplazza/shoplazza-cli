@@ -1,6 +1,7 @@
 package interact
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -116,5 +117,132 @@ func TestNeededRows_DoesNotMutateBindings(t *testing.T) {
 	}
 	if len(sel) != 1 || sel[0] != "products" {
 		t.Errorf("probe mutated the multi-select binding: %v", sel)
+	}
+}
+
+// TestHuhCallsValidateOnceOnFocus pins the assumption NotOnArrival rests on:
+// huh runs a field's Validate exactly once when the group takes focus, and
+// every later call corresponds to something the user did. Measured by pumping
+// the tea loop by hand — no pty, fully deterministic.
+//
+// If a huh upgrade changes this, NotOnArrival would quietly stop working (two
+// focus-time calls would let the second one raise the error on arrival again,
+// which is the trap it exists to remove). This test is the tripwire.
+func TestHuhCallsValidateOnceOnFocus(t *testing.T) {
+	var calls []int // one entry per call, holding the length of the value seen
+	var sel []string
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewMultiSelect[string]().
+			Title("Which domains?").
+			Options(huh.NewOption("products", "products"), huh.NewOption("orders", "orders")).
+			Validate(func(v []string) error {
+				calls = append(calls, len(v))
+				return nil
+			}).
+			Value(&sel),
+	))
+
+	pump := func(cmd tea.Cmd) {
+		for i := 0; cmd != nil && i < 8; i++ {
+			msg := cmd()
+			if msg == nil {
+				return
+			}
+			m, next := form.Update(msg)
+			form = m.(*huh.Form)
+			cmd = next
+		}
+	}
+
+	pump(form.Init())
+	if len(calls) != 1 {
+		t.Fatalf("focus made %d Validate calls (values seen: %v), want exactly 1 — NotOnArrival assumes it can skip one", len(calls), calls)
+	}
+
+	// A cursor move must not count as "the user answered": if it did, moving
+	// down would arm the validator and raise the error before any submit.
+	before := len(calls)
+	m, cmd := form.Update(tea.KeyMsg{Type: tea.KeyDown})
+	form = m.(*huh.Form)
+	pump(cmd)
+	if len(calls) != before {
+		t.Errorf("a cursor move made %d extra Validate calls, want 0", len(calls)-before)
+	}
+
+	// Enter must reach the validator, or the error would never be shown at all.
+	before = len(calls)
+	m, cmd = form.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	form = m.(*huh.Form)
+	pump(cmd)
+	if len(calls) <= before {
+		t.Error("enter made no Validate call; an on-submit error could never appear")
+	}
+}
+
+// TestHuhCallsValidateOnGoingBack pins the behaviour that bounds what
+// NotOnArrival can achieve: going back to the previous group ALSO runs Validate.
+// So a field validator cannot be made submit-only — pressing the back key with
+// an unsatisfied rule raises the error, and huh then refuses to leave the group.
+//
+// That residual is why the wizard's message says how to clear it. Escaping it
+// entirely would mean driving the tea loop ourselves instead of Form.Run, which
+// carries far more huh internals than the nicety is worth.
+func TestHuhCallsValidateOnGoingBack(t *testing.T) {
+	var calls int
+	var store string
+	var sel []string
+	form := huh.NewForm(
+		huh.NewGroup(huh.NewInput().Title("Which store?").Value(&store)),
+		huh.NewGroup(huh.NewMultiSelect[string]().
+			Title("Which domains?").
+			Options(huh.NewOption("products", "products")).
+			Validate(func(v []string) error { calls++; return nil }).
+			Value(&sel)),
+	).WithKeyMap(keyMap())
+
+	pump := func(cmd tea.Cmd) {
+		for i := 0; cmd != nil && i < 10; i++ {
+			msg := cmd()
+			if msg == nil {
+				return
+			}
+			m, next := form.Update(msg)
+			form = m.(*huh.Form)
+			cmd = next
+		}
+	}
+	send := func(msg tea.Msg) {
+		m, cmd := form.Update(msg)
+		form = m.(*huh.Form)
+		pump(cmd)
+	}
+
+	pump(form.Init())
+	send(tea.KeyMsg{Type: tea.KeyEnter}) // leave the store, focus the domains
+	before := calls
+	send(tea.KeyMsg{Type: tea.KeyEsc}) // ask to go back
+	if calls == before {
+		t.Error("going back made no Validate call — if that ever becomes true, a field validator CAN be made submit-only and NotOnArrival's residual disappears")
+	}
+}
+
+// TestNotOnArrival covers the wrapper itself.
+func TestNotOnArrival(t *testing.T) {
+	boom := errors.New("boom")
+	v := NotOnArrival(func(s string) error { return boom })
+
+	if err := v("arrival"); err != nil {
+		t.Errorf("first call returned %v, want nil: the screen must not arrive red", err)
+	}
+	for i := 0; i < 3; i++ {
+		if err := v("later"); err != boom {
+			t.Errorf("call %d returned %v, want the wrapped error", i+2, err)
+		}
+	}
+
+	// Each wrapper is independent: two fields must not share one arrival.
+	other := NotOnArrival(func(s string) error { return boom })
+	if err := other("arrival"); err != nil {
+		t.Errorf("a second wrapper returned %v on its own first call, want nil", err)
 	}
 }
