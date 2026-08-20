@@ -8,10 +8,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Styles for the output a command prints OUTSIDE the form — the summary card,
-// status lines, closing hints. They live here with the form theme so the two
-// halves of one command's output cannot drift apart, nor two commands from each
-// other. Built on call, not at init: the palette is only valid after warmUp.
+// Styles for the output a command prints outside the form. Built on call, not
+// at init: the palette is only valid after warmUp.
 
 // Dim renders secondary text: labels, placeholders, hints.
 func Dim(s string) string { warmUp(); return lipgloss.NewStyle().Foreground(brandMuted).Render(s) }
@@ -33,8 +31,8 @@ func Field(label, value string) string {
 	return Dim(fmt.Sprintf("%-*s", labelWidth, label)) + " " + value
 }
 
-// FieldList renders a label with a comma-separated list, wrapped to width so
-// the card stays narrow. Continuation lines align under the value.
+// FieldList renders a label with a comma-separated list wrapped to width.
+// Continuation lines align under the value.
 func FieldList(label string, items []string, width int) string {
 	if len(items) == 0 {
 		return Field(label, Dim("(none)"))
@@ -65,8 +63,7 @@ func FieldList(label string, items []string, width int) string {
 	return strings.Join(out, "\n")
 }
 
-// Summary prints the "here is what you chose" card. Human-facing, so errOut —
-// stdout carries the result envelope alone.
+// Summary prints the closing card. Human-facing, so it draws on errOut.
 func Summary(errOut io.Writer, rows ...string) {
 	fmt.Fprintln(errOut, "\n"+cardStyle().Render(strings.Join(rows, "\n")))
 }

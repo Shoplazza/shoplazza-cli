@@ -15,14 +15,11 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
-// The wizard's one hard invariant: with no terminal (pipes, CI, agents) `auth
-// login` asks nothing, and its output, exit code and request set are what they
-// were before. The command seam gives that for free — the factory's streams are
-// buffers, not character devices, so the gate is closed.
-//
-// runLoginOffTTY also proves the second half of the invariant, that the command
-// never blocks: a prompt reached here would sit waiting for a key forever, so
-// exceeding the deadline is a failure rather than a slow test.
+// These tests pin the non-interactive path: with no terminal, `auth login` asks
+// nothing and keeps its output, exit code and request set.
+
+// runLoginOffTTY executes `auth` with the given args, failing the test if it
+// blocks past the deadline instead of returning.
 func runLoginOffTTY(t *testing.T, f *cmdutil.Factory, out *bytes.Buffer, args ...string) error {
 	t.Helper()
 	done := make(chan error, 1)
@@ -50,8 +47,7 @@ func exitDetail(t *testing.T, err error) (int, string, string) {
 }
 
 // webFlowServer mocks the endpoints a login hits — the browser flow, the UAT
-// fast path's /me, and the store exchange — counting requests so a fail-fast
-// case can assert it made none.
+// fast path's /me, and the store exchange — counting requests into hits.
 func webFlowServer(t *testing.T, hits *atomic.Int32) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -75,11 +71,8 @@ func webFlowServer(t *testing.T, hits *atomic.Int32) *httptest.Server {
 	}))
 }
 
-// Every flag combination the two screens bind to goes straight through, exactly
-// as before the wizard existed: no prompt, the same envelope. The screens are
-// suppressed by the closed gate here, so this covers the combinations that
-// would otherwise ask (bare run, -s alone answers only screen one) as well as
-// the ones a terminal would also run unprompted.
+// TestLogin_OffTTY_RunsWithoutPrompting pins that every flag combination the two
+// screens bind to runs unprompted and yields the same envelope.
 func TestLogin_OffTTY_RunsWithoutPrompting(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -115,8 +108,8 @@ func TestLogin_OffTTY_RunsWithoutPrompting(t *testing.T) {
 	}
 }
 
-// Invalid values fail before anything else happens — no prompt, and no request
-// either, so a typo can never come back as "authorized but missing scopes".
+// TestLogin_OffTTY_InvalidValuesFailFast pins that an invalid --domain or
+// --scope fails before any request is sent.
 func TestLogin_OffTTY_InvalidValuesFailFast(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
@@ -150,8 +143,8 @@ func TestLogin_OffTTY_InvalidValuesFailFast(t *testing.T) {
 	}
 }
 
-// A store login without permissions still errors here, pointing at the flags —
-// the prompt that would answer it needs a terminal.
+// TestLogin_OffTTY_StoreWithoutScopeStillErrors pins that a store login with no
+// scope errors before any request, pointing at --scope and --domain.
 func TestLogin_OffTTY_StoreWithoutScopeStillErrors(t *testing.T) {
 	var hits atomic.Int32
 	srv := webFlowServer(t, &hits)

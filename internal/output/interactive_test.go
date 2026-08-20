@@ -8,16 +8,13 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
-// The two escape hatches the gate honors. Named here so a typo in the
-// implementation shows up as a failing test rather than a dead branch.
+// The two escape hatches the gate honors.
 const (
 	envNoInteractive = "SHOPLAZZA_CLI_NO_INTERACTIVE"
 	envCI            = "CI"
 )
 
-// charDevice opens os.DevNull — a character device on every supported platform
-// (NUL on Windows). Note what it is NOT: a terminal. See TestIsTTY_DevNull in
-// the internal test.
+// charDevice opens os.DevNull: a character device, but not a terminal.
 func charDevice(t *testing.T) *os.File {
 	t.Helper()
 	f, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
@@ -28,8 +25,7 @@ func charDevice(t *testing.T) *os.File {
 	return f
 }
 
-// pipeFile returns an *os.File that is a pipe. Both ends stay open for the
-// test's lifetime so Stat keeps working.
+// pipeFile returns the read end of a pipe; both ends stay open until cleanup.
 func pipeFile(t *testing.T) *os.File {
 	t.Helper()
 	r, w, err := os.Pipe()
@@ -40,8 +36,8 @@ func pipeFile(t *testing.T) *os.File {
 	return r
 }
 
-// envOf builds the injected lookup: only keys present in m are "set", and a
-// present key may hold an empty value — the distinction the gate turns on.
+// envOf builds the injected lookup; only keys present in m are "set", and a
+// present key may hold an empty value.
 func envOf(m map[string]string) func(string) (string, bool) {
 	return func(k string) (string, bool) {
 		v, ok := m[k]
@@ -49,8 +45,7 @@ func envOf(m map[string]string) func(string) (string, bool) {
 	}
 }
 
-// IsTerminal answers "can I draw here", for which a character device is enough.
-// It is NOT the gate's predicate — see the note on IsTTY.
+// TestIsTerminal covers character devices, pipes, writers with no Stat and nil.
 func TestIsTerminal(t *testing.T) {
 	cases := []struct {
 		name string
@@ -69,13 +64,8 @@ func TestIsTerminal(t *testing.T) {
 	}
 }
 
-// TestInteractive_ClosedWithoutARealTerminal is the assertion that matters for
-// every non-human caller: pipes and character devices alike must leave the gate
-// shut, whatever the environment says. Under `go test` there is no tty to hand,
-// which is exactly the situation a CI job or an agent is in.
-//
-// The opposite direction — a terminal IS present and an escape hatch is set —
-// needs the terminal answer injected and lives in the internal test.
+// TestInteractive_ClosedWithoutARealTerminal asserts pipes and character devices
+// alike leave the gate shut, whatever the environment says.
 func TestInteractive_ClosedWithoutARealTerminal(t *testing.T) {
 	envCases := []struct {
 		name string
@@ -110,9 +100,8 @@ func TestInteractive_ClosedWithoutARealTerminal(t *testing.T) {
 	}
 }
 
-// The gate must read the environment before looking at the streams, and must
-// read only the two documented hatches — an extra key here would be an
-// undocumented way to change behaviour.
+// TestInteractive_ConsultsExactlyTheTwoHatches asserts the gate reads those two
+// keys and nothing else.
 func TestInteractive_ConsultsExactlyTheTwoHatches(t *testing.T) {
 	dev := charDevice(t)
 	var asked []string

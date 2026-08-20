@@ -10,8 +10,7 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-// builder returns a fresh form with n options, so every call gets an
-// un-initialised one (sizedFor probes with one and returns another).
+// builder returns a fresh, un-initialised n-option form on every call.
 func builder(n int, desc string) func() *huh.Form {
 	return func() *huh.Form {
 		var v []string
@@ -30,21 +29,15 @@ func builder(n int, desc string) func() *huh.Form {
 	}
 }
 
-// frameRows renders a form against a terminal of the given height and reports
-// the total rows it occupies: the frame plus the newline the renderer appends.
-// That total exceeding the terminal height is precisely the bug — the terminal
-// scrolls and the title goes with it.
+// frameRows reports the rows f occupies at the given terminal height, counting
+// the newline the renderer appends.
 func frameRows(f *huh.Form, termRows int) int {
 	f.Init()
 	m, _ := f.Update(tea.WindowSizeMsg{Width: 80, Height: termRows})
 	return len(strings.Split(strings.TrimRight(m.(*huh.Form).View(), "\n"), "\n")) + 1
 }
 
-// TestSizedFor_NeverFillsTheTerminal is the regression test for the bug that
-// cost the most time in this feature: with no height set, huh takes
-// min(content, terminal), which is right until the content does not fit — then
-// it saturates at the full terminal height, the renderer's trailing newline
-// scrolls everything up one row, and the title scrolls off screen.
+// TestSizedFor_NeverFillsTheTerminal asserts the frame never fills the terminal.
 func TestSizedFor_NeverFillsTheTerminal(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -66,10 +59,7 @@ func TestSizedFor_NeverFillsTheTerminal(t *testing.T) {
 	}
 }
 
-// TestSizedFor_LeavesHuhAloneWhenItFits pins the other half of the rule. huh's
-// own layout is correct and tight while the content fits, so we must not set a
-// height there: doing so unconditionally (WithHeight(termRows-2)) would stretch
-// a two-option form to 58 rows on a 60-row terminal.
+// TestSizedFor_LeavesHuhAloneWhenItFits pins huh's own layout while it fits.
 func TestSizedFor_LeavesHuhAloneWhenItFits(t *testing.T) {
 	build := builder(2, "")
 	var rows []int
@@ -86,8 +76,7 @@ func TestSizedFor_LeavesHuhAloneWhenItFits(t *testing.T) {
 	}
 }
 
-// TestSizedFor_NoTerminalDefersToHuh covers the piped case: with no terminal
-// there is no height to cap against, so the decision belongs to huh.
+// TestSizedFor_NoTerminalDefersToHuh asserts h <= 0 leaves the height to huh.
 func TestSizedFor_NoTerminalDefersToHuh(t *testing.T) {
 	build := builder(22, "")
 	for _, h := range []int{0, -1} {
@@ -97,9 +86,8 @@ func TestSizedFor_NoTerminalDefersToHuh(t *testing.T) {
 	}
 }
 
-// TestNeededRows_DoesNotMutateBindings guards the probe. sizedFor renders the form
-// once to ask how tall it wants to be; if that wrote answers back into the
-// caller's variables, every pre-filled flag would be silently clobbered.
+// TestNeededRows_DoesNotMutateBindings asserts the probe leaves the bound
+// values alone.
 func TestNeededRows_DoesNotMutateBindings(t *testing.T) {
 	text := "my-store.myshoplaza.com"
 	sel := []string{"products"}
@@ -120,16 +108,10 @@ func TestNeededRows_DoesNotMutateBindings(t *testing.T) {
 	}
 }
 
-// TestHuhCallsValidateOnceOnFocus pins the assumption NotOnArrival rests on:
-// huh runs a field's Validate exactly once when the group takes focus, and
-// every later call corresponds to something the user did. Measured by pumping
-// the tea loop by hand — no pty, fully deterministic.
-//
-// If a huh upgrade changes this, NotOnArrival would quietly stop working (two
-// focus-time calls would let the second one raise the error on arrival again,
-// which is the trap it exists to remove). This test is the tripwire.
+// TestHuhCallsValidateOnceOnFocus pins the single focus-time Validate call that
+// NotOnArrival skips.
 func TestHuhCallsValidateOnceOnFocus(t *testing.T) {
-	var calls []int // one entry per call, holding the length of the value seen
+	var calls []int // one entry per Validate call, holding the value's length
 	var sel []string
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewMultiSelect[string]().
@@ -159,8 +141,7 @@ func TestHuhCallsValidateOnceOnFocus(t *testing.T) {
 		t.Fatalf("focus made %d Validate calls (values seen: %v), want exactly 1 — NotOnArrival assumes it can skip one", len(calls), calls)
 	}
 
-	// A cursor move must not count as "the user answered": if it did, moving
-	// down would arm the validator and raise the error before any submit.
+	// A cursor move must not count as an answer.
 	before := len(calls)
 	m, cmd := form.Update(tea.KeyMsg{Type: tea.KeyDown})
 	form = m.(*huh.Form)
@@ -169,7 +150,7 @@ func TestHuhCallsValidateOnceOnFocus(t *testing.T) {
 		t.Errorf("a cursor move made %d extra Validate calls, want 0", len(calls)-before)
 	}
 
-	// Enter must reach the validator, or the error would never be shown at all.
+	// Enter must reach the validator.
 	before = len(calls)
 	m, cmd = form.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	form = m.(*huh.Form)
@@ -179,14 +160,8 @@ func TestHuhCallsValidateOnceOnFocus(t *testing.T) {
 	}
 }
 
-// TestHuhCallsValidateOnGoingBack pins the behaviour that bounds what
-// NotOnArrival can achieve: going back to the previous group ALSO runs Validate.
-// So a field validator cannot be made submit-only — pressing the back key with
-// an unsatisfied rule raises the error, and huh then refuses to leave the group.
-//
-// That residual is why the wizard's message says how to clear it. Escaping it
-// entirely would mean driving the tea loop ourselves instead of Form.Run, which
-// carries far more huh internals than the nicety is worth.
+// TestHuhCallsValidateOnGoingBack asserts going back also runs Validate, so a
+// field validator cannot be made submit-only.
 func TestHuhCallsValidateOnGoingBack(t *testing.T) {
 	var calls int
 	var store string

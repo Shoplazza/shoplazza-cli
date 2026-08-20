@@ -7,8 +7,8 @@ import (
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 )
 
-// The flag keeps the compact "all" sentinel, but the card must show what it
-// actually granted — and wrap it, since ten domains do not fit one line.
+// TestLoginSummaryRows_ExpandsAll pins that the card spells out the domains the
+// "all" sentinel granted, wrapped to the card width.
 func TestLoginSummaryRows_ExpandsAll(t *testing.T) {
 	rows := loginSummaryRows("demo.myshoplaza.com", []string{internalauth.DomainAll}, nil)
 	if len(rows) != 2 {
@@ -36,8 +36,8 @@ func TestLoginSummaryRows_ExpandsAll(t *testing.T) {
 	}
 }
 
-// A store-less login reads as account-only, and --scope is summarised as scopes
-// rather than translated back into domains.
+// TestLoginSummaryRows_AccountOnlyAndScopes pins that a store-less login reads
+// as account-only and that --scope is summarised as scopes, not domains.
 func TestLoginSummaryRows_AccountOnlyAndScopes(t *testing.T) {
 	rows := loginSummaryRows("", nil, []string{"read_product", "read_order"})
 	if !strings.Contains(rows[0], "(account only)") {
@@ -48,6 +48,6 @@ func TestLoginSummaryRows_AccountOnlyAndScopes(t *testing.T) {
 	}
 }
 
-// labelColumn is the width of the card's label column plus its separating
-// space; only the value column is wrapped to summaryListWidth.
+// labelColumn is the card's label column width plus its separating space; only
+// the value column is wrapped to summaryListWidth.
 const labelColumn = 11

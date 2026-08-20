@@ -7,9 +7,8 @@ import (
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 )
 
-// TestDomainOptions_NoAllRow pins the picker's contents. An "all" row used to
-// lead the list; ctrl+a already does that job, and a row that cannot be
-// combined with any other row does not belong in a multi-select.
+// TestDomainOptions_NoAllRow pins the picker to the concrete domains, with no
+// "all" row: ctrl+a is huh's own select-all.
 func TestDomainOptions_NoAllRow(t *testing.T) {
 	domains := internalauth.TopLevelDomains()
 	opts := domainOptions(domains)
@@ -26,9 +25,7 @@ func TestDomainOptions_NoAllRow(t *testing.T) {
 	}
 }
 
-// TestCollapseAll covers the only path by which the wizard can emit the
-// sentinel. Getting this wrong either sends 10 domains where the flag form
-// would send one word, or claims "all" from a partial selection.
+// TestCollapseAll pins when a selection collapses to the "all" sentinel.
 func TestCollapseAll(t *testing.T) {
 	domains := []string{"a", "b", "c"}
 	for _, c := range []struct {
@@ -47,15 +44,14 @@ func TestCollapseAll(t *testing.T) {
 			}
 		})
 	}
-	// An empty domain list must not make "nothing selected" look like "everything".
+	// An empty domain list must not make "nothing selected" mean "everything".
 	if got := collapseAll(nil, nil); got != nil {
 		t.Errorf("collapseAll(nil, nil) = %v, want nil", got)
 	}
 }
 
-// TestCollapseAll_MatchesTheFlag is the invariant behind the collapse: the two
-// spellings must grant the same scopes, or the shortcut would quietly change
-// what the user authorised.
+// TestCollapseAll_MatchesTheFlag pins that --domain all and every domain ticked
+// grant the same scopes.
 func TestCollapseAll_MatchesTheFlag(t *testing.T) {
 	domains := internalauth.TopLevelDomains()
 	viaFlag, err := internalauth.ExpandDomains([]string{internalauth.DomainAll})

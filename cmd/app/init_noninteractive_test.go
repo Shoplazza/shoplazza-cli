@@ -20,15 +20,12 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
-// The wizard's one hard invariant: with no terminal (pipes, CI, agents) `app
-// init` asks nothing, and its output, exit code and request set are what they
-// were before. The command seam gives that for free — the factory's streams are
-// buffers, not character devices, so the gate is closed.
+// These tests pin the non-interactive path: with no terminal, `app init` asks
+// nothing and keeps its output, exit code and request set.
 
-// initServer is the Dashboard mock for the whole init flow, recording the
-// /api/cli/v2 paths it is asked for so a case can assert the request set.
-// partners drives how many partners the account has; tmpl is the git repo the
-// template points at.
+// initServer is the Dashboard mock for the init flow, recording the /api/cli/v2
+// paths it is asked for so a case can assert the request set. partnerIDs sets the
+// account's partners; tmpl is the git repo the template points at.
 type initServer struct {
 	*httptest.Server
 	mu   sync.Mutex
@@ -84,8 +81,8 @@ func (is *initServer) requests() []string {
 	return append([]string(nil), is.seen...)
 }
 
-// initFactory builds a logged-in factory whose streams are buffers: not
-// character devices, so the interactive gate is closed exactly as under a pipe.
+// initFactory builds a logged-in factory whose buffer streams keep the
+// interactive gate closed, as under a pipe.
 func initFactory(t *testing.T, srvURL string) (*cmdutil.Factory, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
 	dir := seedLoginKeychain(t)
@@ -100,10 +97,8 @@ func initFactory(t *testing.T, srvURL string) (*cmdutil.Factory, *bytes.Buffer, 
 	return f, out, errOut
 }
 
-// runInitOffTTY executes `app init` with the given args. It also proves the
-// second half of the invariant, that the command never blocks: a prompt reached
-// here would sit waiting for a key forever, so exceeding the deadline is a
-// failure rather than a slow test.
+// runInitOffTTY executes `app init` with the given args, failing the test if it
+// blocks past the deadline instead of returning.
 func runInitOffTTY(t *testing.T, f *cmdutil.Factory, out, errOut *bytes.Buffer, args ...string) error {
 	t.Helper()
 	done := make(chan error, 1)
@@ -125,9 +120,8 @@ func runInitOffTTY(t *testing.T, f *cmdutil.Factory, out, errOut *bytes.Buffer, 
 	}
 }
 
-// A bare run still fails with cobra's own one-mode-required wording, before any
-// request — the check that moved into RunE stays in force whenever no human is
-// there to answer the wizard instead.
+// TestInit_OffTTY_BareRunRejectedBeforeAnyRequest pins that a bare run is
+// rejected, with cobra's wording, before any request.
 func TestInit_OffTTY_BareRunRejectedBeforeAnyRequest(t *testing.T) {
 	t.Chdir(t.TempDir())
 	is := newInitServer(t, "unused", "p1")
@@ -141,8 +135,7 @@ func TestInit_OffTTY_BareRunRejectedBeforeAnyRequest(t *testing.T) {
 	if err.Error() != want {
 		t.Errorf("error = %q, want %q", err.Error(), want)
 	}
-	// A plain error, not an ExitError: that is what keeps cmd/root.go printing
-	// the usage block and exiting 2 exactly as cobra's own check did.
+	// A plain error, not an ExitError: that is what keeps the usage block and exit 2.
 	var ee *output.ExitError
 	if errors.As(err, &ee) {
 		t.Errorf("error must stay a plain error, got *output.ExitError %+v", ee)
@@ -155,9 +148,8 @@ func TestInit_OffTTY_BareRunRejectedBeforeAnyRequest(t *testing.T) {
 	}
 }
 
-// --name against an account with several partners still fails through
-// selectPartner, pointing at --partner. The prompt that would answer it needs a
-// terminal; here only the partner list is read, exactly as before.
+// TestInit_OffTTY_MultiPartnerCreateStillErrors pins that --name on a
+// multi-partner account still fails through selectPartner, pointing at --partner.
 func TestInit_OffTTY_MultiPartnerCreateStillErrors(t *testing.T) {
 	t.Chdir(t.TempDir())
 	is := newInitServer(t, "unused", "p1", "p2")
@@ -177,8 +169,7 @@ func TestInit_OffTTY_MultiPartnerCreateStillErrors(t *testing.T) {
 	if ee.Detail == nil || !strings.Contains(ee.Detail.Hint, "--partner") {
 		t.Errorf("hint = %+v, want it to point at --partner", ee.Detail)
 	}
-	// One partner list, read by resolveAppRef — NOT by the wizard, and no app
-	// list, which is the picker's read.
+	// One partner list, read by resolveAppRef; no app list, which is the picker's read.
 	want := []string{"GET /api/cli/v2/partners"}
 	if reqs := is.requests(); !slices.Equal(reqs, want) {
 		t.Errorf("requests = %v, want %v", reqs, want)
@@ -188,8 +179,8 @@ func TestInit_OffTTY_MultiPartnerCreateStillErrors(t *testing.T) {
 	}
 }
 
-// The two fully-specified modes run start to finish with no prompt and the same
-// request set as before the wizard existed.
+// TestInit_OffTTY_FullySpecifiedModesRun pins the request set of each
+// fully-specified mode.
 func TestInit_OffTTY_FullySpecifiedModesRun(t *testing.T) {
 	for _, tc := range []struct {
 		name     string

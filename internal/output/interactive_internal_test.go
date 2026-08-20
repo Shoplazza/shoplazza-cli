@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// TestInteractive_EnvBeatsATerminal covers the direction that hangs builds: a
-// real terminal IS present (an agent harness handing its child a pty) and an
-// escape hatch is set. go test has no tty, so the terminal answer is injected.
+// TestInteractive_EnvBeatsATerminal asserts an escape hatch closes the gate even
+// with a terminal present (injected, since go test has no tty).
 func TestInteractive_EnvBeatsATerminal(t *testing.T) {
 	yes := func() bool { return true }
 	no := func() bool { return false }
@@ -39,10 +38,8 @@ func TestInteractive_EnvBeatsATerminal(t *testing.T) {
 	}
 }
 
-// TestIsTTY_DevNullIsNotATerminal is a regression test with a measured failure
-// behind it. IsTerminal (os.ModeCharDevice) says yes to /dev/null, so
-// `app init < /dev/null 2>/dev/null` — an ordinary CI and agent shape — used to
-// open a prompt against the void and hang until killed.
+// TestIsTTY_DevNullIsNotATerminal asserts /dev/null is a character device but
+// not a TTY.
 func TestIsTTY_DevNullIsNotATerminal(t *testing.T) {
 	f, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
 	if err != nil {
@@ -73,8 +70,7 @@ func TestIsTTY_PipeAndNil(t *testing.T) {
 	}
 }
 
-// envNoInteractive / envCI mirror interactiveOffEnv so a typo in the
-// implementation surfaces here rather than as a dead branch.
+// envNoInteractive / envCI mirror interactiveOffEnv.
 const (
 	envNoInteractive = "SHOPLAZZA_CLI_NO_INTERACTIVE"
 	envCI            = "CI"

@@ -131,9 +131,8 @@ func Execute() (exitCode int) {
 	isExitErr := errors.As(execErr, &exitErr)
 
 	// After the command output, print a one-line notice to stderr for interactive use
-	// (printed on both success and failure paths — never touches stdout). A canceled
-	// prompt is the one exception: Ctrl-C must leave both streams empty, and this
-	// notice would otherwise be the only thing left on screen.
+	// (printed on both success and failure paths — never touches stdout).
+	// Skipped on cancel (ExitCanceled): Ctrl-C must leave both streams empty.
 	canceled := isExitErr && exitErr.Code == output.ExitCanceled
 	if pendingUpdate != nil && !canceled && output.IsTerminal(os.Stderr) {
 		fmt.Fprintln(os.Stderr, "\n"+pendingUpdate.Message())

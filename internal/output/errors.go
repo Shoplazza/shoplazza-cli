@@ -251,13 +251,12 @@ func parseAPIErrorBody(body string) (code, message string) {
 	return "", ""
 }
 
-// WriteErrorEnvelope serialises err as a JSON ErrorEnvelope and writes it to w.
-// A trailing newline is always written. No-op when err.Detail is nil.
-// ErrCanceled is the user aborting a prompt. Detail is deliberately nil: a
-// cancel prints nothing on either stream, and WriteErrorEnvelope skips a nil
-// Detail. Constructing it here keeps ExitError literals inside this package.
+// ErrCanceled reports a prompt the user aborted. Detail is nil, so nothing is
+// printed on either stream and only the exit code carries the outcome.
 func ErrCanceled() *ExitError { return &ExitError{Code: ExitCanceled} }
 
+// WriteErrorEnvelope serialises err as a JSON ErrorEnvelope and writes it to w.
+// A trailing newline is always written. No-op when err.Detail is nil.
 func WriteErrorEnvelope(w io.Writer, err *ExitError) {
 	if err == nil || err.Detail == nil {
 		return

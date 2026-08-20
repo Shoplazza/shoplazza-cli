@@ -201,20 +201,12 @@ the owning partner is derived from the app.`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Ported out of cobra's MarkFlagsOneRequired: that check ran before RunE
-			// and is blind to the terminal, so it would pre-empt the wizard. Keyed on
-			// presence (Changed) like cobra, not on value — `--name ""` still reaches
-			// runInit. Plain error on purpose: it keeps today's usage + "Error:"
-			// stderr and exit 2 byte-identical (see cmd/root.go's non-ExitError
-			// branch). On a real terminal the wizard answers it instead, which is the
-			// whole reason the check had to move in here.
+			// Plain error, not ExitError, to keep cobra's usage block; keyed on Changed, not value.
 			gateOpen := cmdutil.Interactive(f)
 			if !gateOpen && !cmd.Flags().Changed("client-id") && !cmd.Flags().Changed("name") {
 				return errors.New("at least one of the flags in the group [client-id name] is required")
 			}
-			// Mutual exclusion is still a cobra flag group, so reaching here means at
-			// most one mode is selected. The project is created as a sub-dir under
-			// the current working directory.
+			// The project is created as a sub-dir under the current working directory.
 			p, err := openProject(".")
 			if err != nil {
 				return err
@@ -223,9 +215,7 @@ the owning partner is derived from the app.`,
 			if err != nil {
 				return err
 			}
-			// Interactive path: ask only what the flags left unanswered, then carry
-			// on as if the answers had been typed. wizardInit is a no-op when they
-			// left nothing, so a fully-specified run stays zero-interaction.
+			// Ask only what the flags left unanswered; a no-op when they left nothing.
 			fl := initFlags{clientID: clientID, name: name, partner: partner}
 			if gateOpen {
 				if fl, err = wizardInit(cmd.Context(), d, p.Root, fl); err != nil {
@@ -240,8 +230,7 @@ the owning partner is derived from the app.`,
 	cmd.Flags().StringVar(&name, "name", "", "Create mode: name for the NEW app (pair with --partner). Mutually exclusive with --client-id")
 	cmd.Flags().StringVar(&partner, "partner", "", "Create mode: partner (org) id to create the app under; needed only when your account has multiple partners (ignored in link mode)")
 	cmd.Flags().StringVar(&clientID, "client-id", "", "Link mode: link an EXISTING app by client_id (the project dir is named after it). Mutually exclusive with --name")
-	// The two modes cannot be combined. "at least one must be present" is NOT a
-	// flag group — it moved into RunE (above) so a future wizard can run instead.
+	// The two modes cannot be combined; "at least one" is checked in RunE instead.
 	cmd.MarkFlagsMutuallyExclusive("client-id", "name")
 	return cmd
 }

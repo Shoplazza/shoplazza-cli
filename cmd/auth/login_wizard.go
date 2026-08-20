@@ -11,17 +11,13 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-// summaryListWidth wraps the summary card's value column, keeping the card
-// narrower than a default terminal.
+// summaryListWidth wraps the summary card's value column.
 const summaryListWidth = 48
 
-// runLoginWizard asks the screens plan() selected and writes the answers back
-// into the flag variables, so the rest of RunE runs as if they had been typed
-// on the command line. Nothing here sends a request: every option comes from
-// the embedded scope map.
-//
-// A screen plan() skipped writes nothing back: its flag stays exactly as the
-// command line set it.
+// runLoginWizard asks the given steps and writes the answers back into
+// storeDomain and domain, so the rest of RunE runs as if they had been typed on
+// the command line. A step that is not in steps writes nothing back. Sends no
+// request: every option comes from the embedded scope map.
 func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) error {
 	domains := internalauth.TopLevelDomains()
 	askStore := slices.Contains(steps, stepStore)
@@ -30,18 +26,10 @@ func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) er
 	store := *storeDomain
 	var selected []string
 
-	// Every step that runs is a group of ONE form — separate forms cannot go back.
-	//
-	// Only planned steps get a group. WithHideFunc would read better, but huh
-	// v1.0.0 consults it only when moving BETWEEN groups, so a hidden FIRST
-	// group still draws (measured ~0.5s, with the -s value in the box) before
-	// Init's nextGroup lands. Not building it keeps "given means the step never
-	// appears" literally true.
+	// One form, one group per planned step: separate forms cannot go back, and
+	// huh v1.0.0's WithHideFunc cannot hide the FIRST group.
 	build := func() *huh.Form {
 		var groups []*huh.Group
-		// The store, typed straight in. Blank is the skip — it means an
-		// account-only login, exactly what omitting -s means. No preceding
-		// "account or store?" question: blank already says it.
 		if askStore {
 			groups = append(groups, huh.NewGroup(
 				huh.NewInput().
@@ -57,16 +45,10 @@ func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) er
 					Title("Which domains do you need access to?").
 					Description("Each domain grants the scopes its commands need.").
 					Options(domainOptions(domains)...).
-					// Wrapped so the screen does not arrive already red — see
-					// interact.NotOnArrival. The same rule is also enforced
-					// after the wizard, for the non-interactive path.
+					// Wrapped in NotOnArrival so the screen does not error on arrival.
 					Validate(interact.NotOnArrival(func(v []string) error {
-						// Read the store live: the user may have gone back and
-						// changed it.
+						// store is read live: the user may have gone back and changed it.
 						if len(v) == 0 && strings.TrimSpace(store) != "" {
-							// The message doubles as the way out: huh blocks
-							// going back while this error stands, so it has to
-							// say what clears it.
 							return errors.New("a store login needs at least one domain — press x to pick one")
 						}
 						return nil
@@ -90,12 +72,8 @@ func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) er
 	return nil
 }
 
-// collapseAll turns a fully-ticked picker into the sentinel the flag and the
-// server already speak — the same scope set, only shorter. Ticking every domain
-// one by one and passing --domain all must not diverge.
-//
-// The picker no longer offers an "all" row (ctrl+a is huh's own, and is in the
-// help line), so this is the only way the sentinel can come out of the wizard.
+// collapseAll returns the "all" sentinel when every domain is selected, and
+// selected unchanged otherwise. It is the only way the wizard emits the sentinel.
 func collapseAll(selected, domains []string) []string {
 	if len(domains) > 0 && len(selected) == len(domains) {
 		return []string{internalauth.DomainAll}
@@ -103,10 +81,8 @@ func collapseAll(selected, domains []string) []string {
 	return selected
 }
 
-// domainOptions lists the concrete domains, nothing else. An "all" row used to
-// lead the list; it was redundant with ctrl+a, which huh implements and shows in
-// the help line, and it put a row in the picker that no other row could be
-// combined with.
+// domainOptions lists the concrete domains, without an "all" row: ctrl+a is
+// huh's own select-all.
 func domainOptions(domains []string) []huh.Option[string] {
 	out := make([]huh.Option[string], 0, len(domains))
 	for _, d := range domains {
@@ -115,9 +91,8 @@ func domainOptions(domains []string) []huh.Option[string] {
 	return out
 }
 
-// loginSummaryRows builds the card shown after the wizard. The flag keeps the
-// compact "all" sentinel — scripts and the server want it — while the card
-// spells out the domains it actually granted, wrapped to the card's width.
+// loginSummaryRows builds the card shown after the wizard, expanding the "all"
+// sentinel into the domains it granted.
 func loginSummaryRows(store string, domain, scope []string) []string {
 	if store == "" {
 		store = interact.Dim("(account only)")

@@ -72,14 +72,11 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			// Interactive path: ask only for what the flags left unanswered, then
-			// re-expand. Invalid values already failed above, before any prompt.
-			// plan() returns no steps for pipes, CI and agents, so everything
-			// below stays exactly as it was.
-			// One reading of "is this the UAT fast path", used both to skip the
-			// wizard and to exempt a store login from needing scopes.
+			// Read once: effectiveUAT both skips the wizard and exempts a store login
+			// from needing scopes.
 			effectiveUAT := firstNonEmpty(uat, os.Getenv("SHOPLAZZA_UAT"))
 
+			// Ask only for what the flags left unanswered, then re-expand.
 			wizardRan := false
 			if steps := plan(loginFlags{
 				storeDomain: storeDomain,
@@ -122,6 +119,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			// Interactive store login requires scopes; the --uat / SHOPLAZZA_UAT path
 			// is exempt (the store token inherits the UAT's account scopes).
+			// Also covers the non-interactive path, where no form validator runs.
 			if normalizedStore != "" && len(effectiveScopes) == 0 && effectiveUAT == "" {
 				return output.ErrWithHint(
 					output.ExitValidation, output.TypeValidation,
@@ -131,8 +129,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
 
-			// After the wizard the summary is the card, which expands the "all"
-			// sentinel into the domains it granted. Untouched otherwise.
+			// After the wizard the summary is the card; otherwise it is unchanged.
 			if wizardRan {
 				interact.Summary(f.IOStreams.ErrOut, loginSummaryRows(normalizedStore, domain, scope)...)
 			} else {

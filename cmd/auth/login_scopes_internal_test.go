@@ -18,8 +18,8 @@ func containsAll(got []string, want ...string) bool {
 	return true
 }
 
-// The --domain help text is generated from the scope map, so every domain —
-// app included — shows up without hand-written copy.
+// TestDomainFlagHelp_ListsApp pins that the --domain help lists app, generated
+// from the scope map.
 func TestDomainFlagHelp_ListsApp(t *testing.T) {
 	_, list, ok := strings.Cut(domainFlagHelp(), "Available: ")
 	if !ok {

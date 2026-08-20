@@ -156,12 +156,9 @@ func TestScopeMapCoversAllSpecModules(t *testing.T) {
 		}
 	}
 
-	// extraDomains are CLI-convenience --domain names intentionally present in
-	// scope_map.json that don't correspond to a registry spec module. `checkout`
-	// and `app` are hardcoded top-level commands (not spec-driven) whose extension
-	// APIs are gated by the themes scope; they're mapped here so
-	// `auth login --domain checkout` / `--domain app` are discoverable and grant
-	// read/write_themes.
+	// extraDomains are --domain names in scope_map.json with no registry spec
+	// module: `checkout` and `app` are hardcoded commands whose extension APIs
+	// are gated by the themes scope.
 	extraDomains := map[string]struct{}{"checkout": {}, "app": {}}
 
 	// Direction 2: every map key's top component is a real spec module (or a
@@ -511,11 +508,7 @@ func TestExpandDomain_Checkout(t *testing.T) {
 	}
 }
 
-// TestExpandDomain_App locks the app domain, which used to be a special case in
-// the login command layer. app-extension development (themes, checkout and
-// theme-extension uploads) authorizes via the themes scope, and themes implies
-// read_shop — never write_shop. The want list is the exact set the old
-// command-level special case produced, so this test pins behavior parity.
+// TestExpandDomain_App pins app to read/write_themes plus read_shop only.
 func TestExpandDomain_App(t *testing.T) {
 	got, err := ExpandDomain("app")
 	if err != nil {
@@ -528,7 +521,7 @@ func TestExpandDomain_App(t *testing.T) {
 	if contains(got, "write_shop") {
 		t.Fatalf("ExpandDomain(app) must NOT grant write_shop; got %v", got)
 	}
-	// app must be discoverable in the domain lists (help text + selectors).
+	// app must be listed for help text and selectors.
 	if !contains(TopLevelDomains(), "app") {
 		t.Error("app not in TopLevelDomains()")
 	}

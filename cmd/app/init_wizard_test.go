@@ -18,9 +18,7 @@ import (
 )
 
 // wizardServer records every request path and serves the two list endpoints the
-// pickers read. status != 200 makes both fail, for the "list is down" cases.
-// Only the paths the wizard itself can reach are served — anything else means
-// the wizard sent a request it had no business sending.
+// pickers read; status != 200 makes both fail. Any other path fails the test.
 type wizardServer struct {
 	*httptest.Server
 	mu   sync.Mutex
@@ -66,8 +64,8 @@ func (ws *wizardServer) dashboard() *app.Dashboard {
 	return app.NewDashboard(client.New(ws.URL), "ptok")
 }
 
-// --client-id is zero-interaction, and that has to mean zero requests too: the
-// pickers it skips are the only reason the wizard reads anything at all.
+// TestWizardInit_ClientIDIsZeroInteractionAndZeroRequests pins that link mode
+// leaves the flags alone and sends no request.
 func TestWizardInit_ClientIDIsZeroInteractionAndZeroRequests(t *testing.T) {
 	ws := newWizardServer(t, http.StatusOK, nil, nil)
 	in := initFlags{clientID: "cid_x", partner: "p1"}
@@ -83,10 +81,9 @@ func TestWizardInit_ClientIDIsZeroInteractionAndZeroRequests(t *testing.T) {
 	}
 }
 
-// The sole partner is auto-selected BEFORE the "is anything left to ask?"
-// decision, so `--name X` on a single-partner account still reaches runInit
-// without a prompt — and with only the partner list read, never the app list
-// (reaching the app list would mean a picker was about to be drawn).
+// TestWizardInit_SinglePartnerAutoSelectedBeforePlanning pins that the sole
+// partner is filled in before stepsFor, so `--name X` prompts nothing and reads
+// only the partner list.
 func TestWizardInit_SinglePartnerAutoSelectedBeforePlanning(t *testing.T) {
 	ws := newWizardServer(t, http.StatusOK, []map[string]any{{"id": "p1", "business_name": "Acme"}}, nil)
 	got, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), initFlags{name: "My App"})
@@ -102,7 +99,8 @@ func TestWizardInit_SinglePartnerAutoSelectedBeforePlanning(t *testing.T) {
 	}
 }
 
-// --name plus --partner leaves nothing to ask, so nothing is read either.
+// TestWizardInit_NameAndPartnerSendNoRequest pins that --name plus --partner
+// leaves nothing to ask and nothing to read.
 func TestWizardInit_NameAndPartnerSendNoRequest(t *testing.T) {
 	ws := newWizardServer(t, http.StatusOK, nil, nil)
 	in := initFlags{name: "My App", partner: "p1"}
@@ -118,8 +116,8 @@ func TestWizardInit_NameAndPartnerSendNoRequest(t *testing.T) {
 	}
 }
 
-// A list that will not load is reported and the command exits — no fallback
-// input box, because the flags in the hint already provide what it would offer.
+// TestWizardInit_ListFailureErrorsWithFlagHint pins that a list that will not
+// load fails the command with a hint naming the equivalent flags.
 func TestWizardInit_ListFailureErrorsWithFlagHint(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
@@ -127,7 +125,6 @@ func TestWizardInit_ListFailureErrorsWithFlagHint(t *testing.T) {
 		wantReq   string
 		wantFlags []string
 	}{
-		// Each hint leads with its own step's equivalent flag.
 		{"partner list down", initFlags{}, "GET /api/cli/v2/partners", []string{"--partner", "--client-id"}},
 		{"app list down", initFlags{partner: "p1"}, "GET /api/cli/v2/partners/p1/apps", []string{"--client-id", "--name"}},
 	} {
@@ -153,9 +150,8 @@ func TestWizardInit_ListFailureErrorsWithFlagHint(t *testing.T) {
 	}
 }
 
-// An account with no partners has nothing to choose and nothing to create
-// under: the same message selectPartner gives it non-interactively, not an
-// empty picker.
+// TestWizardInit_NoPartnersIsAValidationError pins that an account with no
+// partners gets selectPartner's validation error, not an empty picker.
 func TestWizardInit_NoPartnersIsAValidationError(t *testing.T) {
 	ws := newWizardServer(t, http.StatusOK, []map[string]any{}, nil)
 	_, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), initFlags{name: "My App"})
@@ -168,9 +164,8 @@ func TestWizardInit_NoPartnersIsAValidationError(t *testing.T) {
 	}
 }
 
-// The name screen must reject exactly what runInit would reject later, through
-// the same helper — a second copy of the slug-and-stat rule would drift from the
-// one that really runs. "already exists at" is targetDirFor's own wording.
+// TestValidateAppName_ReusesTargetDirFor pins that the name screen rejects what
+// runInit would reject, through targetDirFor ("already exists at" is its wording).
 func TestValidateAppName_ReusesTargetDirFor(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "my-app"), 0o755); err != nil { // slug("My App")
@@ -195,9 +190,8 @@ func TestValidateAppName_ReusesTargetDirFor(t *testing.T) {
 	}
 }
 
-// The app picker's first row is the create sentinel; the rest are the partner's
-// apps as name + client_id, with no header row and no partner column (the list
-// is already filtered to one partner).
+// TestAppOptions_CreateFirstThenTwoColumns pins the create sentinel as the first
+// row, then the apps as name + client_id, with no header row.
 func TestAppOptions_CreateFirstThenTwoColumns(t *testing.T) {
 	opts := appOptions([]app.App{
 		{ClientID: "c_aaa111", Name: "order-sync"},
@@ -219,7 +213,8 @@ func TestAppOptions_CreateFirstThenTwoColumns(t *testing.T) {
 	}
 }
 
-// A partner with no business_name still gets a usable row: the id alone.
+// TestPartnerOptions_FallsBackToID pins that a partner with no business_name
+// gets a row carrying the id alone.
 func TestPartnerOptions_FallsBackToID(t *testing.T) {
 	opts := partnerOptions([]app.Partner{{ID: "p_1001", BusinessName: "Acme"}, {ID: "p_2002"}})
 	if len(opts) != 2 {

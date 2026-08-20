@@ -10,10 +10,8 @@ const (
 	ExitNetwork    = 4 // network unreachable or timeout
 	ExitInternal   = 5 // unexpected internal error
 
-	// ExitCanceled marks a prompt the user aborted with Ctrl-C. It cannot reuse
-	// ExitAPI (1) — a deliberate cancel must stay distinguishable from a real
-	// failure. 130 is the Unix 128+signal convention (SIGINT is 2), so it also
-	// sits clear of the 0–5 codes above.
+	// ExitCanceled marks a prompt the user aborted with Ctrl-C, following the
+	// Unix 128+SIGINT convention. Not 1: that is already ExitAPI.
 	ExitCanceled = 130
 )
 

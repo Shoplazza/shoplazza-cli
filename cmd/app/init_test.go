@@ -343,8 +343,7 @@ func TestNewCmdInit_MutuallyExclusiveFlags(t *testing.T) {
 }
 
 // TestNewCmdInit_OneModeRequired verifies at least one of --name / --client-id
-// is required. The check now lives in RunE (it used to be MarkFlagsOneRequired);
-// this test is the guardian that the non-interactive path still rejects a bare run.
+// is required; the check lives in RunE.
 func TestNewCmdInit_OneModeRequired(t *testing.T) {
 	cmd := newCmdInit(&cmdutil.Factory{})
 	cmd.SetArgs([]string{})
