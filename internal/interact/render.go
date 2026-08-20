@@ -16,10 +16,6 @@ import (
 // Dim renders secondary text: labels, placeholders, hints.
 func Dim(s string) string { warmUp(); return lipgloss.NewStyle().Foreground(brandMuted).Render(s) }
 
-// Bold renders text lifted by weight alone — for an option that ranks above its
-// neighbours while staying left-aligned with them (no indent, no grey aside).
-func Bold(s string) string { return lipgloss.NewStyle().Bold(true).Render(s) }
-
 // cardStyle is the rounded box the closing summary sits in.
 func cardStyle() lipgloss.Style {
 	warmUp()

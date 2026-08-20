@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -51,20 +50,17 @@ func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) er
 					Value(&store),
 			))
 		}
+		// No Validate on this field, deliberately. MultiSelect.Focus() runs
+		// Validate before any keypress, and huh refuses to go back while a group
+		// holds an error — so "a store login needs a domain" would greet the user
+		// on arrival AND silently swallow esc until they ticked something. The
+		// same rule is enforced after the wizard, where it already lived.
 		if askDomains {
 			groups = append(groups, huh.NewGroup(
 				huh.NewMultiSelect[string]().
 					Title("Which domains do you need access to?").
 					Description("Each domain grants the scopes its commands need.").
 					Options(domainOptions(domains)...).
-					Validate(func(v []string) error {
-						// Read the store live, not as it was when this group was
-						// built: the user may have gone back and changed it.
-						if len(v) == 0 && strings.TrimSpace(store) != "" {
-							return fmt.Errorf("a store login needs at least one domain")
-						}
-						return nil
-					}).
 					Value(&selected),
 			))
 		}
@@ -79,22 +75,30 @@ func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) er
 		*storeDomain = strings.TrimSpace(store)
 	}
 	if askDomains {
-		// "all" checked, or every domain checked one by one, collapses to the
-		// sentinel the flag and the server already speak.
-		if slices.Contains(selected, internalauth.DomainAll) || len(selected) == len(domains) {
-			selected = []string{internalauth.DomainAll}
-		}
-		*domain = selected
+		*domain = collapseAll(selected, domains)
 	}
 	return nil
 }
 
-// domainOptions lists the domains with the "all" sentinel first, set apart by
-// weight alone: bold, but left-aligned with the concrete domains — no indent,
-// no grey aside.
+// collapseAll turns a fully-ticked picker into the sentinel the flag and the
+// server already speak — the same scope set, only shorter. Ticking every domain
+// one by one and passing --domain all must not diverge.
+//
+// The picker no longer offers an "all" row (ctrl+a is huh's own, and is in the
+// help line), so this is the only way the sentinel can come out of the wizard.
+func collapseAll(selected, domains []string) []string {
+	if len(domains) > 0 && len(selected) == len(domains) {
+		return []string{internalauth.DomainAll}
+	}
+	return selected
+}
+
+// domainOptions lists the concrete domains, nothing else. An "all" row used to
+// lead the list; it was redundant with ctrl+a, which huh implements and shows in
+// the help line, and it put a row in the picker that no other row could be
+// combined with.
 func domainOptions(domains []string) []huh.Option[string] {
-	out := make([]huh.Option[string], 0, len(domains)+1)
-	out = append(out, huh.NewOption(interact.Bold(internalauth.DomainAll), internalauth.DomainAll))
+	out := make([]huh.Option[string], 0, len(domains))
 	for _, d := range domains {
 		out = append(out, huh.NewOption(d, d))
 	}
