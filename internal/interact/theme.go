@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
@@ -115,7 +116,10 @@ func keyMap() *huh.KeyMap {
 // separate forms cannot go back; conditional steps use WithHideFunc.
 func NewForm(groups ...*huh.Group) *huh.Form {
 	warmUp()
+	// WithProgramOptions assigns teaOptions; WithInput/WithOutput append to it,
+	// so the filter has to be installed first or it replaces their options.
 	return huh.NewForm(groups...).
+		WithProgramOptions(tea.WithFilter(armSubmit)).
 		WithInput(os.Stdin).
 		WithOutput(os.Stderr).
 		WithTheme(theme()).
@@ -169,14 +173,38 @@ func termSize() (int, int) {
 	return w, h
 }
 
-// NotOnArrival wraps a field validator so its first call always passes: huh
-// calls Validate on focus and on going back, and refuses to leave a group that
-// holds an error. TestHuhCallsValidateOnceOnFocus pins the one skipped call.
-func NotOnArrival[T any](check func(T) error) func(T) error {
-	arrived := false
+// submitting is true only while huh handles a key that leaves a field forwards.
+// armSubmit maintains it; OnlyOnSubmit reads it. One flag is enough: Form.Run
+// blocks, so a command never has two forms open.
+var submitting atomic.Bool
+
+// submitBindings are the keys that mean "leave this field forwards", taken from
+// the keymap so they track huh's defaults. Built on first use: a non-interactive
+// run must not pay for it.
+var submitBindings = sync.OnceValue(func() []key.Binding {
+	km := keyMap()
+	return []key.Binding{
+		km.Input.Next, km.Input.Submit,
+		km.Select.Next, km.Select.Submit,
+		km.MultiSelect.Next, km.MultiSelect.Submit,
+	}
+})
+
+// armSubmit is the bubbletea message filter NewForm installs. Every message
+// resets the flag, so it is set for exactly one Update.
+func armSubmit(_ tea.Model, msg tea.Msg) tea.Msg {
+	k, ok := msg.(tea.KeyMsg)
+	submitting.Store(ok && key.Matches(k, submitBindings()...))
+	return msg
+}
+
+// OnlyOnSubmit wraps a field validator so it reports an error only on the key
+// that submits the field. Select and MultiSelect otherwise validate on focus,
+// on every toggle and on going back — and huh refuses to leave a field holding
+// an error, which strands the user on the screen with no way back.
+func OnlyOnSubmit[T any](check func(T) error) func(T) error {
 	return func(v T) error {
-		if !arrived {
-			arrived = true
+		if !submitting.Load() {
 			return nil
 		}
 		return check(v)

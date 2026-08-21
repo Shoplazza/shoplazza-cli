@@ -3,8 +3,10 @@ package interact
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -108,116 +110,212 @@ func TestNeededRows_DoesNotMutateBindings(t *testing.T) {
 	}
 }
 
-// TestHuhCallsValidateOnceOnFocus pins the single focus-time Validate call that
-// NotOnArrival skips.
-func TestHuhCallsValidateOnceOnFocus(t *testing.T) {
-	var calls []int // one entry per Validate call, holding the value's length
+// pump mirrors bubbletea's loop: every message passes the filter NewForm
+// installs before it reaches the form.
+func pump(form **huh.Form, msg tea.Msg) {
+	queue := []tea.Msg{msg}
+	for n := 0; len(queue) > 0 && n < 100; n++ {
+		m := armSubmit(*form, queue[0])
+		queue = queue[1:]
+		mod, cmd := (*form).Update(m)
+		*form = mod.(*huh.Form)
+		for _, next := range collect(cmd) {
+			queue = append(queue, next)
+		}
+	}
+}
+
+// collect runs cmd and returns the messages it produced, dropping any that does
+// not arrive promptly (textinput's cursor blink never returns).
+func collect(cmd tea.Cmd) []tea.Msg {
+	if cmd == nil {
+		return nil
+	}
+	ch := make(chan tea.Msg, 1)
+	go func() { ch <- cmd() }()
+	select {
+	case msg := <-ch:
+		if batch, ok := msg.(tea.BatchMsg); ok {
+			var out []tea.Msg
+			for _, c := range batch {
+				out = append(out, collect(c)...)
+			}
+			return out
+		}
+		if msg == nil {
+			return nil
+		}
+		return []tea.Msg{msg}
+	case <-time.After(40 * time.Millisecond):
+		return nil
+	}
+}
+
+// TestArmSubmit pins which keys count as "submitting this field". Everything
+// else, including messages huh sends itself, must disarm.
+func TestArmSubmit(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		msg  tea.Msg
+		want bool
+	}{
+		{"enter", tea.KeyMsg{Type: tea.KeyEnter}, true},
+		{"tab", tea.KeyMsg{Type: tea.KeyTab}, true},
+		{"esc", tea.KeyMsg{Type: tea.KeyEsc}, false},
+		{"shift+tab", tea.KeyMsg{Type: tea.KeyShiftTab}, false},
+		{"x toggles", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}, false},
+		{"space toggles", tea.KeyMsg{Type: tea.KeySpace}, false},
+		{"cursor down", tea.KeyMsg{Type: tea.KeyDown}, false},
+		{"ctrl+a selects all", tea.KeyMsg{Type: tea.KeyCtrlA}, false},
+		{"a resize is not a key", tea.WindowSizeMsg{Width: 80, Height: 24}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			submitting.Store(!tc.want) // start from the wrong value
+			armSubmit(nil, tc.msg)
+			if got := submitting.Load(); got != tc.want {
+				t.Errorf("armSubmit(%s) left submitting = %v, want %v", tc.name, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestOnlyOnSubmit covers the wrapper itself.
+func TestOnlyOnSubmit(t *testing.T) {
+	boom := errors.New("boom")
+	v := OnlyOnSubmit(func(string) error { return boom })
+
+	submitting.Store(false)
+	for _, when := range []string{"on focus", "on a toggle", "on going back"} {
+		if err := v("value"); err != nil {
+			t.Errorf("%s: returned %v, want nil", when, err)
+		}
+	}
+	submitting.Store(true)
+	if err := v("value"); err != boom {
+		t.Errorf("on submit: returned %v, want the wrapped error", err)
+	}
+}
+
+// TestHuhValidatesOutsideSubmit pins the huh behavior OnlyOnSubmit exists for:
+// focus and toggles validate too. If this ever stops being true the wrapper is
+// no longer needed.
+func TestHuhValidatesOutsideSubmit(t *testing.T) {
+	var calls int
 	var sel []string
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewMultiSelect[string]().
 			Title("Which domains?").
 			Options(huh.NewOption("products", "products"), huh.NewOption("orders", "orders")).
-			Validate(func(v []string) error {
-				calls = append(calls, len(v))
-				return nil
-			}).
+			Validate(func([]string) error { calls++; return nil }).
 			Value(&sel),
 	))
-
-	pump := func(cmd tea.Cmd) {
-		for i := 0; cmd != nil && i < 8; i++ {
-			msg := cmd()
-			if msg == nil {
-				return
-			}
-			m, next := form.Update(msg)
-			form = m.(*huh.Form)
-			cmd = next
-		}
+	if form.Init(); calls == 0 {
+		t.Error("focus made no Validate call")
 	}
-
-	pump(form.Init())
-	if len(calls) != 1 {
-		t.Fatalf("focus made %d Validate calls (values seen: %v), want exactly 1 — NotOnArrival assumes it can skip one", len(calls), calls)
-	}
-
-	// A cursor move must not count as an answer.
-	before := len(calls)
-	m, cmd := form.Update(tea.KeyMsg{Type: tea.KeyDown})
-	form = m.(*huh.Form)
-	pump(cmd)
-	if len(calls) != before {
-		t.Errorf("a cursor move made %d extra Validate calls, want 0", len(calls)-before)
-	}
-
-	// Enter must reach the validator.
-	before = len(calls)
-	m, cmd = form.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	form = m.(*huh.Form)
-	pump(cmd)
-	if len(calls) <= before {
-		t.Error("enter made no Validate call; an on-submit error could never appear")
+	before := calls
+	pump(&form, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	if calls == before {
+		t.Error("a toggle made no Validate call")
 	}
 }
 
-// TestHuhCallsValidateOnGoingBack asserts going back also runs Validate, so a
-// field validator cannot be made submit-only.
-func TestHuhCallsValidateOnGoingBack(t *testing.T) {
-	var calls int
-	var store string
+// twoScreenForm is the shape auth login builds when both screens are planned: a
+// store input, then a domain picker that requires one once a store is given.
+func twoScreenForm(wrap bool) (*huh.Form, *string) {
+	store := "my-store.myshoplaza.com"
 	var sel []string
+	check := func(v []string) error {
+		if len(v) == 0 && *(&store) != "" {
+			return errors.New("needs at least one domain")
+		}
+		return nil
+	}
+	if wrap {
+		check = OnlyOnSubmit(check)
+	}
 	form := huh.NewForm(
 		huh.NewGroup(huh.NewInput().Title("Which store?").Value(&store)),
 		huh.NewGroup(huh.NewMultiSelect[string]().
 			Title("Which domains?").
-			Options(huh.NewOption("products", "products")).
-			Validate(func(v []string) error { calls++; return nil }).
-			Value(&sel)),
+			Options(huh.NewOption("products", "products"), huh.NewOption("orders", "orders")).
+			Validate(check).Value(&sel)),
 	).WithKeyMap(keyMap())
+	return form, &store
+}
 
-	pump := func(cmd tea.Cmd) {
-		for i := 0; cmd != nil && i < 10; i++ {
-			msg := cmd()
-			if msg == nil {
-				return
-			}
-			m, next := form.Update(msg)
-			form = m.(*huh.Form)
-			cmd = next
+// TestOnlyOnSubmit_ErrorOnEnterAndEscStillGoesBack is the regression this wrapper
+// was written for: huh refuses to leave a field holding an error, so an error
+// raised anywhere but on enter strands the user on the screen.
+func TestOnlyOnSubmit_ErrorOnEnterAndEscStillGoesBack(t *testing.T) {
+	const errMsg = "needs at least one domain"
+	reach := func(wrap bool) *huh.Form {
+		form, _ := twoScreenForm(wrap)
+		for _, msg := range collect(form.Init()) {
+			pump(&form, msg)
 		}
-	}
-	send := func(msg tea.Msg) {
-		m, cmd := form.Update(msg)
-		form = m.(*huh.Form)
-		pump(cmd)
+		pump(&form, tea.WindowSizeMsg{Width: 100, Height: 40})
+		pump(&form, tea.KeyMsg{Type: tea.KeyEnter}) // leave the store, arrive at the domains
+		return form
 	}
 
-	pump(form.Init())
-	send(tea.KeyMsg{Type: tea.KeyEnter}) // leave the store, focus the domains
-	before := calls
-	send(tea.KeyMsg{Type: tea.KeyEsc}) // ask to go back
-	if calls == before {
-		t.Error("going back made no Validate call — if that ever becomes true, a field validator CAN be made submit-only and NotOnArrival's residual disappears")
+	form := reach(true)
+	if strings.Contains(form.View(), errMsg) {
+		t.Error("the domains screen arrived showing an error")
+	}
+	pump(&form, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	pump(&form, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}) // select then deselect
+	if strings.Contains(form.View(), errMsg) {
+		t.Error("toggling raised the error before enter")
+	}
+	pump(&form, tea.KeyMsg{Type: tea.KeyEnter})
+	if !strings.Contains(form.View(), errMsg) {
+		t.Fatalf("enter with nothing selected showed no error:\n%s", form.View())
+	}
+	pump(&form, tea.KeyMsg{Type: tea.KeyEsc})
+	if !strings.Contains(form.View(), "Which store?") {
+		t.Errorf("esc did not go back while the error was showing:\n%s", form.View())
+	}
+
+	// Unwrapped, the same esc is swallowed — that is the behavior being fixed.
+	bare := reach(false)
+	pump(&bare, tea.KeyMsg{Type: tea.KeyEnter})
+	pump(&bare, tea.KeyMsg{Type: tea.KeyEsc})
+	if strings.Contains(bare.View(), "Which store?") {
+		t.Error("an unwrapped validator no longer blocks esc; OnlyOnSubmit may be unnecessary")
 	}
 }
 
-// TestNotOnArrival covers the wrapper itself.
-func TestNotOnArrival(t *testing.T) {
-	boom := errors.New("boom")
-	v := NotOnArrival(func(s string) error { return boom })
+// TestNewForm_InstallsTheSubmitFilter guards the wiring end to end: without the
+// filter the flag never arms and every validator silently passes, which fails
+// open. WithProgramOptions assigns teaOptions, so NewForm's call order matters.
+func TestNewForm_InstallsTheSubmitFilter(t *testing.T) {
+	var errs int
+	var sel []string
+	form := NewForm(huh.NewGroup(
+		huh.NewMultiSelect[string]().
+			Title("Which domains?").
+			Options(huh.NewOption("products", "products"), huh.NewOption("orders", "orders")).
+			Validate(OnlyOnSubmit(func(v []string) error {
+				if len(v) == 0 {
+					errs++
+					return errors.New("pick one")
+				}
+				return nil
+			})).
+			Value(&sel),
+	)).WithInput(strings.NewReader("\rx\r")).WithOutput(io.Discard)
 
-	if err := v("arrival"); err != nil {
-		t.Errorf("first call returned %v, want nil: the screen must not arrive red", err)
+	// enter (refused), x (selects), enter (submits).
+	if err := form.Run(); err != nil {
+		t.Fatalf("form.Run: %v", err)
 	}
-	for i := 0; i < 3; i++ {
-		if err := v("later"); err != boom {
-			t.Errorf("call %d returned %v, want the wrapped error", i+2, err)
-		}
+	// Without the filter nothing ever arms, so the first enter submits an empty
+	// selection: errs stays 0 and sel stays empty. (An armed enter validates
+	// twice — huh validates on the value update and again before advancing.)
+	if errs == 0 {
+		t.Error("the validator never fired: the submit filter is not installed")
 	}
-
-	// Each wrapper is independent: two fields must not share one arrival.
-	other := NotOnArrival(func(s string) error { return boom })
-	if err := other("arrival"); err != nil {
-		t.Errorf("a second wrapper returned %v on its own first call, want nil", err)
+	if len(sel) != 1 || sel[0] != "products" {
+		t.Errorf("selection = %v, want [products]: the first enter was not refused", sel)
 	}
 }

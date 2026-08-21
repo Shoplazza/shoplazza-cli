@@ -3,7 +3,7 @@
 ## 2.0.11 - 2026-08-21
 
 ### Added
-- Interactive prompts for `auth login` and `app init` when a flag is missing. `auth login` asks which store and which domains; `app init` asks for the partner, the app, and the new app's name. Only the unanswered screens appear — a flag you pass is never asked about. `esc` goes back a step; Ctrl-C exits 130 with both streams empty.
+- Interactive prompts for `auth login` and `app init` when a flag is missing. `auth login` asks which store and which domains; `app init` asks for the partner, the app, and the new app's name. Only the unanswered screens appear — a flag you pass is never asked about. A screen complains only when you press enter, so `esc` always goes back a step; Ctrl-C exits 130 with both streams empty.
 - `app` is now a `--domain` value, granting the `themes` scopes `app dev` and `app deploy` need.
 
 ### Changed

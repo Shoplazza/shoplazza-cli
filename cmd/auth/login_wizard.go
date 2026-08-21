@@ -45,8 +45,8 @@ func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) er
 					Title("Which domains do you need access to?").
 					Description("Each domain grants the scopes its commands need.").
 					Options(domainOptions(domains)...).
-					// Wrapped in NotOnArrival so the screen does not error on arrival.
-					Validate(interact.NotOnArrival(func(v []string) error {
+					// OnlyOnSubmit: the error appears on enter, and never blocks esc.
+					Validate(interact.OnlyOnSubmit(func(v []string) error {
 						// store is read live: the user may have gone back and changed it.
 						if len(v) == 0 && strings.TrimSpace(store) != "" {
 							return errors.New("a store login needs at least one domain — press x to pick one")
