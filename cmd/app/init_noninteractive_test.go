@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
@@ -79,6 +80,10 @@ func (is *initServer) requests() []string {
 	is.mu.Lock()
 	defer is.mu.Unlock()
 	return append([]string(nil), is.seen...)
+}
+
+func (is *initServer) dashboard() *app.Dashboard {
+	return app.NewDashboard(client.New(is.URL), "ptok")
 }
 
 // initFactory builds a logged-in factory whose buffer streams keep the
