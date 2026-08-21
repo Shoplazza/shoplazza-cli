@@ -86,10 +86,8 @@ func runInit(ctx context.Context, d *app.Dashboard, p *project.Project, o initOp
 		fmt.Fprintln(errW, "warning: --partner is ignored when linking an existing app (the partner is derived from the app info)")
 	}
 
-	// Create mode resolves by really creating the app server-side, so the target
-	// dir must be checked FIRST: a late failure would leave an orphaned remote app
-	// (there is no `app delete`) with no local project. The link path's calls are
-	// read-only, so it only needs the post-resolve check below.
+	// Create mode really creates the app server-side, so check the target dir
+	// first: failing later would leave an orphaned remote app.
 	if o.Create && o.Name != "" {
 		if _, _, dErr := targetDirFor(p.Root, o.Name); dErr != nil {
 			return dErr

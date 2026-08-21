@@ -25,11 +25,8 @@ func IsTerminal(v any) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
-// minPromptCols is the narrowest terminal a prompt is drawn in. Below 4 columns
-// huh's layout math goes negative and bubbles panics inside textinput (measured
-// in a pty: 0-3 crash, 4 and up render); the rest is margin for layout
-// differences between versions. A terminal narrower than this counts as no
-// terminal, so the command takes its non-interactive path instead of crashing.
+// minPromptCols is the narrowest terminal a prompt is drawn in: below it huh's
+// layout math panics, so the gate treats the terminal as absent.
 const minPromptCols = 8
 
 // Interactive reports whether a human is present to answer prompts, on a
