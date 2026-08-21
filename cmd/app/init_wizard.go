@@ -28,25 +28,26 @@ const (
 const nameColWidth = 32
 
 // wizardInit asks the screens stepsFor selects and returns the flags as if the
-// answers had been typed on the command line. root is the directory the project
-// sub-dir is created in; the name screen validates against it.
+// answers had been typed on the command line, plus the summary card's rows, nil
+// when it asked nothing. The rows are built here: the link branch drops the
+// chosen partner from the flags. root holds the new project sub-dir.
 //
 // Two forms: huh's Select.OptionsFunc drops its first option, so the app list uses static Options().
-func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags) (initFlags, error) {
+func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags) (initFlags, []string, error) {
 	// Link mode asks nothing and reads no list.
 	if fl.clientID != "" {
-		return fl, nil
+		return fl, nil, nil
 	}
 
 	// Auto-select the sole partner BEFORE stepsFor, or --name alone would be planned a prompt.
 	partners, err := narrowPartner(ctx, d, &fl)
 	if err != nil {
-		return fl, err
+		return fl, nil, err
 	}
 
 	steps := stepsFor(fl)
 	if len(steps) == 0 {
-		return fl, nil
+		return fl, nil, nil
 	}
 
 	// Screen 1 — the partner, in its own form.
@@ -60,17 +61,18 @@ func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags
 					Value(&fl.partner),
 			))
 		}); err != nil {
-			return fl, err
+			return fl, nil, err
 		}
 	}
+	partner := partnerLabel(partners, fl.partner)
 	if !slices.Contains(steps, stepApp) {
-		return fl, nil // --name answered the rest
+		return fl, initSummaryRows(partner, newApp(fl.name)), nil // --name answered the rest
 	}
 
 	// The app list for the partner now settled.
 	apps, err := d.GetApps(ctx, fl.partner)
 	if err != nil {
-		return fl, apiError(err).WithHint(appListHint)
+		return fl, nil, apiError(err).WithHint(appListHint)
 	}
 
 	choice, name := createNewApp, ""
@@ -88,7 +90,6 @@ func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags
 			huh.NewGroup(
 				huh.NewInput().
 					Title("What is the app called?").
-					Description("A project directory is created from this name.").
 					Placeholder("My App").
 					// OnlyOnSubmit: Input.Blur validates too, and huh refuses to
 					// leave a group holding an error — esc would be swallowed.
@@ -97,17 +98,50 @@ func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags
 			).WithHideFunc(func() bool { return choice != createNewApp }),
 		)
 	}); err != nil {
-		return fl, err
+		return fl, nil, err
 	}
 
 	if choice == createNewApp {
 		fl.name = strings.TrimSpace(name)
-		return fl, nil
+		return fl, initSummaryRows(partner, newApp(fl.name)), nil
 	}
+	rows := initSummaryRows(partner, appLabel(apps.Apps, choice)+" "+interact.Dim("(link)"))
 	// Link mode: the partner comes from the app, and clearing it keeps runInit
 	// from warning that --partner was ignored.
 	fl.clientID, fl.name, fl.partner = choice, "", ""
-	return fl, nil
+	return fl, rows, nil
+}
+
+// initSummaryRows builds the card echoing the wizard's answers.
+func initSummaryRows(partner, app string) []string {
+	return []string{interact.Field("Partner", partner), interact.Field("App", app)}
+}
+
+// newApp marks an app name as one the run is about to create.
+func newApp(name string) string { return name + " " + interact.Dim("(new)") }
+
+// partnerLabel names a partner by business name, falling back to the id.
+func partnerLabel(partners []app.Partner, id string) string {
+	for _, p := range partners {
+		if string(p.ID) == id {
+			if name := strings.TrimSpace(p.BusinessName); name != "" {
+				return name
+			}
+		}
+	}
+	return id
+}
+
+// appLabel names an app by name, falling back to its client_id.
+func appLabel(apps []app.App, clientID string) string {
+	for _, a := range apps {
+		if a.ClientID == clientID {
+			if name := strings.TrimSpace(a.Name); name != "" {
+				return name
+			}
+		}
+	}
+	return clientID
 }
 
 // narrowPartner fills in fl.partner where no prompt is needed — an explicit flag,
