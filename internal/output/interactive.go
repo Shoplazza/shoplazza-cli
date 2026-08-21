@@ -25,23 +25,43 @@ func IsTerminal(v any) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
-// Interactive reports whether a human is present to answer prompts: in and
-// errOut must both be real terminals with no escape hatch set. stdout is not
-// consulted — it may be piped while the prompt draws on stderr. env is injected
-// (os.LookupEnv in production). There is an off switch only, by design.
+// minPromptCols is the narrowest terminal a prompt is drawn in. Below 4 columns
+// huh's layout math goes negative and bubbles panics inside textinput (measured
+// in a pty: 0-3 crash, 4 and up render); the rest is margin for layout
+// differences between versions. A terminal narrower than this counts as no
+// terminal, so the command takes its non-interactive path instead of crashing.
+const minPromptCols = 8
+
+// Interactive reports whether a human is present to answer prompts, on a
+// terminal wide enough to draw one: in and errOut must both be real terminals
+// with no escape hatch set. stdout is not consulted — it may be piped while the
+// prompt draws on stderr. env is injected (os.LookupEnv in production). There is
+// an off switch only, by design.
 func Interactive(in, errOut *os.File, env func(string) (string, bool)) bool {
-	return interactive(env, func() bool { return IsTTY(in) && IsTTY(errOut) })
+	return interactive(env, func() bool { return IsTTY(in) && IsTTY(errOut) }, func() int { return cols(errOut) })
 }
 
-// interactive is the gate with the terminal check injected, so tests can cover
-// the "terminal present, escape hatch set" direction without a tty.
-func interactive(env func(string) (string, bool), bothTTY func() bool) bool {
+// interactive is the gate with the terminal facts injected, so tests can cover
+// every direction without a tty.
+func interactive(env func(string) (string, bool), bothTTY func() bool, width func() int) bool {
 	for _, k := range interactiveOffEnv {
 		if v, ok := env(k); ok && v != "" {
 			return false
 		}
 	}
-	return bothTTY()
+	return bothTTY() && width() >= minPromptCols
+}
+
+// cols reports f's terminal width, or 0 when it has none.
+func cols(f *os.File) int {
+	if f == nil {
+		return 0
+	}
+	w, _, err := term.GetSize(f.Fd())
+	if err != nil {
+		return 0
+	}
+	return w
 }
 
 // IsTTY reports whether f is a real terminal. Not interchangeable with
