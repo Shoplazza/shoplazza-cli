@@ -55,7 +55,7 @@ func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags
 			return interact.NewForm(huh.NewGroup(
 				huh.NewSelect[string]().
 					Title("Which partner?").
-					Description("The app is created under, or looked up in, this partner.").
+					Description("The app belongs to this partner.").
 					Options(partnerOptions(partners)...).
 					Value(&fl.partner),
 			))
