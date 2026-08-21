@@ -25,16 +25,8 @@ type initFlags struct {
 	partner  string
 }
 
-// plan returns the screens this run will ask, in order.
-// It applies the interactive gate; stepsFor is the gate-free half the wizard calls.
-func plan(fl initFlags, gateOpen bool) []initStep {
-	if !gateOpen {
-		return nil
-	}
-	return stepsFor(fl)
-}
-
-// stepsFor returns the screens the flags leave unanswered, without the gate check.
+// stepsFor returns the screens the flags leave unanswered, in order. It touches
+// no terminal; the interactive gate is RunE's job.
 func stepsFor(fl initFlags) []initStep {
 	// Link mode needs nothing: resolveAppRef derives the partner from the app.
 	if fl.clientID != "" {

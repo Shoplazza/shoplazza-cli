@@ -78,16 +78,18 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			// Ask only for what the flags left unanswered, then re-expand.
 			wizardRan := false
-			if steps := plan(loginFlags{
+			fl := loginFlags{
 				storeDomain: storeDomain,
 				domain:      domain,
 				scope:       scope,
 				uat:         effectiveUAT,
 				mergeScopes: mergeScopes,
-			}, cmdutil.Interactive(f)); len(steps) > 0 {
-				if err := runLoginWizard(steps, &storeDomain, &domain); err != nil {
+			}
+			if steps := stepsFor(fl); len(steps) > 0 && cmdutil.Interactive(f) {
+				if fl, err = runLoginWizard(steps, fl); err != nil {
 					return err
 				}
+				storeDomain, domain = fl.storeDomain, fl.domain
 				if domainScopes, err = expandDomains(domain); err != nil {
 					return err
 				}

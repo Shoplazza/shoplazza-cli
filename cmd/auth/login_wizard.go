@@ -14,16 +14,16 @@ import (
 // summaryListWidth wraps the summary card's value column.
 const summaryListWidth = 48
 
-// runLoginWizard asks the given steps and writes the answers back into
-// storeDomain and domain, so the rest of RunE runs as if they had been typed on
-// the command line. A step that is not in steps writes nothing back. Sends no
-// request: every option comes from the embedded scope map.
-func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) error {
+// runLoginWizard asks the given steps and returns the flags with the answers
+// filled in, as if they had been typed on the command line. A step that is not
+// in steps writes nothing back. Sends no request: every option comes from the
+// embedded scope map.
+func runLoginWizard(steps []loginStep, fl loginFlags) (loginFlags, error) {
 	domains := internalauth.TopLevelDomains()
 	askStore := slices.Contains(steps, stepStore)
 	askDomains := slices.Contains(steps, stepDomains)
 
-	store := *storeDomain
+	store := fl.storeDomain
 	var selected []string
 
 	// One form, one group per planned step: separate forms cannot go back, and
@@ -60,16 +60,16 @@ func runLoginWizard(steps []loginStep, storeDomain *string, domain *[]string) er
 	}
 
 	if err := interact.Run(build); err != nil {
-		return err
+		return fl, err
 	}
 
 	if askStore {
-		*storeDomain = strings.TrimSpace(store)
+		fl.storeDomain = strings.TrimSpace(store)
 	}
 	if askDomains {
-		*domain = collapseAll(selected, domains)
+		fl.domain = collapseAll(selected, domains)
 	}
-	return nil
+	return fl, nil
 }
 
 // collapseAll returns the "all" sentinel when every domain is selected, and

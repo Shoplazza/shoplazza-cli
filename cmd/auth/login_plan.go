@@ -23,12 +23,9 @@ type loginFlags struct {
 	mergeScopes bool
 }
 
-// plan returns the screens this run will ask, in order. It touches no terminal
-// and sends no request.
-func plan(fl loginFlags, gateOpen bool) []loginStep {
-	if !gateOpen {
-		return nil
-	}
+// stepsFor returns the screens the flags leave unanswered, in order. It touches
+// no terminal and sends no request; the interactive gate is RunE's job.
+func stepsFor(fl loginFlags) []loginStep {
 	// --uat (including SHOPLAZZA_UAT) switches off the whole wizard, not one screen.
 	if fl.uat != "" {
 		return nil
