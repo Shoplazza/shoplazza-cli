@@ -90,7 +90,9 @@ func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags
 					Title("What is the app called?").
 					Description("A project directory is created from this name.").
 					Placeholder("My App").
-					Validate(validateAppName(root)).
+					// OnlyOnSubmit: Input.Blur validates too, and huh refuses to
+					// leave a group holding an error — esc would be swallowed.
+					Validate(interact.OnlyOnSubmit(validateAppName(root))).
 					Value(&name),
 			).WithHideFunc(func() bool { return choice != createNewApp }),
 		)

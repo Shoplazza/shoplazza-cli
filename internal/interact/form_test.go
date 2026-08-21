@@ -333,3 +333,66 @@ func TestNewForm_InstallsTheSubmitFilter(t *testing.T) {
 		t.Errorf("selection = %v, want [products]: the first enter was not refused", sel)
 	}
 }
+
+// TestOnlyOnSubmit_EscLeavesAnInputThatWouldNotValidate covers the other way huh
+// strands the user: Input.Prev does not validate, but Input.Blur does, and the
+// prevGroup transition is then refused because the group holds an error. This is
+// app init's name screen, reached from the app picker.
+func TestOnlyOnSubmit_EscLeavesAnInputThatWouldNotValidate(t *testing.T) {
+	const create = "\x00create"
+	const errMsg = "app name is required"
+
+	reach := func(wrap bool) *huh.Form {
+		choice, name := create, ""
+		check := func(s string) error {
+			if strings.TrimSpace(s) == "" {
+				return errors.New(errMsg)
+			}
+			return nil
+		}
+		if wrap {
+			check = OnlyOnSubmit(check)
+		}
+		form := huh.NewForm(
+			huh.NewGroup(huh.NewSelect[string]().Title("Which app?").
+				Options(huh.NewOption("Create a new app…", create), huh.NewOption("MyApp", "cid_x")).
+				Value(&choice)),
+			huh.NewGroup(huh.NewInput().Title("What is the app called?").
+				Placeholder("My App").Validate(check).Value(&name)).
+				WithHideFunc(func() bool { return choice != create }),
+		).WithKeyMap(keyMap())
+		submitting.Store(false)
+		for _, msg := range collect(form.Init()) {
+			pump(&form, msg)
+		}
+		pump(&form, tea.WindowSizeMsg{Width: 100, Height: 40})
+		pump(&form, tea.KeyMsg{Type: tea.KeyEnter}) // take the create branch
+		return form
+	}
+
+	form := reach(true)
+	if strings.Contains(form.View(), errMsg) {
+		t.Errorf("the name screen arrived showing an error:\n%s", form.View())
+	}
+	pump(&form, tea.KeyMsg{Type: tea.KeyEsc})
+	if !strings.Contains(form.View(), "Which app?") {
+		t.Errorf("esc did not go back from the name screen:\n%s", form.View())
+	}
+	if strings.Contains(form.View(), errMsg) {
+		t.Errorf("going back left the validator's error on screen:\n%s", form.View())
+	}
+
+	// Enter must still refuse a blank name.
+	form = reach(true)
+	pump(&form, tea.KeyMsg{Type: tea.KeyEnter})
+	if !strings.Contains(form.View(), errMsg) {
+		t.Errorf("enter on a blank name showed no error:\n%s", form.View())
+	}
+
+	// Unwrapped, esc is swallowed and the error appears instead.
+	bare := reach(false)
+	pump(&bare, tea.KeyMsg{Type: tea.KeyEsc})
+	if strings.Contains(bare.View(), "Which app?") {
+		t.Error("an unwrapped Input validator no longer blocks esc; the wrapper may be unnecessary")
+	}
+}
