@@ -116,10 +116,11 @@ func keyMap() *huh.KeyMap {
 // separate forms cannot go back; conditional steps use WithHideFunc.
 func NewForm(groups ...*huh.Group) *huh.Form {
 	warmUp()
-	// WithProgramOptions assigns teaOptions; WithInput/WithOutput append to it,
-	// so the filter has to be installed first or it replaces their options.
+	submitting.Store(false) // Init validates on focus, before the filter runs
+	// WithProgramOptions assigns teaOptions (dropping huh's defaults, hence
+	// WithReportFocus); WithInput/WithOutput append to it.
 	return huh.NewForm(groups...).
-		WithProgramOptions(tea.WithFilter(armSubmit)).
+		WithProgramOptions(tea.WithReportFocus(), tea.WithFilter(armSubmit)).
 		WithInput(os.Stdin).
 		WithOutput(os.Stderr).
 		WithTheme(theme()).
@@ -178,16 +179,11 @@ func termSize() (int, int) {
 // blocks, so a command never has two forms open.
 var submitting atomic.Bool
 
-// submitBindings are the keys that mean "leave this field forwards", taken from
-// the keymap so they track huh's defaults. Built on first use: a non-interactive
-// run must not pay for it.
+// submitBindings are the keys that mean "leave this field forwards" — enter/tab
+// for every huh v1.0.0 field type. Built on first use.
 var submitBindings = sync.OnceValue(func() []key.Binding {
 	km := keyMap()
-	return []key.Binding{
-		km.Input.Next, km.Input.Submit,
-		km.Select.Next, km.Select.Submit,
-		km.MultiSelect.Next, km.MultiSelect.Submit,
-	}
+	return []key.Binding{km.Input.Next, km.Input.Submit}
 })
 
 // armSubmit is the bubbletea message filter NewForm installs. Every message
@@ -202,6 +198,9 @@ func armSubmit(_ tea.Model, msg tea.Msg) tea.Msg {
 // that submits the field. Select and MultiSelect otherwise validate on focus,
 // on every toggle and on going back — and huh refuses to leave a field holding
 // an error, which strands the user on the screen with no way back.
+//
+// Armed only by the filter NewForm installs: on any other form (including
+// accessible mode) it passes everything, so the command must re-check after Run.
 func OnlyOnSubmit[T any](check func(T) error) func(T) error {
 	return func(v T) error {
 		if !submitting.Load() {

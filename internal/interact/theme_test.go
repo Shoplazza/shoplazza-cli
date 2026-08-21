@@ -126,7 +126,7 @@ func pump(form **huh.Form, msg tea.Msg) {
 }
 
 // collect runs cmd and returns the messages it produced, dropping any that does
-// not arrive promptly (textinput's cursor blink never returns).
+// not arrive promptly (textinput's cursor blink only fires after ~530ms).
 func collect(cmd tea.Cmd) []tea.Msg {
 	if cmd == nil {
 		return nil
@@ -146,7 +146,7 @@ func collect(cmd tea.Cmd) []tea.Msg {
 			return nil
 		}
 		return []tea.Msg{msg}
-	case <-time.After(40 * time.Millisecond):
+	case <-time.After(250 * time.Millisecond):
 		return nil
 	}
 }
@@ -154,6 +154,7 @@ func collect(cmd tea.Cmd) []tea.Msg {
 // TestArmSubmit pins which keys count as "submitting this field". Everything
 // else, including messages huh sends itself, must disarm.
 func TestArmSubmit(t *testing.T) {
+	t.Cleanup(func() { submitting.Store(false) })
 	for _, tc := range []struct {
 		name string
 		msg  tea.Msg
@@ -181,6 +182,7 @@ func TestArmSubmit(t *testing.T) {
 
 // TestOnlyOnSubmit covers the wrapper itself.
 func TestOnlyOnSubmit(t *testing.T) {
+	t.Cleanup(func() { submitting.Store(false) })
 	boom := errors.New("boom")
 	v := OnlyOnSubmit(func(string) error { return boom })
 
@@ -221,11 +223,11 @@ func TestHuhValidatesOutsideSubmit(t *testing.T) {
 
 // twoScreenForm is the shape auth login builds when both screens are planned: a
 // store input, then a domain picker that requires one once a store is given.
-func twoScreenForm(wrap bool) (*huh.Form, *string) {
+func twoScreenForm(wrap bool) *huh.Form {
 	store := "my-store.myshoplaza.com"
 	var sel []string
 	check := func(v []string) error {
-		if len(v) == 0 && *(&store) != "" {
+		if len(v) == 0 && store != "" {
 			return errors.New("needs at least one domain")
 		}
 		return nil
@@ -233,14 +235,13 @@ func twoScreenForm(wrap bool) (*huh.Form, *string) {
 	if wrap {
 		check = OnlyOnSubmit(check)
 	}
-	form := huh.NewForm(
+	return huh.NewForm(
 		huh.NewGroup(huh.NewInput().Title("Which store?").Value(&store)),
 		huh.NewGroup(huh.NewMultiSelect[string]().
 			Title("Which domains?").
 			Options(huh.NewOption("products", "products"), huh.NewOption("orders", "orders")).
 			Validate(check).Value(&sel)),
 	).WithKeyMap(keyMap())
-	return form, &store
 }
 
 // TestOnlyOnSubmit_ErrorOnEnterAndEscStillGoesBack is the regression this wrapper
@@ -249,7 +250,7 @@ func twoScreenForm(wrap bool) (*huh.Form, *string) {
 func TestOnlyOnSubmit_ErrorOnEnterAndEscStillGoesBack(t *testing.T) {
 	const errMsg = "needs at least one domain"
 	reach := func(wrap bool) *huh.Form {
-		form, _ := twoScreenForm(wrap)
+		form := twoScreenForm(wrap)
 		for _, msg := range collect(form.Init()) {
 			pump(&form, msg)
 		}
@@ -289,8 +290,10 @@ func TestOnlyOnSubmit_ErrorOnEnterAndEscStillGoesBack(t *testing.T) {
 // filter the flag never arms and every validator silently passes, which fails
 // open. WithProgramOptions assigns teaOptions, so NewForm's call order matters.
 func TestNewForm_InstallsTheSubmitFilter(t *testing.T) {
+	t.Setenv("TERM", "xterm-256color") // TERM=dumb would skip the tea program
 	var errs int
 	var sel []string
+	submitting.Store(true) // stale flag from a previous form
 	form := NewForm(huh.NewGroup(
 		huh.NewMultiSelect[string]().
 			Title("Which domains?").
@@ -303,11 +306,22 @@ func TestNewForm_InstallsTheSubmitFilter(t *testing.T) {
 				return nil
 			})).
 			Value(&sel),
-	)).WithInput(strings.NewReader("\rx\r")).WithOutput(io.Discard)
+	))
+	if submitting.Load() {
+		t.Fatal("NewForm left the submit flag armed; the next focus validation would fire")
+	}
+	form = form.WithInput(strings.NewReader("\rx\r")).WithOutput(io.Discard)
 
 	// enter (refused), x (selects), enter (submits).
-	if err := form.Run(); err != nil {
-		t.Fatalf("form.Run: %v", err)
+	done := make(chan error, 1)
+	go func() { done <- form.Run() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("form.Run: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("form.Run did not finish; the input script no longer completes the form")
 	}
 	// Without the filter nothing ever arms, so the first enter submits an empty
 	// selection: errs stays 0 and sel stays empty. (An armed enter validates
