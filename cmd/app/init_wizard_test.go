@@ -15,6 +15,9 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // wizardServer records every request path and serves the two list endpoints the
@@ -225,5 +228,46 @@ func TestPartnerOptions_FallsBackToID(t *testing.T) {
 	}
 	if opts[1].Key != "p_2002" || opts[1].Value != "p_2002" {
 		t.Errorf("option 1 = %q/%q, want the bare id", opts[1].Key, opts[1].Value)
+	}
+}
+
+// TestOptions_AlignTheIDColumnInCells pins that the id column lands on the same
+// terminal cell in every row. Names come from the API, so they carry CJK and
+// other double-width characters; a byte or rune count skews the column.
+func TestOptions_AlignTheIDColumnInCells(t *testing.T) {
+	t.Run("partners", func(t *testing.T) {
+		opts := partnerOptions([]app.Partner{
+			{ID: "3634", BusinessName: "212"},
+			{ID: "3665", BusinessName: "1"},
+			{ID: "34578", BusinessName: "店匠"},
+			{ID: "9", BusinessName: "café"},
+		})
+		assertOneIDColumn(t, opts)
+	})
+	t.Run("apps", func(t *testing.T) {
+		opts := appOptions([]app.App{
+			{ClientID: "c_aaa111", Name: "order-sync"},
+			{ClientID: "c_bbb222", Name: "订单同步"},
+			{ClientID: "c_ccc333", Name: "loyalty"},
+		})
+		if opts[0].Value != createNewApp {
+			t.Fatalf("first option = %q, want the create sentinel", opts[0].Value)
+		}
+		assertOneIDColumn(t, opts[1:]) // the sentinel row has no id column
+	})
+}
+
+// assertOneIDColumn checks every "name  id" label starts its id at one cell.
+func assertOneIDColumn(t *testing.T, opts []huh.Option[string]) {
+	t.Helper()
+	want := -1
+	for _, o := range opts {
+		at := lipgloss.Width(o.Key) - lipgloss.Width(o.Value)
+		if want == -1 {
+			want = at
+		}
+		if at != want {
+			t.Errorf("%q starts its id at cell %d, want %d — the column is skewed", o.Key, at, want)
+		}
 	}
 }

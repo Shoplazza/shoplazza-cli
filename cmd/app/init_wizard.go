@@ -3,7 +3,6 @@ package appcmd
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // createNewApp is the app picker's create-new sentinel; a NUL byte cannot
@@ -141,7 +141,7 @@ func partnerOptions(partners []app.Partner) []huh.Option[string] {
 		id := string(p.ID)
 		label := id
 		if names[i] != "" {
-			label = fmt.Sprintf("%-*s %s", w, names[i], id)
+			label = pad(names[i], w) + " " + id
 		}
 		out = append(out, huh.NewOption(label, id))
 	}
@@ -159,20 +159,30 @@ func appOptions(apps []app.App) []huh.Option[string] {
 	out := make([]huh.Option[string], 0, len(apps)+1)
 	out = append(out, huh.NewOption("Create a new app…", createNewApp))
 	for i, a := range apps {
-		out = append(out, huh.NewOption(fmt.Sprintf("%-*s %s", w, names[i], a.ClientID), a.ClientID))
+		out = append(out, huh.NewOption(pad(names[i], w)+" "+a.ClientID, a.ClientID))
 	}
 	return out
 }
 
-// colWidth returns the first-column width: the longest name, capped at nameColWidth.
+// colWidth returns the first-column width in terminal cells: the widest name,
+// capped at nameColWidth.
 func colWidth(names []string) int {
 	w := 0
 	for _, n := range names {
-		if len(n) > w {
-			w = len(n)
+		if c := lipgloss.Width(n); c > w {
+			w = c
 		}
 	}
 	return min(w, nameColWidth)
+}
+
+// pad right-pads s to w terminal cells. fmt's %-*s pads by rune count, which
+// leaves a CJK name one cell short per character and skews the second column.
+func pad(s string, w int) string {
+	if n := w - lipgloss.Width(s); n > 0 {
+		return s + strings.Repeat(" ", n)
+	}
+	return s
 }
 
 // validateAppName rejects a blank name, or one whose slug already exists as a
