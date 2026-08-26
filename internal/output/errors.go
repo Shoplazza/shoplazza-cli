@@ -72,6 +72,21 @@ func (e *ExitError) WithEndpoint(method, path string) *ExitError {
 	return e
 }
 
+// WithRequestID attaches the request id to error.detail; no-op when empty.
+func (e *ExitError) WithRequestID(id string) *ExitError {
+	if id == "" {
+		return e
+	}
+	if e.Detail == nil {
+		e.Detail = &ErrDetail{}
+	}
+	if e.Detail.Detail == nil {
+		e.Detail.Detail = &ErrorContext{}
+	}
+	e.Detail.Detail.RequestID = id
+	return e
+}
+
 // Envelope returns the user-facing fields of the error as a map, for test
 // introspection; production code uses WriteErrorEnvelope for the wire format.
 // Here "code" is the integer exit code (e.Code), distinct from the wire
@@ -193,7 +208,7 @@ func ErrAPI(statusCode int, body, requestID string) *ExitError {
 // ErrAPIAuthHint builds an auth-class ExitError from a non-2xx auth/token
 // exchange response: like ErrAPI but keeping the auth type and a caller-supplied
 // recovery hint alongside the clean server-parsed message + code + status_code.
-func ErrAPIAuthHint(statusCode int, body, hint string) *ExitError {
+func ErrAPIAuthHint(statusCode int, body, requestID, hint string) *ExitError {
 	code, msg := parseAPIErrorBody(body)
 	if msg == "" {
 		if msg = strings.TrimSpace(body); msg == "" {
@@ -207,7 +222,7 @@ func ErrAPIAuthHint(statusCode int, body, hint string) *ExitError {
 			Code:    code,
 			Message: msg,
 			Hint:    hint,
-			Detail:  newErrorContext(statusCode, ""),
+			Detail:  newErrorContext(statusCode, requestID),
 		},
 	}
 }

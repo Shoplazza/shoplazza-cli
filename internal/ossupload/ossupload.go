@@ -87,7 +87,7 @@ func (u *Uploader) Upload(ctx context.Context, filePath string) (string, *output
 	if err := u.Client.GetJSONWithQuery(ctx, "/openapi/checkout_extensions/file/sign", map[string]any{"key": key}, &sr); err != nil {
 		var httpErr *client.HTTPError
 		if errors.As(err, &httpErr) {
-			return "", output.ErrAPI(httpErr.StatusCode, httpErr.Body, "").
+			return "", output.ErrAPI(httpErr.StatusCode, httpErr.Body, httpErr.RequestID).
 				WithEndpoint(httpErr.Method, httpErr.Path)
 		}
 		return "", output.ErrInternal("OSS sign failed: %s", err.Error())

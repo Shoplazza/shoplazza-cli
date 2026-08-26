@@ -133,12 +133,11 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 
 // classifySendError lifts a raw client error from Send into an output.ExitError
 // so the root error handler emits a clean JSON envelope with the right exit code
-// and 403→auth reclassification. The API envelope omits the request-id because
-// Send discards the response wrapper on error.
+// and 403→auth reclassification.
 func classifySendError(err error) error {
 	var httpErr *client.HTTPError
 	if errors.As(err, &httpErr) {
-		return output.ErrAPI(httpErr.StatusCode, httpErr.Body, "").WithEndpoint(httpErr.Method, httpErr.Path)
+		return output.ErrAPI(httpErr.StatusCode, httpErr.Body, httpErr.RequestID).WithEndpoint(httpErr.Method, httpErr.Path)
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {
@@ -157,7 +156,7 @@ func classifyExecError(err error) error {
 	}
 	var httpErr *client.HTTPError
 	if errors.As(err, &httpErr) {
-		return output.ErrAPI(httpErr.StatusCode, httpErr.Body, "").WithEndpoint(httpErr.Method, httpErr.Path)
+		return output.ErrAPI(httpErr.StatusCode, httpErr.Body, httpErr.RequestID).WithEndpoint(httpErr.Method, httpErr.Path)
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {

@@ -138,7 +138,7 @@ func storeTokenError(err error) *output.ExitError {
 	const hint = "run 'shoplazza auth login' to re-authenticate"
 	var he *client.HTTPError
 	if errors.As(err, &he) {
-		return output.ErrAPIAuthHint(he.StatusCode, he.Body, hint)
+		return output.ErrAPIAuthHint(he.StatusCode, he.Body, he.RequestID, hint)
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {
@@ -193,7 +193,7 @@ func partnerOpenapiClient(ctx context.Context, f *cmdutil.Factory, clientID, cli
 func apiError(err error) *output.ExitError {
 	var he *client.HTTPError
 	if errors.As(err, &he) {
-		return output.ErrAPI(he.StatusCode, he.Body, "").WithEndpoint(he.Method, he.Path)
+		return output.ErrAPI(he.StatusCode, he.Body, he.RequestID).WithEndpoint(he.Method, he.Path)
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {

@@ -403,13 +403,14 @@ func classifyHTTPErr(err error, themeID string) error {
 	switch {
 	case httpErr.StatusCode == http.StatusUnauthorized,
 		httpErr.StatusCode == http.StatusForbidden:
-		return theme.ErrAuthExpired(err)
+		return theme.ErrAuthExpired(err).WithRequestID(httpErr.RequestID)
 	case httpErr.StatusCode == http.StatusNotFound:
 		return theme.ErrValidation(
-			"theme not found: %s (run `shoplazza themes list` to see available IDs)", themeID)
+			"theme not found: %s (run `shoplazza themes list` to see available IDs)", themeID).
+			WithRequestID(httpErr.RequestID)
 	case httpErr.StatusCode == http.StatusBadRequest,
 		httpErr.StatusCode == http.StatusUnprocessableEntity:
-		return theme.ErrValidation("server rejected request: %s", httpErr.Body)
+		return theme.ErrValidation("%s", httpErr.Body).WithRequestID(httpErr.RequestID)
 	default:
 		return err
 	}
