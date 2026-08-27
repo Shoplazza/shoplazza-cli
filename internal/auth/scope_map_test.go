@@ -156,12 +156,10 @@ func TestScopeMapCoversAllSpecModules(t *testing.T) {
 		}
 	}
 
-	// extraDomains are CLI-convenience --domain names intentionally present in
-	// scope_map.json that don't correspond to a registry spec module. `checkout`
-	// is a hardcoded top-level command (not spec-driven) whose extension API is
-	// gated by the themes scope; it's mapped here so `auth login --domain checkout`
-	// is discoverable and grants read/write_themes.
-	extraDomains := map[string]struct{}{"checkout": {}}
+	// extraDomains are --domain names in scope_map.json with no registry spec
+	// module: `checkout` and `app` are hardcoded commands whose extension APIs
+	// are gated by the themes scope.
+	extraDomains := map[string]struct{}{"checkout": {}, "app": {}}
 
 	// Direction 2: every map key's top component is a real spec module (or a
 	// documented extra domain).
@@ -507,5 +505,24 @@ func TestExpandDomain_Checkout(t *testing.T) {
 	}
 	if !listed {
 		t.Error("checkout not in TopLevelDomains()")
+	}
+}
+
+// TestExpandDomain_App pins app to read/write_themes plus read_shop only.
+func TestExpandDomain_App(t *testing.T) {
+	got, err := ExpandDomain("app")
+	if err != nil {
+		t.Fatalf("ExpandDomain(app): %v", err)
+	}
+	want := []string{"read_shop", "read_themes", "write_themes"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ExpandDomain(app) = %v, want %v", got, want)
+	}
+	if contains(got, "write_shop") {
+		t.Fatalf("ExpandDomain(app) must NOT grant write_shop; got %v", got)
+	}
+	// app must be listed for help text and selectors.
+	if !contains(TopLevelDomains(), "app") {
+		t.Error("app not in TopLevelDomains()")
 	}
 }

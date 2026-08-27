@@ -56,31 +56,7 @@ func TestRunInit_LinkExisting(t *testing.T) {
 	tmpl := makeTemplateRepo(t)
 	dest := filepath.Join(t.TempDir(), "myproj")
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case strings.HasSuffix(r.URL.Path, "/partners"):
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
-				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
-		case strings.HasSuffix(r.URL.Path, "/info"):
-			// Link path derives partner from client_id via /info.
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
-				"data": map[string]any{
-					"partner": map[string]any{"id": "p1", "name": "Acme"},
-					"app":     map[string]any{"client_id": "cid_x", "name": "MyApp", "scopes": []string{"read"}}}})
-		case strings.HasSuffix(r.URL.Path, "/template"):
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
-				"data": map[string]any{"template_type": "app", "https": tmpl}})
-		case strings.Contains(r.URL.Path, "/apps/cid_x"):
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
-				"data": map[string]any{"app": map[string]any{"client_id": "cid_x", "id": 3, "name": "MyApp", "scopes": []string{"read"}}}})
-		default:
-			t.Fatalf("unexpected path %s", r.URL.Path)
-		}
-	}))
-	defer srv.Close()
-
-	d := app.NewDashboard(client.New(srv.URL), "ptok")
+	d := initDashServer(t, tmpl)
 	p, _ := project.Open(dest)
 	var buf bytes.Buffer
 	if err := runInit(context.Background(), d, p, initOpts{ClientID: "cid_x"}, &buf, io.Discard, "json", ""); err != nil {
@@ -129,34 +105,12 @@ func TestRunInit_LinkExisting(t *testing.T) {
 	}
 }
 
-// initDashServer returns a Dashboard whose mock serves partners + the cid_x app
-// (name "MyApp") + the app template. Shared by the v1-subdir-mode init tests.
+// initDashServer returns a Dashboard against the shared init mock, holding the
+// single partner "p1" and the cid_x app ("MyApp"). Shared by the v1-subdir-mode
+// init tests.
 func initDashServer(t *testing.T, tmpl string) *app.Dashboard {
 	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case strings.HasSuffix(r.URL.Path, "/partners"):
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
-				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
-		case strings.HasSuffix(r.URL.Path, "/info"):
-			// Link path derives partner from client_id via /info.
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
-				"data": map[string]any{
-					"partner": map[string]any{"id": "p1", "name": "Acme"},
-					"app":     map[string]any{"client_id": "cid_x", "name": "MyApp", "scopes": []string{"read"}}}})
-		case strings.HasSuffix(r.URL.Path, "/template"):
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
-				"data": map[string]any{"template_type": "app", "https": tmpl}})
-		case strings.Contains(r.URL.Path, "/apps/cid_x"):
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
-				"data": map[string]any{"app": map[string]any{"client_id": "cid_x", "id": 3, "name": "MyApp", "scopes": []string{"read"}}}})
-		default:
-			t.Fatalf("unexpected path %s", r.URL.Path)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return app.NewDashboard(client.New(srv.URL), "ptok")
+	return newInitServer(t, tmpl, "p1").dashboard()
 }
 
 // TestRunInit_NonEmptyParent_OK locks the v1-subdir-mode contract: init creates a
@@ -287,18 +241,7 @@ func TestRunInit_LinkMode_PartnerFlagWarns(t *testing.T) {
 // as a hard requirement, create mode against an account with several partners
 // still fails actionably via selectPartner.
 func TestRunInit_CreateMode_MultiplePartnersNoFlag_Validation(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if strings.HasSuffix(r.URL.Path, "/partners") {
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
-				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}, {"id": "p2"}}}})
-			return
-		}
-		t.Fatalf("unexpected path %s", r.URL.Path)
-	}))
-	defer srv.Close()
-
-	d := app.NewDashboard(client.New(srv.URL), "ptok")
+	d := newInitServer(t, "unused", "p1", "p2").dashboard()
 	p, _ := project.Open(t.TempDir())
 	var buf bytes.Buffer
 	err := runInit(context.Background(), d, p, initOpts{Create: true, Name: "NewApp"}, &buf, io.Discard, "json", "")
@@ -329,28 +272,38 @@ func TestCloneTemplate_FailureNamesCause(t *testing.T) {
 	}
 }
 
-// TestNewCmdInit_MutuallyExclusiveFlags verifies cobra's flag-group validation:
-// --name (create) and --client-id (link) cannot be combined. The validation runs
-// in Execute (ValidateFlagGroups), before PreRunE, so no auth is reached.
-func TestNewCmdInit_MutuallyExclusiveFlags(t *testing.T) {
-	cmd := newCmdInit(&cmdutil.Factory{})
-	cmd.SetArgs([]string{"--name", "myapp", "--client-id", "cid123"})
-	cmd.SetOut(io.Discard)
-	cmd.SetErr(io.Discard)
-	if err := cmd.Execute(); err == nil {
-		t.Fatal("expected error when both --name and --client-id are set")
-	}
-}
-
-// TestNewCmdInit_OneModeRequired verifies cobra requires at least one of
-// --name / --client-id (MarkFlagsOneRequired).
-func TestNewCmdInit_OneModeRequired(t *testing.T) {
-	cmd := newCmdInit(&cmdutil.Factory{})
-	cmd.SetArgs([]string{})
-	cmd.SetOut(io.Discard)
-	cmd.SetErr(io.Discard)
-	if err := cmd.Execute(); err == nil {
-		t.Fatal("expected error when neither --name nor --client-id is set")
+// TestNewCmdInit_FlagGroups pins the two mode rules. Both are checked after
+// PreRunE (cobra runs ValidateFlagGroups between PreRunE and RunE), so the
+// factory must be logged in or "not logged in" would satisfy the assertion
+// instead. The buffer streams keep the gate shut.
+func TestNewCmdInit_FlagGroups(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"both modes at once", []string{"--name", "myapp", "--client-id", "cid123"},
+			"if any flags in the group [client-id name] are set none of the others can be; [client-id name] were all set"},
+		{"neither mode", nil,
+			"at least one of the flags in the group [client-id name] is required"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f, out, errOut := initFactory(t, newInitServer(t, "unused").URL)
+			cmd := newCmdInit(f)
+			cmd.SetArgs(tc.args)
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatalf("app init %v must fail", tc.args)
+			}
+			if err.Error() != tc.want {
+				t.Errorf("error = %q, want %q", err.Error(), tc.want)
+			}
+			if out.Len() != 0 || errOut.Len() != 0 {
+				t.Errorf("streams = %q / %q, want both empty", out.String(), errOut.String())
+			}
+		})
 	}
 }
 
@@ -365,6 +318,42 @@ func TestRunInit_TargetExists_Validation(t *testing.T) {
 	p, _ := project.Open(dest)
 	var buf bytes.Buffer
 	err := runInit(context.Background(), d, p, initOpts{ClientID: "cid_x"}, &buf, io.Discard, "json", "")
+	if err == nil {
+		t.Fatal("expected validation error when the target sub-dir already exists")
+	}
+	var ee *output.ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *output.ExitError, got %T: %v", err, err)
+	}
+	if ee.Code != output.ExitValidation {
+		t.Fatalf("expected validation exit code %d, got %d", output.ExitValidation, ee.Code)
+	}
+	if !strings.Contains(ee.Error(), "already exists") {
+		t.Fatalf("expected 'already exists', got %q", ee.Error())
+	}
+}
+
+// TestRunInit_TargetExists_CreateMode_NoRemoteApp locks the create-path ordering:
+// the --name slug is checked against the filesystem BEFORE the app is created
+// server-side. A late check would leave an orphaned remote app (there is no
+// `app delete`) with no local project to show for it.
+func TestRunInit_TargetExists_CreateMode_NoRemoteApp(t *testing.T) {
+	dest := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dest, "my-app"), 0o755); err != nil { // slug("My App")
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Any request at all means the pre-check did not run first; the create POST
+		// (/partners/<pid>/apps) is the one that would really create the app.
+		t.Errorf("dashboard must not be called once the target dir collides, got %s %s", r.Method, r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	d := app.NewDashboard(client.New(srv.URL), "ptok")
+
+	p, _ := project.Open(dest)
+	var buf bytes.Buffer
+	err := runInit(context.Background(), d, p, initOpts{Create: true, Name: "My App"}, &buf, io.Discard, "json", "")
 	if err == nil {
 		t.Fatal("expected validation error when the target sub-dir already exists")
 	}

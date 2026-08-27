@@ -2,6 +2,7 @@ package appcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
@@ -61,6 +63,21 @@ func ensureGitignore(root, entry string) error {
 	return os.WriteFile(path, []byte(body), 0o644)
 }
 
+// targetDirFor slugifies base into a sub-directory of root and fails when that
+// directory already exists — init clones the app template into it.
+func targetDirFor(root, base string) (dirName, targetDir string, err error) {
+	dirName = sanitizeConfigName(base) // slugify (lowercase, hyphenate) — mirrors v1 slugify
+	targetDir = filepath.Join(root, dirName)
+	if _, statErr := os.Stat(targetDir); statErr == nil {
+		return dirName, targetDir, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"a directory named '"+dirName+"' already exists at "+targetDir,
+			"choose a different --name, or remove the existing directory")
+	} else if !os.IsNotExist(statErr) {
+		return dirName, targetDir, output.ErrInternal("failed to check target dir: %v", statErr)
+	}
+	return dirName, targetDir, nil
+}
+
 func runInit(ctx context.Context, d *app.Dashboard, p *project.Project, o initOpts, w, errW io.Writer, format, jq string) (err error) {
 	// Link mode derives the owning partner FROM the app via /info (see
 	// resolveAppRef) — a --partner flag is never consulted there. Warn instead
@@ -68,6 +85,14 @@ func runInit(ctx context.Context, d *app.Dashboard, p *project.Project, o initOp
 	// likewise only used by create mode).
 	if !o.Create && o.Partner != "" {
 		fmt.Fprintln(errW, "warning: --partner is ignored when linking an existing app (the partner is derived from the app info)")
+	}
+
+	// Create mode really creates the app server-side, so check the target dir
+	// first: failing later would leave an orphaned remote app.
+	if o.Create && o.Name != "" {
+		if _, _, dErr := targetDirFor(p.Root, o.Name); dErr != nil {
+			return dErr
+		}
 	}
 
 	// Live elapsed timer per phase on a TTY (output.Progress) — resolving/creating
@@ -103,14 +128,11 @@ func runInit(ctx context.Context, d *app.Dashboard, p *project.Project, o initOp
 	if base == "" {
 		base = clientID
 	}
-	dirName := sanitizeConfigName(base) // slugify (lowercase, hyphenate) — mirrors v1 slugify
-	targetDir := filepath.Join(p.Root, dirName)
-	if _, statErr := os.Stat(targetDir); statErr == nil {
-		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-			"a directory named '"+dirName+"' already exists at "+targetDir,
-			"choose a different --name, or remove the existing directory")
-	} else if !os.IsNotExist(statErr) {
-		return output.ErrInternal("failed to check target dir: %v", statErr)
+	// Backstop: base is the server-returned name in create mode, which can slugify
+	// differently than the --name already checked above.
+	dirName, targetDir, dErr := targetDirFor(p.Root, base)
+	if dErr != nil {
+		return dErr
 	}
 
 	step = prog.Begin("[init] fetching app template")
@@ -178,9 +200,12 @@ the owning partner is derived from the app.`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// create-vs-link is enforced by the flag groups below (mutually exclusive,
-			// one required), so reaching here means exactly one mode is selected. The
-			// project is created as a sub-dir under the current working directory.
+			// Plain error, not ExitError, to keep cobra's usage block; keyed on Changed, not value.
+			gateOpen := cmdutil.Interactive(f)
+			if !gateOpen && !cmd.Flags().Changed("client-id") && !cmd.Flags().Changed("name") {
+				return errors.New("at least one of the flags in the group [client-id name] is required")
+			}
+			// The project is created as a sub-dir under the current working directory.
 			p, err := openProject(".")
 			if err != nil {
 				return err
@@ -189,17 +214,27 @@ the owning partner is derived from the app.`,
 			if err != nil {
 				return err
 			}
+			// Ask only what the flags left unanswered; a no-op when they left nothing.
+			fl := initFlags{clientID: clientID, name: name, partner: partner}
+			if gateOpen {
+				var card []string
+				if fl, card, err = wizardInit(cmd.Context(), d, p.Root, fl); err != nil {
+					return err
+				}
+				// Echo the answers before anything is created.
+				if len(card) > 0 {
+					interact.Summary(cmd.ErrOrStderr(), card...)
+				}
+			}
 			// --name's VALUE is the new app's name; its presence flips to create-mode.
-			o := initOpts{ClientID: clientID, Create: name != "", Name: name, Partner: partner}
+			o := initOpts{ClientID: fl.clientID, Create: fl.name != "", Name: fl.name, Partner: fl.partner}
 			return runInit(cmd.Context(), d, p, o, cmd.OutOrStdout(), cmd.ErrOrStderr(), cmdutil.GetFormat(cmd), "")
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Create mode: name for the NEW app (pair with --partner). Mutually exclusive with --client-id")
 	cmd.Flags().StringVar(&partner, "partner", "", "Create mode: partner (org) id to create the app under; needed only when your account has multiple partners (ignored in link mode)")
 	cmd.Flags().StringVar(&clientID, "client-id", "", "Link mode: link an EXISTING app by client_id (the project dir is named after it). Mutually exclusive with --name")
-	// Idiomatic cobra flag-group validation: the two modes cannot be combined, and
-	// exactly one entry point (--name or --client-id) must be present.
+	// The two modes cannot be combined; "at least one" is checked in RunE instead.
 	cmd.MarkFlagsMutuallyExclusive("client-id", "name")
-	cmd.MarkFlagsOneRequired("client-id", "name")
 	return cmd
 }

@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/skillsync"
@@ -59,10 +57,4 @@ func skillLine() string {
 	default:
 		return "skills not installed"
 	}
-}
-
-// stderrIsTTY reports whether stderr is an interactive terminal.
-func stderrIsTTY() bool {
-	fi, err := os.Stderr.Stat()
-	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }

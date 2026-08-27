@@ -14,7 +14,7 @@ import (
 
 // ErrAuthExpired flags an OAuth / 401 / keychain-miss path and suggests
 // `shoplazza auth login`.
-func ErrAuthExpired(cause error) error {
+func ErrAuthExpired(cause error) *output.ExitError {
 	return output.ErrWithHint(
 		output.ExitAuth, output.TypeAuth,
 		fmt.Sprintf("authentication required: %v", cause),
@@ -23,14 +23,14 @@ func ErrAuthExpired(cause error) error {
 }
 
 // ErrValidation is a thin theme-package wrapper over output.ErrValidation.
-func ErrValidation(format string, args ...any) error {
+func ErrValidation(format string, args ...any) *output.ExitError {
 	return output.ErrValidation(format, args...)
 }
 
 // ErrTaskBusinessFailure transports a server-side task=failure into an
 // api-class envelope, passing the whole task payload through under the
 // "task" extra. Uses the task's "message" field verbatim when present.
-func ErrTaskBusinessFailure(task map[string]any) error {
+func ErrTaskBusinessFailure(task map[string]any) *output.ExitError {
 	msg, _ := task["message"].(string)
 	if msg == "" {
 		msg = "theme task ended with failure"
@@ -45,7 +45,7 @@ func ErrTaskBusinessFailure(task map[string]any) error {
 // assertions are stable); cap is the configured PollOptions.MaxDuration,
 // interpolated into the message so non-default callers report the truth.
 // The task payload (last observed status) is passed through for triage.
-func ErrTaskTimeout(elapsed, cap time.Duration, task map[string]any) error {
+func ErrTaskTimeout(elapsed, cap time.Duration, task map[string]any) *output.ExitError {
 	elapsedSec := math.Round(elapsed.Seconds()*10) / 10
 	return output.Errorf(output.ExitNetwork, output.TypeNetwork,
 		"theme upload task did not finish within %s", cap).

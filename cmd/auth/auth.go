@@ -9,6 +9,7 @@ import (
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/spf13/cobra"
@@ -57,12 +58,44 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 						"Run 'shoplazza auth scopes' to see all supported scopes")
 				}
 			}
-			domainScopes, err := expandLoginDomains(domain)
-			if err != nil {
-				return output.ErrWithHint(
-					output.ExitValidation, output.TypeValidation, err.Error(),
-					"Pass a top-level CLI command name as --domain, e.g. products, orders, shop")
+			expandDomains := func(domains []string) ([]string, error) {
+				scopes, err := internalauth.ExpandDomains(domains)
+				if err != nil {
+					return nil, output.ErrWithHint(
+						output.ExitValidation, output.TypeValidation, err.Error(),
+						"Pass a top-level CLI command name as --domain, e.g. products, orders, shop")
+				}
+				return scopes, nil
 			}
+			domainScopes, err := expandDomains(domain)
+			if err != nil {
+				return err
+			}
+
+			// Read once: effectiveUAT both skips the wizard and exempts a store login
+			// from needing scopes.
+			effectiveUAT := firstNonEmpty(uat, os.Getenv("SHOPLAZZA_UAT"))
+
+			// Ask only for what the flags left unanswered, then re-expand.
+			wizardRan := false
+			fl := loginFlags{
+				storeDomain: storeDomain,
+				domain:      domain,
+				scope:       scope,
+				uat:         effectiveUAT,
+				mergeScopes: mergeScopes,
+			}
+			if steps := stepsFor(fl); len(steps) > 0 && cmdutil.Interactive(f) {
+				if fl, err = runLoginWizard(steps, fl); err != nil {
+					return err
+				}
+				storeDomain, domain = fl.storeDomain, fl.domain
+				if domainScopes, err = expandDomains(domain); err != nil {
+					return err
+				}
+				wizardRan = true
+			}
+
 			// scope is OPTIONAL: pure-account login (no flags) is valid.
 			effectiveScopes := internalauth.DedupePreserveOrder(append(append([]string{}, scope...), domainScopes...))
 
@@ -88,7 +121,8 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			// Interactive store login requires scopes; the --uat / SHOPLAZZA_UAT path
 			// is exempt (the store token inherits the UAT's account scopes).
-			if normalizedStore != "" && len(effectiveScopes) == 0 && uat == "" && os.Getenv("SHOPLAZZA_UAT") == "" {
+			// Also covers the non-interactive path, where no form validator runs.
+			if normalizedStore != "" && len(effectiveScopes) == 0 && effectiveUAT == "" {
 				return output.ErrWithHint(
 					output.ExitValidation, output.TypeValidation,
 					"selecting a store with --store-domain requires at least one scope",
@@ -97,13 +131,18 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
 
-			fmt.Fprintf(f.IOStreams.ErrOut, "Summary:\n")
-			if normalizedStore != "" {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      %s\n", normalizedStore)
+			// After the wizard the summary is the card; otherwise it is unchanged.
+			if wizardRan {
+				interact.Summary(f.IOStreams.ErrOut, loginSummaryRows(normalizedStore, domain, scope)...)
 			} else {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      (account only)\n")
+				fmt.Fprintf(f.IOStreams.ErrOut, "Summary:\n")
+				if normalizedStore != "" {
+					fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      %s\n", normalizedStore)
+				} else {
+					fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      (account only)\n")
+				}
+				fmt.Fprintf(f.IOStreams.ErrOut, "  Scopes (%d): %s\n", len(effectiveScopes), strings.Join(effectiveScopes, ", "))
 			}
-			fmt.Fprintf(f.IOStreams.ErrOut, "  Scopes (%d): %s\n", len(effectiveScopes), strings.Join(effectiveScopes, ", "))
 			if keptFromGrant > 0 {
 				fmt.Fprintf(f.IOStreams.ErrOut, "  (--merge-scopes kept %d previously granted scope(s))\n", keptFromGrant)
 			}
@@ -195,6 +234,16 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
+// firstNonEmpty returns the first non-empty string, or "".
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // unionWithGranted merges previously granted account scopes into a scope
 // request, preserving the request's order first. Returns the merged set and
 // how many scopes were carried over from the prior grant.
@@ -209,34 +258,6 @@ func domainFlagHelp() string {
 		"e.g. --domain products,orders. Each domain expands into the OAuth scopes " +
 		"that module needs.\nAvailable: " +
 		strings.Join(internalauth.TopLevelDomains(), ", ") + ", " + internalauth.DomainAll + "."
-}
-
-// expandLoginDomains expands --domain values into OAuth scopes. Beyond the
-// API-module domains handled by internalauth.ExpandDomains, it accepts the
-// alias "app": the scopes app-extension development needs. themes, checkout,
-// and theme-extension uploads all authorize via the themes scope, so
-// `auth login -s <store> --domain app` grants read_themes + write_themes.
-func expandLoginDomains(domains []string) ([]string, error) {
-	rest := make([]string, 0, len(domains))
-	var appScopes []string
-	for _, d := range domains {
-		if d == "app" {
-			// themes, checkout, and theme-extension uploads all authorize via the
-			// themes scope, so that single domain covers app-extension development.
-			s, err := internalauth.ExpandDomain("themes")
-			if err != nil {
-				return nil, err
-			}
-			appScopes = append(appScopes, s...)
-			continue
-		}
-		rest = append(rest, d)
-	}
-	scopes, err := internalauth.ExpandDomains(rest)
-	if err != nil {
-		return nil, err
-	}
-	return internalauth.DedupePreserveOrder(append(scopes, appScopes...)), nil
 }
 
 func newCmdLogout(f *cmdutil.Factory) *cobra.Command {

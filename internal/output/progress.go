@@ -3,7 +3,6 @@ package output
 import (
 	"fmt"
 	"io"
-	"os"
 	"sync"
 	"time"
 )
@@ -28,7 +27,7 @@ type Progress struct {
 // terminal (an *os.File backed by a character device) to decide between live
 // in-place refresh and plain static lines.
 func NewProgress(w io.Writer) *Progress {
-	return &Progress{w: w, isTTY: isTerminalWriter(w)}
+	return &Progress{w: w, isTTY: IsTerminal(w)}
 }
 
 // Step is one in-progress unit of work started by Progress.Begin. Finalize it
@@ -131,20 +130,4 @@ func fmtElapsed(d time.Duration) string {
 	m := int(d / time.Minute)
 	s := int((d % time.Minute) / time.Second)
 	return fmt.Sprintf("%dm%02ds", m, s)
-}
-
-// isTerminalWriter reports whether w is a character device (a real terminal).
-// It avoids an x/term dependency by checking the file mode of any writer that
-// exposes Stat (e.g. *os.File). Anything else (bytes.Buffer, pipes) is treated
-// as non-terminal.
-func isTerminalWriter(w io.Writer) bool {
-	f, ok := w.(interface{ Stat() (os.FileInfo, error) })
-	if !ok {
-		return false
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		return false
-	}
-	return fi.Mode()&os.ModeCharDevice != 0
 }

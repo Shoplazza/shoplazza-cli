@@ -127,15 +127,19 @@ func Execute() (exitCode int) {
 
 	execErr := rootCmd.ExecuteContext(ctx)
 
+	var exitErr *output.ExitError
+	isExitErr := errors.As(execErr, &exitErr)
+
 	// After the command output, print a one-line notice to stderr for interactive use
 	// (printed on both success and failure paths — never touches stdout).
-	if pendingUpdate != nil && stderrIsTTY() {
+	// Skipped on cancel (ExitCanceled): Ctrl-C must leave both streams empty.
+	canceled := isExitErr && exitErr.Code == output.ExitCanceled
+	if pendingUpdate != nil && !canceled && output.IsTerminal(os.Stderr) {
 		fmt.Fprintln(os.Stderr, "\n"+pendingUpdate.Message())
 	}
 
 	if execErr != nil {
-		var exitErr *output.ExitError
-		if errors.As(execErr, &exitErr) {
+		if isExitErr {
 			output.WriteErrorEnvelope(os.Stderr, exitErr)
 			return exitErr.Code
 		}

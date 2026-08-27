@@ -173,10 +173,11 @@ func runPush(ctx context.Context, cmd *cobra.Command, f *cmdutil.Factory, extDir
 	// reporting ok:true with empty ids.
 	if fail := checkoutFailureMessage(resp.Body); fail != "" {
 		if fail == "INVALID_VERSION" {
-			return output.ErrValidation("INVALID_VERSION: the new version must be greater than the current; pushed version %s, current version %s", asString(cfg["version"]), currentVersion).
-				WithHint("pass --version <greater-semver> or bump the version field in " + cfgPath + ", then push again")
+			return output.ErrValidation("%s", fail).
+				WithHint("the new version must be greater than the current (pushed "+asString(cfg["version"])+", current "+currentVersion+"); pass --version <greater-semver> or bump the version field in "+cfgPath+", then push again").
+				WithRequestID(resp.RequestID())
 		}
-		return output.ErrValidation("server rejected the request: %s", fail)
+		return output.ErrValidation("%s", fail).WithRequestID(resp.RequestID())
 	}
 
 	// Real create/commit response: {data:{extension:{...}}, errors, message,
@@ -211,7 +212,7 @@ func runPush(ctx context.Context, cmd *cobra.Command, f *cmdutil.Factory, extDir
 					" manually before pushing again, or the next push will create a duplicate extension"
 			}
 			return output.ErrInternal("push succeeded (extension_id %s, version_id %s) but writing extension.json failed: %s",
-				newExtID, versionID, wErr.Error()).WithHint(hint)
+				newExtID, versionID, wErr.Error()).WithHint(hint).WithRequestID(resp.RequestID())
 		}
 	}
 

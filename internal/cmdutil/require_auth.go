@@ -25,7 +25,7 @@ func translateAuthErr(err error) error {
 		"(run 'shoplazza auth login --help' to list domains)"
 	var httpErr *client.HTTPError
 	if errors.As(err, &httpErr) {
-		return output.ErrAPIAuthHint(httpErr.StatusCode, httpErr.Body, hint)
+		return output.ErrAPIAuthHint(httpErr.StatusCode, httpErr.Body, httpErr.RequestID, hint)
 	}
 	return output.ErrWithHint(
 		output.ExitAuth, output.TypeAuth,

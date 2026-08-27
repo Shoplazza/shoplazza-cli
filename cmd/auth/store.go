@@ -95,7 +95,7 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 							"to grant store scopes, run 'shoplazza auth login -s %s --scope <scope>' (or --domain). Run 'shoplazza auth scopes' to list scopes.",
 							normalized)
 					}
-					return output.ErrAPIAuthHint(httpErr.StatusCode, httpErr.Body, hint)
+					return output.ErrAPIAuthHint(httpErr.StatusCode, httpErr.Body, httpErr.RequestID, hint)
 				}
 				return output.Errorf(output.ExitAuth, output.TypeAuth, "failed to obtain store token: %s", err.Error())
 			}

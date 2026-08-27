@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.0.11 - 2026-08-21
+
+### Added
+- Interactive prompts for `auth login` and `app init` when a flag is missing. `auth login` asks which store and which domains; `app init` asks for the partner, the app, and the new app's name. Only the unanswered screens appear — a flag you pass is never asked about. A screen complains only when you press enter, so `esc` always goes back a step; Ctrl-C exits 130 with both streams empty.
+- `app` is now a `--domain` value, granting the `themes` scopes `app dev` and `app deploy` need.
+
+### Changed
+- Prompts appear only when someone is there to answer them: stdin and stderr must both be real terminals, and `SHOPLAZZA_CLI_NO_INTERACTIVE=1` (or `CI`) switches them off. Piped, redirected and CI runs are unchanged — same output, same exit codes, same requests.
+
+### Fixed
+- A stream redirected to `/dev/null` was mistaken for a terminal, so a prompt could wait forever on input that never comes.
+- `app init` created the remote app before checking the target directory: a name collision left an orphaned app behind with no local project to show for it.
+
 ## 2.0.10 - 2026-08-14
 
 ### Added

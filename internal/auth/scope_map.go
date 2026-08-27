@@ -118,8 +118,11 @@ const DomainAll = "all"
 // workflows need beyond the domain's own module scope. Example: `themes serve`
 // and `themes share` call GET /shop to build the preview-URL banner, so --domain
 // themes must also grant read_shop (read-only — never write_shop).
+// app needs the same read_shop; listing it here, not via add(), is what keeps
+// write_shop out.
 var domainImpliedReadScopes = map[string][]string{
 	"themes": {"read_shop"},
+	"app":    {"read_shop"},
 }
 
 // ExpandDomain resolves a --domain value passed at login.
