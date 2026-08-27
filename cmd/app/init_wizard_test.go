@@ -72,9 +72,12 @@ func (ws *wizardServer) dashboard() *app.Dashboard {
 func TestWizardInit_ClientIDIsZeroInteractionAndZeroRequests(t *testing.T) {
 	ws := newWizardServer(t, http.StatusOK, nil, nil)
 	in := initFlags{clientID: "cid_x", partner: "p1"}
-	got, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), in)
+	got, card, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), in)
 	if err != nil {
 		t.Fatalf("wizardInit: %v", err)
+	}
+	if card != nil {
+		t.Errorf("no screen was shown, so there must be no summary card: %q", card)
 	}
 	if got != in {
 		t.Errorf("flags = %+v, want them untouched: %+v", got, in)
@@ -89,9 +92,12 @@ func TestWizardInit_ClientIDIsZeroInteractionAndZeroRequests(t *testing.T) {
 // only the partner list.
 func TestWizardInit_SinglePartnerAutoSelectedBeforePlanning(t *testing.T) {
 	ws := newWizardServer(t, http.StatusOK, []map[string]any{{"id": "p1", "business_name": "Acme"}}, nil)
-	got, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), initFlags{name: "My App"})
+	got, card, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), initFlags{name: "My App"})
 	if err != nil {
 		t.Fatalf("wizardInit: %v", err)
+	}
+	if card != nil {
+		t.Errorf("no screen was shown, so there must be no summary card: %q", card)
 	}
 	if got.partner != "p1" || got.name != "My App" || got.clientID != "" {
 		t.Errorf("flags = %+v, want the sole partner filled in and --name kept", got)
@@ -107,9 +113,12 @@ func TestWizardInit_SinglePartnerAutoSelectedBeforePlanning(t *testing.T) {
 func TestWizardInit_NameAndPartnerSendNoRequest(t *testing.T) {
 	ws := newWizardServer(t, http.StatusOK, nil, nil)
 	in := initFlags{name: "My App", partner: "p1"}
-	got, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), in)
+	got, card, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), in)
 	if err != nil {
 		t.Fatalf("wizardInit: %v", err)
+	}
+	if card != nil {
+		t.Errorf("no screen was shown, so there must be no summary card: %q", card)
 	}
 	if got != in {
 		t.Errorf("flags = %+v, want them untouched: %+v", got, in)
@@ -133,7 +142,7 @@ func TestWizardInit_ListFailureErrorsWithFlagHint(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ws := newWizardServer(t, http.StatusServiceUnavailable, nil, nil)
-			_, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), tc.flags)
+			_, _, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), tc.flags)
 			if err == nil {
 				t.Fatal("a failed list must fail the command")
 			}
@@ -157,7 +166,7 @@ func TestWizardInit_ListFailureErrorsWithFlagHint(t *testing.T) {
 // partners gets selectPartner's validation error, not an empty picker.
 func TestWizardInit_NoPartnersIsAValidationError(t *testing.T) {
 	ws := newWizardServer(t, http.StatusOK, []map[string]any{}, nil)
-	_, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), initFlags{name: "My App"})
+	_, _, err := wizardInit(context.Background(), ws.dashboard(), t.TempDir(), initFlags{name: "My App"})
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
 		t.Fatalf("want a validation error, got %v", err)
@@ -268,6 +277,43 @@ func assertOneIDColumn(t *testing.T, opts []huh.Option[string]) {
 		}
 		if at != want {
 			t.Errorf("%q starts its id at cell %d, want %d — the column is skewed", o.Key, at, want)
+		}
+	}
+}
+
+// TestSummaryLabels pins that the card names the partner and the app, and falls
+// back to an id only when there is no name to show.
+func TestSummaryLabels(t *testing.T) {
+	partners := []app.Partner{{ID: "34578", BusinessName: "店匠"}, {ID: "3665"}}
+	for _, tc := range []struct{ id, want string }{
+		{"34578", "店匠"},
+		{"3665", "3665"}, // no business name
+		{"9999", "9999"}, // not in the list: --partner named it
+	} {
+		if got := partnerLabel(partners, tc.id); got != tc.want {
+			t.Errorf("partnerLabel(%q) = %q, want %q", tc.id, got, tc.want)
+		}
+	}
+
+	apps := []app.App{{ClientID: "c_aaa111", Name: "order-sync"}, {ClientID: "c_bbb222"}}
+	for _, tc := range []struct{ id, want string }{
+		{"c_aaa111", "order-sync"},
+		{"c_bbb222", "c_bbb222"}, // no name
+		{"c_zzz999", "c_zzz999"}, // not in the list
+	} {
+		if got := appLabel(apps, tc.id); got != tc.want {
+			t.Errorf("appLabel(%q) = %q, want %q", tc.id, got, tc.want)
+		}
+	}
+
+	rows := initSummaryRows("店匠", newApp("My App"))
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want a partner row and an app row: %q", len(rows), rows)
+	}
+	card := strings.Join(rows, "\n")
+	for _, want := range []string{"Partner", "店匠", "App", "My App", "(new)"} {
+		if !strings.Contains(card, want) {
+			t.Errorf("card is missing %q:\n%s", want, card)
 		}
 	}
 }

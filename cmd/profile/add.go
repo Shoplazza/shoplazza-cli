@@ -112,7 +112,7 @@ func translateExchangeErr(err error) error {
 		if httpErr.StatusCode >= 500 {
 			return output.ErrAPI(httpErr.StatusCode, httpErr.Body, "")
 		}
-		return output.ErrAPIAuthHint(httpErr.StatusCode, httpErr.Body,
+		return output.ErrAPIAuthHint(httpErr.StatusCode, httpErr.Body, httpErr.RequestID,
 			"re-run 'shoplazza auth login' with the scopes you need (see 'shoplazza auth scopes')")
 	}
 	return output.ErrWithHint(output.ExitAuth, output.TypeAuth,

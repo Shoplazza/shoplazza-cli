@@ -125,7 +125,10 @@ func UpsertFunction(ctx context.Context, ext Extension, partner *client.Client, 
 				msg = "create function extension failed"
 			}
 		}
-		return UpsertResult{}, output.ErrInternal("function extension %q upsert failed: %s", ext.ExtensionName, msg)
+		return UpsertResult{}, output.Errorf(output.ExitAPI, output.TypeAPI, "%s", msg).
+			WithField("extension", ext.ExtensionName).
+			WithRequestID(resp.RequestID()).
+			WithEndpoint(http.MethodPost, path)
 	}
 
 	return UpsertResult{

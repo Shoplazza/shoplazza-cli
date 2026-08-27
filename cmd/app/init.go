@@ -15,6 +15,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
@@ -216,8 +217,13 @@ the owning partner is derived from the app.`,
 			// Ask only what the flags left unanswered; a no-op when they left nothing.
 			fl := initFlags{clientID: clientID, name: name, partner: partner}
 			if gateOpen {
-				if fl, err = wizardInit(cmd.Context(), d, p.Root, fl); err != nil {
+				var card []string
+				if fl, card, err = wizardInit(cmd.Context(), d, p.Root, fl); err != nil {
 					return err
+				}
+				// Echo the answers before anything is created.
+				if len(card) > 0 {
+					interact.Summary(cmd.ErrOrStderr(), card...)
 				}
 			}
 			// --name's VALUE is the new app's name; its presence flips to create-mode.
