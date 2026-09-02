@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-08-04T03:17:10Z",
+  "generated_at": "2026-09-01T06:19:37Z",
   "modules": [
     {
       "name": "billing",
@@ -1523,7 +1523,7 @@
         },
         "refunds": {
           "summary": "Create and query refund records for orders",
-          "description": "Refund records track money returned to customers for an order — full or partial,\ncovering products, shipping, tips, and additional fees, across one or more\npayment channels. Merchants create these records after deciding to refund a\ncustomer and the platform settles the money back through the original payment\nchannels.\nProvides endpoints to list all refund records across orders (with filters and\npagination), count refund records matching filters, list refund records for a\nspecific order, and create a new refund record on an order."
+          "description": "Refund records track money returned to customers for an order — full or partial,\ncovering products, shipping, tips, and additional fees, across one or more\npayment channels. Merchants create these records after deciding to refund a\ncustomer and the platform settles the money back through the original payment\nchannels.\nProvides endpoints to list all refund records across orders (with filters and\npagination), count refund records matching filters, list refund records for a\nspecific order, create a new refund record on an order, and mark an order's\nin-progress refund records as refunded successfully."
         },
         "risks": {
           "summary": "Assess and record fraud risk for individual orders",
@@ -2842,6 +2842,72 @@
           "response_schema": "v202506.CreateOrderRefundRecordResponse"
         },
         {
+          "id": "order-refund-finish",
+          "command_path": [
+            "refunds",
+            "finish"
+          ],
+          "summary": "Finish refund",
+          "description": "Marks the order's in-progress refund records as refunded successfully; afterwards the order is partially refunded or fully refunded.\nThis endpoint applies only to orders paid through a custom payment channel or the test payment channel (bogus).",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/orders/{order_id}/refund/finish",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "order_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Order ID",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "post_sale_id",
+                "type": "string",
+                "required": true,
+                "description": "After-sales (post-sale) record ID",
+                "min_length": 1
+              },
+              {
+                "name": "refund_record_id",
+                "type": "string",
+                "required": true,
+                "description": "Refund record ID",
+                "min_length": 1
+              },
+              {
+                "name": "refund_time",
+                "type": "string",
+                "description": "Time when the third-party refund completed, in RFC3339 (e.g., 2018-11-02T12:30:10Z)"
+              },
+              {
+                "name": "transaction_number",
+                "type": "string",
+                "description": "Refund transaction number"
+              },
+              {
+                "name": "payment_channel",
+                "type": "string",
+                "description": "Refund payment channel"
+              },
+              {
+                "name": "extra_info",
+                "type": "object",
+                "schema": "v202601.RefundRecordExtraInfo",
+                "description": "Extra information attached to the refund record"
+              }
+            ]
+          },
+          "response_schema": "v202601.FinishRefundResponse"
+        },
+        {
           "id": "order-refund-records",
           "command_path": [
             "refunds",
@@ -3360,6 +3426,63 @@
           "response_schema": "v202506.ListCarrierResponse"
         },
         {
+          "id": "order-transactions-batch",
+          "command_path": [
+            "transactions",
+            "batch-list"
+          ],
+          "summary": "Batch list order transactions",
+          "description": "Batch retrieve all transactions attached to the specified orders, including\nstatus, payment channel, amount, and gateway response details.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/orders/transactions"
+          },
+          "parameters": [
+            {
+              "name": "order_ids",
+              "in": "query",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "required": true,
+              "description": "Order IDs to query. Up to 50 per request. Example: ?order_ids=1001\u0026order_ids=1002",
+              "min_length": 1,
+              "max_length": 50
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "type": "string",
+              "description": "Cursor for pagination"
+            },
+            {
+              "name": "page_size",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Number of transactions per page. Range: 1-50, default: 10.",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
+            },
+            {
+              "name": "payment_channel",
+              "in": "query",
+              "type": "string",
+              "description": "Payment channel (e.g., paypal)."
+            },
+            {
+              "name": "status",
+              "in": "query",
+              "type": "string",
+              "description": "Transaction status. Applies to all orders in the request: - `authorized`: the transaction has been authorized but not yet captured - `void`: the transaction has been canceled - `processing`: the transaction is currently being processed - `success`: the transaction was successfully completed - `failure` / `error`: the transaction failed. Both values exist in the data, so match both when filtering for failed transactions - `refunding`: a refund for the transaction is in progress - `refunded`: the transaction has been successfully refunded - `refund_failed`: the refund attempt for the transaction has failed - `expired`: the transaction has expired"
+            }
+          ],
+          "response_schema": "v202601.BatchListTransactionsResponse"
+        },
+        {
           "id": "order-transactions",
           "command_path": [
             "transactions",
@@ -3385,7 +3508,7 @@
               "name": "status",
               "in": "query",
               "type": "string",
-              "description": "Transaction status: - `authorized`: the transaction has been authorized but not yet captured - `void`: the transaction has been canceled - `processing`: the transaction is currently being processed - `success`: the transaction was successfully completed - `error`: the transaction failed due to an error - `refunding`: a refund for the transaction is in progress - `refunded`: the transaction has been successfully refunded - `refund_failed`: the refund attempt for the transaction has failed - `expire`: the transaction has expired"
+              "description": "Transaction status: - `authorized`: the transaction has been authorized but not yet captured - `void`: the transaction has been canceled - `processing`: the transaction is currently being processed - `success`: the transaction was successfully completed - `failure` / `error`: the transaction failed. Both values exist in the data, so match both when filtering for failed transactions - `refunding`: a refund for the transaction is in progress - `refunded`: the transaction has been successfully refunded - `refund_failed`: the refund attempt for the transaction has failed - `expired`: the transaction has expired"
             },
             {
               "name": "payment_channel",
@@ -6216,11 +6339,6 @@
           "body": {
             "fields": [
               {
-                "name": "no_entity",
-                "type": "boolean",
-                "description": "If `no_entity` is true, an empty object is returned after a successful update"
-              },
-              {
                 "name": "product",
                 "type": "object",
                 "schema": "v202506.UpdateProductParam",
@@ -6753,12 +6871,12 @@
               {
                 "name": "created_at_min_at",
                 "type": "string",
-                "description": "Minimum product creation time, e.g. \"2026-04-01 00:00:00\""
+                "description": "Filter products created at or after this time, e.g. \"2026-04-01 00:00:00\""
               },
               {
                 "name": "created_at_max_at",
                 "type": "string",
-                "description": "Maximum product creation time, e.g. \"2026-04-04 00:00:00\""
+                "description": "Filter products created at or before this time, e.g. \"2026-04-04 00:00:00\""
               },
               {
                 "name": "filter_crawler_type",
@@ -6790,7 +6908,7 @@
                 "name": "type",
                 "type": "string",
                 "required": true,
-                "description": "Type of resource to analyze"
+                "description": "Type of resource to analyze. Supported values: `product`, `variant`, `collection`"
               },
               {
                 "name": "begin_time",
@@ -7046,7 +7164,7 @@
               {
                 "name": "dt_by",
                 "type": "string",
-                "description": "Time granularity for aggregation: dt_by_hour, dt_by_day"
+                "description": "Time granularity for aggregation: `dt_by_hour` (hourly), `dt_by_day` (daily)"
               },
               {
                 "name": "dimension",
@@ -7063,6 +7181,11 @@
                   "type": "string"
                 },
                 "description": "Simple equality filters, keyed by dimension name with the exact value to match, e.g. {\"country_code\": \"US\"}. Each entry is an exact-match condition and multiple entries are combined with AND. Only keys within the supported `dimension` set take effect; unknown keys are ignored."
+              },
+              {
+                "name": "filter_crawler_type",
+                "type": "string",
+                "description": "Crawler-filtering policy that controls whether bot/crawler traffic is excluded from the statistics. Values: - `no_filter_crawler`: do not filter; count all traffic (default) - `official_crawler`: exclude known crawlers/bots"
               }
             ]
           },
@@ -10645,6 +10768,196 @@
           "response_schema": "v202506.UpdateThemeFileResponse"
         },
         {
+          "id": "theme-gen-block-create",
+          "command_path": [
+            "gen-block",
+            "create"
+          ],
+          "summary": "Create gen block (AI-generated card)",
+          "description": "Create a gen card from liquid content (must contain a schema tag) within an edit session.\nThe response `settings` is the card's full default config whose `type` is already the\ncard_type — pass it straight to the page-arrangement APIs; no second read needed.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "content",
+                "type": "string",
+                "required": true,
+                "description": "Card liquid source; must contain a schema tag. `schema.name` inside is the merchant-visible display name (no uniqueness requirement)",
+                "min_length": 1
+              }
+            ]
+          },
+          "response_schema": "v202601.CreateGenBlockResponse"
+        },
+        {
+          "id": "theme-gen-block-delete",
+          "command_path": [
+            "gen-block",
+            "delete"
+          ],
+          "summary": "Delete gen block",
+          "description": "Delete a gen card file and remove every instance reference across the theme in one\ntransaction — no ref-count precheck, no force flag, no dangling references left.",
+          "hidden": false,
+          "http": {
+            "method": "DELETE",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            },
+            {
+              "name": "type",
+              "in": "query",
+              "type": "string",
+              "required": true,
+              "description": "The card_type (\"blocks/\" + file name without extension), e.g. blocks/gen_1a0d523"
+            }
+          ],
+          "response_schema": "v202601.DeleteGenBlockResponse"
+        },
+        {
+          "id": "theme-gen-block-detail",
+          "command_path": [
+            "gen-block",
+            "get"
+          ],
+          "summary": "Get gen block detail",
+          "description": "Retrieve a gen card's file attributes (`doc`) and its on-page state (`saved` / `ref_count` /\n`instances`) within an edit session. `content` is returned only when `with_content=true`.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            },
+            {
+              "name": "type",
+              "in": "query",
+              "type": "string",
+              "required": true,
+              "description": "The card_type (\"blocks/\" + file name without extension), e.g. blocks/gen_1a0d523"
+            },
+            {
+              "name": "with_content",
+              "in": "query",
+              "type": "boolean",
+              "description": "When true, the response additionally carries `doc.content` (the card source, which can reach hundreds of KB — omitted by default)"
+            }
+          ],
+          "response_schema": "v202601.GetGenBlockResponse"
+        },
+        {
+          "id": "theme-gen-block-revert",
+          "command_path": [
+            "gen-block",
+            "revert"
+          ],
+          "summary": "Revert one gen block write operation",
+          "description": "Restore every object recorded in the operation snapshot addressed by `revert_id` (from any\ncreate / update / delete / revert response). The returned `revert_id` is new — reverting is\nitself a revertible write, enabling repeated undo / redo.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks/revert",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "revert_id",
+                "type": "string",
+                "required": true,
+                "description": "32-char MD5 taken from any write response (create / update / delete / revert itself). Repeatable: no state machine — the server just pushes the snapshot's objects back"
+              }
+            ]
+          },
+          "response_schema": "v202601.RevertGenBlockResponse"
+        },
+        {
+          "id": "theme-gen-block-update",
+          "command_path": [
+            "gen-block",
+            "update"
+          ],
+          "summary": "Update gen block",
+          "description": "Update a gen card by content + full settings (the card to change is read from `settings.type`).\nRef count 0/1 -\u003e overwrite in place (`branched=false`, nothing else to do); \u003e=2 -\u003e a new card\nis created to carry the change (`branched=true`, rewrite the target instance with the returned\n`settings`, whose `type` is the new card's card_type).",
+          "hidden": false,
+          "http": {
+            "method": "PATCH",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "content",
+                "type": "string",
+                "required": true,
+                "description": "New liquid source; must contain a schema tag",
+                "min_length": 1
+              },
+              {
+                "name": "settings",
+                "type": "object",
+                "schema": "v202601.GenBlockSettings",
+                "required": true,
+                "description": "The card's full config, same shape as the create response's `settings`. The server reads which card to change from its `type` (must be blocks/gen_ prefixed); the field values are the merchant's current config, migrated to the new schema when a branch is created"
+              }
+            ]
+          },
+          "response_schema": "v202601.UpdateGenBlockResponse"
+        },
+        {
           "id": "theme-detail",
           "command_path": [
             "get"
@@ -11472,6 +11785,12 @@
               "type": "integer",
               "format": "int32",
               "description": "Page number (1-based). Omit = downstream default (page 1)"
+            },
+            {
+              "name": "template",
+              "in": "query",
+              "type": "string",
+              "description": "Template filter. Template name (index / product / collection / cart / page / search, or a custom template name)"
             }
           ],
           "response_schema": "v202601.ListThemeCardsResponse"
@@ -11729,6 +12048,38 @@
             ]
           },
           "response_schema": "v202601.BatchThemeOperationsResponse"
+        },
+        {
+          "id": "theme-edit-session-card-list",
+          "command_path": [
+            "session",
+            "card-list"
+          ],
+          "summary": "List edit-session cards",
+          "description": "Return published-view regular cards (`card_list` / `block_list`, same structure as the legacy\ncardList API) plus edit-session-view gen cards (`gen_list`, each item carrying `saved`).",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/card-list"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            },
+            {
+              "name": "need_schema",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Pass 1 to additionally return `schema` and `settings` on section cards (same behavior as the legacy cardList API)"
+            }
+          ],
+          "response_schema": "v202601.ListEditSessionCardsResponse"
         },
         {
           "id": "theme-edit-session-conflict",
@@ -14825,6 +15176,10 @@
           "type": "string",
           "required": true,
           "min_length": 1
+        },
+        {
+          "name": "content",
+          "type": "string"
         }
       ]
     },
@@ -17154,6 +17509,14 @@
         },
         {
           "name": "locales",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.ThemeDocLocation"
+          }
+        },
+        {
+          "name": "blocks",
           "type": "array",
           "items": {
             "type": "object",
@@ -23001,6 +23364,31 @@
       ]
     },
     "v202601.BatchDeleteProductsResponse": {},
+    "v202601.BatchListTransactionsResponse": {
+      "fields": [
+        {
+          "name": "transactions",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.Transaction"
+          }
+        },
+        {
+          "name": "cursor",
+          "type": "string"
+        },
+        {
+          "name": "has_more",
+          "type": "boolean"
+        },
+        {
+          "name": "total",
+          "type": "integer",
+          "format": "int32"
+        }
+      ]
+    },
     "v202601.BatchThemeOperationsResponse": {
       "fields": [
         {
@@ -23108,6 +23496,18 @@
         {
           "name": "updated_at",
           "type": "string"
+        },
+        {
+          "name": "templates",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "format": "int32"
         }
       ]
     },
@@ -23369,6 +23769,19 @@
           "name": "fulfillment",
           "type": "object",
           "schema": "v202601.FulfillmentSummary"
+        }
+      ]
+    },
+    "v202601.CreateGenBlockResponse": {
+      "fields": [
+        {
+          "name": "revert_id",
+          "type": "string"
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "schema": "v202601.GenBlockSettings"
         }
       ]
     },
@@ -23684,6 +24097,14 @@
       ]
     },
     "v202601.DeleteCollectionResponse": {},
+    "v202601.DeleteGenBlockResponse": {
+      "fields": [
+        {
+          "name": "revert_id",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.DeleteLanguageResponse": {},
     "v202601.DeleteMarketProductsResponse": {},
     "v202601.DeleteMarketResponse": {},
@@ -23800,6 +24221,23 @@
         }
       ]
     },
+    "v202601.FinishRefundResponse": {
+      "fields": [
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "post_sale_id",
+          "type": "string"
+        },
+        {
+          "name": "refund_record",
+          "type": "object",
+          "schema": "v202601.V202601RefundRecord"
+        }
+      ]
+    },
     "v202601.Fulfillment": {
       "fields": [
         {
@@ -23912,6 +24350,81 @@
         }
       ]
     },
+    "v202601.GenBlockDoc": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "location",
+          "type": "string"
+        },
+        {
+          "name": "hash",
+          "type": "string"
+        },
+        {
+          "name": "content",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.GenBlockSettings": {
+      "fields": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "cname",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "category",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "icon",
+          "type": "string"
+        },
+        {
+          "name": "display",
+          "type": "boolean"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "blocks",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
     "v202601.GetCollectionAsyncTaskResponse": {
       "fields": [
         {
@@ -23954,6 +24467,32 @@
           "name": "fulfillment",
           "type": "object",
           "schema": "v202601.Fulfillment"
+        }
+      ]
+    },
+    "v202601.GetGenBlockResponse": {
+      "fields": [
+        {
+          "name": "doc",
+          "type": "object",
+          "schema": "v202601.GenBlockDoc"
+        },
+        {
+          "name": "saved",
+          "type": "boolean"
+        },
+        {
+          "name": "ref_count",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "instances",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
         }
       ]
     },
@@ -24191,6 +24730,34 @@
           "name": "total",
           "type": "integer",
           "format": "int32"
+        }
+      ]
+    },
+    "v202601.ListEditSessionCardsResponse": {
+      "fields": [
+        {
+          "name": "card_list",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
+        },
+        {
+          "name": "block_list",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
+        },
+        {
+          "name": "gen_list",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
         }
       ]
     },
@@ -25895,6 +26462,80 @@
       ]
     },
     "v202601.PublishLanguageToMarketsResponse": {},
+    "v202601.RefundLineItem": {
+      "fields": [
+        {
+          "name": "line_item_id",
+          "type": "string"
+        },
+        {
+          "name": "refund_quantity",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "tax",
+          "type": "string"
+        },
+        {
+          "name": "discount",
+          "type": "string"
+        },
+        {
+          "name": "sub_total",
+          "type": "string"
+        },
+        {
+          "name": "total",
+          "type": "string"
+        },
+        {
+          "name": "delete_quantity",
+          "type": "integer",
+          "format": "int32"
+        }
+      ]
+    },
+    "v202601.RefundPaymentDetail": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "payment_line_id",
+          "type": "string"
+        },
+        {
+          "name": "payment_channel",
+          "type": "string"
+        },
+        {
+          "name": "payment_method",
+          "type": "string"
+        },
+        {
+          "name": "refund_price",
+          "type": "string"
+        },
+        {
+          "name": "refund_status",
+          "type": "string"
+        },
+        {
+          "name": "finished_at",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.RefundRecordExtraInfo": {
+      "fields": [
+        {
+          "name": "pos",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.RemoveSectionResponse": {
       "fields": [
         {
@@ -25913,6 +26554,14 @@
           "name": "data",
           "type": "object",
           "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
+    "v202601.RevertGenBlockResponse": {
+      "fields": [
+        {
+          "name": "revert_id",
+          "type": "string"
         }
       ]
     },
@@ -26255,6 +26904,10 @@
         {
           "name": "move_target",
           "type": "string"
+        },
+        {
+          "name": "section_id",
+          "type": "string"
         }
       ]
     },
@@ -26475,6 +27128,23 @@
           "name": "fulfillment",
           "type": "object",
           "schema": "v202601.FulfillmentSummary"
+        }
+      ]
+    },
+    "v202601.UpdateGenBlockResponse": {
+      "fields": [
+        {
+          "name": "revert_id",
+          "type": "string"
+        },
+        {
+          "name": "branched",
+          "type": "boolean"
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "schema": "v202601.GenBlockSettings"
         }
       ]
     },
@@ -26700,6 +27370,87 @@
       ]
     },
     "v202601.UpdateThemeTemplateResponse": {},
+    "v202601.V202601RefundRecord": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "refund_price",
+          "type": "string"
+        },
+        {
+          "name": "refund_shipping",
+          "type": "string"
+        },
+        {
+          "name": "refund_shipping_tax",
+          "type": "string"
+        },
+        {
+          "name": "refund_method",
+          "type": "string"
+        },
+        {
+          "name": "refund_status",
+          "type": "string"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        },
+        {
+          "name": "refund_line_items",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.RefundLineItem"
+          }
+        },
+        {
+          "name": "payment_details",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.RefundPaymentDetail"
+          }
+        },
+        {
+          "name": "additional_total",
+          "type": "string"
+        },
+        {
+          "name": "additional_prices",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.AdditionalPrice"
+          }
+        },
+        {
+          "name": "refund_tip",
+          "type": "string"
+        },
+        {
+          "name": "order_id",
+          "type": "string"
+        },
+        {
+          "name": "extra_info",
+          "type": "object",
+          "schema": "v202601.RefundRecordExtraInfo"
+        }
+      ]
+    },
     "v202601.request.Config": {
       "fields": [
         {
