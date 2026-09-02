@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `app config push` — sync the `[dashboard]` section of the active `shoplazza.app.toml` (`name`, `app_url`, `redirect_url`, `embed`) to the Partner dashboard, so App URL / Redirect URL changes no longer require clicking through the dashboard. Patch semantics: only fields with a value are sent, and an empty or removed line never clears the dashboard value (`embed = false` is a value; remove the line to leave it alone). Only draft and rejected apps are pushed without `--yes`; any other status (submitted, in review, published, unpublished, or one this build does not recognise) requires it, because the backend write also refreshes the app's review checks. `name` is synced too, so run `app config link` first if the app was edited in the dashboard since. The output echoes the app as stored by the backend.
+- `app config link` now also pulls `app_url` / `redirect_url` / `embed` into a `[dashboard]` section, and writes back to the active config file when it already points at the linked app (an `app init` project keeps its base `shoplazza.app.toml` instead of gaining a second file). `app init` records the app name under `[dashboard]`.
+- `app dev --write-urls` — write this session's tunnel App URL / Redirect URL into the active config's `[dashboard]` (local file only; default off). Next steps now point at `shoplazza app config push` instead of manual dashboard configuration.
+- `app info` shows `app_url`, `redirect_url`, `embed` and `status` when the backend returns them.
+
+### Changed
+- `shoplazza.app.toml` gains a `[dashboard]` table for the fields that sync to the Partner dashboard; top-level keys (`client_id`, `partner_id`, `scopes`) stay local. Writing the file merges one level deep, so updating one `[dashboard]` key keeps the others, and a fixed comment above the section is regenerated on every write. Older CLI versions read and preserve the section untouched.
+
 ## 2.0.10 - 2026-08-14
 
 ### Added

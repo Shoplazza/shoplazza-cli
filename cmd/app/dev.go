@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/devserver"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
@@ -34,6 +35,7 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 		path           string
 		debug          bool
 		ngrokAuthToken string
+		writeURLs      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "dev",
@@ -50,7 +52,7 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			cfg, ex := activeAppConfig(p)
+			configName, cfg, ex := activeAppConfigNamed(p)
 			if ex != nil {
 				return ex
 			}
@@ -197,20 +199,21 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 				return dErr
 			}
 
+			// --write-urls is local-only and best-effort, like the .env write.
+			var writtenConfig string
+			if writeURLs {
+				if wErr := writeDevURLs(p, configName, res.AppURL, res.RedirectURL); wErr != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: could not write tunnel URLs to %s: %v\n", configName, wErr)
+				} else {
+					writtenConfig = configName
+				}
+			}
+
 			if err := output.PrintAPISuccess(cmd.OutOrStdout(), res, cmdutil.GetFormat(cmd), ""); err != nil {
 				return err
 			}
-			// Tell the developer how to actually exercise the tunnel: the App URL and
-			// Redirect URL must be registered on the Partner dashboard before the
-			// install link can complete the OAuth handshake.
-			fmt.Fprintf(cmd.ErrOrStderr(),
-				"\nNext steps:\n"+
-					"  1. In the Partner dashboard, configure this app's App URL and Redirect URL:\n"+
-					"       App URL:      %s\n"+
-					"       Redirect URL: %s\n"+
-					"  2. Then open the install URL in your browser to install the app on your store:\n"+
-					"       %s\n",
-				res.AppURL, res.RedirectURL, res.InstallURL)
+			// The URLs must be registered before the install link can complete OAuth.
+			fmt.Fprint(cmd.ErrOrStderr(), devNextSteps(res, p.Root, writtenConfig))
 			fmt.Fprintf(cmd.ErrOrStderr(), "\nDev server running on port %d. Press Ctrl+C to stop.\n", port)
 
 			// Block until SIGINT/SIGTERM; the deferred cleanup above then closes
@@ -223,11 +226,41 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
 	cmd.Flags().BoolVar(&debug, "debug", false, "Build extensions in debug mode")
+	cmd.Flags().BoolVar(&writeURLs, "write-urls", false,
+		"Write this session's tunnel App URL / Redirect URL into the active config's [dashboard] section "+
+			"(local file only — run 'shoplazza app config push' to sync them to the Partner dashboard)")
 	cmd.Flags().StringVar(&ngrokAuthToken, "ngrok-authtoken", "",
 		"Your personal ngrok authtoken (get it at https://dashboard.ngrok.com/get-started/your-authtoken). "+
 			"Saved to <project>/.env as NGROK_AUTHTOKEN and reused on later runs, so you only pass it once. "+
 			"Used ONLY as a fallback when the primary cloudflared tunnel can't start.")
 	return cmd
+}
+
+// writeDevURLs merges the tunnel URLs into configName's [dashboard].
+func writeDevURLs(p *project.Project, configName, appURL, redirectURL string) error {
+	set := map[string]any{project.DashboardKey: map[string]any{"app_url": appURL, "redirect_url": redirectURL}}
+	return p.UpdateConfig(configName, set)
+}
+
+// devNextSteps renders the post-tunnel guidance; writtenConfig is "" unless
+// --write-urls succeeded.
+func devNextSteps(res app.DevResult, root, writtenConfig string) string {
+	step1 := fmt.Sprintf(
+		"  1. Register the tunnel URLs on the Partner dashboard. Either set them manually:\n"+
+			"       App URL:      %s\n"+
+			"       Redirect URL: %s\n"+
+			"     or re-run with --write-urls to record them in [dashboard], then sync:\n"+
+			"       cd %s && shoplazza app config push\n",
+		res.AppURL, res.RedirectURL, root)
+	if writtenConfig != "" {
+		step1 = fmt.Sprintf(
+			"  1. Tunnel URLs written to %s. Sync them to the Partner dashboard:\n"+
+				"       cd %s && shoplazza app config push\n",
+			writtenConfig, root)
+	}
+	return "\nNext steps:\n" + step1 +
+		"  2. Then open the install URL in your browser to install the app on your store:\n" +
+		"       " + res.InstallURL + "\n"
 }
 
 // upsertDotEnv sets key=value in the .env file at path, preserving every other

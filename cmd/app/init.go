@@ -142,6 +142,9 @@ func runInit(ctx context.Context, d *app.Dashboard, p *project.Project, o initOp
 	if len(scopes) > 0 {
 		set["scopes"] = strings.Join(scopes, " ")
 	}
+	if dash := dashboardSet(ref); dash != nil {
+		set[project.DashboardKey] = dash
+	}
 	if err := sub.UpdateConfig("shoplazza.app.toml", set); err != nil {
 		return output.ErrInternal("failed to write shoplazza.app.toml: %v", err)
 	}

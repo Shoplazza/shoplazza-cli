@@ -48,12 +48,31 @@ func (d *Dashboard) GetApps(ctx context.Context, partnerID string) (AppsResp, er
 // response carries no partner_id (the caller already knows it).
 type appWrap struct {
 	App struct {
-		ClientID string   `json:"client_id"`
-		ID       int64    `json:"id"` // internal numeric app id (unused; here for completeness)
-		Name     string   `json:"name"`
-		Secret   string   `json:"secret"`
-		Scopes   []string `json:"scopes"`
+		ClientID    string   `json:"client_id"`
+		ID          int64    `json:"id"` // internal numeric app id (unused; here for completeness)
+		Name        string   `json:"name"`
+		Secret      string   `json:"secret"`
+		Scopes      []string `json:"scopes"`
+		AppURL      string   `json:"app_url"`
+		RedirectURL string   `json:"redirect_url"`
+		Embed       *bool    `json:"embed"`
+		Status      string   `json:"status"`
 	} `json:"app"`
+}
+
+// appConfigFrom flattens the single-app envelope; partnerID is the caller's.
+func appConfigFrom(w appWrap, partnerID string) AppConfig {
+	return AppConfig{
+		ClientID:     w.App.ClientID,
+		Name:         w.App.Name,
+		Scopes:       w.App.Scopes,
+		ClientSecret: w.App.Secret,
+		PartnerID:    partnerID,
+		AppURL:       w.App.AppURL,
+		RedirectURL:  w.App.RedirectURL,
+		Embed:        w.App.Embed,
+		Status:       w.App.Status,
+	}
 }
 
 // 3 — v1 parity: createApp sends only app_name (no app_type).
@@ -80,13 +99,18 @@ func (d *Dashboard) GetAppConfig(ctx context.Context, partnerID, clientID string
 	if err := d.c.GetJSON(ctx, p, &w); err != nil {
 		return AppConfig{}, err
 	}
-	return AppConfig{
-		ClientID:     w.App.ClientID,
-		Name:         w.App.Name,
-		Scopes:       w.App.Scopes,
-		ClientSecret: w.App.Secret,
-		PartnerID:    partnerID,
-	}, nil
+	return appConfigFrom(w, partnerID), nil
+}
+
+// 5b — PATCH the app's dashboard settings; absent or empty keys are left
+// unchanged. Returns the app as stored.
+func (d *Dashboard) UpdateApp(ctx context.Context, partnerID, clientID string, patch map[string]any) (AppConfig, error) {
+	var w appWrap
+	p := fmt.Sprintf("%s/partners/%s/apps/%s", base, partnerID, clientID)
+	if err := d.c.PatchJSON(ctx, p, patch, &w); err != nil {
+		return AppConfig{}, err
+	}
+	return appConfigFrom(w, partnerID), nil
 }
 
 // 6

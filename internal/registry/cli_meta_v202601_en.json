@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-08-13T02:19:23Z",
+  "generated_at": "2026-08-25T08:09:52Z",
   "modules": [
     {
       "name": "billing",
@@ -3426,6 +3426,63 @@
           "response_schema": "v202506.ListCarrierResponse"
         },
         {
+          "id": "order-transactions-batch",
+          "command_path": [
+            "transactions",
+            "batch-list"
+          ],
+          "summary": "Batch list order transactions",
+          "description": "Batch retrieve all transactions attached to the specified orders, including\nstatus, payment channel, amount, and gateway response details.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/orders/transactions"
+          },
+          "parameters": [
+            {
+              "name": "order_ids",
+              "in": "query",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "required": true,
+              "description": "Order IDs to query. Up to 50 per request. Example: ?order_ids=1001\u0026order_ids=1002",
+              "min_length": 1,
+              "max_length": 50
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "type": "string",
+              "description": "Cursor for pagination"
+            },
+            {
+              "name": "page_size",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Number of transactions per page. Range: 1-50, default: 10.",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
+            },
+            {
+              "name": "payment_channel",
+              "in": "query",
+              "type": "string",
+              "description": "Payment channel (e.g., paypal)."
+            },
+            {
+              "name": "status",
+              "in": "query",
+              "type": "string",
+              "description": "Transaction status. Applies to all orders in the request: - `authorized`: the transaction has been authorized but not yet captured - `void`: the transaction has been canceled - `processing`: the transaction is currently being processed - `success`: the transaction was successfully completed - `failure` / `error`: the transaction failed. Both values exist in the data, so match both when filtering for failed transactions - `refunding`: a refund for the transaction is in progress - `refunded`: the transaction has been successfully refunded - `refund_failed`: the refund attempt for the transaction has failed - `expired`: the transaction has expired"
+            }
+          ],
+          "response_schema": "v202601.BatchListTransactionsResponse"
+        },
+        {
           "id": "order-transactions",
           "command_path": [
             "transactions",
@@ -3451,7 +3508,7 @@
               "name": "status",
               "in": "query",
               "type": "string",
-              "description": "Transaction status: - `authorized`: the transaction has been authorized but not yet captured - `void`: the transaction has been canceled - `processing`: the transaction is currently being processed - `success`: the transaction was successfully completed - `error`: the transaction failed due to an error - `refunding`: a refund for the transaction is in progress - `refunded`: the transaction has been successfully refunded - `refund_failed`: the refund attempt for the transaction has failed - `expire`: the transaction has expired"
+              "description": "Transaction status: - `authorized`: the transaction has been authorized but not yet captured - `void`: the transaction has been canceled - `processing`: the transaction is currently being processed - `success`: the transaction was successfully completed - `failure` / `error`: the transaction failed. Both values exist in the data, so match both when filtering for failed transactions - `refunding`: a refund for the transaction is in progress - `refunded`: the transaction has been successfully refunded - `refund_failed`: the refund attempt for the transaction has failed - `expired`: the transaction has expired"
             },
             {
               "name": "payment_channel",
@@ -7124,6 +7181,11 @@
                   "type": "string"
                 },
                 "description": "Simple equality filters, keyed by dimension name with the exact value to match, e.g. {\"country_code\": \"US\"}. Each entry is an exact-match condition and multiple entries are combined with AND. Only keys within the supported `dimension` set take effect; unknown keys are ignored."
+              },
+              {
+                "name": "filter_crawler_type",
+                "type": "string",
+                "description": "Crawler-filtering policy that controls whether bot/crawler traffic is excluded from the statistics. Values: - `no_filter_crawler`: do not filter; count all traffic (default) - `official_crawler`: exclude known crawlers/bots"
               }
             ]
           },
@@ -21081,6 +21143,31 @@
       ]
     },
     "v202601.BatchDeleteProductsResponse": {},
+    "v202601.BatchListTransactionsResponse": {
+      "fields": [
+        {
+          "name": "transactions",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.Transaction"
+          }
+        },
+        {
+          "name": "cursor",
+          "type": "string"
+        },
+        {
+          "name": "has_more",
+          "type": "boolean"
+        },
+        {
+          "name": "total",
+          "type": "integer",
+          "format": "int32"
+        }
+      ]
+    },
     "v202601.Blog": {
       "fields": [
         {
