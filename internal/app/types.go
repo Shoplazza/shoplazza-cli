@@ -38,6 +38,11 @@ type App struct {
 	ClientID string   `json:"client_id"`
 	Name     string   `json:"name"`
 	Scopes   []string `json:"scopes"`
+	// Dashboard settings; omitted when the response lacks them.
+	AppURL      string `json:"app_url,omitempty"`
+	RedirectURL string `json:"redirect_url,omitempty"`
+	Embed       *bool  `json:"embed,omitempty"`
+	Status      string `json:"status,omitempty"`
 }
 type AppConfig struct {
 	ClientID     string   `json:"client_id"`
@@ -45,6 +50,10 @@ type AppConfig struct {
 	Scopes       []string `json:"scopes"`
 	ClientSecret string   `json:"client_secret"` // endpoint 5 only — never persisted
 	PartnerID    string   `json:"partner_id"`    // endpoint 5 only
+	AppURL       string   `json:"app_url"`
+	RedirectURL  string   `json:"redirect_url"`
+	Embed        *bool    `json:"embed"`
+	Status       string   `json:"status"` // draft|submitted|in-review|rejected|published|unpublished
 }
 type Extension struct {
 	ExtensionID      string `json:"extension_id"`
