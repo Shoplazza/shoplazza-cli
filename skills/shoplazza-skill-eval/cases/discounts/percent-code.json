@@ -1,0 +1,46 @@
+[
+  {
+    "case_id": "discounts.percent-code-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.percent-code",
+    "scenario": "15% site-wide coupon with explicit caps — happy path (English)",
+    "input": "Create a 15% off site-wide coupon code, max 100 uses total, 1 per customer",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "command_prefix": "discounts +percent-code",
+      "flags_must_contain": ["--target order", "--percent 15", "--limit-max 100", "--limit-user 1"],
+      "flags_must_not_contain": ["--min-amount", "--products", "--collections", "--variants"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "site-wide inferred as --target order without asking",
+        "percent/caps values 15, 100, 1 all verbatim from the utterance",
+        "--code either omitted (auto-generated) or, if set, flagged to the user as a choice — not silently invented",
+        "start/end left to defaults (user said nothing about timing)"
+      ]
+    },
+    "notes": "Skill decision example marks this exact utterance CREATE."
+  },
+  {
+    "case_id": "discounts.percent-code-02",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.percent-code",
+    "scenario": "15% coupon, target unclear — must ask order vs product",
+    "input": "Create a 15% off coupon code",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": ["order|订单|site-wide|product|商品|target"],
+      "flags_must_not_contain": ["--target"],
+      "semantic_rubric": [
+        "asks ONLY about target scope (percent=15 is already given; everything else has a default)",
+        "does not ask about caps, code, name, or time",
+        "does not emit a create command before the answer"
+      ]
+    },
+    "notes": "Skill decision example: 'Create a 15% off coupon code → ASK — target unclear'."
+  }
+]

@@ -240,6 +240,96 @@ func TestLogin_PollDenied_HTTP403_MapsToAuthError(t *testing.T) {
 	}
 }
 
+func TestLogin_PollGateway504_RetriesUntilOK(t *testing.T) {
+	polls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/saiga/cli/auth/sessions":
+			json.NewEncoder(w).Encode(map[string]any{"session_id": "sess1", "authorize_url": "x"})
+		case strings.HasSuffix(r.URL.Path, "/token"):
+			polls++
+			if polls < 3 {
+				// long-poll cut by the gateway: bare 504, no saiga code
+				w.WriteHeader(http.StatusGatewayTimeout)
+				w.Write([]byte("error code: 504"))
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": "ok", "uat": "uat_acct", "account": "alice@example.com",
+				"uat_expires_at": "2026-12-01T00:00:00Z",
+			})
+		}
+	}))
+	defer srv.Close()
+	mgr := newTestManager(t, srv)
+
+	res, err := mgr.Login(context.Background(), "", nil, "", 5*time.Second, time.Millisecond, nil)
+	if err != nil {
+		t.Fatalf("Login should ride out gateway 504s: %v", err)
+	}
+	if !res.Status.LoggedIn || polls != 3 {
+		t.Errorf("LoggedIn=%v polls=%d", res.Status.LoggedIn, polls)
+	}
+}
+
+// A lapsed authorization window is a saiga verdict, and saiga delivers verdicts
+// as 4xx: polling must stop on the first one rather than ride it out. Serving it
+// as a 5xx (as saiga once did) put it behind the CDN, which swaps the body for
+// its own error page — the CLI then sees an unattributable 5xx and polls until
+// the login deadline instead of telling the user to log in again.
+func TestLogin_Poll400WithSessionExpired_Fatal(t *testing.T) {
+	polls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/saiga/cli/auth/sessions":
+			json.NewEncoder(w).Encode(map[string]any{"session_id": "sess1", "authorize_url": "x"})
+		case strings.HasSuffix(r.URL.Path, "/token"):
+			polls++
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"code":"session_expired","errors":["authorization window expired"]}`))
+		}
+	}))
+	defer srv.Close()
+	mgr := newTestManager(t, srv)
+
+	_, err := mgr.Login(context.Background(), "", nil, "", 5*time.Second, time.Millisecond, nil)
+	if err == nil || !strings.Contains(err.Error(), "expired") {
+		t.Errorf("expected session-expired auth error, got %v", err)
+	}
+	if polls != 1 {
+		t.Errorf("verdict must end the loop on the first poll, got %d polls", polls)
+	}
+}
+
+// Even stripped of its body by the CDN, a 4xx verdict still ends the loop —
+// the status alone is enough, so the fix does not depend on the body surviving.
+func TestLogin_PollBare400_Fatal(t *testing.T) {
+	polls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/saiga/cli/auth/sessions":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"session_id": "sess1", "authorize_url": "x"})
+		case strings.HasSuffix(r.URL.Path, "/token"):
+			polls++
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("error code: 400"))
+		}
+	}))
+	defer srv.Close()
+	mgr := newTestManager(t, srv)
+
+	_, err := mgr.Login(context.Background(), "", nil, "", 5*time.Second, time.Millisecond, nil)
+	if err == nil {
+		t.Fatal("expected a fatal auth error")
+	}
+	if polls != 1 {
+		t.Errorf("a 4xx must end the loop on the first poll, got %d polls", polls)
+	}
+}
+
 func TestLogin_PollTimeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -545,5 +635,34 @@ func TestLoginUAT_PreservesPartnerTokenSameAccount(t *testing.T) {
 	}
 	if got, _ := keychain.Get(keychain.ShoplazzaCliService, internalauth.AccountPartnerKey("a@x.com")); got != "pt_stale" {
 		t.Errorf("partner keychain entry should be preserved for the same account, got %q", got)
+	}
+}
+
+// A malformed poll body is a contract break, not a hiccup: it would repeat every
+// interval until the 5-minute deadline, so it must surface immediately.
+func TestLogin_PollMalformedBody_FailsFastNotAfterTimeout(t *testing.T) {
+	polls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/saiga/cli/auth/sessions":
+			json.NewEncoder(w).Encode(map[string]any{"session_id": "sess1", "authorize_url": "x"})
+		case strings.HasSuffix(r.URL.Path, "/token"):
+			polls++
+			w.Write([]byte("{not json"))
+		}
+	}))
+	defer srv.Close()
+	mgr := newTestManager(t, srv)
+
+	start := time.Now()
+	if _, err := mgr.Login(context.Background(), "", nil, "", 5*time.Second, 50*time.Millisecond, nil); err == nil {
+		t.Fatal("expected the decode failure to surface")
+	}
+	if polls != 1 {
+		t.Errorf("polls = %d, want 1 (no retry on a decode failure)", polls)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Errorf("took %v — should not have spun until the deadline", elapsed)
 	}
 }

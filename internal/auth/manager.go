@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -59,6 +60,10 @@ func (m *Manager) Login(ctx context.Context, storeDomain string, scopes []string
 
 		pollRes, err := m.pollSessionToken(deadlineCtx, session.SessionID)
 		if err != nil {
+			if transientPollError(deadlineCtx, err) {
+				time.Sleep(pollInterval)
+				continue
+			}
 			var he *client.HTTPError
 			if errors.As(err, &he) {
 				return LoginResult{Flow: "web", AuthorizeURL: session.AuthorizeURL}, parseSaigaAuthError(he)
@@ -94,6 +99,25 @@ func (m *Manager) Login(ctx context.Context, storeDomain string, scopes []string
 			return LoginResult{Flow: "web", AuthorizeURL: session.AuthorizeURL}, errors.New("unexpected session status: " + pollRes.Status)
 		}
 	}
+}
+
+// transientPollError reports whether a session-token poll failure is retryable
+// within the login deadline. saiga answers about the session with 200 or a 4xx
+// verdict, so a 5xx is never that answer — only infrastructure in between. Do
+// not try to read a verdict out of a 5xx body: the CDN replaces it.
+func transientPollError(ctx context.Context, err error) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	var he *client.HTTPError
+	if errors.As(err, &he) {
+		return he.StatusCode >= 500
+	}
+	// Below the deadline, only a transport failure is worth another poll. A
+	// decode failure is a contract break that would repeat every interval until
+	// the 5-minute timeout, so surface it now rather than hanging on it.
+	var ne net.Error
+	return errors.As(err, &ne)
 }
 
 // storeValidationWarning renders the login-time message for a store that failed

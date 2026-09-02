@@ -1,0 +1,51 @@
+[
+  {
+    "case_id": "routing.shop-01",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "中文博客文章 utterance routes to shop",
+    "input": "帮我在店铺博客里发一篇新文章",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is named, it is shop blogs / shop articles"]
+    }
+  },
+  {
+    "case_id": "routing.shop-02",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "English URL redirect utterance routes to shop",
+    "input": "Set up a URL redirect from my old landing page to the new one",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is named, it is shop redirects create"]
+    }
+  },
+  {
+    "case_id": "routing.shop-03",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 自定义页面归 shop pages, 不归 themes",
+    "input": "帮我新建一个自定义页面放品牌故事",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": ["shoplazza-themes"],
+      "semantic_rubric": ["If a command is named, it is shop pages create — 自定义页面 is content, not theme/template editing"]
+    },
+    "notes": "页面 collides with theme templates. Candidate for _routing/collisions.json (themes is deferred, so today pass = not routing to a themes skill)."
+  },
+  {
+    "case_id": "routing.shop-04",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "语言 + 市场配置归 shop",
+    "input": "给店铺开通日语，然后发布到日本市场",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If commands are named, they are shop languages (add/publish) and shop markets"]
+    }
+  }
+]

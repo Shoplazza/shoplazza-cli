@@ -1,0 +1,48 @@
+[
+  {
+    "case_id": "shop.analytics-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.analytics",
+    "scenario": "指定日期段的销售额+订单数 — analytics overview, POST body",
+    "input": "拉一下 2026年7月1日 到 7月15日 的销售额和订单数",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop analytics overview",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["begin_time", "end_time", "indicator", "sales", "orders"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "begin_time / end_time are unix-second timestamps passed as STRINGS (schema requirement), corresponding to 2026-07-01 and 2026-07-15",
+        "indicator array contains exactly what was asked: sales (销售额) and orders (订单数) — no pv/uv padding",
+        "this is a POST endpoint — filters go in --data, not --params",
+        "any jq extraction starts at .data, without -r"
+      ]
+    },
+    "notes": "POST /data-analysis; begin_time/end_time/indicator required. Timestamps are computed from the dates in the utterance."
+  },
+  {
+    "case_id": "shop.analytics-02",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.analytics",
+    "scenario": "SKU 维度销量排行 — analytics by-sku + 销量指标排序",
+    "input": "最近 30 天哪个 SKU 卖得最好？",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop analytics by-sku",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["begin_time", "end_time", "sort_by"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses analytics by-sku (SKU dimension), not overview and not orders +search",
+        "sort_by is one of the documented sales metrics (sales_total / sales_count / order_count) with descending direction — 卖得最好",
+        "time window = last 30 days from the utterance; timestamps as unix-second strings",
+        "does not ask for a time range (最近 30 天 is explicit)"
+      ]
+    },
+    "notes": "POST /data-analysis/sku; sort_by enum documented in schema (views_count, order_count, sales_total, sales_count, ...)."
+  }
+]

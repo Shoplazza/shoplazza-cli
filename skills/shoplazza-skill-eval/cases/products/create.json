@@ -1,0 +1,47 @@
+[
+  {
+    "case_id": "products.create-01",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.create",
+    "scenario": "单变体商品创建, 存草稿 — happy path",
+    "input": "新建一个商品：Lycra 瑜伽裤，售价 39.99，主图用 https://cdn.example.com/yoga.jpg，先存草稿不要上架",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +create",
+      "flags_must_contain": ["--title", "--price 39.99", "--image https://cdn.example.com/yoga.jpg"],
+      "flags_must_not_contain": ["--published", "--stock", "--compare-price", "--sku"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "title contains Lycra 瑜伽裤 verbatim from the utterance",
+        "存草稿 handled by OMITTING --published (draft is the +create default) — the flag is a bare boolean, setting it would publish",
+        "stock / sku / compare-price neither set nor asked (all optional)",
+        "uses +create (single-variant fast path), not the create leaf with a hand-built body"
+      ]
+    },
+    "notes": "+create required flags: --title, --price, --image. --published is publish-on-create; default is draft."
+  },
+  {
+    "case_id": "products.create-02",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.create",
+    "scenario": "建品但缺价格和主图 — must ask, never fabricate",
+    "input": "帮我上架一个新的 T恤 商品",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": ["price|价格|售价|多少钱", "image|图片|主图"],
+      "flags_must_not_contain": ["--price", "--image"],
+      "semantic_rubric": [
+        "does not fabricate a price or an image URL (both are required, no-default flags of +create)",
+        "does not ask for the title — T恤 is usable from the utterance",
+        "plans --published since the user said 上架 (publish on create)",
+        "asks for price and image in ONE batch, not serially"
+      ]
+    },
+    "notes": "No-fabricated-value probe for a money field (--price) plus a required asset (--image)."
+  }
+]

@@ -1,6 +1,7 @@
 package products
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -163,6 +164,16 @@ func TestProductCreatePlan_InvalidPriceErrors(t *testing.T) {
 	_, err := createShortcut.Plan(in)
 	if err == nil {
 		t.Error("expected error for non-numeric --price")
+	}
+}
+
+func TestProductCreatePlan_NegativePriceErrors(t *testing.T) {
+	in := newProductPlanInput(t, "create", productCreateFlags, map[string]string{
+		"title": "Shirt", "price": "-5", "image": "http://img.example.com/x.jpg",
+	})
+	_, err := createShortcut.Plan(in)
+	if err == nil || !strings.Contains(err.Error(), ">= 0") {
+		t.Errorf("expected >=0 error for negative --price, got %v", err)
 	}
 }
 

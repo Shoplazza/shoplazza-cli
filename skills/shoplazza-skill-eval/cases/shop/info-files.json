@@ -1,0 +1,106 @@
+[
+  {
+    "case_id": "shop.info-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.info",
+    "scenario": "查店铺域名/币种 — info get 只读",
+    "input": "看一下店铺现在的主域名和币种设置",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop info get",
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "read-only shop info get; no update emitted",
+        "reports domain and currency from .data fields, nothing fabricated"
+      ]
+    },
+    "notes": "GET /shop; optional fields query param may narrow the response."
+  },
+  {
+    "case_id": "shop.info-02",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.info",
+    "scenario": "改店铺客服邮箱 — 先 get 拿 shop_id, 再 update 唯一可改字段",
+    "input": "把店铺的客服邮箱改成 support@brand.com",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop info update",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["customer_email", "support@brand.com"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "resolves shop_id first via shop info get (shop_id is a required path param the user cannot know)",
+        "customer_email is the ONLY updatable field on this endpoint — does not attempt to patch other shop attributes",
+        "body nested under the required shop object; restates before the write"
+      ]
+    },
+    "notes": "PATCH /shop/{shop_id}; body {\"shop\":{\"customer_email\":...}} — schema exposes customer_email only. Multi-step: get → update."
+  },
+  {
+    "case_id": "shop.upload-file-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.upload-file",
+    "scenario": "公网 URL 上传到素材库 — happy path",
+    "input": "把 https://example.com/banner.png 传到店铺素材库",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "shortcut",
+      "command_prefix": "shop +upload-file",
+      "flags_must_contain": ["--source-url https://example.com/banner.png"],
+      "flags_must_not_contain": ["--folder"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "--folder omitted (defaults to all_upload) without asking",
+        "knows the upload is an async TASK — may follow up with shop files task to check status",
+        "uses shop +upload-file (media library), not products images (product-attached)"
+      ]
+    }
+  },
+  {
+    "case_id": "shop.upload-file-02",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.upload-file",
+    "scenario": "要传本地文件 — API 只收公网 URL, 必须降级询问而不是编造 URL",
+    "input": "把我电脑里的 banner.png 上传到素材库",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": ["公网|URL|url|链接|public"],
+      "flags_must_not_contain": ["--source-url"],
+      "semantic_rubric": [
+        "recognizes +upload-file takes PUBLIC URLs, NOT local files (stated verbatim in its --help)",
+        "does not fabricate a URL for the local file and does not emit a write",
+        "explains the limitation and asks for a public link (or proposes hosting the file somewhere reachable first)"
+      ]
+    },
+    "notes": "Degradation case. Help text: 'Submit a file upload task (takes public URLs, NOT local files)'."
+  },
+  {
+    "case_id": "shop.files-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.files",
+    "scenario": "浏览素材库 — files list, 默认 folder",
+    "input": "看看素材库里都有哪些文件",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop files list",
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "folder defaults to all_upload — not set, not asked",
+        "any jq extraction starts at .data, without -r"
+      ]
+    },
+    "notes": "GET /file; page_size default 20, max 300."
+  }
+]

@@ -2,7 +2,6 @@ package products
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -13,25 +12,36 @@ import (
 var setPriceShortcut = common.Shortcut{
 	Service: "products",
 	Command: "+set-price",
-	Use:     "+set-price (--variant-id <id> | --sku <sku> [--all]) --price <n> [--compare-price <n>]",
-	Short:   "Set a variant's price by variant ID or SKU",
+	Use:     "+set-price (--variant-id <id> | --sku <sku> [--all] | --product-id <id>) --price <n> [--compare-price <n>]",
+	Short:   "Set a variant's price by variant ID, SKU, or product ID",
 	Flags: []common.Flag{
 		{Name: "variant-id", Type: common.FlagString, Description: "Variant ID — the unique, exact target."},
 		{Name: "sku", Type: common.FlagString, Description: "Variant SKU. Resolves to one variant; a multi-match is refused with the candidates listed (use --variant-id, or --all)."},
+		{Name: "product-id", Type: common.FlagString, Description: "Product ID. Resolves to that product's single variant; a multi-variant product is refused with the candidates listed."},
 		{Name: "all", Type: common.FlagBool, Description: "With --sku only: update every variant matching the SKU."},
 		{Name: "price", Type: common.FlagString, Required: true, Description: "New price (required, e.g. '24.99'; '0'/'0.00' clears it)."},
 		{Name: "compare-price", Type: common.FlagString, Description: "New compare-at price."},
 	},
+	// Parses its own target, not parseVariantTarget: --variant-id with --sku is a
+	// legitimate cross-check here, so exactly-one would delete it. Shared: the resolvers.
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		variantID := strings.TrimSpace(in.Flags.GetString("variant-id"))
 		sku := strings.TrimSpace(in.Flags.GetString("sku"))
+		productID := strings.TrimSpace(in.Flags.GetString("product-id"))
 		all := in.Flags.GetBool("all")
 
-		if variantID == "" && sku == "" {
-			return common.ExecResult{}, output.ErrValidation("one of --variant-id or --sku is required")
+		if variantID == "" && sku == "" && productID == "" {
+			return common.ExecResult{}, output.ErrValidation("one of --variant-id, --sku or --product-id is required")
+		}
+		if productID != "" && (variantID != "" || sku != "") {
+			return common.ExecResult{}, output.ErrValidation("--product-id cannot be combined with --variant-id or --sku").
+				WithHint("--product-id resolves the product's only variant; pass --variant-id or --sku directly when you already know the target")
 		}
 		if all && variantID != "" {
 			return common.ExecResult{}, output.ErrValidation("--all applies to --sku only; it cannot be combined with --variant-id")
+		}
+		if all && productID != "" {
+			return common.ExecResult{}, output.ErrValidation("--all applies to --sku only; it cannot be combined with --product-id")
 		}
 
 		variantBody, err := buildVariantBody(in)
@@ -50,7 +60,7 @@ var setPriceShortcut = common.Shortcut{
 			}
 			getResp, err := common.Send(ctx, in.Client, getPlan)
 			if err != nil {
-				return common.ExecResult{}, err
+				return common.ExecResult{}, translateVariantNotFound(err)
 			}
 			if actual := variantSKU(getResp); actual != sku {
 				return common.ExecResult{}, output.ErrValidation("variant %s has SKU %q, which does not match --sku %q", variantID, actual, sku)
@@ -59,7 +69,27 @@ var setPriceShortcut = common.Shortcut{
 
 		// Variant ID only: update that one.
 		case variantID != "":
-			return single(ctx, in, PlanUpdateVariant(variantID, body))
+			res, err := single(ctx, in, PlanUpdateVariant(variantID, body))
+			if err != nil {
+				return common.ExecResult{}, translateVariantNotFound(err)
+			}
+			return res, nil
+
+		// Product ID: resolve the product's only variant; refuse a multi-variant product.
+		case productID != "":
+			listPlan := PlanListVariantsForProduct(productID)
+			if in.DryRun {
+				return common.ExecResult{Plans: []common.PlannedRequest{listPlan, PlanUpdateVariant(stepRef(0), body)}}, nil
+			}
+			listResp, err := common.Send(ctx, in.Client, listPlan)
+			if err != nil {
+				return common.ExecResult{}, err
+			}
+			id, err := resolveOnlyVariant(listResp, productID)
+			if err != nil {
+				return common.ExecResult{}, err
+			}
+			return sendUpdate(ctx, in, PlanUpdateVariant(id, body))
 
 		// SKU + --all: batch-update every variant with this SKU.
 		case all:
@@ -70,13 +100,13 @@ var setPriceShortcut = common.Shortcut{
 		default:
 			listPlan := PlanListVariantsBySKU(sku)
 			if in.DryRun {
-				return common.ExecResult{Plans: []common.PlannedRequest{listPlan, PlanUpdateVariant("<resolved-from-step-0>", body)}}, nil
+				return common.ExecResult{Plans: []common.PlannedRequest{listPlan, PlanUpdateVariant(stepRef(0), body)}}, nil
 			}
 			listResp, err := common.Send(ctx, in.Client, listPlan)
 			if err != nil {
 				return common.ExecResult{}, err
 			}
-			id, err := resolveSingleVariant(listResp, sku)
+			id, err := resolveSingleVariant(listResp, sku, true)
 			if err != nil {
 				return common.ExecResult{}, err
 			}
@@ -104,13 +134,9 @@ func sendUpdate(ctx context.Context, in common.ExecInput, plan common.PlannedReq
 // buildVariantBody parses --price (required, >= 0) and --compare-price into the
 // variant payload.
 func buildVariantBody(in common.ExecInput) (map[string]any, error) {
-	priceStr := in.Flags.GetString("price")
-	price, err := strconv.ParseFloat(priceStr, 64)
+	price, err := parsePrice("--price", in.Flags.GetString("price"))
 	if err != nil {
-		return nil, output.ErrValidation("--price must be a number, got %q", priceStr)
-	}
-	if price < 0 {
-		return nil, output.ErrValidation("--price must be >= 0, got %v", price)
+		return nil, err
 	}
 	out := map[string]any{"price": price}
 	if cp := in.Flags.GetString("compare-price"); cp != "" {
@@ -133,46 +159,4 @@ func variantSKU(resp map[string]any) string {
 	return s
 }
 
-// resolveSingleVariant returns the variant ID when exactly one variant in resp
-// matches sku. Zero matches or more than one is an error (the latter lists the
-// candidates so the caller can re-run with --variant-id or --all).
-func resolveSingleVariant(resp map[string]any, sku string) (string, error) {
-	matches := variantsMatchingSKU(resp, sku)
-	switch len(matches) {
-	case 0:
-		return "", output.ErrValidation("no variant found with SKU %q", sku)
-	case 1:
-		id, _ := matches[0]["id"].(string)
-		if id == "" {
-			return "", output.ErrInternal("matched variant has no id")
-		}
-		return id, nil
-	default:
-		ids := make([]string, 0, len(matches))
-		for _, m := range matches {
-			if id, _ := m["id"].(string); id != "" {
-				ids = append(ids, id)
-			}
-		}
-		return "", output.ErrValidation("SKU %q matches %d variants", sku, len(matches)).
-			WithHint(fmt.Sprintf("use --variant-id to target one of [%s], or --all to update them all", strings.Join(ids, ", ")))
-	}
-}
-
-func variantsMatchingSKU(resp map[string]any, sku string) []map[string]any {
-	raw, ok := resp["variants"].([]any)
-	if !ok {
-		return nil
-	}
-	var out []map[string]any
-	for _, v := range raw {
-		m, ok := v.(map[string]any)
-		if !ok {
-			continue
-		}
-		if s, _ := m["sku"].(string); s == sku {
-			out = append(out, m)
-		}
-	}
-	return out
-}
+// Identifier resolution lives in resolve.go — +stock shares it.

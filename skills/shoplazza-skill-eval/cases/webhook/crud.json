@@ -1,0 +1,132 @@
+[
+  {
+    "case_id": "webhook.create-01",
+    "type": "behavior",
+    "skill": "shoplazza-webhook",
+    "operation": "webhook.create",
+    "scenario": "订阅订单创建事件 — create, address+topic 必填",
+    "input": "订阅订单创建事件，推送到 https://api.myapp.com/hooks/orders",
+    "expected": {
+      "route_to_skill": "shoplazza-webhook",
+      "access_tier": "leaf",
+      "command_prefix": "webhook create",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["https://api.myapp.com/hooks/orders", "topic", "orders/create"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "订单创建事件 → topic orders/create (the documented topic format, e.g. 'orders/cancelled,orders/create' in the CLI schema)",
+        "address is the user's URL verbatim; both nested under the required webhook object",
+        "does not ask about format (defaulted server-side)"
+      ]
+    },
+    "notes": "POST /webhooks; body {\"webhook\":{\"address\",\"topic\"}} — both required."
+  },
+  {
+    "case_id": "webhook.create-02",
+    "type": "behavior",
+    "skill": "shoplazza-webhook",
+    "operation": "webhook.create",
+    "scenario": "订阅但地址/事件全缺 — must ask",
+    "input": "帮我加一个 webhook 订阅",
+    "expected": {
+      "route_to_skill": "shoplazza-webhook",
+      "access_tier": "leaf",
+      "must_ask": true,
+      "ask_must_cover": ["地址|URL|url|address", "事件|topic|主题"],
+      "flags_must_not_contain": ["--data"],
+      "semantic_rubric": [
+        "does not fabricate a callback URL or a topic (both required, no default)",
+        "asks for address and topic in ONE batch",
+        "may list example topics (orders/create etc.) to help the user choose — listing is fine, choosing for them is not"
+      ]
+    }
+  },
+  {
+    "case_id": "webhook.list-01",
+    "type": "behavior",
+    "skill": "shoplazza-webhook",
+    "operation": "webhook.list",
+    "scenario": "列出全部订阅 — list, 无过滤",
+    "input": "看看现在都订阅了哪些 webhook",
+    "expected": {
+      "route_to_skill": "shoplazza-webhook",
+      "access_tier": "leaf",
+      "command_prefix": "webhook list",
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "no address/topic/time filters invented",
+        "any jq extraction starts at .data, without -r"
+      ]
+    }
+  },
+  {
+    "case_id": "webhook.update-01",
+    "type": "behavior",
+    "skill": "shoplazza-webhook",
+    "operation": "webhook.update",
+    "scenario": "改推送地址 — update, id 走 path, 只动 address",
+    "input": "把 webhook 246 的推送地址改成 https://new.example.com/hook",
+    "expected": {
+      "route_to_skill": "shoplazza-webhook",
+      "access_tier": "leaf",
+      "command_prefix": "webhook update",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["246", "address", "https://new.example.com/hook"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "id 246 via --params (path); new address in --data under the required webhook object",
+        "topic NOT touched — the user only asked to change the address",
+        "restates the change before executing"
+      ]
+    },
+    "notes": "PUT /webhooks/{id}; body fields address/topic are both optional on update."
+  },
+  {
+    "case_id": "webhook.delete-01",
+    "type": "behavior",
+    "skill": "shoplazza-webhook",
+    "operation": "webhook.delete",
+    "scenario": "删除订阅 — delete, dry-run + go-ahead",
+    "input": "把 webhook 135 删掉",
+    "expected": {
+      "route_to_skill": "shoplazza-webhook",
+      "access_tier": "leaf",
+      "command_prefix": "webhook delete",
+      "flags_must_contain": ["--params", "--dry-run"],
+      "params_must_contain": ["135"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": true,
+      "ask_must_cover": ["确认|confirm"],
+      "semantic_rubric": [
+        "id 135 via --params (path param, no body)",
+        "destructive op: shows the delete with --dry-run and STOPS — the reply must NOT contain the same delete without --dry-run; it ends by asking the user to confirm",
+        "restates WHICH subscription (topic + address, not just the id) — a webhook get lookup in the same reply is the golden path",
+        "does not invent a disable/pause alternative (none exists; delete is correct here)"
+      ]
+    },
+    "notes": "DELETE /webhooks/{id}. Recipe 4 is the golden path. Consent must come from the user's NEXT message (shoplazza-common safety protocol)."
+  },
+  {
+    "case_id": "webhook.count-01",
+    "type": "behavior",
+    "skill": "shoplazza-webhook",
+    "operation": "webhook.count",
+    "scenario": "按推送地址统计订阅数 — count with address filter",
+    "input": "指向 https://api.myapp.com/hooks 的 webhook 订阅有几个？",
+    "expected": {
+      "route_to_skill": "shoplazza-webhook",
+      "access_tier": "leaf",
+      "command_prefix": "webhook count",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["address", "https://api.myapp.com/hooks"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses count with the address query filter, not list + manual counting",
+        "topic filter not invented",
+        "extracts the number from .data"
+      ]
+    },
+    "notes": "GET /webhooks/count?address=...&topic=... — both filters optional."
+  }
+]

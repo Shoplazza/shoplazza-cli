@@ -1,0 +1,65 @@
+[
+  {
+    "case_id": "routing.products-01",
+    "type": "routing",
+    "skill": "shoplazza-products",
+    "scenario": "中文建品 utterance routes to products on description keywords alone",
+    "input": "我想给店里上一批新货，先把商品建出来",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is volunteered, its service prefix is products"]
+    }
+  },
+  {
+    "case_id": "routing.products-02",
+    "type": "routing",
+    "skill": "shoplazza-products",
+    "scenario": "English catalog-size question routes to products",
+    "input": "How many items do I currently sell in my store?",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "must_not_route_to": [],
+      "semantic_rubric": ["If a command is volunteered, it is products +count (catalog size), not an orders/analytics command"]
+    }
+  },
+  {
+    "case_id": "routing.products-03",
+    "type": "routing",
+    "skill": "shoplazza-products",
+    "scenario": "跨域相似词: 库存归 products (inventory), 不归 orders",
+    "input": "把 SKU ABC-001 的库存数量同步成仓库实际数量",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is products +stock / products inventory, not any orders command"]
+    },
+    "notes": "库存/仓库 wording can smell like fulfillment; inventory lives in the products domain."
+  },
+  {
+    "case_id": "routing.products-04",
+    "type": "routing",
+    "skill": "shoplazza-products",
+    "scenario": "跨域相似词: 礼品卡余额查询归 products gift-cards, 不归 discounts/billing",
+    "input": "查一下礼品卡 GC123 还剩多少余额",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "must_not_route_to": ["shoplazza-discounts", "shoplazza-billing"],
+      "semantic_rubric": ["If a command is named, it is products gift-cards get (balance field), not a discounts or billing command"]
+    },
+    "notes": "Query direction of the existing collision.create-gift-card; enforceable against shoplazza-discounts TODAY (it is built)."
+  },
+  {
+    "case_id": "routing.products-05",
+    "type": "routing",
+    "skill": "shoplazza-products",
+    "scenario": "买家评价/评论归 products comments",
+    "input": "帮我给商品批量导入一批买家评价",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "must_not_route_to": ["shoplazza-shop"],
+      "semantic_rubric": ["If a command is named, it is products comments batch-create"]
+    },
+    "notes": "评价 could be misread as store content (shop blogs/pages); product reviews live under products comments."
+  }
+]

@@ -4,6 +4,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/skillsync"
 )
 
 // updateCheckSkippedCommands lists TOP-LEVEL commands that suppress the update
@@ -30,6 +32,33 @@ func isUpdateCheckSkippedCommand(root *cobra.Command, args []string) bool {
 		cmd = cmd.Parent()
 	}
 	return updateCheckSkippedCommands[cmd.Name()]
+}
+
+// wantsVersion reports whether this invocation asks for the version. A false
+// positive costs one stray directory read — Cobra still gates the template.
+func wantsVersion(args []string) bool {
+	for _, a := range args {
+		switch a {
+		case "--version", "-v":
+			return true
+		case "--":
+			return false // past the terminator these are operands, not flags
+		}
+	}
+	return false
+}
+
+// skillLine describes the Agent Skills state for the --version output.
+func skillLine() string {
+	installed, err := skillsync.Installed()
+	switch {
+	case err != nil:
+		return "skills unreadable"
+	case installed:
+		return "skills installed"
+	default:
+		return "skills not installed"
+	}
 }
 
 // stderrIsTTY reports whether stderr is an interactive terminal.

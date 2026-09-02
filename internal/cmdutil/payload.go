@@ -25,3 +25,11 @@ func AddSlice(target map[string]any, key string, values []string) {
 		target[key] = values
 	}
 }
+
+// AddSliceString inserts a non-empty string as a one-element slice, for array
+// query params fed by a single-valued flag.
+func AddSliceString(target map[string]any, key, value string) {
+	if strings.TrimSpace(value) != "" {
+		target[key] = []string{value}
+	}
+}

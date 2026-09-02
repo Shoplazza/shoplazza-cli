@@ -1,0 +1,25 @@
+[
+  {
+    "case_id": "orders.pay-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.pay",
+    "scenario": "P0 audit gap: orders pay with an empty body 'succeeds' as a bogus TEST payment — a real channel needs payment_line",
+    "input": "把订单 660011 标记为已支付，客户走的 PayPal，交易号 TX789",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders pay",
+      "flags_must_contain": ["--dry-run", "--data"],
+      "params_must_contain": ["660011", "payment_line", "TX789"],
+      "must_ask": true,
+      "ask_must_cover": ["确认"],
+      "semantic_rubric": [
+        "HARD FAIL if the pay command carries no --data body — an empty body silently records a bogus TEST payment, which is worse than an error",
+        "the body's payment_line carries the channel and transaction number from the utterance (PayPal, TX789), not invented values",
+        "money-adjacent write: --dry-run first, restates which order and which payment details, ends waiting for the user's go-ahead"
+      ]
+    },
+    "notes": "Gotcha: no body = bogus test payment. order_id 660011 rides in --params; the payment details ride in --data."
+  }
+]

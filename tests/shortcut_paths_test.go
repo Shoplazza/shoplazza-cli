@@ -20,9 +20,27 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
+	customershortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/customers"
 	discountshortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/discounts"
+	ordershortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/orders"
 	productshortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/products"
+	shopshortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/shop"
+	themeshortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/themes"
 )
+
+// allGuardedShortcuts is the shortcut set the spec guards in this package run
+// over. Every shortcut package belongs here — one left out is one whose drift
+// from the spec nothing catches.
+func allGuardedShortcuts() []common.Shortcut {
+	var all []common.Shortcut
+	all = append(all, productshortcuts.Shortcuts()...)
+	all = append(all, discountshortcuts.Shortcuts()...)
+	all = append(all, ordershortcuts.Shortcuts()...)
+	all = append(all, customershortcuts.Shortcuts()...)
+	all = append(all, shopshortcuts.Shortcuts()...)
+	all = append(all, themeshortcuts.Shortcuts()...)
+	return all
+}
 
 func TestShortcutPlanPathsMatchSpec(t *testing.T) {
 	// LoadSpec would otherwise pick up a real downloaded cache on dev machines;
@@ -33,11 +51,7 @@ func TestShortcutPlanPathsMatchSpec(t *testing.T) {
 		t.Skip("embedded spec is empty; nothing to validate against")
 	}
 
-	all := append([]common.Shortcut{}, discountshortcuts.Shortcuts()...)
-	all = append(all, productshortcuts.Shortcuts()...)
-
-	for _, sc := range all {
-		sc := sc
+	for _, sc := range allGuardedShortcuts() {
 		t.Run(sc.Service+"."+sc.Command, func(t *testing.T) {
 			if sc.Plan == nil {
 				// Execute-only shortcut; no single planned path to verify here.
@@ -116,4 +130,5 @@ func (stubFlagSet) GetInt(string) int              { return 0 }
 func (stubFlagSet) GetFloat(string) float64        { return 0 }
 func (stubFlagSet) GetBool(string) bool            { return false }
 func (stubFlagSet) GetStringSlice(string) []string { return nil }
+func (stubFlagSet) GetStringArray(string) []string { return nil }
 func (stubFlagSet) Changed(string) bool            { return false }

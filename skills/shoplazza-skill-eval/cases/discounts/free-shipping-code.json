@@ -1,0 +1,25 @@
+[
+  {
+    "case_id": "discounts.free-shipping-code-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.free-shipping-code",
+    "scenario": "满99包邮 — threshold maps to --min-amount, full free shipping omits --off",
+    "input": "创建一个免邮码，订单满99就包邮",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "command_prefix": "discounts +free-shipping-code",
+      "flags_must_contain": ["--min-amount 99"],
+      "flags_must_not_contain": ["--off", "--min-quantity", "--limit-max", "--limit-user"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "满99 maps to --min-amount 99 (not --min-quantity — they are mutex)",
+        "包邮 = fully free shipping → --off omitted (omit = 100% free)",
+        "--countries left to default (user named no region), not asked",
+        "nothing strictly required for this shortcut → no clarifying question at all"
+      ]
+    },
+    "notes": "Verified: --min-amount/--min-quantity are mutex on +free-shipping-code; --off omitted = fully free."
+  }
+]

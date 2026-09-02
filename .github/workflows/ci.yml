@@ -26,3 +26,33 @@ jobs:
 
       - name: Unit tests
         run: go test -race -count=1 ./cmd/... ./internal/... ./shortcuts/...
+
+  # Everything that needs a built binary. Kept as its own job so it runs in
+  # parallel with the matrix above rather than lengthening it.
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ./tests/... is excluded from the unit-test job's package list, so without
+      # this step the spec guards (shortcut paths / query keys) and the read-only
+      # eval wrapper's safety test never run in CI.
+      - name: Integration tests
+        run: make integration-test
+
+      # L0 drift sentinel: skills document commands/flags/schema-refs/body keys;
+      # each one must exist in the binary built from THIS commit, so a CLI change
+      # that orphans skill docs fails the PR here.
+      - name: Skills drift lint (L0)
+        run: make skills-lint

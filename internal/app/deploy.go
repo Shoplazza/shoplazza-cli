@@ -178,6 +178,16 @@ func buildUploadUpsert(ctx context.Context, deps DeployDeps) ([]DeployedExt, str
 			version = newVers[extID]
 		}
 
+		// extension.json is deploy input for checkout (extends_fields below);
+		// read it before the slow build/upload legs so a bad file fails fast.
+		var coCfg map[string]any
+		if p.Local.Type == "checkout" {
+			var cfgErr *output.ExitError
+			if coCfg, cfgErr = loadCheckoutExtJSON(deps.ProjectRoot, p.Local.Dir); cfgErr != nil {
+				return nil, "", wrapExtErr(p.Local, cfgErr)
+			}
+		}
+
 		// Build the artifact, then OSS-upload it (resource_url). This pair is
 		// identical for all three types — checkout/theme upload their bundle, a
 		// function uploads its javy wasm (which ALSO rides the multipart
@@ -203,10 +213,10 @@ func buildUploadUpsert(ctx context.Context, deps DeployDeps) ([]DeployedExt, str
 		ups := deps.Progress.Begin("Upserting " + p.Local.Name)
 		switch p.Local.Type {
 		case "checkout":
-			// v1's app-module upsertCheckout sends only {name, version, resource_url}
-			// on create (version "1.0.0"); commit adds extension_id. The standalone
-			// `checkout push` payload (template_name/theme_name/extends_fields) does
-			// NOT apply to the app module.
+			// Base payload is v1's app-module shape {name, version, resource_url}
+			// (+extension_id on commit). When extension.json exists it also rides
+			// as extends_fields (same as `checkout push`), carrying
+			// deleteTarget/placeholder.
 			//
 			// Commit-gate: mirror theme/function — require BOTH a known id AND a
 			// non-empty generated version. A stale local toml id with no remote match
@@ -221,6 +231,10 @@ func buildUploadUpsert(ctx context.Context, deps DeployDeps) ([]DeployedExt, str
 				"resource_url": resourceURL,
 				"version":      coVersion,
 				"name":         p.Local.Name,
+			}
+			if jErr := mergeCheckoutExtJSON(inner, coCfg, coVersion, commitID); jErr != nil {
+				ups.Fail()
+				return nil, "", wrapExtErr(p.Local, jErr)
 			}
 			gotID, verID, cErr := upsertCheckout(ctx, deps.Store, inner, commitID)
 			if cErr != nil {
@@ -294,6 +308,13 @@ func buildUploadUpsert(ctx context.Context, deps DeployDeps) ([]DeployedExt, str
 			ext := deployed[len(deployed)-1]
 			if mErr := MigrateV1Extension(deps.ProjectRoot, p.Local.Dir, got, ext.Name, ext.Type, ext.Version); mErr != nil {
 				return nil, "", wrapExtErr(p.Local, output.ErrInternal("upsert succeeded but migrating v1 config failed: %v", mErr))
+			}
+			// Keep extension.json's id in sync too — `checkout push` reads only
+			// that file and would re-create the extension on a stale/empty id.
+			if coCfg != nil && strField(coCfg, "extensionId") != got {
+				if wErr := writeBackExtensionJSONID(deps.ProjectRoot, p.Local.Dir, got, coCfg); wErr != nil {
+					return nil, "", wrapExtErr(p.Local, output.ErrInternal("upsert succeeded but writing back extension.json failed: %v", wErr))
+				}
 			}
 		}
 	}

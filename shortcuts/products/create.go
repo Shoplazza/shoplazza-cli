@@ -29,9 +29,9 @@ var createShortcut = common.Shortcut{
 		{Name: "collection-ids", Type: common.FlagStringSlice, Description: "Collections to add the product to."},
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
-		price, err := strconv.ParseFloat(in.Flags.GetString("price"), 64)
+		price, err := parsePrice("--price", in.Flags.GetString("price"))
 		if err != nil {
-			return common.PlannedRequest{}, output.ErrValidation("--price must be a number, got %q", in.Flags.GetString("price"))
+			return common.PlannedRequest{}, err
 		}
 		variant := map[string]any{
 			"price":    price,

@@ -1,0 +1,46 @@
+[
+  {
+    "case_id": "discounts.flashsale-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.flashsale",
+    "scenario": "50% off flash sale, no scope given — store-wide default, no ask",
+    "input": "创建闪购活动 50% off",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "command_prefix": "discounts +flashsale",
+      "flags_must_contain": ["--value 50"],
+      "flags_must_not_contain": ["--variants", "--collections", "--stock", "--limit-user", "--products"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "--value 50 verbatim; --type omitted (default percent) or explicitly percent",
+        "scope omitted (= all products) without asking; at most MENTIONS it applies store-wide",
+        "per-user limits and stock neither set nor asked",
+        "does not use a nonexistent --discount or --percent flag on +flashsale"
+      ]
+    },
+    "notes": "Skill decision example marks this CREATE. +flashsale has no --products flag (scope = --variants/--collections only)."
+  },
+  {
+    "case_id": "discounts.flashsale-02",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.flashsale",
+    "scenario": "限时折扣 with no discount value — must ask, never invent a percent",
+    "input": "给商品变体 V123 建个限时折扣",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": ["value|折扣|力度|多少|percent|%"],
+      "flags_must_not_contain": ["--value"],
+      "semantic_rubric": [
+        "does not invent a discount value (no --value with a made-up number anywhere)",
+        "plans scope as --variants V123 from the utterance (does not ask about scope)",
+        "does not ask about type, time, caps, price-rule, or stock (all defaulted / omit-to-disable)"
+      ]
+    },
+    "notes": "No-fabricated-value probe: the only legitimate move is asking for the value."
+  }
+]

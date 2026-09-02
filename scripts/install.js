@@ -133,6 +133,14 @@ function extract(archive, destDir) {
     }
 
     console.log(`Installed shoplazza ${version} → ${binPath}`);
+
+    // Users who installed the Agent Skills get them refreshed alongside the
+    // CLI; everyone else is untouched. Never fails the install.
+    try {
+      require('./update-skills.js').updateSkills();
+    } catch (e) {
+      console.warn(`Skill refresh skipped: ${e.message}`);
+    }
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

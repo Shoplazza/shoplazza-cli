@@ -1,6 +1,6 @@
 {
   "name": "shoplazza-cli",
-  "version": "2.0.8",
+  "version": "2.0.10",
   "description": "The official CLI for Shoplazza Open Platform",
   "bin": {
     "shoplazza": "scripts/run.js"
@@ -41,6 +41,7 @@
   },
   "files": [
     "scripts/install.js",
+    "scripts/update-skills.js",
     "scripts/run.js",
     "scripts/jsbuild/index.js",
     "scripts/jsbuild/vite.config.js",
