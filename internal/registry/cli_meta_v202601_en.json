@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-09-01T06:19:37Z",
+  "generated_at": "2026-09-02T07:36:19Z",
   "modules": [
     {
       "name": "billing",
@@ -10294,6 +10294,114 @@
           "response_schema": "v202601.SetSectionPropsResponse"
         },
         {
+          "id": "theme-gen-block-create",
+          "command_path": [
+            "block",
+            "create-gen"
+          ],
+          "summary": "Create gen block (AI-generated card)",
+          "description": "Create a gen card from liquid content (must contain a schema tag) within an edit session.\nThe response `settings` is the card's full default config whose `type` is already the\ncard_type — pass it straight to the page-arrangement APIs; no second read needed.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "content",
+                "type": "string",
+                "required": true,
+                "description": "Card liquid source; must contain a schema tag. `schema.name` inside is the merchant-visible display name (no uniqueness requirement)",
+                "min_length": 1
+              }
+            ]
+          },
+          "response_schema": "v202601.CreateGenBlockResponse"
+        },
+        {
+          "id": "theme-gen-block-delete",
+          "command_path": [
+            "block",
+            "delete-gen"
+          ],
+          "summary": "Delete gen block",
+          "description": "Delete a gen card file and remove every instance reference across the theme in one\ntransaction — no ref-count precheck, no force flag, no dangling references left.",
+          "hidden": false,
+          "http": {
+            "method": "DELETE",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            },
+            {
+              "name": "type",
+              "in": "query",
+              "type": "string",
+              "required": true,
+              "description": "The card_type (\"blocks/\" + file name without extension), e.g. blocks/gen_1a0d523"
+            }
+          ],
+          "response_schema": "v202601.DeleteGenBlockResponse"
+        },
+        {
+          "id": "theme-gen-block-detail",
+          "command_path": [
+            "block",
+            "get-gen"
+          ],
+          "summary": "Get gen block detail",
+          "description": "Retrieve a gen card's file attributes (`doc`) and its on-page state (`saved` / `ref_count` /\n`instances`) within an edit session. `content` is returned only when `with_content=true`.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            },
+            {
+              "name": "type",
+              "in": "query",
+              "type": "string",
+              "required": true,
+              "description": "The card_type (\"blocks/\" + file name without extension), e.g. blocks/gen_1a0d523"
+            },
+            {
+              "name": "with_content",
+              "in": "query",
+              "type": "boolean",
+              "description": "When true, the response additionally carries the card source in `doc.content`"
+            }
+          ],
+          "response_schema": "v202601.GetGenBlockResponse"
+        },
+        {
           "id": "theme-public-blocks-list",
           "command_path": [
             "block",
@@ -10407,6 +10515,43 @@
           "response_schema": "v202601.SetSectionPropsResponse"
         },
         {
+          "id": "theme-gen-block-revert",
+          "command_path": [
+            "block",
+            "revert-gen"
+          ],
+          "summary": "Revert one gen block write operation",
+          "description": "Restore every object recorded in the operation snapshot addressed by `revert_id` (from any\ncreate / update / delete / revert response). The returned `revert_id` is new — reverting is\nitself a revertible write, enabling repeated undo / redo.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks/revert",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "revert_id",
+                "type": "string",
+                "required": true,
+                "description": "32-char MD5 taken from any write response (create / update / delete / revert itself); the same id may be used repeatedly"
+              }
+            ]
+          },
+          "response_schema": "v202601.RevertGenBlockResponse"
+        },
+        {
           "id": "theme-section-set-slot",
           "command_path": [
             "block",
@@ -10489,6 +10634,51 @@
             ]
           },
           "response_schema": "v202601.SetSectionPropsResponse"
+        },
+        {
+          "id": "theme-gen-block-update",
+          "command_path": [
+            "block",
+            "update-gen"
+          ],
+          "summary": "Update gen block",
+          "description": "Update a gen card by content + full settings (the card to change is read from `settings.type`).\nRef count 0/1 -\u003e overwrite in place (`branched=false`, nothing else to do); \u003e=2 -\u003e a new card\nis created to carry the change (`branched=true`, rewrite the target instance with the returned\n`settings`, whose `type` is the new card's card_type).",
+          "hidden": false,
+          "http": {
+            "method": "PATCH",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID (oseid). Bound to the URL path",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "content",
+                "type": "string",
+                "required": true,
+                "description": "New liquid source; must contain a schema tag",
+                "min_length": 1
+              },
+              {
+                "name": "settings",
+                "type": "object",
+                "schema": "google.protobuf.Struct",
+                "required": true,
+                "description": "The card's full config, same shape as the create response's `settings`. Its `type` (blocks/gen_ prefixed) names the card to change; the field values are the merchant's current config"
+              }
+            ]
+          },
+          "response_schema": "v202601.UpdateGenBlockResponse"
         },
         {
           "id": "theme-delete",
@@ -10766,196 +10956,6 @@
             ]
           },
           "response_schema": "v202506.UpdateThemeFileResponse"
-        },
-        {
-          "id": "theme-gen-block-create",
-          "command_path": [
-            "gen-block",
-            "create"
-          ],
-          "summary": "Create gen block (AI-generated card)",
-          "description": "Create a gen card from liquid content (must contain a schema tag) within an edit session.\nThe response `settings` is the card's full default config whose `type` is already the\ncard_type — pass it straight to the page-arrangement APIs; no second read needed.",
-          "hidden": false,
-          "http": {
-            "method": "POST",
-            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks",
-            "body": "*"
-          },
-          "parameters": [
-            {
-              "name": "oseid",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
-              "min_length": 1
-            }
-          ],
-          "body": {
-            "required": true,
-            "fields": [
-              {
-                "name": "content",
-                "type": "string",
-                "required": true,
-                "description": "Card liquid source; must contain a schema tag. `schema.name` inside is the merchant-visible display name (no uniqueness requirement)",
-                "min_length": 1
-              }
-            ]
-          },
-          "response_schema": "v202601.CreateGenBlockResponse"
-        },
-        {
-          "id": "theme-gen-block-delete",
-          "command_path": [
-            "gen-block",
-            "delete"
-          ],
-          "summary": "Delete gen block",
-          "description": "Delete a gen card file and remove every instance reference across the theme in one\ntransaction — no ref-count precheck, no force flag, no dangling references left.",
-          "hidden": false,
-          "http": {
-            "method": "DELETE",
-            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks"
-          },
-          "parameters": [
-            {
-              "name": "oseid",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
-              "min_length": 1
-            },
-            {
-              "name": "type",
-              "in": "query",
-              "type": "string",
-              "required": true,
-              "description": "The card_type (\"blocks/\" + file name without extension), e.g. blocks/gen_1a0d523"
-            }
-          ],
-          "response_schema": "v202601.DeleteGenBlockResponse"
-        },
-        {
-          "id": "theme-gen-block-detail",
-          "command_path": [
-            "gen-block",
-            "get"
-          ],
-          "summary": "Get gen block detail",
-          "description": "Retrieve a gen card's file attributes (`doc`) and its on-page state (`saved` / `ref_count` /\n`instances`) within an edit session. `content` is returned only when `with_content=true`.",
-          "hidden": false,
-          "http": {
-            "method": "GET",
-            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks"
-          },
-          "parameters": [
-            {
-              "name": "oseid",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
-              "min_length": 1
-            },
-            {
-              "name": "type",
-              "in": "query",
-              "type": "string",
-              "required": true,
-              "description": "The card_type (\"blocks/\" + file name without extension), e.g. blocks/gen_1a0d523"
-            },
-            {
-              "name": "with_content",
-              "in": "query",
-              "type": "boolean",
-              "description": "When true, the response additionally carries `doc.content` (the card source, which can reach hundreds of KB — omitted by default)"
-            }
-          ],
-          "response_schema": "v202601.GetGenBlockResponse"
-        },
-        {
-          "id": "theme-gen-block-revert",
-          "command_path": [
-            "gen-block",
-            "revert"
-          ],
-          "summary": "Revert one gen block write operation",
-          "description": "Restore every object recorded in the operation snapshot addressed by `revert_id` (from any\ncreate / update / delete / revert response). The returned `revert_id` is new — reverting is\nitself a revertible write, enabling repeated undo / redo.",
-          "hidden": false,
-          "http": {
-            "method": "POST",
-            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks/revert",
-            "body": "*"
-          },
-          "parameters": [
-            {
-              "name": "oseid",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
-              "min_length": 1
-            }
-          ],
-          "body": {
-            "required": true,
-            "fields": [
-              {
-                "name": "revert_id",
-                "type": "string",
-                "required": true,
-                "description": "32-char MD5 taken from any write response (create / update / delete / revert itself). Repeatable: no state machine — the server just pushes the snapshot's objects back"
-              }
-            ]
-          },
-          "response_schema": "v202601.RevertGenBlockResponse"
-        },
-        {
-          "id": "theme-gen-block-update",
-          "command_path": [
-            "gen-block",
-            "update"
-          ],
-          "summary": "Update gen block",
-          "description": "Update a gen card by content + full settings (the card to change is read from `settings.type`).\nRef count 0/1 -\u003e overwrite in place (`branched=false`, nothing else to do); \u003e=2 -\u003e a new card\nis created to carry the change (`branched=true`, rewrite the target instance with the returned\n`settings`, whose `type` is the new card's card_type).",
-          "hidden": false,
-          "http": {
-            "method": "PATCH",
-            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks",
-            "body": "*"
-          },
-          "parameters": [
-            {
-              "name": "oseid",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
-              "min_length": 1
-            }
-          ],
-          "body": {
-            "required": true,
-            "fields": [
-              {
-                "name": "content",
-                "type": "string",
-                "required": true,
-                "description": "New liquid source; must contain a schema tag",
-                "min_length": 1
-              },
-              {
-                "name": "settings",
-                "type": "object",
-                "schema": "v202601.GenBlockSettings",
-                "required": true,
-                "description": "The card's full config, same shape as the create response's `settings`. The server reads which card to change from its `type` (must be blocks/gen_ prefixed); the field values are the merchant's current config, migrated to the new schema when a branch is created"
-              }
-            ]
-          },
-          "response_schema": "v202601.UpdateGenBlockResponse"
         },
         {
           "id": "theme-detail",
@@ -12076,7 +12076,7 @@
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Pass 1 to additionally return `schema` and `settings` on section cards (same behavior as the legacy cardList API)"
+              "description": "Pass 1 to additionally return `schema` and `settings` on section cards"
             }
           ],
           "response_schema": "v202601.ListEditSessionCardsResponse"
@@ -23511,6 +23511,27 @@
         }
       ]
     },
+    "v202601.CardGroup": {
+      "fields": [
+        {
+          "name": "group_key",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "group_name",
+          "type": "string"
+        },
+        {
+          "name": "groups",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
+        }
+      ]
+    },
     "v202601.CheckEditSessionResponse": {
       "fields": [
         {
@@ -23781,7 +23802,7 @@
         {
           "name": "settings",
           "type": "object",
-          "schema": "v202601.GenBlockSettings"
+          "schema": "google.protobuf.Struct"
         }
       ]
     },
@@ -24382,49 +24403,6 @@
         }
       ]
     },
-    "v202601.GenBlockSettings": {
-      "fields": [
-        {
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "name": "cname",
-          "type": "object",
-          "schema": "google.protobuf.Struct"
-        },
-        {
-          "name": "category",
-          "type": "object",
-          "schema": "google.protobuf.Struct"
-        },
-        {
-          "name": "icon",
-          "type": "string"
-        },
-        {
-          "name": "display",
-          "type": "boolean"
-        },
-        {
-          "name": "type",
-          "type": "string"
-        },
-        {
-          "name": "blocks",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "schema": "google.protobuf.Struct"
-          }
-        },
-        {
-          "name": "settings",
-          "type": "object",
-          "schema": "google.protobuf.Struct"
-        }
-      ]
-    },
     "v202601.GetCollectionAsyncTaskResponse": {
       "fields": [
         {
@@ -24740,7 +24718,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "schema": "google.protobuf.Struct"
+            "schema": "v202601.CardGroup"
           }
         },
         {
@@ -24748,7 +24726,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "schema": "google.protobuf.Struct"
+            "schema": "v202601.CardGroup"
           }
         },
         {
@@ -24756,7 +24734,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "schema": "google.protobuf.Struct"
+            "schema": "v202601.CardGroup"
           }
         }
       ]
@@ -27144,7 +27122,7 @@
         {
           "name": "settings",
           "type": "object",
-          "schema": "v202601.GenBlockSettings"
+          "schema": "google.protobuf.Struct"
         }
       ]
     },
