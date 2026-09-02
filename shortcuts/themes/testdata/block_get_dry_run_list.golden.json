@@ -1,0 +1,13 @@
+{
+  "plans": [
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/edit-sessions/ose_x/gen-blocks",
+      "query": {
+        "type": "blocks/gen_aaa",
+        "with_content": "true"
+      }
+    }
+  ]
+}

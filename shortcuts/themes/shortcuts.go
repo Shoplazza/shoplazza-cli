@@ -5,6 +5,8 @@
 // (Service: "themes"). They share one command group:
 //
 //	shoplazza themes init/package/pull/push/share/serve/+preview  (workflows, this package)
+//	shoplazza themes +page/+edit                                   (page editing, this package)
+//	shoplazza themes block +edit/+get                              (generated blocks, this package)
 //	shoplazza themes list/get/publish/delete/task/...              (dynamic CRUD, from the v2 spec)
 //
 // There is no `list` workflow shortcut: listing is provided by the dynamic
@@ -32,5 +34,7 @@ func Shortcuts() []common.Shortcut {
 		previewShortcut,
 		pageShortcut,
 		editShortcut,
+		blockEditShortcut,
+		blockGetShortcut,
 	}
 }

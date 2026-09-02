@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `themes block +edit` — write an AI-generated block file inside an edit session and place it on a template page in one call. Without `--id` it creates the file (server-named) and appends an instance to the `--target` container, or wraps it in a new `_blocks` section when `--target` is omitted; with `--id` it updates the source, reads the targeted instance's current settings from the page, carries them onto the new schema and writes them back. A block referenced 2+ times is branched by the server into a new file: the command switches only the targeted instance to it and reports `branched:true` with `previous_type`. `--ops` merges extra setting keys into the placed instance; a placement failure after a successful write returns `stage:"place"` with the new type and `revert_id` so the write can be re-placed or reverted instead of repeated.
+- `themes block +get` — read a generated block: file info, `ref_count` and every placement (`instances`: template + target); with `--section` it returns that instance's `template` / `target` / `settings` — exactly the inputs `+edit` takes; `--with-content` adds the liquid source and the schema display name.
+
 ## 2.0.10 - 2026-08-14
 
 ### Added

@@ -196,6 +196,10 @@ shoplazza themes package
 
 # 4. 上传为预览版
 shoplazza themes share
+
+# 5. AI 生成卡片：一条命令写入 block 文件并落到页面
+shoplazza themes block +edit --session <oseid> --content card.liquid --template index --target <section_id>.blocks
+shoplazza themes block +get  --session <oseid> --id gen_1a0d523 --section <section_id>
 ```
 
 ## 三层命令调用

@@ -216,3 +216,25 @@ func PlanBatchOps(oseid, docID string, operations []map[string]any) common.Plann
 func PlanPromoteSession(oseid string, body map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/promote", Body: body}
 }
+
+// ─────────── gen-blocks (AI-generated block files; themes block +edit / +get) ───────────
+
+// PlanCreateGenBlock describes POST .../gen-blocks (themes block create-gen).
+func PlanCreateGenBlock(oseid, content string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/gen-blocks", Body: map[string]any{"content": content}}
+}
+
+// PlanUpdateGenBlock describes PATCH .../gen-blocks (themes block update-gen);
+// the card to change is read from settings.type.
+func PlanUpdateGenBlock(oseid, content string, settings map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/gen-blocks", Body: map[string]any{"content": content, "settings": settings}}
+}
+
+// PlanGetGenBlock describes GET .../gen-blocks?type=… (themes block get-gen).
+func PlanGetGenBlock(oseid, cardType string, withContent bool) common.PlannedRequest {
+	q := map[string]any{"type": cardType}
+	if withContent {
+		q["with_content"] = "true"
+	}
+	return common.PlannedRequest{Method: "GET", Path: editSessionBase(oseid) + "/gen-blocks", Query: q}
+}
