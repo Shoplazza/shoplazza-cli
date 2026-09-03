@@ -383,10 +383,7 @@ func expandPbCanvas(ctx context.Context, in common.ExecInput, rows []map[string]
 				row["canvas_error"] = fmt.Sprintf("pb %s template %s: %v", scope, templateID, err)
 				return
 			}
-			root := resp
-			if d := mapField(resp, "data"); d != nil {
-				root = d
-			}
+			root := unwrapData(resp)
 			row["canvas"] = getString(root, "text")
 		}(row, templateID, scope)
 	}
@@ -577,15 +574,5 @@ func anyToString(v any) string {
 // doctreeGroupItems returns one doctree group as maps, tolerating the same
 // envelope shapes as docIDForLocation.
 func doctreeGroupItems(resp map[string]any, group string) []map[string]any {
-	tree := resp
-	if d := mapField(resp, "data"); d != nil {
-		if dt := mapField(d, "doctree"); dt != nil {
-			tree = dt
-		} else {
-			tree = d
-		}
-	} else if dt := mapField(resp, "doctree"); dt != nil {
-		tree = dt
-	}
-	return mapSlice(tree[group])
+	return mapSlice(doctreeRoot(resp)[group])
 }

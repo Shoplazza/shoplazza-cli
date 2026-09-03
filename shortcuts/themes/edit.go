@@ -485,10 +485,7 @@ func isPromoteConflict(err error) bool {
 
 // promoteConflicted reads the {promoted, conflict} promote response.
 func promoteConflicted(resp map[string]any) bool {
-	root := resp
-	if d := mapField(resp, "data"); d != nil {
-		root = d
-	}
+	root := unwrapData(resp)
 	return root["conflict"] == true
 }
 

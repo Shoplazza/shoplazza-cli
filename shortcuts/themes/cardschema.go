@@ -221,10 +221,7 @@ func fetchSectionSource(ctx context.Context, in common.ExecInput, themeID, locat
 	if err != nil {
 		return "", err
 	}
-	root := resp
-	if d := mapField(resp, "data"); d != nil {
-		root = d
-	}
+	root := unwrapData(resp)
 	content := getString(mapField(root, "theme_file"), "content")
 	if content == "" {
 		return "", output.ErrValidation("empty content for %s", location)
@@ -239,10 +236,7 @@ func sectionLocations(ctx context.Context, in common.ExecInput, themeID string) 
 	if err != nil {
 		return nil, err
 	}
-	root := resp
-	if d := mapField(resp, "data"); d != nil {
-		root = d
-	}
+	root := unwrapData(resp)
 	out := map[string]string{}
 	entries, _ := root["sections"].([]any)
 	for _, e := range entries {

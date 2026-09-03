@@ -76,14 +76,6 @@ func countStdin(vals ...string) int {
 	return n
 }
 
-// unwrapData strips the {data:{…}} envelope from a gen-blocks response.
-func unwrapData(resp map[string]any) map[string]any {
-	if d := mapField(resp, "data"); d != nil {
-		return d
-	}
-	return resp
-}
-
 // genInstance is one placement of a gen block: the template holding it and
 // the block target in +page grammar.
 type genInstance struct {

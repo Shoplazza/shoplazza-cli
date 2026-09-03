@@ -64,10 +64,7 @@ func resolveThemeAndDoc(ctx context.Context, c *client.Client, themeID, template
 // docIDForCustomTemplate maps a "<type>.<suffix>.liquid" location onto a custom
 // template's doc_id from a list-templates response.
 func docIDForCustomTemplate(resp map[string]any, location string) string {
-	root := resp
-	if d := mapField(resp, "data"); d != nil {
-		root = d
-	}
+	root := unwrapData(resp)
 	want := strings.TrimSuffix(location, ".liquid")
 	for _, item := range mapSlice(root["theme_templates"]) {
 		name := getString(item, "type")
@@ -116,10 +113,7 @@ func doctreeGroup(typ string) string {
 // publishedThemeID extracts the first theme id from a GET /themes response,
 // tolerating an optional data wrapper.
 func publishedThemeID(resp map[string]any) string {
-	root := resp
-	if d := mapField(resp, "data"); d != nil {
-		root = d
-	}
+	root := unwrapData(resp)
 	items, _ := root["themes"].([]any)
 	for _, it := range items {
 		if m := asMap(it); m != nil {
@@ -134,22 +128,7 @@ func publishedThemeID(resp map[string]any) string {
 // docIDForLocation finds the file id for (group, location) in a doctree
 // response, tolerating {data:{doctree:{...}}}, {data:{...}} and bare shapes.
 func docIDForLocation(resp map[string]any, group, location string) string {
-	tree := resp
-	if d := mapField(resp, "data"); d != nil {
-		if dt := mapField(d, "doctree"); dt != nil {
-			tree = dt
-		} else {
-			tree = d
-		}
-	} else if dt := mapField(resp, "doctree"); dt != nil {
-		tree = dt
-	}
-	items, _ := tree[group].([]any)
-	for _, it := range items {
-		m := asMap(it)
-		if m == nil {
-			continue
-		}
+	for _, m := range doctreeGroupItems(resp, group) {
 		if getString(m, "location") == location {
 			return getString(m, "id")
 		}
@@ -345,4 +324,40 @@ func dryRunThemeRef(themeID string) (string, []common.PlannedRequest) {
 		return themeID, nil
 	}
 	return phThemeID, []common.PlannedRequest{PlanThemesList(map[string]any{"published": "1"})}
+}
+
+// unwrapData strips one {data:{…}} envelope; responses arrive both ways.
+func unwrapData(resp map[string]any) map[string]any {
+	if d := mapField(resp, "data"); d != nil {
+		return d
+	}
+	return resp
+}
+
+// doctreeRoot locates the file tree in a doctree response, tolerating
+// {data:{doctree:{…}}}, {data:{…}}, {doctree:{…}} and bare shapes.
+func doctreeRoot(resp map[string]any) map[string]any {
+	if d := mapField(resp, "data"); d != nil {
+		if dt := mapField(d, "doctree"); dt != nil {
+			return dt
+		}
+		return d
+	}
+	if dt := mapField(resp, "doctree"); dt != nil {
+		return dt
+	}
+	return resp
+}
+
+// themeInfoForDryRun reads the local theme name/version for a dry-run plan,
+// substituting placeholders when the directory carries neither.
+func themeInfoForDryRun(cwd string) (string, string) {
+	name, version, _ := readThemeInfo(cwd)
+	if name == "" {
+		name = "<theme>"
+	}
+	if version == "" {
+		version = "<version>"
+	}
+	return name, version
 }

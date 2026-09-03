@@ -99,13 +99,7 @@ var pushShortcut = common.Shortcut{
 			// readThemeInfo may fail in dry-run if the cwd isn't a theme;
 			// fall back to "<placeholder>" semantics — best-effort
 			// name/version with zero-value fallbacks.
-			name, version, _ := readThemeInfo(cwd)
-			if name == "" {
-				name = "<theme>"
-			}
-			if version == "" {
-				version = "<version>"
-			}
+			name, version := themeInfoForDryRun(cwd)
 			return common.ExecResult{Plans: []common.PlannedRequest{
 				PlanDetail(themeID),
 				PlanUpload(themeID, name, version),
