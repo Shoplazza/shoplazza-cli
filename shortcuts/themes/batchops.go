@@ -333,12 +333,7 @@ func placeSections(ctx context.Context, c *client.Client, oseid, docID string, e
 	if err != nil {
 		return "could not re-read the session to recover new section ids: " + err.Error()
 	}
-	var newIDs []string
-	for _, m := range allSections(inner) {
-		if id := anyToString(m["id"]); id != "" && !preIDs[id] {
-			newIDs = append(newIDs, id)
-		}
-	}
+	newIDs := newSectionIDs(inner, preIDs)
 	// Adds append in batch order — assign recovered ids in order.
 	bySource := map[int]string{}
 	k := 0

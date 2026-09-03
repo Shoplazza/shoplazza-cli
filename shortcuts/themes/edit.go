@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -168,19 +166,12 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		return common.ExecResult{}, err
 	}
 
-	// Prefetch the preview-URL inputs concurrently with the batch; buffered
-	// so an early error return never blocks the goroutines.
-	domainCh := make(chan string, 1)
-	go func() { domainCh <- extractStoreDomainBest(ctx, in.Client) }()
-	pathCh := make(chan string, 1)
-	go func() { pathCh <- resolvePreviewPath(ctx, in.Client, template, file) }()
+	// Prefetch the preview-URL inputs concurrently with the batch.
+	previewURLFor := previewURLLater(ctx, in.Client, template, file)
 
 	// One request for the whole batch: ops apply and persist independently
 	// server-side — no abort, no rollback.
-	preIDs := map[string]bool{}
-	for _, m := range allSections(inner) {
-		preIDs[anyToString(m["id"])] = true
-	}
+	preIDs := sectionIDSet(inner)
 	operations := make([]map[string]any, len(entries))
 	for i, e := range entries {
 		operations[i] = e.entry
@@ -228,7 +219,7 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		placementWarning = placeSections(ctx, in.Client, oseid, docID, entries, moves, preIDs, applied)
 	}
 
-	previewURL := buildPreviewURL(<-domainCh, <-pathCh, themeID, oseid, "")
+	previewURL := previewURLFor(themeID, oseid)
 
 	body := map[string]any{
 		"oseid": oseid, "session_created": created,
@@ -294,24 +285,10 @@ func revokePublishID(resp map[string]any) string {
 // readOpsInput loads the --ops value: '-' reads stdin, a leading '[' is
 // inline JSON, anything else is a file path.
 func readOpsInput(val string) ([]byte, error) {
-	switch {
-	case val == "":
+	if val == "" {
 		return nil, output.ErrValidation("--ops is required")
-	case val == "-":
-		raw, err := io.ReadAll(os.Stdin)
-		if err != nil {
-			return nil, output.ErrValidation("reading --ops from stdin: %v", err)
-		}
-		return raw, nil
-	case strings.HasPrefix(strings.TrimSpace(val), "["):
-		return []byte(val), nil
-	default:
-		raw, err := os.ReadFile(val)
-		if err != nil {
-			return nil, output.ErrValidation("reading --ops file: %v", err)
-		}
-		return raw, nil
 	}
+	return readFlagInput("--ops", val, '[')
 }
 
 // findSectionByID locates a card by stringified id across the page flow and

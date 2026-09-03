@@ -671,6 +671,19 @@ func TestParseGenInstances(t *testing.T) {
 	}
 }
 
+// TestSchemaDisplayName_WhitespaceControlForm guards the {%- schema -%} variant:
+// the display name is parsed with the shared extractSchema, not a literal search.
+func TestSchemaDisplayName_WhitespaceControlForm(t *testing.T) {
+	src := "<div></div>\n{%- schema -%}\n{\"name\":\"ws\",\"presets\":[{\"cname\":{\"zh-CN\":\"空白控制\"}}]}\n{%- endschema -%}\n"
+	schema, err := extractSchema(src)
+	if err != nil {
+		t.Fatalf("extractSchema: %v", err)
+	}
+	if name := asMap(schemaDisplayName(schema)); name["zh-CN"] != "空白控制" {
+		t.Errorf("display name: %v", schemaDisplayName(schema))
+	}
+}
+
 func TestMigrateSettings(t *testing.T) {
 	got := migrateSettings(map[string]any{"a": 1, "b": 2}, map[string]bool{"a": true, "b": true}, map[string]any{"a": 9, "zombie": 0})
 	if got["a"] != 9 || got["b"] != 2 {

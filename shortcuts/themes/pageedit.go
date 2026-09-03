@@ -2,6 +2,8 @@ package themes
 
 import (
 	"context"
+	"io"
+	"os"
 	"regexp"
 	"strings"
 
@@ -271,4 +273,70 @@ func isSessionNotFound(err error) bool {
 	}
 	msg := err.Error()
 	return strings.Contains(msg, "SESSION_NOT_FOUND") || strings.Contains(msg, "b_invalid_themeid")
+}
+
+// readFlagInput resolves a flag value that names its content: "-" reads stdin,
+// a value whose first non-space byte is in inlinePrefixes is taken literally,
+// anything else is a file path. An empty value yields nil — callers decide
+// whether the flag was required.
+func readFlagInput(flag, val string, inlinePrefixes ...byte) ([]byte, error) {
+	switch {
+	case val == "":
+		return nil, nil
+	case val == "-":
+		raw, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, output.ErrValidation("reading %s from stdin: %v", flag, err)
+		}
+		return raw, nil
+	}
+	if trimmed := strings.TrimSpace(val); trimmed != "" {
+		for _, p := range inlinePrefixes {
+			if trimmed[0] == p {
+				return []byte(val), nil
+			}
+		}
+	}
+	raw, err := os.ReadFile(val)
+	if err != nil {
+		return nil, output.ErrValidation("reading %s file: %v", flag, err)
+	}
+	return raw, nil
+}
+
+// previewURLLater starts the two preview-URL lookups concurrently (they are
+// independent of the write) and returns the assembler. Channels are buffered,
+// so an early error return never blocks the goroutines.
+func previewURLLater(ctx context.Context, c *client.Client, template, file string) func(themeID, oseid string) string {
+	domainCh := make(chan string, 1)
+	go func() { domainCh <- extractStoreDomainBest(ctx, c) }()
+	pathCh := make(chan string, 1)
+	go func() { pathCh <- resolvePreviewPath(ctx, c, template, file) }()
+	return func(themeID, oseid string) string {
+		return buildPreviewURL(<-domainCh, <-pathCh, themeID, oseid, "")
+	}
+}
+
+// sectionIDSet indexes the ids currently on the page, for diffing against a
+// later read: the server assigns section ids and ignores client-supplied ones.
+func sectionIDSet(inner map[string]any) map[string]bool {
+	ids := map[string]bool{}
+	for _, m := range allSections(inner) {
+		if id := anyToString(m["id"]); id != "" {
+			ids[id] = true
+		}
+	}
+	return ids
+}
+
+// newSectionIDs returns the ids present now but absent from before, in page
+// order — the sections the batch just created.
+func newSectionIDs(inner map[string]any, before map[string]bool) []string {
+	var out []string
+	for _, m := range allSections(inner) {
+		if id := anyToString(m["id"]); id != "" && !before[id] {
+			out = append(out, id)
+		}
+	}
+	return out
 }

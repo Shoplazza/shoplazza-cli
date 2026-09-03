@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"regexp"
 	"strings"
 
@@ -43,49 +41,22 @@ func normalizeBlockTarget(target string) string {
 	return dotIndexRe.ReplaceAllString(strings.TrimSpace(target), ".blocks[$1]")
 }
 
-// readContentInput loads the liquid source: '-' reads stdin, anything else is
-// a file path (inline source is not accepted — quotes and newlines do not survive a shell).
+// readContentInput loads the liquid source. Inline source is not accepted:
+// quotes and newlines do not survive a shell round-trip reliably.
 func readContentInput(val string) (string, error) {
-	switch {
-	case val == "":
+	if val == "" {
 		return "", output.ErrValidation("--content is required").
 			WithHint("pass the liquid source as a file path, or '-' to read it from stdin")
-	case val == "-":
-		raw, err := io.ReadAll(os.Stdin)
-		if err != nil {
-			return "", output.ErrValidation("reading --content from stdin: %v", err)
-		}
-		return string(raw), nil
-	default:
-		raw, err := os.ReadFile(val)
-		if err != nil {
-			return "", output.ErrValidation("reading --content file: %v", err)
-		}
-		return string(raw), nil
 	}
+	raw, err := readFlagInput("--content", val)
+	return string(raw), err
 }
 
-// readJSONObjectInput loads a JSON object flag: '-' reads stdin, a leading '{'
-// is inline JSON, anything else is a file path. Empty input yields nil.
+// readJSONObjectInput loads a JSON object flag. Empty input yields nil.
 func readJSONObjectInput(flag, val string) (map[string]any, error) {
-	var raw []byte
-	switch {
-	case val == "":
-		return nil, nil
-	case val == "-":
-		b, err := io.ReadAll(os.Stdin)
-		if err != nil {
-			return nil, output.ErrValidation("reading %s from stdin: %v", flag, err)
-		}
-		raw = b
-	case strings.HasPrefix(strings.TrimSpace(val), "{"), strings.HasPrefix(strings.TrimSpace(val), "["):
-		raw = []byte(val)
-	default:
-		b, err := os.ReadFile(val)
-		if err != nil {
-			return nil, output.ErrValidation("reading %s file: %v", flag, err)
-		}
-		raw = b
+	raw, err := readFlagInput(flag, val, '{', '[')
+	if err != nil || raw == nil {
+		return nil, err
 	}
 	var out map[string]any
 	if err := json.Unmarshal(raw, &out); err != nil {
@@ -210,25 +181,6 @@ func schemaDisplayName(schema map[string]any) any {
 		return n
 	}
 	return nil
-}
-
-// parseSchemaTag extracts and decodes the {% schema %} JSON from liquid source.
-func parseSchemaTag(content string) map[string]any {
-	const open, close = "{% schema %}", "{% endschema %}"
-	i := strings.Index(content, open)
-	if i == -1 {
-		return nil
-	}
-	rest := content[i+len(open):]
-	j := strings.Index(rest, close)
-	if j == -1 {
-		return nil
-	}
-	var out map[string]any
-	if err := json.Unmarshal([]byte(rest[:j]), &out); err != nil {
-		return nil
-	}
-	return out
 }
 
 // blockStageErr tags a request failure with the stage it happened in.

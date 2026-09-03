@@ -279,15 +279,8 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		operations = append(operations, map[string]any{"op": "replace_props", "target": dot, "props": ops})
 	}
 
-	domainCh := make(chan string, 1)
-	go func() { domainCh <- extractStoreDomainBest(ctx, in.Client) }()
-	pathCh := make(chan string, 1)
-	go func() { pathCh <- resolvePreviewPath(ctx, in.Client, template, "") }()
-
-	preIDs := map[string]bool{}
-	for _, m := range allSections(inner) {
-		preIDs[anyToString(m["id"])] = true
-	}
+	previewURLFor := previewURLLater(ctx, in.Client, template, "")
+	preIDs := sectionIDSet(inner)
 	bresp, err := common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
 	if err != nil {
 		e := blockStageErr(err, "place", oseid)
@@ -318,11 +311,8 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	}
 	if sectionCreated { // the server assigns the new section id; recover it by diff
 		if after, rerr := fetchSections(ctx, in.Client, oseid, docID); rerr == nil {
-			for _, m := range allSections(after) {
-				if sid := anyToString(m["id"]); sid != "" && !preIDs[sid] {
-					instTarget = sid + ".blocks[0]"
-					break
-				}
+			if ids := newSectionIDs(after, preIDs); len(ids) > 0 {
+				instTarget = ids[0] + ".blocks[0]"
 			}
 		}
 		if instTarget == "" {
@@ -331,7 +321,7 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	}
 	body["applied"] = applied
 	body["instance"] = map[string]any{"template": template, "target": instTarget, "section_created": sectionCreated}
-	body["preview_url"] = buildPreviewURL(<-domainCh, <-pathCh, themeID, oseid, "")
+	body["preview_url"] = previewURLFor(themeID, oseid)
 	return common.ExecResult{Body: body}, nil
 }
 

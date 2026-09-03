@@ -100,8 +100,12 @@ func blockGetExecute(ctx context.Context, in common.ExecInput) (common.ExecResul
 		"ref_count": refCount,
 	}
 	if c := getString(doc, "content"); c != "" {
-		if name := schemaDisplayName(parseSchemaTag(c)); name != nil {
-			body["name"] = name
+		// Best-effort: the endpoint has no display name, so parse it from the
+		// source when the caller already asked for the content.
+		if schema, serr := extractSchema(c); serr == nil {
+			if name := schemaDisplayName(schema); name != nil {
+				body["name"] = name
+			}
 		}
 	}
 	if section == "" {
