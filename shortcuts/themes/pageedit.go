@@ -275,10 +275,8 @@ func isSessionNotFound(err error) bool {
 	return strings.Contains(msg, "SESSION_NOT_FOUND") || strings.Contains(msg, "b_invalid_themeid")
 }
 
-// readFlagInput resolves a flag value that names its content: "-" reads stdin,
-// a value whose first non-space byte is in inlinePrefixes is taken literally,
-// anything else is a file path. An empty value yields nil — callers decide
-// whether the flag was required.
+// readFlagInput resolves a flag value naming its content: "-" is stdin, a value
+// starting with an inlinePrefixes byte is literal, anything else is a file path.
 func readFlagInput(flag, val string, inlinePrefixes ...byte) ([]byte, error) {
 	switch {
 	case val == "":
@@ -304,9 +302,8 @@ func readFlagInput(flag, val string, inlinePrefixes ...byte) ([]byte, error) {
 	return raw, nil
 }
 
-// previewURLLater starts the two preview-URL lookups concurrently (they are
-// independent of the write) and returns the assembler. Channels are buffered,
-// so an early error return never blocks the goroutines.
+// previewURLLater starts the two preview-URL lookups concurrently and returns
+// the assembler. Buffered, so an early return never blocks the goroutines.
 func previewURLLater(ctx context.Context, c *client.Client, template, file string) func(themeID, oseid string) string {
 	domainCh := make(chan string, 1)
 	go func() { domainCh <- extractStoreDomainBest(ctx, c) }()
@@ -317,8 +314,8 @@ func previewURLLater(ctx context.Context, c *client.Client, template, file strin
 	}
 }
 
-// sectionIDSet indexes the ids currently on the page, for diffing against a
-// later read: the server assigns section ids and ignores client-supplied ones.
+// sectionIDSet indexes the page's current section ids, to diff a later read
+// against (the server assigns ids and ignores client-supplied ones).
 func sectionIDSet(inner map[string]any) map[string]bool {
 	ids := map[string]bool{}
 	for _, m := range allSections(inner) {
@@ -339,4 +336,13 @@ func newSectionIDs(inner map[string]any, before map[string]bool) []string {
 		}
 	}
 	return out
+}
+
+// dryRunThemeRef resolves the theme for a dry-run plan list: an explicit id is
+// used as is, an empty one becomes the placeholder plus the lookup resolving it.
+func dryRunThemeRef(themeID string) (string, []common.PlannedRequest) {
+	if themeID != "" {
+		return themeID, nil
+	}
+	return phThemeID, []common.PlannedRequest{PlanThemesList(map[string]any{"published": "1"})}
 }

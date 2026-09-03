@@ -256,10 +256,8 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 			"type": genSectionType, "name": genSectionType, "settings": map[string]any{}, "blocks": []any{instance},
 		}})
 	case branched:
-		// The instance must repoint to the new (branched) card. The server's
-		// in-place type-swap validates fields against the wrong schema, so
-		// replace the block: drop it, append the new type with migrated
-		// settings (appends last), then move it back to its slot.
+		// Repoint to the branched card by replacing the block (the server's
+		// in-place type swap rejects fields of the new schema).
 		operations = append(operations,
 			map[string]any{"op": "remove_array_item", "target": dotBlockPath(ref)},
 			map[string]any{"op": "append_array_item", "target": dotContainerPath(ref), "value": instance},
@@ -330,10 +328,9 @@ func blockEditDryRunPlans(themeID, oseid, cardType, template string, ref targetR
 	var plans []common.PlannedRequest
 	themeRef := themeID
 	if template != "" {
-		if themeRef == "" {
-			themeRef = phThemeID
-			plans = append(plans, PlanThemesList(map[string]any{"published": "1"}))
-		}
+		var lookup []common.PlannedRequest
+		themeRef, lookup = dryRunThemeRef(themeID)
+		plans = append(plans, lookup...)
 		plans = append(plans, PlanDocTree(themeRef), PlanSchemasList(oseid, phDocID))
 	}
 	if cardType == "" {

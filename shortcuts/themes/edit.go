@@ -417,12 +417,7 @@ func numberValue(v any) (float64, bool) {
 // editDryRunPlans lists every intended request without sending any (strict
 // zero-call + placeholders; op bodies keep locally-derivable values real).
 func editDryRunPlans(themeID, session string, ops []editOp, promote, publish bool) []common.PlannedRequest {
-	themeRef := themeID
-	var plans []common.PlannedRequest
-	if themeRef == "" {
-		themeRef = phThemeID
-		plans = append(plans, PlanThemesList(map[string]any{"published": "1"}))
-	}
+	themeRef, plans := dryRunThemeRef(themeID)
 	plans = append(plans, PlanDocTree(themeRef))
 	oseidRef := session
 	if oseidRef == "" {

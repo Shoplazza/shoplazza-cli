@@ -370,8 +370,10 @@ b16
 b17() { # product 模板的 preview 路径
   local name="b17-product-preview"
   run_cli themes +page --template product --theme "$TEST_THEME" --session "$OSEID" --area page
+  # 读失败要判 FAIL，不能和「确实没有普通 section」一起吞成 SKIP
+  expect "$name" "读 product 模板 exit 0" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || { log "    $ERR"; return; }
   local psec; psec=$(jsonq "$OUT" "next((s['section_id'] for s in d['data']['sections'] if s.get('kind')!='pb'), '')")
-  [[ -n "$psec" ]] || { result SKIP "$name" "product 模板无普通 section"; return; }
+  [[ -n "$psec" ]] || { result SKIP "$name" "product 模板无普通 section（本店数据所限）"; return; }
   run_cli themes block +edit --theme "$TEST_THEME" --session "$OSEID" --content "$FX/gen_block_min.liquid" --template product --target "$psec.blocks"
   expect "$name" "exit 0" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || { log "$ERR"; return; }
   CREATED_TYPES+=("$(jsonq "$OUT" "d['data']['type']")")

@@ -91,9 +91,8 @@ type genInstance struct {
 	Target   string
 }
 
-// parseGenInstances flattens the gen-blocks instances payload into one row per
-// placement. Both observed shapes are accepted: a list of {template: [dot
-// paths]} objects, or one object keyed by template.
+// parseGenInstances flattens the instances payload into one row per placement,
+// accepting both shapes seen: a list of {template: [paths]}, or one such object.
 func parseGenInstances(v any) []genInstance {
 	groups := mapSlice(v)
 	if m := asMap(v); m != nil {

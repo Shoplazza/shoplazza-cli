@@ -69,11 +69,8 @@ func blockGetExecute(ctx context.Context, in common.ExecInput) (common.ExecResul
 	if in.DryRun {
 		plans := []common.PlannedRequest{PlanGetGenBlock(oseid, cardType, withContent)}
 		if section != "" {
-			themeRef := themeID
-			if themeRef == "" {
-				themeRef = phThemeID
-				plans = append(plans, PlanThemesList(map[string]any{"published": "1"}))
-			}
+			themeRef, lookup := dryRunThemeRef(themeID)
+			plans = append(plans, lookup...)
 			plans = append(plans, PlanDocTree(themeRef), PlanSchemasList(oseid, phDocID))
 		}
 		return common.ExecResult{Plans: plans}, nil

@@ -219,12 +219,7 @@ func pageExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 // pageDryRunPlans lists every intended request without sending any (strict
 // zero-call + placeholders).
 func pageDryRunPlans(themeID, session string, inc pageInclude) []common.PlannedRequest {
-	themeRef := themeID
-	var plans []common.PlannedRequest
-	if themeRef == "" {
-		themeRef = phThemeID
-		plans = append(plans, PlanThemesList(map[string]any{"published": "1"}))
-	}
+	themeRef, plans := dryRunThemeRef(themeID)
 	plans = append(plans, PlanDocTree(themeRef))
 	oseidRef := session
 	if oseidRef == "" {
@@ -242,12 +237,7 @@ func pageDryRunPlans(themeID, session string, inc pageInclude) []common.PlannedR
 // custom templates from list-templates, in one discovery payload.
 func pageList(ctx context.Context, in common.ExecInput, themeID string) (common.ExecResult, error) {
 	if in.DryRun {
-		themeRef := themeID
-		var plans []common.PlannedRequest
-		if themeRef == "" {
-			themeRef = phThemeID
-			plans = append(plans, PlanThemesList(map[string]any{"published": "1"}))
-		}
+		themeRef, plans := dryRunThemeRef(themeID)
 		plans = append(plans,
 			PlanDocTree(themeRef),
 			PlanListTemplates(themeRef, map[string]any{"per_page": "100"}),
