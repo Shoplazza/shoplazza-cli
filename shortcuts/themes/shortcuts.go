@@ -36,5 +36,6 @@ func Shortcuts() []common.Shortcut {
 		editShortcut,
 		blockEditShortcut,
 		blockGetShortcut,
+		cardSchemaShortcut,
 	}
 }

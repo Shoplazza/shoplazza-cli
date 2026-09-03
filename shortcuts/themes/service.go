@@ -67,6 +67,11 @@ func PlanDocDelete(themeID string, query map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "DELETE", Path: themeBaseV202601 + "/" + themeID + "/doc", Query: query}
 }
 
+// PlanDocGet describes GET /themes/{id}/doc?type=...&location=... (read one theme file).
+func PlanDocGet(themeID string, query map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601 + "/" + themeID + "/doc", Query: query}
+}
+
 // PlanShop describes GET /shop (the merchant identity check used by non-share workflows).
 func PlanShop() common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: shopV202601}
