@@ -112,9 +112,17 @@ func resolveMoveRef(inner map[string]any, op editOp) (string, string) {
 	}
 }
 
-// sectionValue builds the add_section value object for a plain (non-pb) add.
-func sectionValue(name string) map[string]any {
-	return map[string]any{"type": name, "name": name, "settings": map[string]any{}, "blocks": []any{}}
+// sectionValue builds the add_section value object for a plain (non-pb) add;
+// settings and blocks come from the op's value when given (the server fills
+// schema defaults for the rest).
+func sectionValue(op editOp) map[string]any {
+	value := map[string]any{"type": op.Name, "name": op.Name, "settings": map[string]any{}, "blocks": []any{}}
+	for _, k := range []string{"settings", "blocks"} {
+		if v, ok := op.Value[k]; ok {
+			value[k] = v
+		}
+	}
+	return value
 }
 
 // successorOf returns the id of the section right after sid in its area
@@ -219,7 +227,7 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 				"move_target": strconv.Itoa(op.ref.BlockIndex), "position": strconv.Itoa(at),
 			}, i})
 		case "add_section":
-			value := sectionValue(op.Name)
+			value := sectionValue(op)
 			if op.Pb {
 				// pb mode: card value pre-resolved via pb-single-blocks.
 				value = cards[i]

@@ -18,7 +18,7 @@ type editOp struct {
 	Target string `json:"target,omitempty"`
 
 	Props map[string]any `json:"props,omitempty"` // update_slot / replace_props
-	Value map[string]any `json:"value,omitempty"` // append_array_item: {type, settings}
+	Value map[string]any `json:"value,omitempty"` // append_array_item: {type, settings}; add_section: {settings, blocks}
 
 	Name       string `json:"name,omitempty"`        // add_section: section type
 	ToIndex    *int   `json:"to_index,omitempty"`    // add_section / move_section / move_array_item (numeric)
@@ -47,7 +47,7 @@ var opExamples = map[string]string{
 	"remove_array_item": `{"op":"remove_array_item","target":"<section_id>.blocks[1]"}`,
 	"append_array_item": `{"op":"append_array_item","target":"<section_id>.blocks","value":{"type":"<block_type>","settings":{}}}`,
 	"move_array_item":   `{"op":"move_array_item","target":"<section_id>.blocks[2]","to_index":0}`,
-	"add_section":       `{"op":"add_section","name":"<section_type>","position":"last"}`,
+	"add_section":       `{"op":"add_section","name":"<section_type>","position":"last","value":{"settings":{},"blocks":[{"type":"<block_type>","settings":{}}]}}`,
 	"remove_section":    `{"op":"remove_section","target":"<section_id>"}`,
 	"move_section":      `{"op":"move_section","target":"<section_id>","position":"after:<other_section_id>"}`,
 	"set_visibility":    `{"op":"set_visibility","target":"<section_id>","visible":false}`,
@@ -90,6 +90,32 @@ func validatePosition(pos string) error {
 		return nil
 	}
 	return fmt.Errorf("invalid position %q (use first | last | after:<section_id> | before:<section_id>)", pos)
+}
+
+// validateSectionValue checks the optional add_section value: only settings
+// (object) and blocks (array of {type, settings}) are accepted, so a misspelt
+// key fails here instead of silently dropping out of the request.
+func validateSectionValue(value map[string]any) error {
+	for k := range value {
+		if k != "settings" && k != "blocks" {
+			return fmt.Errorf("value.%s is not supported (add_section value takes settings and blocks)", k)
+		}
+	}
+	if v, ok := value["settings"]; ok && asMap(v) == nil {
+		return fmt.Errorf("value.settings must be an object")
+	}
+	if v, ok := value["blocks"]; ok {
+		blocks, isList := v.([]any)
+		if !isList {
+			return fmt.Errorf("value.blocks must be an array of {type, settings}")
+		}
+		for i, b := range blocks {
+			if getString(asMap(b), "type") == "" {
+				return fmt.Errorf("value.blocks[%d].type is required", i)
+			}
+		}
+	}
+	return nil
 }
 
 // parseOps decodes the --ops JSON array.
@@ -177,8 +203,16 @@ func validateOps(ops []editOp) error {
 					return fail("template_id is required when pb=true").
 						WithHint(`discover addable pb template ids: themes list-card --params '{"source":"pb,custom"}'`)
 				}
-			} else if op.Name == "" {
-				return fail("name is required (the section type to add)")
+				if op.Value != nil {
+					return fail("value is not accepted with pb=true (the card content comes from the template)")
+				}
+			} else {
+				if op.Name == "" {
+					return fail("name is required (the section type to add)")
+				}
+				if err := validateSectionValue(op.Value); err != nil {
+					return fail("%v", err)
+				}
 			}
 			if op.Position != "" {
 				if err := validatePosition(op.Position); err != nil {

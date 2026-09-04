@@ -636,6 +636,44 @@ func TestEdit_AddSectionEchoesNewSectionID(t *testing.T) {
 	}
 }
 
+// TestEdit_AddSectionCarriesValue pins that a plain add_section forwards
+// value.settings / value.blocks into the batch entry (they used to be dropped
+// silently), while an add without value still sends the empty defaults.
+func TestEdit_AddSectionCarriesValue(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	_, err := editExec(t, es, map[string]any{"template": "index", "session": "ose_x",
+		"ops": `[{"op":"add_section","name":"rich_text","value":{"settings":{"text_align":"left"},"blocks":[{"type":"rich_head","settings":{"heading":"A"}}]}},
+		         {"op":"add_section","name":"rich_text"}]`})
+	if err != nil {
+		t.Fatalf("editExecute: %v", err)
+	}
+	batch := editWriteBody(es, http.MethodPost, "/operations")
+	if batch == nil {
+		t.Fatal("batch-ops never sent")
+	}
+	ops := batch["operations"].([]any)
+	filled, _ := ops[0].(map[string]any)["value"].(map[string]any)
+	if filled["type"] != "rich_text" || filled["name"] != "rich_text" {
+		t.Errorf("value type/name = %v/%v, want rich_text", filled["type"], filled["name"])
+	}
+	if settings, _ := filled["settings"].(map[string]any); settings["text_align"] != "left" {
+		t.Errorf("value.settings = %v, want text_align:left carried", filled["settings"])
+	}
+	blocks, _ := filled["blocks"].([]any)
+	if len(blocks) != 1 || blocks[0].(map[string]any)["type"] != "rich_head" {
+		t.Errorf("value.blocks = %v, want the one rich_head block carried", filled["blocks"])
+	}
+	bare, _ := ops[1].(map[string]any)["value"].(map[string]any)
+	if settings, _ := bare["settings"].(map[string]any); len(settings) != 0 {
+		t.Errorf("bare add settings = %v, want empty", bare["settings"])
+	}
+	if blocks, _ := bare["blocks"].([]any); len(blocks) != 0 {
+		t.Errorf("bare add blocks = %v, want empty", bare["blocks"])
+	}
+}
+
 // editWriteBody returns the decoded body of the first recorded write matching
 // (method, path suffix).
 func editWriteBody(es *editServer, method, pathSuffix string) map[string]any {
@@ -1020,6 +1058,12 @@ func TestValidateOps_Table(t *testing.T) {
 		{"replace_props needs props", `[{"op":"replace_props","target":"s"}]`, "props is required"},
 		{"append needs container", `[{"op":"append_array_item","target":"s.blocks[0]","value":{"type":"x"}}]`, "container path"},
 		{"add_section pb needs template_id", `[{"op":"add_section","pb":true}]`, "template_id"},
+		{"add_section pb rejects value", `[{"op":"add_section","pb":true,"template_id":"g1","value":{"settings":{}}}]`, "value is not accepted"},
+		{"add_section value unknown key", `[{"op":"add_section","name":"rich_text","value":{"props":{"a":1}}}]`, "value.props is not supported"},
+		{"add_section settings not object", `[{"op":"add_section","name":"rich_text","value":{"settings":[]}}]`, "value.settings must be an object"},
+		{"add_section blocks not array", `[{"op":"add_section","name":"rich_text","value":{"blocks":{}}}]`, "value.blocks must be an array"},
+		{"add_section block needs type", `[{"op":"add_section","name":"rich_text","value":{"blocks":[{"type":"a"},{"settings":{}}]}}]`, "value.blocks[1].type is required"},
+		{"add_section value ok", `[{"op":"add_section","name":"rich_text","value":{"settings":{"k":"v"},"blocks":[{"type":"a","settings":{}}]}}]`, ""},
 		{"move needs to_index", `[{"op":"move_section","target":"s"}]`, "to_index"},
 		{"visibility needs visible", `[{"op":"set_visibility","target":"s"}]`, "visible is required"},
 		{"update_pb needs inner ops", `[{"op":"update_pb","target":"s"}]`, "ops is required"},
@@ -1089,6 +1133,7 @@ func TestSnapshot_EditDryRun(t *testing.T) {
 			         {"op":"remove_array_item","target":"111.blocks[1]"},
 			         {"op":"append_array_item","target":"111.blocks","value":{"type":"slide","settings":{}}},
 			         {"op":"add_section","pb":true,"template_id":"global-777","position":"first"},
+			         {"op":"add_section","name":"rich_text","value":{"settings":{"text_align":"left"},"blocks":[{"type":"rich_head","settings":{"heading":"A"}}]}},
 			         {"op":"update_pb","target":"222","ops":[{"action":"update","targetId":"0","settings":{}}]}]`}),
 		DryRun: true,
 	})

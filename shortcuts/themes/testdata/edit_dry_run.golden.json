@@ -86,6 +86,24 @@
             }
           },
           {
+            "op": "add_section",
+            "value": {
+              "blocks": [
+                {
+                  "settings": {
+                    "heading": "A"
+                  },
+                  "type": "rich_head"
+                }
+              ],
+              "name": "rich_text",
+              "settings": {
+                "text_align": "left"
+              },
+              "type": "rich_text"
+            }
+          },
+          {
             "op": "remove_section",
             "target": "222"
           },

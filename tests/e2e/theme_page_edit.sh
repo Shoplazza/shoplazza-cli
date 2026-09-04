@@ -4,7 +4,7 @@
 #
 # 用法（脚本在 tests/e2e/，随仓库维护）：
 #   bash theme_page_edit.sh          # 安全模式：前置检查 + DryRun 轨道（零真实调用）
-#   bash theme_page_edit.sh --live   # 完整验收：27 场景（写操作仅落在 SHOPLAZZA_TEST_THEME_ID）
+#   bash theme_page_edit.sh --live   # 完整验收：29 场景（写操作仅落在 SHOPLAZZA_TEST_THEME_ID）
 #
 # 环境变量（沿用 tests/e2e 约定）：
 #   SHOPLAZZA_STORE / SHOPLAZZA_TOKEN         # 测试店与令牌
@@ -128,7 +128,7 @@ s15
 
 if [[ "$LIVE" != "1" ]]; then
   log ""
-  log "安全模式结束（--live 跑完整 27 场景）。"
+  log "安全模式结束（--live 跑完整 29 场景）。"
   log "结果：PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
   [[ $FAIL -eq 0 ]] || exit 1
   exit 0
@@ -633,8 +633,78 @@ s28() { # publish 失败错误包：线上无法主动触发，明确记为 SKIP
   result SKIP "s28-publish-failure-envelope" "线上无法让 PATCH /themes/{id}/publish 主动 5xx；由单测 TestEdit_PublishChain 覆盖"
 }
 
+s29() { # add_section 带 value：settings + blocks 一次写入并回读一致（修复前两者被静默丢弃）
+  local name="s29-add-section-value"
+  run_cli themes +page --template index --theme "$TEST_THEME" --area page --include schema
+  local o plan
+  o=$(jsonq "$OUT" "d['data']['oseid']")
+  # 选一张在页的主题卡：卡级与子块级各挑一个能设成非默认值的 setting，回读时据此判定「传了的按传的走」
+  plan=$(printf '%s' "$OUT" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)["data"]; sch = d.get("schema") or {}
+def pick(settings, tag):
+    for s in settings or []:
+        t, dft = s.get("type"), s.get("default")
+        if t in ("text", "richtext", "textarea"): return s["id"], "e2e-" + tag
+        if t == "select":
+            for o in s.get("options") or []:
+                v = o.get("value") if isinstance(o, dict) else o
+                if v not in (None, dft): return s["id"], v
+        if t == "range" and isinstance(dft, (int, float)):
+            for v in (s.get("min"), s.get("max")):
+                if isinstance(v, (int, float)) and v != dft: return s["id"], v
+    return None
+for s in d["sections"]:
+    if s.get("kind") == "pb": continue
+    card = sch.get(s["type"]) or {}
+    ss = pick(card.get("settings"), "sec")
+    for bt, meta in (card.get("blocks") or {}).items():
+        if bt == "@app" or meta.get("schema_missing"): continue
+        bs = pick(meta.get("settings"), "blk")
+        if ss and bs:
+            print(json.dumps({"type": s["type"], "sk": ss[0], "svj": json.dumps(ss[1]),
+                              "bt": bt, "bk": bs[0], "bvj": json.dumps(bs[1])})); sys.exit()
+' 2>/dev/null)
+  [[ -n "$plan" ]] || { result SKIP "$name" "页面上没有卡级+子块级都可设非默认值的主题卡"; return; }
+  local stype sk svj bt bk bvj
+  stype=$(jsonq "$plan" "d['type']"); sk=$(jsonq "$plan" "d['sk']"); svj=$(jsonq "$plan" "d['svj']")
+  bt=$(jsonq "$plan" "d['bt']");      bk=$(jsonq "$plan" "d['bk']");  bvj=$(jsonq "$plan" "d['bvj']")
+
+  # ① 一次调用：加卡 + 卡级 settings + 一个带 settings 的子块，放到页面最前
+  run_cli themes +edit --template index --theme "$TEST_THEME" --session "$o" --ops - <<OPS
+[ { "op": "add_section", "name": "$stype", "position": "first",
+    "value": { "settings": { "$sk": $svj },
+               "blocks": [ { "type": "$bt", "settings": { "$bk": $bvj } } ] } } ]
+OPS
+  expect "$name" "exit 0 (type=$stype $sk=$svj $bt.$bk=$bvj err=$(printf '%s' "$ERR" | head -c 160))" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || return
+  local nid; nid=$(jsonq "$OUT" "d['data']['applied'][0].get('new_section_id','')")
+  expect "$name" "回填 new_section_id" "$([[ -n "$nid" ]] && echo 1 || echo 0)" || return
+
+  # ② 回读：卡级 setting、子块类型 + 子块 setting 与请求一致，且位于 page 首位
+  run_cli themes +page --template index --theme "$TEST_THEME" --area page --session "$o"
+  local ok_s ok_b first
+  ok_s=$(jsonq "$OUT" "next(((s.get('settings') or {}).get('$sk') == $svj for s in d['data']['sections'] if s['section_id'] == '$nid'), False)")
+  ok_b=$(jsonq "$OUT" "any(b.get('type') == '$bt' and (b.get('settings') or {}).get('$bk') == $bvj for s in d['data']['sections'] if s['section_id'] == '$nid' for b in (s.get('blocks') or []))")
+  first=$(jsonq "$OUT" "d['data']['sections'][0]['section_id'] == '$nid'")
+  expect "$name" "卡级 settings.$sk 回读 == $svj" "$([[ "$ok_s" == "True" ]] && echo 1 || echo 0)"
+  expect "$name" "子块 $bt.$bk 回读 == $bvj" "$([[ "$ok_b" == "True" ]] && echo 1 || echo 0)"
+  expect "$name" "position:first 生效" "$([[ "$first" == "True" ]] && echo 1 || echo 0)"
+
+  # ③ value 里的拼错键必须在网络前被拒（exit 2），不能再静默丢
+  run_cli themes +edit --template index --theme "$TEST_THEME" --session "$o" --ops - <<OPS
+[ { "op": "add_section", "name": "$stype", "value": { "setting": {} } } ]
+OPS
+  expect "$name" "value 未知键被拒（exit 2）" "$([[ $CODE -eq 2 ]] && echo 1 || echo 0)"
+
+  # 清理探针卡（会话内草稿，不 promote）
+  run_cli themes +edit --template index --theme "$TEST_THEME" --session "$o" --ops - <<OPS
+[ { "op": "remove_section", "target": "$nid" } ]
+OPS
+  [[ "$ok_s" == "True" && "$ok_b" == "True" && "$first" == "True" ]] && result PASS "$name"
+}
+
 s01; s02; s03; s04; s05; s06_s07; s08; s09; s10; s11; s12; s13; s14; s16; s17; s18; s19; s20; s21
-s22; s23; s24; s25; s26; s27; s28
+s22; s23; s24; s25; s26; s27; s28; s29
 
 # 附加观察（不计分）：promote 后旧 oseid 行为 → 回填设计文档开放问题 16
 log ""

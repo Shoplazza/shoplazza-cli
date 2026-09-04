@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- `themes +edit` `add_section` now carries `value.settings` and `value.blocks`, so a section can be added and configured in one op instead of an add followed by a second `+edit` round-trip for `append_array_item` / `replace_props`. Both fields were previously dropped from the request without any error (the op still reported `success` and produced an empty card). An unknown key under `value`, a non-object `settings`, a non-array `blocks` or a block without `type` is now a validation error; the server keeps validating block types, field names and `max_blocks`. Omitting `value` behaves exactly as before.
+
 ### Added
 - `themes block +edit` — write an AI-generated block file inside an edit session and place it on a template page in one call. Without `--id` it creates the file (server-named) and appends an instance to the `--target` container, or wraps it in a new `_blocks` section when `--target` is omitted; with `--id` it updates the source, reads the targeted instance's current settings from the page, carries them onto the new schema and writes them back. A block referenced 2+ times is branched by the server into a new file: the command switches only the targeted instance to it and reports `branched:true` with `previous_type`. `--ops` merges extra setting keys into the placed instance; a placement failure after a successful write returns `stage:"place"` with the new type and `revert_id` so the write can be re-placed or reverted instead of repeated.
 - `themes block +get` — read a generated block: file info, `ref_count` and every placement (`instances`: template + target); with `--section` it returns that instance's `template` / `target` / `settings` — exactly the inputs `+edit` takes; `--with-content` adds the liquid source and the schema display name.

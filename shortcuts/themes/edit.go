@@ -36,7 +36,9 @@ Ops (JSON array via --ops <file> | - (stdin) | inline JSON):
   remove_array_item  block target                remove a block (same-container batches: descending index)
   append_array_item  container target + value    append {type, settings} (validated against schema/max_blocks)
   move_array_item    block target + to_index     reorder a block within its container (0-based, range-checked)
-  add_section        name | pb+template_id       add a section or a pb card (position: first|last|after:<sid>|before:<sid>)
+  add_section        name [+ value] | pb+template_id
+                                                 add a section (value: {settings, blocks} pre-fills it) or a pb card
+                                                 (position: first|last|after:<sid>|before:<sid>)
   remove_section     section target              remove a section
   move_section       section target + position   reorder a section (position, or numeric to_index)
   set_visibility     section target + visible    show/hide a section
