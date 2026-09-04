@@ -244,22 +244,32 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	// Place it: one batch, ops apply independently server-side.
 	instance := map[string]any{"type": newType, "settings": instSettings}
 	var operations []map[string]any
-	instTarget := target
+	instTarget, instDot := target, dotBlockPath(ref)
 	sectionCreated := false
 	switch {
-	case id == "" && target != "":
-		instTarget = fmt.Sprintf("%s[%d]", target, containerLen)
-		operations = append(operations, map[string]any{"op": "append_array_item", "target": dotContainerPath(ref), "value": instance})
 	case id == "":
-		sectionCreated = true
-		operations = append(operations, map[string]any{"op": "add_section", "value": map[string]any{
-			"type": genSectionType, "name": genSectionType, "settings": map[string]any{}, "blocks": []any{instance},
-		}})
+		// Creating always ends in an append — the block is what goes into a
+		// container. Without --target that container is a "_blocks" section
+		// added first in the same batch, under an id the CLI picks so the
+		// append can address it.
+		container, at, base := dotContainerPath(ref), containerLen, target
+		if target == "" {
+			sectionCreated = true
+			sid := newSectionID()
+			container, at, base = sid+".blocks", 0, sid+".blocks"
+			operations = append(operations, map[string]any{
+				"op": "add_section", "section_id": sid,
+				"value": map[string]any{"type": genSectionType, "name": genSectionType, "settings": map[string]any{}, "blocks": []any{}},
+			})
+		}
+		instTarget = fmt.Sprintf("%s[%d]", base, at)
+		instDot = fmt.Sprintf("%s.%d", container, at)
+		operations = append(operations, map[string]any{"op": "append_array_item", "target": container, "value": instance})
 	case branched:
 		// Repoint to the branched card by replacing the block (the server's
 		// in-place type swap rejects fields of the new schema).
 		operations = append(operations,
-			map[string]any{"op": "remove_array_item", "target": dotBlockPath(ref)},
+			map[string]any{"op": "remove_array_item", "target": instDot},
 			map[string]any{"op": "append_array_item", "target": dotContainerPath(ref), "value": instance},
 		)
 		if containerLen-1 != ref.BlockIndex {
@@ -267,18 +277,13 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 				"move_target": strconv.Itoa(containerLen - 1), "position": strconv.Itoa(ref.BlockIndex)})
 		}
 	default:
-		operations = append(operations, map[string]any{"op": "replace_props", "target": dotBlockPath(ref), "props": instSettings})
+		operations = append(operations, map[string]any{"op": "replace_props", "target": instDot, "props": instSettings})
 	}
 	if ops != nil {
-		dot := dotBlockPath(ref)
-		if id == "" {
-			dot = fmt.Sprintf("%s.%d", dotContainerPath(ref), containerLen)
-		}
-		operations = append(operations, map[string]any{"op": "replace_props", "target": dot, "props": ops})
+		operations = append(operations, map[string]any{"op": "replace_props", "target": instDot, "props": ops})
 	}
 
 	previewURLFor := previewURLLater(ctx, in.Client, template, "")
-	preIDs := sectionIDSet(inner)
 	bresp, err := common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
 	if err != nil {
 		e := blockStageErr(err, "place", oseid)
@@ -306,16 +311,6 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	}
 	if len(failed) > 0 {
 		return common.ExecResult{}, blockPlaceFailErr(oseid, newType, revertID, applied, failed)
-	}
-	if sectionCreated { // the server assigns the new section id; recover it by diff
-		if after, rerr := fetchSections(ctx, in.Client, oseid, docID); rerr == nil {
-			if ids := newSectionIDs(after, preIDs); len(ids) > 0 {
-				instTarget = ids[0] + ".blocks[0]"
-			}
-		}
-		if instTarget == "" {
-			body["placement_warning"] = "could not recover the new section id; re-read with themes block +get"
-		}
 	}
 	body["applied"] = applied
 	body["instance"] = map[string]any{"template": template, "target": instTarget, "section_created": sectionCreated}
@@ -351,13 +346,17 @@ func blockEditDryRunPlans(themeID, oseid, cardType, template string, ref targetR
 	var operations []map[string]any
 	var dot string
 	switch {
-	case cardType == "" && ref.SectionID != "":
-		dot = dotContainerPath(ref) + ".<new_index>"
-		operations = append(operations, map[string]any{"op": "append_array_item", "target": dotContainerPath(ref), "value": instance})
 	case cardType == "":
-		operations = append(operations, map[string]any{"op": "add_section", "value": map[string]any{
-			"type": genSectionType, "name": genSectionType, "settings": map[string]any{}, "blocks": []any{instance},
-		}})
+		container := dotContainerPath(ref)
+		dot = container + ".<new_index>"
+		if ref.SectionID == "" { // no --target: the CLI adds the container first
+			container, dot = phSectionID+".blocks", phSectionID+".blocks.0"
+			operations = append(operations, map[string]any{
+				"op": "add_section", "section_id": phSectionID,
+				"value": map[string]any{"type": genSectionType, "name": genSectionType, "settings": map[string]any{}, "blocks": []any{}},
+			})
+		}
+		operations = append(operations, map[string]any{"op": "append_array_item", "target": container, "value": instance})
 	default:
 		dot = dotBlockPath(ref)
 		operations = append(operations, map[string]any{"op": "replace_props", "target": dot, "props": phGenSettings})

@@ -71,7 +71,9 @@ command -v python3 >/dev/null 2>&1 || { log "FATAL: 需要 python3"; exit 10; }
 BLOCK_HELP=$("$BIN" themes block --help 2>/dev/null)
 grep -q '^\s*+edit\b' <<<"$BLOCK_HELP" || { log "FATAL: 'themes block +edit' 未实现"; exit 11; }
 grep -q '^\s*+get\b'  <<<"$BLOCK_HELP" || { log "FATAL: 'themes block +get' 未实现"; exit 11; }
-[[ -f "$FX/gen_block_min.liquid" && -f "$FX/gen_block_v2.liquid" && -f "$FX/gen_block_bad.liquid" ]] || { log "FATAL: 缺少 fixtures"; exit 10; }
+for fx in gen_block_min gen_block_v2 gen_block_bad gen_block_children; do
+  [[ -f "$FX/$fx.liquid" ]] || { log "FATAL: 缺少 fixture $fx.liquid"; exit 10; }
+done
 log "  CLI 就绪：$("$BIN" --version 2>/dev/null | head -1)"
 
 TEST_THEME="${SHOPLAZZA_TEST_THEME_ID:-}"
@@ -96,7 +98,17 @@ b00() {
   expect "$name" "含 <doc_id> 占位" "$([[ "$OUT" == *"<doc_id>"* ]] && echo 1 || echo 0)" || return
   expect "$name" "不含 /shop 请求" "$([[ "$OUT" != *"/2026-01/shop"* ]] && echo 1 || echo 0)" || return
   local last; last=$(jsonq "$OUT" "d['requests'][-1]['data']['operations'][0]['op']")
-  expect "$name" "末条请求是 append_array_item 批次" "$([[ "$last" == "append_array_item" ]] && echo 1 || echo 0)" || return
+  expect "$name" "有 --target 时批次即 append_array_item" "$([[ "$last" == "append_array_item" ]] && echo 1 || echo 0)" || return
+  # 省略 --target：必须是 add_section(空壳,自带 section_id) + append 到该 id，两条压同一批
+  run_cli themes block +edit --session ose_dry --content "$FX/gen_block_min.liquid" --template index --dry-run
+  local ops sid tgt shell
+  ops=$(jsonq "$OUT" "[o['op'] for o in d['requests'][-1]['data']['operations']]")
+  sid=$(jsonq "$OUT" "d['requests'][-1]['data']['operations'][0]['section_id']")
+  tgt=$(jsonq "$OUT" "d['requests'][-1]['data']['operations'][1]['target']")
+  shell=$(jsonq "$OUT" "len(d['requests'][-1]['data']['operations'][0]['value']['blocks'])")
+  expect "$name" "无 --target：add_section + append_array_item 同批" "$([[ "$ops" == '["add_section", "append_array_item"]' ]] && echo 1 || echo 0)" || return
+  expect "$name" "add_section 自带 section_id 且 value 是空壳" "$([[ -n "$sid" && "$shell" == "0" ]] && echo 1 || echo 0)" || return
+  expect "$name" "append 落到刚加的 section" "$([[ "$tgt" == "$sid.blocks" ]] && echo 1 || echo 0)" || return
   run_cli themes block +edit --session ose_dry --id gen_x --content "$FX/gen_block_min.liquid" --dry-run
   expect "$name" "改卡 dry-run 只有 PATCH gen-blocks" "$([[ $CODE -eq 0 && "$(jsonq "$OUT" "len(d['requests'])")" == "1" && "$(jsonq "$OUT" "d['requests'][0]['method']")" == "PATCH" ]] && echo 1 || echo 0)" || return
   run_cli themes block +get --session ose_dry --id gen_x --with-content --dry-run
@@ -367,20 +379,64 @@ b16() { # 点号 target 与方括号等价
 }
 b16
 
-b17() { # product 模板的 preview 路径
+b17() { # product 模板的 preview 路径（走自建 _blocks，不依赖容器是否收 gen block）
   local name="b17-product-preview"
-  run_cli themes +page --template product --theme "$TEST_THEME" --session "$OSEID" --area page
-  # 读失败要判 FAIL，不能和「确实没有普通 section」一起吞成 SKIP
-  expect "$name" "读 product 模板 exit 0" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || { log "    $ERR"; return; }
-  local psec; psec=$(jsonq "$OUT" "next((s['section_id'] for s in d['data']['sections'] if s.get('kind')!='pb'), '')")
-  [[ -n "$psec" ]] || { result SKIP "$name" "product 模板无普通 section（本店数据所限）"; return; }
-  run_cli themes block +edit --theme "$TEST_THEME" --session "$OSEID" --content "$FX/gen_block_min.liquid" --template product --target "$psec.blocks"
-  expect "$name" "exit 0" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || { log "$ERR"; return; }
+  run_cli themes block +edit --theme "$TEST_THEME" --session "$OSEID" --content "$FX/gen_block_min.liquid" --template product
+  expect "$name" "exit 0" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || { log "    $ERR"; return; }
   CREATED_TYPES+=("$(jsonq "$OUT" "d['data']['type']")")
   expect "$name" "preview_url 含 /products/" "$([[ "$(jsonq "$OUT" "d['data']['preview_url']")" == *"/products/"* ]] && echo 1 || echo 0)" || return
   result PASS "$name"
 }
+
+b17b() { # 容器按 schema 白名单拒收 gen block → stage:place 且透传服务端原话
+  local name="b17b-container-rejects"
+  run_cli themes +page --template product --theme "$TEST_THEME" --session "$OSEID" --area page
+  expect "$name" "读 product 模板 exit 0" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || { log "    $ERR"; return; }
+  local psec; psec=$(jsonq "$OUT" "next((s['section_id'] for s in d['data']['sections'] if s.get('kind')!='pb' and s['type']=='product'), '')")
+  [[ -n "$psec" ]] || { result SKIP "$name" "product 模板无 product section（本店数据所限）"; return; }
+  run_cli themes block +edit --theme "$TEST_THEME" --session "$OSEID" --content "$FX/gen_block_min.liquid" --template product --target "$psec.blocks"
+  if [[ $CODE -eq 0 ]]; then
+    # 该容器接受 gen block：也是合法结果，登记清理并记为通过
+    CREATED_TYPES+=("$(jsonq "$OUT" "d['data']['type']")")
+    result PASS "$name"; return
+  fi
+  CREATED_TYPES+=("$(jsonq "$ERR" "d['error']['block_type']")")
+  expect "$name" "exit 1 且 stage=place" "$([[ $CODE -eq 1 && "$(jsonq "$ERR" "d['error']['stage']")" == "place" ]] && echo 1 || echo 0)" || return
+  expect "$name" "透传服务端逐 op 结果" "$([[ "$(jsonq "$ERR" "d['error']['results'][0]['op']")" == "append_array_item" && "$(jsonq "$ERR" "d['error']['results'][0]['result']")" != "success" ]] && echo 1 || echo 0)" || return
+  expect "$name" "文件已写入，hint 指向重发落位或 revert" "$([[ "$(jsonq "$ERR" "len(d['error']['revert_id'])")" == "32" && "$ERR" == *"revert-gen"* ]] && echo 1 || echo 0)" || return
+  result PASS "$name"
+}
+b17b
 b17
+
+b18() { # 带内联子块的卡 + 已有容器：子块由服务端按 presets[0].blocks 展开
+  local name="b18-children-into-container"
+  run_cli themes block +edit --theme "$TEST_THEME" --session "$OSEID" --content "$FX/gen_block_children.liquid" --template index --target "$CONTAINER.blocks"
+  expect "$name" "exit 0" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || { log "    $ERR"; return; }
+  local t tgt; t=$(jsonq "$OUT" "d['data']['type']"); CREATED_TYPES+=("$t"); tgt=$(jsonq "$OUT" "d['data']['instance']['target']")
+  expect "$name" "只发一条 append_array_item" "$([[ "$(jsonq "$OUT" "[a['op'] for a in d['data']['applied']]")" == '["append_array_item"]' ]] && echo 1 || echo 0)" || return
+  run_cli themes +page --template index --theme "$TEST_THEME" --session "$OSEID" --section "$CONTAINER"
+  local kids
+  kids=$(jsonq "$OUT" "[(b['target'],b['type'],b['settings'].get('text')) for b in (d['data'].get('sections') or [d['data'].get('section')])[0]['blocks'] if b['target'].startswith('$tgt.blocks')]")
+  expect "$name" "两个子块按 preset 默认值落位" "$([[ "$kids" == *'"child_item", "first child"'* && "$kids" == *'"child_item", "second child"'* ]] && echo 1 || echo 0)" || { log "    子块=$kids"; return; }
+  result PASS "$name"
+}
+b18
+
+b19() { # 带内联子块的卡 + 自建 _blocks：add_section + append 两条 op
+  local name="b19-children-new-section"
+  run_cli themes block +edit --theme "$TEST_THEME" --session "$OSEID" --content "$FX/gen_block_children.liquid" --template index
+  expect "$name" "exit 0" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || { log "    $ERR"; return; }
+  local t tgt ns; t=$(jsonq "$OUT" "d['data']['type']"); CREATED_TYPES+=("$t")
+  tgt=$(jsonq "$OUT" "d['data']['instance']['target']"); ns="${tgt%%.*}"
+  expect "$name" "applied 为 add_section + append_array_item" "$([[ "$(jsonq "$OUT" "[a['op'] for a in d['data']['applied']]")" == '["add_section", "append_array_item"]' ]] && echo 1 || echo 0)" || return
+  expect "$name" "append 的 target 就是新 section" "$([[ "$(jsonq "$OUT" "d['data']['applied'][1]['target']")" == "$ns.blocks" ]] && echo 1 || echo 0)" || return
+  expect "$name" "instance.target 落在新 section 的 0 位" "$([[ "$tgt" == "$ns.blocks[0]" ]] && echo 1 || echo 0)" || return
+  run_cli themes +page --template index --theme "$TEST_THEME" --session "$OSEID" --section "$ns"
+  expect "$name" "回读：_blocks 壳 + 该卡 + 两个子块" "$([[ "$(jsonq "$OUT" "(d['data'].get('sections') or [d['data'].get('section')])[0]['type']")" == "_blocks" && "$(jsonq "$OUT" "sum(1 for b in (d['data'].get('sections') or [d['data'].get('section')])[0]['blocks'] if b['target'].count('.blocks')==2)")" == "2" ]] && echo 1 || echo 0)" || return
+  result PASS "$name"
+}
+b19
 
 log ""; log "结果：PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
 [[ $FAIL -eq 0 ]] || { log "失败场景：${FAILED_NAMES[*]}"; exit 1; }

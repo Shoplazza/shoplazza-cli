@@ -162,7 +162,11 @@ func newBlockServer(t *testing.T) *blockServer {
 				if fr, ok := bs.failResults[i]; ok {
 					res = fr
 				} else if om["op"] == "add_section" {
-					bs.added = append(bs.added, fmt.Sprintf("sec_new%d", len(bs.added)+1))
+					sid := getString(om, "section_id") // the server honours a supplied id
+					if sid == "" {
+						sid = fmt.Sprintf("sec_new%d", len(bs.added)+1)
+					}
+					bs.added = append(bs.added, sid)
 				}
 				results = append(results, map[string]any{"op": om["op"], "result": res})
 			}
@@ -301,24 +305,62 @@ func TestBlockEdit_CreateWithoutTemplateWritesOnly(t *testing.T) {
 	}
 }
 
-func TestBlockEdit_CreateWithoutTargetWrapsInBlocksSection(t *testing.T) {
+// TestBlockEdit_CreateWithoutTargetAddsSectionThenAppends: creating always ends
+// in an append. With no --target the CLI adds an empty "_blocks" section under
+// an id it picks, so the append in the same batch can address it.
+func TestBlockEdit_CreateWithoutTargetAddsSectionThenAppends(t *testing.T) {
 	bs := newBlockServer(t)
 	body, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index"})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	ops := bs.operations(t)
-	if len(ops) != 1 || ops[0]["op"] != "add_section" {
-		t.Fatalf("ops: %v", ops)
+	if len(ops) != 2 {
+		t.Fatalf("want add_section + append_array_item, got %v", ops)
 	}
+	sid := getString(ops[0], "section_id")
 	value := mapField(ops[0], "value")
-	blocks := mapSlice(value["blocks"])
-	if value["type"] != "_blocks" || len(blocks) != 1 || blocks[0]["type"] != "blocks/gen_new" {
-		t.Errorf("add_section value: %v", value)
+	if ops[0]["op"] != "add_section" || sid == "" || value["type"] != "_blocks" {
+		t.Errorf("add_section: %v", ops[0])
+	}
+	if blocks := mapSlice(value["blocks"]); len(blocks) != 0 {
+		t.Errorf("the added section must be an empty shell, got blocks %v", blocks)
+	}
+	if ops[1]["op"] != "append_array_item" || ops[1]["target"] != sid+".blocks" {
+		t.Errorf("append must target the section just added: %v", ops[1])
+	}
+	if v := mapField(ops[1], "value"); v["type"] != "blocks/gen_new" {
+		t.Errorf("append value: %v", v)
 	}
 	inst := mapField(body, "instance")
-	if inst["section_created"] != true || inst["target"] != "sec_new1.blocks[0]" {
+	if inst["section_created"] != true || inst["target"] != sid+".blocks[0]" {
 		t.Errorf("instance: %v", inst)
+	}
+}
+
+// TestBlockEdit_CreateAlwaysAppends guards the invariant behind both create
+// paths: without --id the batch always carries an append_array_item.
+func TestBlockEdit_CreateAlwaysAppends(t *testing.T) {
+	for name, vals := range map[string]map[string]any{
+		"with-target":    {"session": "ose_x", "template": "index", "target": "111.blocks"},
+		"without-target": {"session": "ose_x", "template": "index"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			bs := newBlockServer(t)
+			vals["content"] = writeTempLiquid(t, testGenSchema)
+			if _, err := blockEditExec(t, bs, vals); err != nil {
+				t.Fatalf("err: %v", err)
+			}
+			found := false
+			for _, op := range bs.operations(t) {
+				if op["op"] == "append_array_item" {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("no append_array_item in %v", bs.operations(t))
+			}
+		})
 	}
 }
 
@@ -521,8 +563,11 @@ func TestBlockEdit_DryRunSendsNothing(t *testing.T) {
 	content := writeTempLiquid(t, "{% schema %}{}{% endschema %}")
 	for name, vals := range map[string]map[string]any{
 		"create": {"session": "ose_x", "content": content, "template": "index", "target": "111.blocks", "ops": `{"title":"x"}`},
-		"edit":   {"session": "ose_x", "id": "gen_aaa", "content": content, "template": "index", "target": "111.blocks.1", "theme": "t1"},
-		"file":   {"session": "ose_x", "content": content},
+		// no --target: the CLI adds the container itself, so the batch is
+		// add_section + append_array_item (the path with no golden before).
+		"new-section": {"session": "ose_x", "content": content, "template": "index"},
+		"edit":        {"session": "ose_x", "id": "gen_aaa", "content": content, "template": "index", "target": "111.blocks.1", "theme": "t1"},
+		"file":        {"session": "ose_x", "content": content},
 	} {
 		t.Run(name, func(t *testing.T) {
 			res, err := blockEditExecute(context.Background(), common.ExecInput{DryRun: true, Flags: blockFlags(t, blockEditShortcut, vals)})

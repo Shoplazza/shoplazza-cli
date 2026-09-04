@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
@@ -18,6 +20,7 @@ const (
 	genIDPrefix     = "gen_"
 	genSectionType  = "_blocks"
 	phGenBlockType  = "<gen_block_type>"
+	phSectionID     = "<new_section_id>"
 	phGenSettings   = "<gen_block_settings>"
 	phCurrentValues = "<current_instance_settings>"
 )
@@ -201,4 +204,11 @@ func blockPlaceFailErr(oseid, cardType, revertID string, results []map[string]an
 		WithField("failed", failed).
 		WithHint(fmt.Sprintf("the block file is saved in the session; re-run placement with --id %s --template <name> --target <path>, or undo the write: themes block revert-gen --params '{\"oseid\":\"%s\"}' --data '{\"revert_id\":\"%s\"}'",
 			strings.TrimPrefix(cardType, genTypePrefix), oseid, revertID))
+}
+
+// newSectionID mints the id for a CLI-added section. The server honours a
+// supplied section_id, which is what lets the append address it in the same
+// batch; theme section ids are millisecond timestamps.
+func newSectionID() string {
+	return strconv.FormatInt(time.Now().UnixMilli(), 10)
 }
