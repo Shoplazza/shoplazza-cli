@@ -1,0 +1,2228 @@
+{
+ "data": {
+  "data": {
+   "schemas": {
+    "hero_slideshow": {
+     "blocks": [
+      {
+       "name": {
+        "en-US": "Hero slideshow",
+        "zh-CN": "图文幻灯"
+       },
+       "settings": [
+        {
+         "default": "Two line title slide.",
+         "id": "heading",
+         "label": {
+          "en-US": "Heading",
+          "zh-CN": "标题"
+         },
+         "type": "richtext"
+        },
+        {
+         "default": 80,
+         "id": "heading_size",
+         "label": {
+          "en-US": "Heading text size",
+          "zh-CN": "标题字号"
+         },
+         "max": 100,
+         "min": 40,
+         "step": 1,
+         "type": "range",
+         "unit": "px"
+        },
+        {
+         "default": "And big, beautiful imagery",
+         "id": "text",
+         "label": {
+          "en-US": "Text",
+          "zh-CN": "文字"
+         },
+         "type": "textarea"
+        },
+        {
+         "default": "",
+         "id": "url1",
+         "label": {
+          "en-US": "Link 1",
+          "zh-CN": "幻灯链接 #1"
+         },
+         "type": "url"
+        },
+        {
+         "default": "Optional button",
+         "id": "link_text1",
+         "label": {
+          "en-US": "Slide text 1",
+          "zh-CN": "幻灯链接文本 #1"
+         },
+         "type": "text"
+        },
+        {
+         "default": "",
+         "id": "url2",
+         "label": {
+          "en-US": "Link 2",
+          "zh-CN": "幻灯链接 #2"
+         },
+         "type": "url"
+        },
+        {
+         "default": "Optional button",
+         "id": "link_text2",
+         "label": {
+          "en-US": "Slide text 2",
+          "zh-CN": "幻灯链接文本 #2"
+         },
+         "type": "text"
+        },
+        {
+         "default": "#ffffff",
+         "id": "btn_bg_color",
+         "label": {
+          "en-US": "Button background",
+          "zh-CN": "按钮背景"
+         },
+         "type": "color"
+        },
+        {
+         "default": "#000",
+         "id": "btn_color",
+         "label": {
+          "en-US": "Button text",
+          "zh-CN": "按钮文字"
+         },
+         "type": "color"
+        },
+        {
+         "default": "center",
+         "id": "text_align",
+         "label": {
+          "en-US": "Text alignment",
+          "zh-CN": "文字对齐"
+         },
+         "options": [
+          {
+           "label": {
+            "en-US": "Center left",
+            "zh-CN": "中间靠左"
+           },
+           "value": "center left"
+          },
+          {
+           "label": {
+            "en-US": "Center",
+            "zh-CN": "中间"
+           },
+           "value": "center"
+          },
+          {
+           "label": {
+            "en-US": "Center right",
+            "zh-CN": "中间靠右"
+           },
+           "value": "center right"
+          },
+          {
+           "label": {
+            "en-US": "Bottom left",
+            "zh-CN": "底部靠左"
+           },
+           "value": "bottom left"
+          },
+          {
+           "label": {
+            "en-US": "Bottom",
+            "zh-CN": "底部"
+           },
+           "value": "bottom"
+          },
+          {
+           "label": {
+            "en-US": "Bottom right",
+            "zh-CN": "底部靠右"
+           },
+           "value": "bottom right"
+          }
+         ],
+         "type": "select"
+        },
+        {
+         "id": "img",
+         "label": {
+          "en-US": "Image",
+          "zh-CN": "图片"
+         },
+         "type": "image_picker"
+        },
+        {
+         "id": "mobile_img",
+         "label": {
+          "en-US": "Mobile image",
+          "zh-CN": "移动端图片"
+         },
+         "type": "image_picker"
+        },
+        {
+         "default": 0,
+         "id": "mask",
+         "label": {
+          "en-US": "Text protection",
+          "zh-CN": "图片蒙层"
+         },
+         "max": 100,
+         "min": 0,
+         "step": 2,
+         "type": "range",
+         "unit": "%"
+        },
+        {
+         "content": {
+          "en-US": "Darkens your image to ensure your text is readable.",
+          "zh-CN": "图片蒙层让文字具备可读性"
+         },
+         "type": "paragraph"
+        },
+        {
+         "default": "center",
+         "id": "img_position",
+         "label": {
+          "en-US": "Image focal point",
+          "zh-CN": "图片焦点"
+         },
+         "options": [
+          {
+           "label": {
+            "en-US": "Top left",
+            "zh-CN": "左上"
+           },
+           "value": "top left"
+          },
+          {
+           "label": {
+            "en-US": "Top",
+            "zh-CN": "上"
+           },
+           "value": "top"
+          },
+          {
+           "label": {
+            "en-US": "Top right",
+            "zh-CN": "右上"
+           },
+           "value": "top right"
+          },
+          {
+           "label": {
+            "en-US": "Left",
+            "zh-CN": "左"
+           },
+           "value": "left"
+          },
+          {
+           "label": {
+            "en-US": "Center",
+            "zh-CN": "中"
+           },
+           "value": "center"
+          },
+          {
+           "label": {
+            "en-US": "Right",
+            "zh-CN": "右"
+           },
+           "value": "right"
+          },
+          {
+           "label": {
+            "en-US": "Bottom left",
+            "zh-CN": "左下"
+           },
+           "value": "bottom left"
+          },
+          {
+           "label": {
+            "en-US": "Bottom",
+            "zh-CN": "下"
+           },
+           "value": "bottom"
+          },
+          {
+           "label": {
+            "en-US": "Bottom right",
+            "zh-CN": "右下"
+           },
+           "value": "bottom right"
+          }
+         ],
+         "type": "select"
+        }
+       ],
+       "type": "slide"
+      }
+     ],
+     "class": "card-split-spacing",
+     "max_blocks": 5,
+     "name": "hero_slideshow",
+     "presets": [
+      {
+       "blocks": [
+        {
+         "settings": {
+          "btn_bg_color": "#ffffff",
+          "btn_color": "#000000",
+          "heading": "Two line title slide.",
+          "heading_size": 80,
+          "img": "",
+          "img_position": "center",
+          "link_text1": "Optional button",
+          "link_text2": "Optional button",
+          "mask": 0,
+          "mobile_img": "",
+          "text": "And big, beautiful imagery",
+          "text_align": "center",
+          "url1": "",
+          "url2": ""
+         },
+         "type": "slide"
+        },
+        {
+         "settings": {
+          "btn_bg_color": "#ffffff",
+          "btn_color": "#000000",
+          "heading": "Two line title slide.",
+          "heading_size": 80,
+          "img": "",
+          "img_position": "center",
+          "link_text1": "Optional button",
+          "link_text2": "Optional button",
+          "mask": 0,
+          "mobile_img": "",
+          "text": "And big, beautiful imagery",
+          "text_align": "center",
+          "url1": "",
+          "url2": ""
+         },
+         "type": "slide"
+        }
+       ],
+       "category": {
+        "en-US": "Slideshow",
+        "zh-CN": "幻灯"
+       },
+       "ccategory": {
+        "en-US": "Slideshow",
+        "zh-CN": "幻灯"
+       },
+       "cname": {
+        "en-US": "Hero slideshow",
+        "zh-CN": "图文幻灯"
+       },
+       "display": true,
+       "name": "hero_slideshow"
+      }
+     ],
+     "settings": [
+      {
+       "default": true,
+       "id": "full_page",
+       "label": {
+        "en-US": "Full page width",
+        "zh-CN": "全屏宽度"
+       },
+       "type": "checkbox"
+      },
+      {
+       "default": 0,
+       "id": "pc_height",
+       "label": {
+        "en-US": "Desktop height adjustment",
+        "zh-CN": "PC端高度调整"
+       },
+       "max": 100,
+       "min": -100,
+       "step": 10,
+       "type": "range",
+       "unit": "%"
+      },
+      {
+       "default": 0,
+       "id": "mobile_height",
+       "label": {
+        "en-US": "Mobile height adjustment",
+        "zh-CN": "移动端高度调整"
+       },
+       "max": 100,
+       "min": -100,
+       "step": 10,
+       "type": "range",
+       "unit": "%"
+      },
+      {
+       "default": true,
+       "id": "auto_change",
+       "label": {
+        "en-US": "Auto-change slides",
+        "zh-CN": "自动切换幻灯"
+       },
+       "type": "checkbox"
+      },
+      {
+       "default": 7,
+       "id": "second",
+       "label": {
+        "en-US": "Change images every",
+        "zh-CN": "幻灯切换时间"
+       },
+       "max": 10,
+       "min": 5,
+       "step": 1,
+       "type": "range",
+       "unit": "s"
+      }
+     ]
+    },
+    "rich_text": {
+     "blocks": [
+      {
+       "limit": 1,
+       "name": {
+        "en-US": "Heading",
+        "zh-CN": "标题"
+       },
+       "settings": [
+        {
+         "default": "Rich text",
+         "id": "heading",
+         "label": {
+          "en-US": "Heading",
+          "zh-CN": "标题"
+         },
+         "type": "text"
+        }
+       ],
+       "type": "rich_head"
+      },
+      {
+       "limit": 1,
+       "name": {
+        "en-US": "Text",
+        "zh-CN": "文字"
+       },
+       "settings": [
+        {
+         "default": "A sentence or two introducing your brand, what you sell, and what makes your brand compelling to customers.",
+         "id": "text",
+         "label": {
+          "en-US": "Text",
+          "zh-CN": "文字"
+         },
+         "type": "textarea"
+        },
+        {
+         "default": true,
+         "id": "enlarge_text",
+         "label": {
+          "en-US": "Enlarge text",
+          "zh-CN": "开启更大文字"
+         },
+         "type": "checkbox"
+        }
+       ],
+       "type": "rich_text"
+      },
+      {
+       "limit": 1,
+       "name": {
+        "en-US": "Button",
+        "zh-CN": "按钮"
+       },
+       "settings": [
+        {
+         "id": "link",
+         "label": {
+          "en-US": "Button link",
+          "zh-CN": "按钮链接"
+         },
+         "type": "url"
+        },
+        {
+         "default": "Buy now",
+         "id": "button_text",
+         "label": {
+          "en-US": "Button text",
+          "zh-CN": "按钮文字"
+         },
+         "type": "text"
+        }
+       ],
+       "type": "rich_button"
+      }
+     ],
+     "max_blocks": 3,
+     "name": "rich_text",
+     "presets": [
+      {
+       "blocks": [
+        {
+         "settings": {
+          "heading": "Rich text"
+         },
+         "type": "rich_head"
+        },
+        {
+         "settings": {
+          "enlarge_text": true,
+          "text": "A sentence or two introducing your brand, what you sell, and what makes your brand compelling to customers."
+         },
+         "type": "rich_text"
+        },
+        {
+         "settings": {
+          "button_text": "Buy now",
+          "link": ""
+         },
+         "type": "rich_button"
+        }
+       ],
+       "category": {
+        "en-US": "Text",
+        "zh-CN": "文字"
+       },
+       "ccategory": {
+        "en-US": "Text",
+        "zh-CN": "文字"
+       },
+       "cname": {
+        "en-US": "Rich text",
+        "zh-CN": "富文本"
+       },
+       "display": true,
+       "name": "rich_text"
+      }
+     ],
+     "settings": [
+      {
+       "default": "center",
+       "id": "text_align",
+       "label": {
+        "en-US": "Text alignment",
+        "zh-CN": "文字对齐"
+       },
+       "options": [
+        {
+         "label": {
+          "en-US": "Text left",
+          "zh-CN": "居左"
+         },
+         "value": "left"
+        },
+        {
+         "label": {
+          "en-US": "Text centered",
+          "zh-CN": "居中"
+         },
+         "value": "center"
+        },
+        {
+         "label": {
+          "en-US": "Text right",
+          "zh-CN": "居右"
+         },
+         "value": "right"
+        }
+       ],
+       "type": "select"
+      },
+      {
+       "default": true,
+       "id": "narrow_column",
+       "label": {
+        "en-US": "Narrow column",
+        "zh-CN": "开启窄栏"
+       },
+       "type": "checkbox"
+      },
+      {
+       "default": {
+        "mobile": {
+         "bottom": "20",
+         "left": "",
+         "right": "",
+         "top": "20"
+        },
+        "pc": {
+         "bottom": "40",
+         "left": "",
+         "right": "",
+         "top": "40"
+        }
+       },
+       "id": "spacing",
+       "label": {
+        "en-US": "Spacing",
+        "zh-CN": "间距留白"
+       },
+       "mobile": {
+        "bottom": "20",
+        "left": "",
+        "right": "",
+        "top": "20"
+       },
+       "pc": {
+        "bottom": "40",
+        "left": "",
+        "right": "",
+        "top": "40"
+       },
+       "type": "spacing"
+      }
+     ]
+    },
+    "header": {
+     "blocks": [
+      {
+       "type": "@app"
+      },
+      {
+       "name": {
+        "en-US": "Menu label",
+        "zh-CN": "菜单标签"
+       },
+       "settings": [
+        {
+         "default": [],
+         "id": "menu_names",
+         "info": {
+          "en-US": "The name must match the name of menu item which one needs the label.",
+          "zh-CN": "名称必须与要配置标签的菜单名称保持一致"
+         },
+         "label": {
+          "en-US": "Menu name",
+          "zh-CN": "菜单名称"
+         },
+         "type": "tags"
+        },
+        {
+         "default": "",
+         "id": "label",
+         "label": {
+          "en-US": "Label",
+          "zh-CN": "标签"
+         },
+         "type": "text"
+        },
+        {
+         "default": "#E62405",
+         "id": "bg_color",
+         "label": {
+          "en-US": "Background color",
+          "zh-CN": "背景颜色"
+         },
+         "type": "color"
+        },
+        {
+         "default": "#FFFFFF",
+         "id": "text_color",
+         "label": {
+          "en-US": "Text color",
+          "zh-CN": "文字颜色"
+         },
+         "type": "color"
+        }
+       ],
+       "type": "menu_tag"
+      }
+     ],
+     "name": "header",
+     "presets": [
+      {
+       "blocks": [],
+       "category": {
+        "en-US": "Navigation",
+        "zh-CN": "导航"
+       },
+       "ccategory": {
+        "en-US": "Navigation",
+        "zh-CN": "导航"
+       },
+       "cname": {
+        "en-US": "Header",
+        "zh-CN": "页头"
+       },
+       "display": false,
+       "name": "header"
+      }
+     ],
+     "settings": [
+      {
+       "id": "logo",
+       "label": {
+        "en-US": "Logo",
+        "zh-CN": "Logo"
+       },
+       "type": "image_picker"
+      },
+      {
+       "default": 240,
+       "id": "logo_width",
+       "label": {
+        "en-US": "Desktop logo width",
+        "zh-CN": "PC端Logo宽度"
+       },
+       "max": 400,
+       "min": 0,
+       "step": 10,
+       "type": "range",
+       "unit": "px"
+      },
+      {
+       "id": "mobile_logo",
+       "label": {
+        "en-US": "Mobile logo",
+        "zh-CN": "移动端Logo"
+       },
+       "type": "image_picker"
+      },
+      {
+       "default": 140,
+       "id": "mobile_logo_width",
+       "label": {
+        "en-US": "Mobile logo width",
+        "zh-CN": "移动端Logo宽度"
+       },
+       "max": 200,
+       "min": 0,
+       "step": 10,
+       "type": "range",
+       "unit": "px"
+      },
+      {
+       "default": "Main menu",
+       "id": "menu",
+       "label": {
+        "en-US": "Navigation",
+        "zh-CN": "导航菜单"
+       },
+       "type": "link_list"
+      },
+      {
+       "default": "menu",
+       "id": "mb_menu_type",
+       "label": {
+        "en-US": "Mobile navigation type",
+        "zh-CN": "移动端导航菜单类型"
+       },
+       "options": [
+        {
+         "label": {
+          "en-US": "Drawer menu",
+          "zh-CN": "抽屉式菜单"
+         },
+         "value": "drawer"
+        },
+        {
+         "label": {
+          "en-US": "Menu",
+          "zh-CN": "菜单"
+         },
+         "value": "menu"
+        }
+       ],
+       "type": "select"
+      },
+      {
+       "default": "Mobile main menu",
+       "id": "mobile_menu",
+       "label": {
+        "en-US": "Mobile navigation",
+        "zh-CN": "移动端导航菜单"
+       },
+       "type": "link_list",
+       "visibleOn": "mb_menu_type == 'menu'"
+      },
+      {
+       "default": "left",
+       "id": "layout",
+       "label": {
+        "en-US": "Layout",
+        "zh-CN": "布局"
+       },
+       "options": [
+        {
+         "label": {
+          "en-US": "Logo left",
+          "zh-CN": "Logo靠左"
+         },
+         "value": "left"
+        },
+        {
+         "label": {
+          "en-US": "Logo center",
+          "zh-CN": "Logo居中"
+         },
+         "value": "center"
+        },
+        {
+         "label": {
+          "en-US": "Menu left , logo center",
+          "zh-CN": "菜单居左，Logo居中"
+         },
+         "value": "menu_left_logo_center"
+        },
+        {
+         "label": {
+          "en-US": "Logo left , menu left ",
+          "zh-CN": "Logo居左，菜单居左"
+         },
+         "value": "logo_left_menu_left"
+        }
+       ],
+       "type": "select"
+      },
+      {
+       "default": true,
+       "id": "show_product",
+       "label": {
+        "en-US": "Show first product in mega menus",
+        "zh-CN": "在混合菜单中展示第一个商品"
+       },
+       "type": "checkbox"
+      },
+      {
+       "default": true,
+       "id": "enable_sticky",
+       "label": {
+        "en-US": "Enable sticky header",
+        "zh-CN": "开启页头置顶"
+       },
+       "type": "checkbox"
+      },
+      {
+       "default": "true",
+       "id": "md_enable_sticky",
+       "label": {
+        "en-US": "Enable mobile sticky header",
+        "zh-CN": "开启移动端页头置顶"
+       },
+       "type": "checkbox"
+      },
+      {
+       "default": "search_box",
+       "id": "search_style",
+       "label": {
+        "en-US": "Search style",
+        "zh-CN": "搜索样式"
+       },
+       "options": [
+        {
+         "label": {
+          "en-US": "None",
+          "zh-CN": "无"
+         },
+         "value": "none"
+        },
+        {
+         "label": {
+          "en-US": "Icon",
+          "zh-CN": "图标"
+         },
+         "value": "icon"
+        },
+        {
+         "label": {
+          "en-US": "Search box",
+          "zh-CN": "搜索框"
+         },
+         "value": "search_box"
+        }
+       ],
+       "type": "select"
+      },
+      {
+       "default": "drawer",
+       "id": "mb_plugin_currency_and_translate",
+       "info": {
+        "en-US": "Go to \"<a href='/admin/app_store' target='_blank'>Apps</a>\" configuration before displaying",
+        "zh-CN": "需要到后台<a href='/admin/app_store' target='_blank'>应用市场</a>配置才可展示"
+       },
+       "label": {
+        "en-US": "Mobile multi-language and multi-currency apps display position",
+        "zh-CN": "移动端多语言和多货币插件展示位置"
+       },
+       "options": [
+        {
+         "label": {
+          "en-US": "Inside the drawer menu",
+          "zh-CN": "侧边菜单内"
+         },
+         "value": "drawer"
+        },
+        {
+         "label": {
+          "en-US": "With menu icon on one line",
+          "zh-CN": "与菜单图标一行"
+         },
+         "value": "icon"
+        }
+       ],
+       "type": "select"
+      }
+     ]
+    },
+    "shoplazza://apps/public/blocks/promotion_grid/56125487021326335": []
+   },
+   "sections": {
+    "page_sections": [
+     {
+      "blocks": [
+       {
+        "settings": {
+         "btn_bg_color": "#ffffff",
+         "btn_color": "#000000",
+         "heading": "<p><span data-metadata=\"\"></span>Our latest collection</p>",
+         "heading_size": 54,
+         "img": "",
+         "img_position": "center",
+         "link_text1": "Shop now",
+         "link_text2": "",
+         "mask": 0,
+         "mobile_img": "",
+         "text": "Pair large text with a full-width image to draw attention to an important detail of your brand or product line.",
+         "text_align": "center left",
+         "url1": {
+          "id": 0,
+          "title": "",
+          "type": 0,
+          "url": ""
+         },
+         "url2": ""
+        },
+        "type": "slide"
+       },
+       {
+        "settings": {
+         "btn_bg_color": "#ffffff",
+         "btn_color": "#000000",
+         "heading": "<p>Chic daily style</p>",
+         "heading_size": 52,
+         "img": "",
+         "img_position": "right",
+         "link_text1": "Shop now",
+         "link_text2": "",
+         "mask": 4,
+         "mobile_img": "",
+         "text": "And big, beautiful imagery",
+         "text_align": "bottom",
+         "url1": {
+          "id": 0,
+          "title": "",
+          "type": 0,
+          "url": ""
+         },
+         "url2": ""
+        },
+        "type": "slide"
+       }
+      ],
+      "card_name": {
+       "en-US": "Hero slideshow",
+       "zh-CN": "图文幻灯"
+      },
+      "category": {
+       "en-US": "Slideshow",
+       "zh-CN": "幻灯"
+      },
+      "ccategory": {
+       "en-US": "Slideshow",
+       "zh-CN": "幻灯"
+      },
+      "cname": {
+       "en-US": "Hero slideshow",
+       "zh-CN": "图文幻灯"
+      },
+      "data_source_settings": {
+       "blocks": [
+        {
+         "settings": {
+          "btn_bg_color": {
+           "available": false,
+           "data_sources": []
+          },
+          "btn_color": {
+           "available": false,
+           "data_sources": []
+          },
+          "heading": {
+           "available": false,
+           "data_sources": []
+          },
+          "heading_size": {
+           "available": false,
+           "data_sources": []
+          },
+          "img": {
+           "available": false,
+           "data_sources": []
+          },
+          "img_position": {
+           "available": false,
+           "data_sources": []
+          },
+          "link_text1": {
+           "available": false,
+           "data_sources": []
+          },
+          "link_text2": {
+           "available": false,
+           "data_sources": []
+          },
+          "mask": {
+           "available": false,
+           "data_sources": []
+          },
+          "mobile_img": {
+           "available": false,
+           "data_sources": []
+          },
+          "text": {
+           "available": false,
+           "data_sources": []
+          },
+          "text_align": {
+           "available": false,
+           "data_sources": []
+          },
+          "url1": {
+           "available": false,
+           "data_sources": []
+          },
+          "url2": {
+           "available": false,
+           "data_sources": []
+          }
+         },
+         "type": "slide"
+        },
+        {
+         "settings": {
+          "btn_bg_color": {
+           "available": false,
+           "data_sources": []
+          },
+          "btn_color": {
+           "available": false,
+           "data_sources": []
+          },
+          "heading": {
+           "available": false,
+           "data_sources": []
+          },
+          "heading_size": {
+           "available": false,
+           "data_sources": []
+          },
+          "img": {
+           "available": false,
+           "data_sources": []
+          },
+          "img_position": {
+           "available": false,
+           "data_sources": []
+          },
+          "link_text1": {
+           "available": false,
+           "data_sources": []
+          },
+          "link_text2": {
+           "available": false,
+           "data_sources": []
+          },
+          "mask": {
+           "available": false,
+           "data_sources": []
+          },
+          "mobile_img": {
+           "available": false,
+           "data_sources": []
+          },
+          "text": {
+           "available": false,
+           "data_sources": []
+          },
+          "text_align": {
+           "available": false,
+           "data_sources": []
+          },
+          "url1": {
+           "available": false,
+           "data_sources": []
+          },
+          "url2": {
+           "available": false,
+           "data_sources": []
+          }
+         },
+         "type": "slide"
+        }
+       ],
+       "settings": {
+        "auto_change": {
+         "available": false,
+         "data_sources": []
+        },
+        "full_page": {
+         "available": false,
+         "data_sources": []
+        },
+        "mobile_height": {
+         "available": false,
+         "data_sources": []
+        },
+        "pc_height": {
+         "available": false,
+         "data_sources": []
+        },
+        "second": {
+         "available": false,
+         "data_sources": []
+        }
+       }
+      },
+      "display": true,
+      "id": 1638950411341,
+      "name": "hero_slideshow",
+      "settings": {
+       "auto_change": true,
+       "full_page": true,
+       "mobile_height": 0,
+       "pc_height": 0,
+       "second": 7
+      },
+      "type": "hero_slideshow",
+      "version": 1
+     },
+     {
+      "blocks": [
+       {
+        "settings": {
+         "heading": "New Arrivals"
+        },
+        "type": "rich_head"
+       },
+       {
+        "settings": {
+         "enlarge_text": true,
+         "text": "A sentence or two introducing your brand, what you sell, and what makes your brand compelling to customers."
+        },
+        "type": "rich_text"
+       },
+       {
+        "settings": {
+         "button_text": "",
+         "link": ""
+        },
+        "type": "rich_button"
+       }
+      ],
+      "card_name": {
+       "en-US": "Rich text",
+       "zh-CN": "富文本"
+      },
+      "category": {
+       "en-US": "Text",
+       "zh-CN": "文字"
+      },
+      "ccategory": {
+       "en-US": "Text",
+       "zh-CN": "文字"
+      },
+      "cname": {
+       "en-US": "Rich text",
+       "zh-CN": "富文本"
+      },
+      "data_source_settings": {
+       "blocks": [
+        {
+         "settings": {
+          "heading": {
+           "available": false,
+           "data_sources": []
+          }
+         },
+         "type": "rich_head"
+        },
+        {
+         "settings": {
+          "enlarge_text": {
+           "available": false,
+           "data_sources": []
+          },
+          "text": {
+           "available": false,
+           "data_sources": []
+          }
+         },
+         "type": "rich_text"
+        },
+        {
+         "settings": {
+          "button_text": {
+           "available": false,
+           "data_sources": []
+          },
+          "link": {
+           "available": false,
+           "data_sources": []
+          }
+         },
+         "type": "rich_button"
+        }
+       ],
+       "settings": {
+        "narrow_column": {
+         "available": false,
+         "data_sources": []
+        },
+        "spacing": {
+         "available": false,
+         "data_sources": []
+        },
+        "text_align": {
+         "available": false,
+         "data_sources": []
+        }
+       }
+      },
+      "disabled": false,
+      "display": true,
+      "id": 1638950706947,
+      "name": "rich_text",
+      "settings": {
+       "narrow_column": false,
+       "spacing": {
+        "mobile": {
+         "bottom": "20",
+         "left": "",
+         "right": "",
+         "top": "20"
+        },
+        "pc": {
+         "bottom": "40",
+         "left": "",
+         "right": "",
+         "top": "40"
+        }
+       },
+       "text_align": "center"
+      },
+      "type": "rich_text",
+      "version": 1
+     },
+     {
+      "card_name": {
+       "en-US": "Products grid",
+       "zh-CN": "商品列表"
+      },
+      "category": {
+       "en-US": "Product",
+       "zh-CN": "商品"
+      },
+      "ccategory": {
+       "en-US": "Product",
+       "zh-CN": "商品"
+      },
+      "cname": {
+       "en-US": "Products grid",
+       "zh-CN": "商品列表"
+      },
+      "data_source_settings": {
+       "settings": {
+        "collection": {
+         "available": false,
+         "data_sources": []
+        },
+        "desktop_per_columns": {
+         "available": false,
+         "data_sources": []
+        },
+        "heading": {
+         "available": false,
+         "data_sources": []
+        },
+        "mobile_per_columns": {
+         "available": false,
+         "data_sources": []
+        },
+        "mobile_rows": {
+         "available": false,
+         "data_sources": []
+        },
+        "pc_rows": {
+         "available": false,
+         "data_sources": []
+        },
+        "product_style": {
+         "available": false,
+         "data_sources": []
+        },
+        "show_view_more": {
+         "available": false,
+         "data_sources": []
+        },
+        "spacing": {
+         "available": false,
+         "data_sources": []
+        }
+       }
+      },
+      "display": true,
+      "icon": "oss/operation/b950c409371f126944b7b9ef9a8db876.svg",
+      "id": 1638940824061,
+      "name": "product_list",
+      "settings": {
+       "collection": "",
+       "desktop_per_row": 3,
+       "heading": " ",
+       "mobile_per_row": 2,
+       "product_style": "both",
+       "rows_of_products": 2,
+       "show_view_more": false,
+       "spacing": {
+        "mobile": {
+         "bottom": "20",
+         "left": "",
+         "right": "",
+         "top": "20"
+        },
+        "pc": {
+         "bottom": "40",
+         "left": "",
+         "right": "",
+         "top": "40"
+        }
+       }
+      },
+      "type": "product_list",
+      "version": 1
+     },
+     {
+      "blocks": [
+       {
+        "blocks": [
+         {
+          "settings": {
+           "btn_link_1": {
+            "id": 0,
+            "title": "",
+            "type": 0,
+            "url": ""
+           },
+           "btn_text_1": "Shop now",
+           "btn_text_2": "",
+           "button_background": "",
+           "button_color": "#000000",
+           "heading": "Luxury you can count on",
+           "height": 480,
+           "image": "",
+           "image_focal_point": "center",
+           "text": "Our materials are luxurious and our details are refined.",
+           "text_alignment": "center",
+           "width": "100%"
+          },
+          "type": "Hero"
+         }
+        ],
+        "name": {
+         "en-US": "Promotion grid",
+         "zh-CN": "推广格子"
+        },
+        "schema": {
+         "blocks": [
+          {
+           "name": {
+            "en-US": "Image with text",
+            "zh-CN": "图文"
+           },
+           "settings": [
+            {
+             "default": "Announce your promotion",
+             "id": "heading",
+             "label": {
+              "en-US": "Heading",
+              "zh-CN": "标题"
+             },
+             "type": "text"
+            },
+            {
+             "default": "Include the smaller details of your promotion in text below the title.",
+             "id": "text",
+             "label": {
+              "en-US": "Text",
+              "zh-CN": "文字"
+             },
+             "type": "textarea"
+            },
+            {
+             "default": "Shop This",
+             "id": "btn_text_1",
+             "label": {
+              "en-US": "Button text 1 ",
+              "zh-CN": "按钮文字1"
+             },
+             "type": "text"
+            },
+            {
+             "id": "btn_link_1",
+             "label": {
+              "en-US": "Button link 1",
+              "zh-CN": "按钮链接1"
+             },
+             "type": "url"
+            },
+            {
+             "default": "Shop All",
+             "id": "btn_text_2",
+             "label": {
+              "en-US": "Button text 2",
+              "zh-CN": "按钮文字2"
+             },
+             "type": "text"
+            },
+            {
+             "id": "btn_link_2",
+             "label": {
+              "en-US": "Button link 2 ",
+              "zh-CN": "按钮链接2"
+             },
+             "type": "url"
+            },
+            {
+             "id": "image",
+             "label": {
+              "en-US": "Image",
+              "zh-CN": "图片"
+             },
+             "type": "image_picker"
+            },
+            {
+             "content": {
+              "en-US": "Layout",
+              "zh-CN": "布局"
+             },
+             "type": "paragraph"
+            },
+            {
+             "default": "50%",
+             "id": "width",
+             "label": {
+              "en-US": "Width",
+              "zh-CN": "宽度"
+             },
+             "options": [
+              {
+               "label": {
+                "en-US": "33%",
+                "zh-CN": "33%"
+               },
+               "value": "33%"
+              },
+              {
+               "label": {
+                "en-US": "50%",
+                "zh-CN": "50%"
+               },
+               "value": "50%"
+              },
+              {
+               "label": {
+                "en-US": "100%",
+                "zh-CN": "100%"
+               },
+               "value": "100%"
+              }
+             ],
+             "type": "select"
+            },
+            {
+             "default": 500,
+             "id": "height",
+             "label": {
+              "en-US": "Height",
+              "zh-CN": "高度"
+             },
+             "max": 800,
+             "min": 100,
+             "step": 20,
+             "type": "range",
+             "unit": "px"
+            },
+            {
+             "content": {
+              "en-US": "Alignment",
+              "zh-CN": "对齐方式"
+             },
+             "type": "paragraph"
+            },
+            {
+             "default": "center",
+             "id": "text_alignment",
+             "label": {
+              "en-US": "Text alignment",
+              "zh-CN": "文字对齐"
+             },
+             "options": [
+              {
+               "label": {
+                "en-US": "Top left",
+                "zh-CN": "左上"
+               },
+               "value": "top left"
+              },
+              {
+               "label": {
+                "en-US": "Top",
+                "zh-CN": "上"
+               },
+               "value": "top"
+              },
+              {
+               "label": {
+                "en-US": "Top right",
+                "zh-CN": "右上"
+               },
+               "value": "top right"
+              },
+              {
+               "label": {
+                "en-US": "Left",
+                "zh-CN": "左"
+               },
+               "value": "left"
+              },
+              {
+               "label": {
+                "en-US": "Center",
+                "zh-CN": "中"
+               },
+               "value": "center"
+              },
+              {
+               "label": {
+                "en-US": "Right",
+                "zh-CN": "右"
+               },
+               "value": "right"
+              },
+              {
+               "label": {
+                "en-US": "Bottom left",
+                "zh-CN": "左下"
+               },
+               "value": "bottom left"
+              },
+              {
+               "label": {
+                "en-US": "Bottom",
+                "zh-CN": "下"
+               },
+               "value": "bottom"
+              },
+              {
+               "label": {
+                "en-US": "Bottom right",
+                "zh-CN": "右下"
+               },
+               "value": "bottom right"
+              }
+             ],
+             "type": "select"
+            },
+            {
+             "default": "center",
+             "id": "image_focal_point",
+             "label": {
+              "en-US": "Image focal point",
+              "zh-CN": "图片焦点"
+             },
+             "options": [
+              {
+               "label": {
+                "en-US": "Top left",
+                "zh-CN": "左上"
+               },
+               "value": "top left"
+              },
+              {
+               "label": {
+                "en-US": "Top",
+                "zh-CN": "上"
+               },
+               "value": "top"
+              },
+              {
+               "label": {
+                "en-US": "Top right",
+                "zh-CN": "右上"
+               },
+               "value": "top right"
+              },
+              {
+               "label": {
+                "en-US": "Left",
+                "zh-CN": "左"
+               },
+               "value": "left"
+              },
+              {
+               "label": {
+                "en-US": "Center",
+                "zh-CN": "中"
+               },
+               "value": "center"
+              },
+              {
+               "label": {
+                "en-US": "Right",
+                "zh-CN": "右"
+               },
+               "value": "right"
+              },
+              {
+               "label": {
+                "en-US": "Bottom left",
+                "zh-CN": "左下"
+               },
+               "value": "bottom left"
+              },
+              {
+               "label": {
+                "en-US": "Bottom",
+                "zh-CN": "下"
+               },
+               "value": "bottom"
+              },
+              {
+               "label": {
+                "en-US": "Bottom right",
+                "zh-CN": "右下"
+               },
+               "value": "bottom right"
+              }
+             ],
+             "type": "select"
+            },
+            {
+             "content": {
+              "en-US": "Design",
+              "zh-CN": "设计"
+             },
+             "type": "paragraph"
+            },
+            {
+             "id": "button_background",
+             "label": {
+              "en-US": "Button background",
+              "zh-CN": "按钮背景"
+             },
+             "type": "color"
+            },
+            {
+             "default": "#000000",
+             "id": "button_color",
+             "label": {
+              "en-US": "Button text",
+              "zh-CN": "按钮文字"
+             },
+             "type": "color"
+            }
+           ],
+           "type": "Hero"
+          },
+          {
+           "name": {
+            "en-US": "Banner",
+            "zh-CN": "推广栏"
+           },
+           "settings": [
+            {
+             "default": "Banner promotion",
+             "id": "heading",
+             "label": {
+              "en-US": "Heading",
+              "zh-CN": "标题"
+             },
+             "type": "text"
+            },
+            {
+             "default": "Add the details of your promotion in smaller text",
+             "id": "text",
+             "label": {
+              "en-US": "Text",
+              "zh-CN": "文字"
+             },
+             "type": "textarea"
+            },
+            {
+             "id": "link",
+             "label": {
+              "en-US": "Link",
+              "zh-CN": "链接"
+             },
+             "type": "url"
+            },
+            {
+             "default": "Shop now",
+             "id": "link_label",
+             "label": {
+              "en-US": "Link label",
+              "zh-CN": "链接标签"
+             },
+             "type": "text"
+            }
+           ],
+           "type": "Banner"
+          },
+          {
+           "name": {
+            "en-US": "Image",
+            "zh-CN": "图片"
+           },
+           "settings": [
+            {
+             "id": "image",
+             "label": {
+              "en-US": "Image",
+              "zh-CN": "图片"
+             },
+             "type": "image_picker"
+            },
+            {
+             "id": "link",
+             "label": {
+              "en-US": "Link",
+              "zh-CN": "链接"
+             },
+             "type": "url"
+            },
+            {
+             "default": "100%",
+             "id": "width",
+             "label": {
+              "en-US": "Width",
+              "zh-CN": "宽度"
+             },
+             "options": [
+              {
+               "label": {
+                "en-US": "33%",
+                "zh-CN": "33%"
+               },
+               "value": "33%"
+              },
+              {
+               "label": {
+                "en-US": "50%",
+                "zh-CN": "50%"
+               },
+               "value": "50%"
+              },
+              {
+               "label": {
+                "en-US": "100%",
+                "zh-CN": "100%"
+               },
+               "value": "100%"
+              }
+             ],
+             "type": "select"
+            }
+           ],
+           "type": "Image"
+          },
+          {
+           "name": {
+            "en-US": "Product",
+            "zh-CN": "商品"
+           },
+           "settings": [
+            {
+             "id": "product",
+             "label": {
+              "en-US": "Product",
+              "zh-CN": "商品"
+             },
+             "type": "product"
+            },
+            {
+             "default": "Announce your product",
+             "id": "heading",
+             "label": {
+              "en-US": "Heading",
+              "zh-CN": "标题"
+             },
+             "type": "text"
+            },
+            {
+             "default": "Include text explaining your featured product.",
+             "id": "text",
+             "label": {
+              "en-US": "Text",
+              "zh-CN": "文字"
+             },
+             "type": "textarea"
+            },
+            {
+             "default": "Learn more",
+             "id": "btn_text",
+             "label": {
+              "en-US": "Button text",
+              "zh-CN": "按钮文字"
+             },
+             "type": "text"
+            },
+            {
+             "default": "New",
+             "id": "label_text",
+             "label": {
+              "en-US": "Label",
+              "zh-CN": "标签"
+             },
+             "type": "text"
+            },
+            {
+             "default": "#000000",
+             "id": "sale",
+             "label": {
+              "en-US": "Label",
+              "zh-CN": "促销标签"
+             },
+             "type": "color"
+            },
+            {
+             "default": "#FFFFFF",
+             "id": "sale_text",
+             "label": {
+              "en-US": "Label text ",
+              "zh-CN": "促销标签文字"
+             },
+             "type": "color"
+            },
+            {
+             "default": true,
+             "id": "show_price",
+             "label": {
+              "en-US": "Show price",
+              "zh-CN": "显示价格"
+             },
+             "type": "checkbox"
+            },
+            {
+             "default": "100%",
+             "id": "width",
+             "label": {
+              "en-US": "Width",
+              "zh-CN": "宽度"
+             },
+             "options": [
+              {
+               "label": {
+                "en-US": "50%",
+                "zh-CN": "50%"
+               },
+               "value": "50%"
+              },
+              {
+               "label": {
+                "en-US": "100%",
+                "zh-CN": "100%"
+               },
+               "value": "100%"
+              }
+             ],
+             "type": "select"
+            }
+           ],
+           "type": "Product"
+          },
+          {
+           "name": {
+            "en-US": "Sale collection",
+            "zh-CN": "促销专辑"
+           },
+           "settings": [
+            {
+             "id": "collection",
+             "label": {
+              "en-US": "Sale collection",
+              "zh-CN": "促销专辑"
+             },
+             "type": "collection"
+            },
+            {
+             "default": "UP TO",
+             "id": "top_text",
+             "label": {
+              "en-US": "Top text",
+              "zh-CN": "头部文字"
+             },
+             "type": "text"
+            },
+            {
+             "default": "50% OFF",
+             "id": "middle_text",
+             "label": {
+              "en-US": "Middle text",
+              "zh-CN": "中间文字"
+             },
+             "type": "text"
+            },
+            {
+             "default": "SELECT PRODUCTS",
+             "id": "bottom_text",
+             "label": {
+              "en-US": "Bottom text",
+              "zh-CN": "底部文字"
+             },
+             "type": "text"
+            },
+            {
+             "content": {
+              "en-US": "Layout",
+              "zh-CN": "布局"
+             },
+             "type": "paragraph"
+            },
+            {
+             "default": "50%",
+             "id": "width",
+             "label": {
+              "en-US": "Width",
+              "zh-CN": "宽度"
+             },
+             "options": [
+              {
+               "label": {
+                "en-US": "50%",
+                "zh-CN": "50%"
+               },
+               "value": "50%"
+              },
+              {
+               "label": {
+                "en-US": "100%",
+                "zh-CN": "100%"
+               },
+               "value": "100%"
+              }
+             ],
+             "type": "select"
+            }
+           ],
+           "type": "Sale Collection"
+          },
+          {
+           "name": {
+            "en-US": "Simple",
+            "zh-CN": "精简图文"
+           },
+           "settings": [
+            {
+             "id": "link",
+             "label": {
+              "en-US": "Link",
+              "zh-CN": "链接"
+             },
+             "type": "url"
+            },
+            {
+             "id": "text",
+             "label": {
+              "en-US": "Text",
+              "zh-CN": "文字"
+             },
+             "type": "text"
+            },
+            {
+             "id": "image",
+             "label": {
+              "en-US": "Image",
+              "zh-CN": "图片"
+             },
+             "type": "image_picker"
+            },
+            {
+             "content": {
+              "en-US": "Layout",
+              "zh-CN": "布局"
+             },
+             "type": "paragraph"
+            },
+            {
+             "default": "50%",
+             "id": "width",
+             "label": {
+              "en-US": "Width",
+              "zh-CN": "宽度"
+             },
+             "options": [
+              {
+               "label": {
+                "en-US": "33%",
+                "zh-CN": "33%"
+               },
+               "value": "33%"
+              },
+              {
+               "label": {
+                "en-US": "50%",
+                "zh-CN": "50%"
+               },
+               "value": "50%"
+              },
+              {
+               "label": {
+                "en-US": "100%",
+                "zh-CN": "100%"
+               },
+               "value": "100%"
+              }
+             ],
+             "type": "select"
+            },
+            {
+             "default": 300,
+             "id": "height",
+             "label": {
+              "en-US": "Height",
+              "zh-CN": "高度"
+             },
+             "max": 800,
+             "min": 0,
+             "step": 20,
+             "type": "range",
+             "unit": "px"
+            }
+           ],
+           "type": "Simple"
+          }
+         ],
+         "max_blocks": 15,
+         "name": {
+          "en-US": "Promotion grid",
+          "zh-CN": "推广格子"
+         },
+         "presets": [
+          {
+           "blocks": [
+            {
+             "settings": {
+              "btn_text_1": "Shop This",
+              "btn_text_2": "Shop All",
+              "button_background": "",
+              "button_color": "#000000",
+              "heading": "Announce your promotion",
+              "height": 500,
+              "image_focal_point": "center",
+              "text": "Include the smaller details of your promotion in text below the title.",
+              "text_alignment": "center",
+              "width": "50%"
+             },
+             "type": "Hero"
+            },
+            {
+             "settings": {
+              "btn_text_1": "Shop This",
+              "btn_text_2": "Shop All",
+              "button_background": "",
+              "button_color": "#000000",
+              "heading": "Announce your promotion",
+              "height": 500,
+              "image_focal_point": "center",
+              "text": "Include the smaller details of your promotion in text below the title.",
+              "text_alignment": "center",
+              "width": "50%"
+             },
+             "type": "Hero"
+            }
+           ],
+           "category": {
+            "en-US": "Promotional",
+            "zh-CN": "推广"
+           }
+          }
+         ],
+         "settings": [
+          {
+           "default": false,
+           "id": "full_page_width",
+           "label": {
+            "en-US": "Full page width",
+            "zh-CN": "全屏宽度"
+           },
+           "type": "checkbox"
+          },
+          {
+           "default": true,
+           "id": "top_spacing",
+           "label": {
+            "en-US": "Add top spacing",
+            "zh-CN": "添加顶部间距"
+           },
+           "type": "checkbox"
+          },
+          {
+           "default": true,
+           "id": "bottom_spacing",
+           "label": {
+            "en-US": "Add bottom spacing",
+            "zh-CN": "添加底部间距"
+           },
+           "type": "checkbox"
+          }
+         ],
+         "themes": [
+          "Hero",
+          "Boost",
+          "Eva",
+          "Nova 2022"
+         ]
+        },
+        "settings": {
+         "bottom_spacing": false,
+         "full_page_width": false,
+         "top_spacing": false
+        },
+        "type": "shoplazza://apps/public/blocks/promotion_grid/56125487021326335"
+       }
+      ],
+      "card_name": {
+       "en-US": "Apps",
+       "zh-CN": "应用"
+      },
+      "category": {
+       "en-US": "Apps",
+       "zh-CN": "应用"
+      },
+      "ccategory": {
+       "en-US": "Apps",
+       "zh-CN": "应用"
+      },
+      "cname": {
+       "en-US": "Apps",
+       "zh-CN": "应用"
+      },
+      "data_source_settings": {
+       "blocks": [
+        {
+         "blocks": [
+          {
+           "settings": [],
+           "type": "Hero"
+          }
+         ],
+         "settings": [],
+         "type": "shoplazza://apps/public/blocks/promotion_grid/56125487021326335"
+        }
+       ],
+       "settings": {
+        "page_width": {
+         "available": false,
+         "data_sources": []
+        }
+       }
+      },
+      "disabled": false,
+      "display": true,
+      "id": 1639449809250,
+      "name": "apps",
+      "settings": {
+       "page_width": false,
+       "spacing": {
+        "mobile": {
+         "bottom": "20",
+         "left": "",
+         "right": "",
+         "top": "20"
+        },
+        "pc": {
+         "bottom": "40",
+         "left": "",
+         "right": "",
+         "top": "40"
+        }
+       }
+      },
+      "type": "apps",
+      "version": 1
+     }
+    ],
+    "sections": [
+     {
+      "blocks": [],
+      "id": "announcement",
+      "settings": {
+       "carousel_on": true
+      },
+      "type": "announcement"
+     },
+     {
+      "blocks": [],
+      "id": "header",
+      "settings": {
+       "enable_sticky": true,
+       "layout": "center",
+       "logo": "",
+       "logo_width": 80,
+       "mb_menu_type": "menu",
+       "md_enable_sticky": true,
+       "menu": {
+        "id": "header",
+        "title": {
+         "en-US": "Main menu",
+         "zh-CN": "顶部导航菜单"
+        },
+        "type": "menu"
+       },
+       "mobile_logo": "",
+       "mobile_logo_width": 70,
+       "mobile_menu": {
+        "id": "header",
+        "title": {
+         "en-US": "Main menu",
+         "zh-CN": "顶部导航菜单"
+        },
+        "type": "menu"
+       },
+       "pc_logo_width": 240,
+       "search_style": "search_box",
+       "show_product": true
+      },
+      "type": "header"
+     },
+     {
+      "blocks": [],
+      "id": "footer",
+      "settings": {
+       "additional_copyright_text": "",
+       "cart_page_display_footer_widgets": false,
+       "policies_menu": {
+        "id": "footer",
+        "title": {
+         "en-US": "Footer menu",
+         "zh-CN": "页尾菜单"
+        },
+        "type": "menu"
+       },
+       "show_copyright": true,
+       "show_newsletter": false,
+       "text": "Subscribe today to hear first about our sales"
+      },
+      "type": "footer"
+     }
+    ]
+   }
+  }
+ }
+}

@@ -2,11 +2,11 @@
 //
 // The dynamic CRUD commands (themes list/get/publish/delete/...) are registered
 // separately by the dynamic engine from the v2 spec. This package only adds
-// the workflow commands (init / package / pull / push / share / serve) that
-// need multi-step orchestration or compress parameters.
+// the workflow commands (init / package / pull / push / share / serve /
+// +preview) that need multi-step orchestration or compress parameters.
 //
 // API version mix:
-//   - v2 spec endpoints (16) — `/openapi/2026-01/themes/...` (including task polling)
+//   - v2 spec endpoints — `/openapi/2026-01/themes/...` (including task polling)
 //   - v1 path endpoints (spec missing) — `/openapi/2020-07/themes/{upload,download}`
 //   - share keeps the entire v1 path tree for byte-exact parity with the v1 CLI.
 package themes
@@ -51,8 +51,7 @@ func PlanDocTree(themeID string) common.PlannedRequest {
 }
 
 // PlanDocCreate describes POST /themes/{id}/doc (add or replace a single file).
-// The server's CreateThemeFileRequest requires the file fields under a "doc"
-// object, so the caller's {type,location,content} map is wrapped accordingly.
+// The server requires the file fields under a "doc" wrapper.
 func PlanDocCreate(themeID string, body map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "POST", Path: themeBaseV202601 + "/" + themeID + "/doc", Body: map[string]any{"doc": body}}
 }
@@ -68,6 +67,11 @@ func PlanDocDelete(themeID string, query map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "DELETE", Path: themeBaseV202601 + "/" + themeID + "/doc", Query: query}
 }
 
+// PlanDocGet describes GET /themes/{id}/doc?type=...&location=... (read one theme file).
+func PlanDocGet(themeID string, query map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601 + "/" + themeID + "/doc", Query: query}
+}
+
 // PlanShop describes GET /shop (the merchant identity check used by non-share workflows).
 func PlanShop() common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: shopV202601}
@@ -75,10 +79,8 @@ func PlanShop() common.PlannedRequest {
 
 // ─────────── v1 path endpoints (spec missing or share parity) ───────────
 
-// PlanUpload describes the push multipart upload for dry-run rendering only.
-// Actual multipart upload is performed via client.DoRaw + RawRequest.Headers
-// inside push.go's Execute path. Body holds the multipart description map for
-// human-readable dry-run output.
+// PlanUpload describes the push multipart upload for dry-run rendering only;
+// the real upload goes through client.DoRaw in push.go.
 func PlanUpload(themeID, name, version string) common.PlannedRequest {
 	return common.PlannedRequest{
 		Method: "POST",
@@ -115,9 +117,8 @@ func PlanShareShop() common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: shopV1}
 }
 
-// PlanShareUpload is the share-specific multipart upload. Accepts an empty
-// themeID (creates a new theme on the share-target shop); otherwise identical
-// in shape to PlanUpload. Dry-run only; real upload is via client.DoRaw.
+// PlanShareUpload is the share-specific multipart upload (dry-run only); an
+// empty themeID creates a new theme on the share-target shop.
 func PlanShareUpload(themeID, name, version string) common.PlannedRequest {
 	return common.PlannedRequest{
 		Method: "POST",
@@ -136,4 +137,109 @@ func PlanShareUpload(themeID, name, version string) common.PlannedRequest {
 			},
 		},
 	}
+}
+
+// ─────────── edit-session & page-builder endpoints (themes +page / +edit) ───────────
+//
+// Path factories for the endpoint family the +page/+edit shortcuts orchestrate.
+// Each maps 1:1 to a dynamic registry command, named in the comment.
+
+func editSessionBase(oseid string) string {
+	return themeBaseV202601 + "/edit-sessions/" + oseid
+}
+
+// PlanThemesList describes GET /themes (themes list). +page/+edit resolve the
+// published theme through it when --theme is omitted.
+func PlanThemesList(query map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601, Query: query}
+}
+
+// PlanListTemplates describes GET /themes/{id}/theme-templates (themes list-templates).
+func PlanListTemplates(themeID string, query map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601 + "/" + themeID + "/theme-templates", Query: query}
+}
+
+// PlanCreateSession describes POST /themes/{id}/edit-sessions (themes create-session).
+// NOT idempotent: every call creates a fresh edit draft copied from the theme draft.
+func PlanCreateSession(themeID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: themeBaseV202601 + "/" + themeID + "/edit-sessions"}
+}
+
+// PlanSchemasList describes GET /themes/edit-sessions/{oseid}/files/{doc}/sections
+// (themes schemas-list): all cards of a template plus the full card schemas.
+func PlanSchemasList(oseid, docID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: editSessionBase(oseid) + "/files/" + docID + "/sections"}
+}
+
+// PlanSchemasGet describes GET .../files/{doc}/sections/{section} (themes schemas-get):
+// renders a single card with its current config.
+func PlanSchemasGet(oseid, docID, sectionID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: editSessionBase(oseid) + "/files/" + docID + "/sections/" + sectionID}
+}
+
+// PlanPbSummary describes POST /themes/page-builder/summary (themes pb summary):
+// render a PB template into canvas text by id, the engine fetching its schema
+// server-side. scope is the endpoint's "type" — "custom" (custom-templates) or
+// "global" (global-templates); the id must be bare digits, no family prefix.
+func PlanPbSummary(templateID, scope string) common.PlannedRequest {
+	return common.PlannedRequest{
+		Method: "POST",
+		Path:   themeBaseV202601 + "/page-builder/summary",
+		Body:   map[string]any{"id": templateID, "type": scope},
+	}
+}
+
+// PlanPbSingleBlocks describes GET /themes/page-builder/blocks (themes pb
+// single-blocks): resolve a pb template id (global-N / custom-N) to its full
+// hash-suffixed type URI and display name.
+func PlanPbSingleBlocks(sourceID string) common.PlannedRequest {
+	return common.PlannedRequest{
+		Method: "GET",
+		Path:   themeBaseV202601 + "/page-builder/blocks",
+		Query:  map[string]any{"event_type": "page-builder", "source_ids": sourceID},
+	}
+}
+
+// PlanPbBlockSave describes POST /themes/page-builder/blocks (themes pb-block-save).
+// The 7 required body fields are backfilled by the CLI, never by the model.
+func PlanPbBlockSave(body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: themeBaseV202601 + "/page-builder/blocks", Body: body}
+}
+
+// PlanBatchOps describes POST .../files/{doc}/operations (themes session
+// batch-ops): the whole +edit batch in one request; ops apply independently.
+func PlanBatchOps(oseid, docID string, operations []map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{
+		Method: "POST",
+		Path:   editSessionBase(oseid) + "/files/" + docID + "/operations",
+		Body:   map[string]any{"operations": operations},
+	}
+}
+
+// PlanPromoteSession describes POST .../promote (themes promote-session):
+// save the edit draft back onto the theme draft.
+func PlanPromoteSession(oseid string, body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/promote", Body: body}
+}
+
+// ─────────── gen-blocks (AI-generated block files; themes block +edit / +get) ───────────
+
+// PlanCreateGenBlock describes POST .../gen-blocks (themes block create-gen).
+func PlanCreateGenBlock(oseid, content string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/gen-blocks", Body: map[string]any{"content": content}}
+}
+
+// PlanUpdateGenBlock describes PATCH .../gen-blocks (themes block update-gen);
+// the card to change is read from settings.type.
+func PlanUpdateGenBlock(oseid, content string, settings map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/gen-blocks", Body: map[string]any{"content": content, "settings": settings}}
+}
+
+// PlanGetGenBlock describes GET .../gen-blocks?type=… (themes block get-gen).
+func PlanGetGenBlock(oseid, cardType string, withContent bool) common.PlannedRequest {
+	q := map[string]any{"type": cardType}
+	if withContent {
+		q["with_content"] = "true"
+	}
+	return common.PlannedRequest{Method: "GET", Path: editSessionBase(oseid) + "/gen-blocks", Query: q}
 }

@@ -1,0 +1,496 @@
+package themes
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
+)
+
+// batch-ops translation layer for themes +edit: --ops entries map to
+// ThemeOperation entries of one batch-operations request; ops apply and
+// persist independently server-side.
+//
+// Server grammar constraints:
+//   - block paths use dot indexes ("sid.blocks.0"), not brackets
+//   - block props merge via replace_props with a block dot-path (the server's
+//     update_slot swaps child slots — a different op)
+//   - add_section always appends; placement needs a follow-up move_section
+//   - the server assigns section ids; client-supplied ids are ignored
+
+// serverOp is one translated ThemeOperation plus its source op index
+// (update_pb expands into two entries sharing one source index).
+type serverOp struct {
+	entry  map[string]any
+	source int
+}
+
+// postMove is a placement fix-up sent in a follow-up batch: the section added
+// by source op #source must end up before/after moveTarget.
+type postMove struct {
+	source     int
+	position   string // "before" | "after"
+	moveTarget string
+}
+
+// dotBlockPath renders a parsed block target in the server's dot-index grammar.
+func dotBlockPath(ref targetRef) string {
+	var b strings.Builder
+	b.WriteString(ref.SectionID)
+	for _, i := range ref.ParentPath {
+		fmt.Fprintf(&b, ".blocks.%d", i)
+	}
+	fmt.Fprintf(&b, ".blocks.%d", ref.BlockIndex)
+	return b.String()
+}
+
+// dotContainerPath renders a parsed container target in dot-index grammar.
+func dotContainerPath(ref targetRef) string {
+	var b strings.Builder
+	b.WriteString(ref.SectionID)
+	for _, i := range ref.ParentPath {
+		fmt.Fprintf(&b, ".blocks.%d", i)
+	}
+	b.WriteString(".blocks")
+	return b.String()
+}
+
+// resolveMoveRef translates a position or numeric to_index into the server's
+// {position, move_target} pair; inner==nil (dry-run) yields placeholders.
+func resolveMoveRef(inner map[string]any, op editOp) (string, string) {
+	if op.Position != "" {
+		if kind, sid, ok := splitPosition(op.Position); ok { // after:<sid> / before:<sid>
+			return kind, sid
+		}
+		// first / last resolve against the area layout
+		if inner == nil {
+			if op.Position == "first" {
+				return "before", "<first_section_id>"
+			}
+			return "after", "<last_section_id>"
+		}
+		grp := sectionArea(inner, op.ref.SectionID)
+		if grp == "" {
+			grp = "page"
+		}
+		list := sectionsByArea(inner)[grp]
+		if len(list) == 0 {
+			return "", ""
+		}
+		if op.Position == "first" {
+			return "before", anyToString(list[0]["id"])
+		}
+		return "after", anyToString(list[len(list)-1]["id"])
+	}
+	// numeric to_index: approximate as "before the section currently at n"
+	// (tail indexes clamp to after-last).
+	if op.ToIndex == nil {
+		return "", ""
+	}
+	if inner == nil {
+		return "before", "<section_id_at_to_index>"
+	}
+	grp := sectionArea(inner, op.ref.SectionID)
+	if grp == "" {
+		grp = "page"
+	}
+	list := sectionsByArea(inner)[grp]
+	n := *op.ToIndex
+	switch {
+	case len(list) == 0:
+		return "", ""
+	case n <= 0:
+		return "before", anyToString(list[0]["id"])
+	case n >= len(list)-1:
+		return "after", anyToString(list[len(list)-1]["id"])
+	default:
+		return "before", anyToString(list[n]["id"])
+	}
+}
+
+// sectionValue builds the add_section value object for a plain (non-pb) add;
+// settings and blocks come from the op's value when given (the server fills
+// schema defaults for the rest).
+func sectionValue(op editOp) map[string]any {
+	value := map[string]any{"type": op.Name, "name": op.Name, "settings": map[string]any{}, "blocks": []any{}}
+	for _, k := range []string{"settings", "blocks"} {
+		if v, ok := op.Value[k]; ok {
+			value[k] = v
+		}
+	}
+	return value
+}
+
+// successorOf returns the id of the section right after sid in its area
+// layout ("" when sid is last or unknown).
+func successorOf(inner map[string]any, sid string) string {
+	if inner == nil {
+		return ""
+	}
+	grp := sectionArea(inner, sid)
+	if grp == "" {
+		grp = "page"
+	}
+	list := sectionsByArea(inner)[grp]
+	for i, m := range list {
+		if anyToString(m["id"]) == sid && i+1 < len(list) {
+			return anyToString(list[i+1]["id"])
+		}
+	}
+	return ""
+}
+
+// translateOps maps validated +edit ops onto server ThemeOperation entries
+// plus the placement fix-ups for the follow-up batch.
+func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]any) ([]serverOp, []postMove, map[int]string, error) {
+	var entries []serverOp
+	var moves []postMove
+	newTargets := map[int]string{}
+	// Appends earlier in this batch, per container dot-path: the page snapshot
+	// is pre-batch, so two appends into one container would otherwise both
+	// report — and count against max_blocks at — the same index.
+	appended := map[string]int{}
+	fail := func(i int, format string, args ...any) error {
+		e := output.ErrValidation("op #%d (%s): %s", i, ops[i].Op, fmt.Sprintf(format, args...)).
+			WithField("invalid_op", i)
+		if ex := opExamples[ops[i].Op]; ex != "" {
+			e = e.WithField("example", ex)
+		}
+		return e
+	}
+
+	for i, op := range ops {
+		switch op.Op {
+		case "update_slot":
+			// Block props go through replace_props with a block dot-path;
+			// the server's own update_slot swaps child slots.
+			entries = append(entries, serverOp{map[string]any{
+				"op": "replace_props", "target": dotBlockPath(op.ref), "props": op.Props,
+			}, i})
+		case "replace_props":
+			entries = append(entries, serverOp{map[string]any{
+				"op": "replace_props", "target": op.ref.SectionID, "props": op.Props,
+			}, i})
+		case "append_array_item":
+			path := dotContainerPath(op.ref)
+			if inner != nil { // schema gate + new_target echo need page data
+				section := findSectionByID(inner, op.ref.SectionID)
+				if section == nil {
+					return nil, nil, nil, fail(i, "section %q not found on this page", op.ref.SectionID)
+				}
+				container, children, err := containerAt(section, op.ref.ParentPath)
+				if err != nil {
+					return nil, nil, nil, fail(i, "%v", err)
+				}
+				at := len(children) + appended[path]
+				if err := validateAppend(inner, container, op.Value, at); err != nil {
+					return nil, nil, nil, fail(i, "%v", err)
+				}
+				newTargets[i] = fmt.Sprintf("%s[%d]", op.Target, at)
+				appended[path]++
+			}
+			entries = append(entries, serverOp{map[string]any{
+				"op": "append_array_item", "target": path, "value": op.Value,
+			}, i})
+		case "remove_array_item":
+			entries = append(entries, serverOp{map[string]any{
+				"op": "remove_array_item", "target": dotBlockPath(op.ref),
+			}, i})
+		case "move_array_item":
+			at, ierr := moveItemIndex(&ops[i])
+			if ierr != nil {
+				return nil, nil, nil, fail(i, "%v", ierr)
+			}
+			if inner != nil { // range-check the container before spending a call
+				section := findSectionByID(inner, op.ref.SectionID)
+				if section == nil {
+					return nil, nil, nil, fail(i, "section %q not found on this page", op.ref.SectionID)
+				}
+				_, siblings, cerr := containerAt(section, op.ref.ParentPath)
+				if cerr != nil {
+					return nil, nil, nil, fail(i, "%v", cerr)
+				}
+				if at >= len(siblings) {
+					return nil, nil, nil, fail(i, "to_index %d is out of range: the container holds %d blocks, so 0..%d",
+						at, len(siblings), len(siblings)-1)
+				}
+			}
+			// The endpoint addresses the container, not the block: move_target
+			// is where the block sits now, position where it goes, both as
+			// strings. Passing the block path as target answers param_required.
+			entries = append(entries, serverOp{map[string]any{
+				"op": "move_array_item", "target": dotContainerPath(op.ref),
+				"move_target": strconv.Itoa(op.ref.BlockIndex), "position": strconv.Itoa(at),
+			}, i})
+		case "add_section":
+			value := sectionValue(op)
+			if op.Pb {
+				// pb mode: card value pre-resolved via pb-single-blocks.
+				value = cards[i]
+				if value == nil {
+					return nil, nil, nil, fail(i, "internal: no resolved pb card value")
+				}
+			}
+			entries = append(entries, serverOp{map[string]any{
+				"op": "add_section", "value": value,
+			}, i})
+			// add_section always appends; a requested position needs a
+			// follow-up move once the new id is known.
+			if op.Position != "" && op.Position != "last" || op.ToIndex != nil {
+				if pos, ref := resolveMoveRef(inner, op); pos != "" && ref != "" {
+					moves = append(moves, postMove{source: i, position: pos, moveTarget: ref})
+				}
+			}
+		case "remove_section":
+			entries = append(entries, serverOp{map[string]any{
+				"op": "remove_section", "target": op.ref.SectionID,
+			}, i})
+		case "move_section":
+			pos, ref := resolveMoveRef(inner, op)
+			if pos == "" || ref == "" {
+				return nil, nil, nil, fail(i, "cannot resolve position %q on this page", op.Position)
+			}
+			entries = append(entries, serverOp{map[string]any{
+				"op": "move_section", "target": op.ref.SectionID, "position": pos, "move_target": ref,
+			}, i})
+		case "set_visibility":
+			entries = append(entries, serverOp{map[string]any{
+				"op": "set_visibility", "target": op.ref.SectionID, "visible": *op.Visible,
+			}, i})
+		case "update_pb":
+			card := cards[i]
+			if card == nil {
+				return nil, nil, nil, fail(i, "internal: no generated theme card for update_pb")
+			}
+			// Replace in place: drop the old card, append the generated one,
+			// then move it back before the old card's successor.
+			entries = append(entries,
+				serverOp{map[string]any{"op": "remove_section", "target": op.ref.SectionID}, i},
+				serverOp{map[string]any{"op": "add_section", "value": card}, i},
+			)
+			if succ := successorOf(inner, op.ref.SectionID); succ != "" {
+				moves = append(moves, postMove{source: i, position: "before", moveTarget: succ})
+			}
+		default:
+			return nil, nil, nil, fail(i, "unknown op")
+		}
+	}
+	return entries, moves, newTargets, nil
+}
+
+// batchResultStrings pulls the ordered result list out of a batch-ops
+// response, tolerating the {data:{data:[{op,result}…]}} envelope.
+func batchResultStrings(resp map[string]any) []string {
+	root := resp
+	for range 2 {
+		if d := mapField(root, "data"); d != nil {
+			root = d
+		}
+	}
+	items := root["data"]
+	if items == nil {
+		items = root["results"]
+	}
+	var out []string
+	for _, it := range mapSlice(items) {
+		out = append(out, getString(it, "result"))
+	}
+	return out
+}
+
+// mapBatchResults folds per-entry results back onto source ops (an update_pb
+// expansion fails if either of its two entries failed).
+func mapBatchResults(n int, entries []serverOp, resp map[string]any) []string {
+	results := batchResultStrings(resp)
+	perOp := make([]string, n)
+	for j, e := range entries {
+		r := "unknown"
+		if j < len(results) {
+			r = results[j]
+		}
+		if perOp[e.source] == "" || perOp[e.source] == "success" {
+			perOp[e.source] = r
+		}
+	}
+	for i := range perOp {
+		if perOp[i] == "" {
+			perOp[i] = "success" // ops that expand to zero entries
+		}
+	}
+	return perOp
+}
+
+// hasAdds reports whether the batch created sections (new ids to recover).
+func hasAdds(entries []serverOp) bool {
+	for _, e := range entries {
+		if e.entry["op"] == "add_section" {
+			return true
+		}
+	}
+	return false
+}
+
+// placeSections recovers server-assigned ids for added sections and sends the
+// follow-up move batch; failures degrade to a warning (no rollback).
+func placeSections(ctx context.Context, c *client.Client, oseid, docID string, entries []serverOp, moves []postMove, preIDs map[string]bool, applied []map[string]any) string {
+	inner, err := fetchSections(ctx, c, oseid, docID)
+	if err != nil {
+		return "could not re-read the session to recover new section ids: " + err.Error()
+	}
+	newIDs := newSectionIDs(inner, preIDs)
+	// Adds append in batch order — assign recovered ids in order.
+	bySource := map[int]string{}
+	k := 0
+	for _, e := range entries {
+		if e.entry["op"] == "add_section" && k < len(newIDs) {
+			bySource[e.source] = newIDs[k]
+			k++
+		}
+	}
+	for src, id := range bySource {
+		if src < len(applied) {
+			applied[src]["new_section_id"] = id
+		}
+	}
+	if len(moves) == 0 {
+		return ""
+	}
+	var moveOps []map[string]any
+	for _, mv := range moves {
+		id := bySource[mv.source]
+		if id == "" {
+			return fmt.Sprintf("op #%d: new section id unknown, requested placement skipped", mv.source)
+		}
+		moveOps = append(moveOps, map[string]any{
+			"op": "move_section", "target": id, "position": mv.position, "move_target": mv.moveTarget,
+		})
+	}
+	resp, err := common.Send(ctx, c, PlanBatchOps(oseid, docID, moveOps))
+	if err != nil {
+		return "placement moves failed: " + err.Error()
+	}
+	for _, r := range batchResultStrings(resp) {
+		if r != "success" {
+			return "placement move result: " + r
+		}
+	}
+	return ""
+}
+
+// batchFailErr reports a batch with failed ops: the rest already applied and
+// persisted (ops are independent — no abort, no rollback).
+func batchFailErr(oseid string, created bool, results []map[string]any, failed []int) *output.ExitError {
+	return output.Errorf(output.ExitAPI, output.TypeAPI, "%d of %d ops failed", len(failed), len(results)).
+		WithField("results", results).
+		WithField("failed", failed).
+		WithField("oseid", oseid).
+		WithField("session_created", created).
+		WithHint("ops apply independently (no rollback) — the other ops are already persisted; fix the failed ops and resend ONLY them with --session " + oseid)
+}
+
+// resolvePbSectionValue turns an add_section pb template_id into a section
+// value, resolving the template's full type URI via pb-single-blocks.
+func resolvePbSectionValue(ctx context.Context, c *client.Client, templateID string) (map[string]any, error) {
+	resp, err := common.Send(ctx, c, PlanPbSingleBlocks(templateID))
+	if err != nil {
+		return nil, err
+	}
+	root := resp
+	if d := mapField(root, "data"); d != nil {
+		root = d
+	}
+	block := mapField(mapField(root, "blocks"), templateID)
+	typeURI := getString(block, "type")
+	if typeURI == "" {
+		return nil, output.ErrValidation("pb template %q not found (pb-single-blocks returned no type)", templateID).
+			WithHint(`discover addable pb template ids: themes list-card --params '{"source":"pb,custom"}'`)
+	}
+	name := templateID
+	if n := zhText(block["name"]); n != "" {
+		name = n
+	}
+	return map[string]any{"type": typeURI, "name": name, "settings": map[string]any{}, "blocks": []any{}}, nil
+}
+
+// generateThemeCard turns an update_pb op into a theme-card section object via
+// pb-block-save; the batch then swaps it in with remove_section + add_section.
+func generateThemeCard(ctx context.Context, c *client.Client, op editOp, inner map[string]any, oseid, docID, themeID string) (map[string]any, error) {
+	templateID, scope := phCustomID, "custom"
+	var old map[string]any
+	if inner != nil {
+		section := findSectionByID(inner, op.ref.SectionID)
+		if section == nil {
+			return nil, output.ErrValidation("update_pb: section %q not found on this page", op.ref.SectionID)
+		}
+		id, s, ok := pbTemplateRef(getString(section, "type"))
+		if !ok {
+			return nil, output.ErrValidation("update_pb: section %q is not a page-builder card (type %q)", op.ref.SectionID, getString(section, "type"))
+		}
+		templateID, scope, old = id, s, section
+	}
+	resp, err := common.Send(ctx, c, PlanPbBlockSave(map[string]any{
+		"event_type": "theme", "action": "save", // fixed values
+		"origin_template_id": templateID,
+		"origin":             scope, // custom | global; empty would guess custom-first
+		"oseid":              oseid, "doc_id": docID, "section_id": op.ref.SectionID, "theme_id": themeID,
+		"ops": op.Ops,
+	}))
+	if err != nil {
+		return nil, err
+	}
+	card := buildThemeCard(resp, old)
+	if card == nil {
+		return nil, output.ErrInternal("pb-block-save returned no usable card for update_pb (section %s): expected data.type + data.block", op.ref.SectionID)
+	}
+	return card, nil
+}
+
+// buildThemeCard assembles the section object for a regenerated PB card from a
+// pb-block-save response: {data:{type, block:{name, settings:[…]}}}. The card
+// URI comes from data.type; block.settings is a schema definition list, so the
+// section's live settings map is rebuilt from the entries' ids and defaults
+// (passing the list through verbatim makes the server reject the numeric
+// indexes as field names). Identity fields and any still-valid values carry
+// over from the card being replaced.
+func buildThemeCard(resp map[string]any, old map[string]any) map[string]any {
+	root := resp
+	for range 2 {
+		if d := mapField(root, "data"); d != nil {
+			root = d
+		}
+	}
+	typ := getString(root, "type")
+	blk := mapField(root, "block")
+	if typ == "" || blk == nil {
+		return nil
+	}
+	settings := map[string]any{}
+	for _, e := range mapSlice(blk["settings"]) {
+		if id := getString(e, "id"); id != "" {
+			settings[id] = e["default"]
+		}
+	}
+	if oldSettings := mapField(old, "settings"); oldSettings != nil {
+		for k, v := range oldSettings { // keep the merchant's copy where the field survived
+			if _, ok := settings[k]; ok {
+				settings[k] = v
+			}
+		}
+	}
+	card := map[string]any{
+		"type":     typ,
+		"settings": settings,
+		"schema":   map[string]any{"name": blk["name"], "settings": blk["settings"]},
+		"blocks":   []any{},
+	}
+	for _, k := range []string{"name", "data_source_settings"} {
+		if v, ok := old[k]; ok && v != nil {
+			card[k] = v
+		}
+	}
+	return card
+}

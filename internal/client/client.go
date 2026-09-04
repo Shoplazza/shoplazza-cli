@@ -85,13 +85,17 @@ func (r RawResponse) RequestID() string {
 
 // New creates a minimal API client.
 func New(baseURL string) *Client {
-	return &Client{
+	c := &Client{
 		BaseURL: strings.TrimRight(baseURL, "/"),
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 		Headers: map[string]string{},
 	}
+	// TEMP(feature-cli): gateway route flag for the themes edit-session /
+	// page-builder endpoint family; remove once the endpoints ship.
+	c.Headers["x-rf"] = "feature-cli"
+	return c
 }
 
 // SetBaseURL updates the target base URL (e.g. once the auth gate resolves
