@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-09-02T07:36:19Z",
+  "generated_at": "2026-09-02T10:23:11Z",
   "modules": [
     {
       "name": "billing",
@@ -24466,11 +24466,8 @@
         },
         {
           "name": "instances",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "schema": "google.protobuf.Struct"
-          }
+          "type": "object",
+          "schema": "google.protobuf.Struct"
         }
       ]
     },
