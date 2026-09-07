@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.0.11 - 2026-09-07
 
 ### Added
 - `app config push` — sync the `[dashboard]` section of the active `shoplazza.app.toml` (`name`, `app_url`, `redirect_url`, `embed`) to the Partner dashboard, so App URL / Redirect URL changes no longer require clicking through the dashboard. Patch semantics: only fields with a value are sent, and an empty or removed line never clears the dashboard value (`embed = false` is a value; remove the line to leave it alone). Only draft and rejected apps are pushed without `--yes`; any other status (submitted, in review, published, unpublished, or one this build does not recognise) requires it, because the backend write also refreshes the app's review checks. `name` is synced too, so run `app config link` first if the app was edited in the dashboard since. The output echoes the app as stored by the backend.
