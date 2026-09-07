@@ -15,27 +15,23 @@ func mnDiscountFlags() map[string]string {
 	}
 }
 
-func TestMNDiscountPlan_InvalidTiersErrors(t *testing.T) {
-	in := newPlanInput(t, "mn-discount", mnDiscountFlags(), map[string]string{"tiers": "bad"})
-	_, err := mnDiscountShortcut.Plan(in)
-	if err == nil {
-		t.Error("expected error for invalid --tiers")
+// Every enum-ish flag is validated before the request is built.
+func TestMNDiscountPlan_Refusals(t *testing.T) {
+	cases := []struct {
+		name  string
+		flags map[string]string
+	}{
+		{"invalid --tiers", map[string]string{"tiers": "bad"}},
+		{"invalid --scope", map[string]string{"tiers": "2:30", "scope": "invalid-scope"}},
+		{"invalid --price-sort", map[string]string{"tiers": "2:30", "price-sort": "sideways"}},
 	}
-}
-
-func TestMNDiscountPlan_InvalidScopeErrors(t *testing.T) {
-	in := newPlanInput(t, "mn-discount", mnDiscountFlags(), map[string]string{"tiers": "2:30", "scope": "invalid-scope"})
-	_, err := mnDiscountShortcut.Plan(in)
-	if err == nil {
-		t.Error("expected error for invalid --scope")
-	}
-}
-
-func TestMNDiscountPlan_InvalidPriceSortErrors(t *testing.T) {
-	in := newPlanInput(t, "mn-discount", mnDiscountFlags(), map[string]string{"tiers": "2:30", "price-sort": "sideways"})
-	_, err := mnDiscountShortcut.Plan(in)
-	if err == nil {
-		t.Error("expected error for invalid --price-sort")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			in := newPlanInput(t, "mn-discount", mnDiscountFlags(), c.flags)
+			if _, err := mnDiscountShortcut.Plan(in); err == nil {
+				t.Error("expected a refusal")
+			}
+		})
 	}
 }
 

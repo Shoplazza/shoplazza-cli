@@ -254,27 +254,24 @@ func TestBuildCodeDiscountPayload_ProductTarget(t *testing.T) {
 	}
 }
 
-func TestBuildCodeDiscountPayload_InvalidTargetErrors(t *testing.T) {
-	in := newPlanInput(t, "percent-code", discountCodeFlags(), map[string]string{"target": "store"})
-	_, err := buildCodeDiscountPayload(in, "code_percent", "percent", 10)
-	if err == nil {
-		t.Error("expected error for invalid --target")
+// --target picks the payload shape, so it and its dependent flags are checked
+// before the payload is assembled.
+func TestBuildCodeDiscountPayload_Refusals(t *testing.T) {
+	cases := []struct {
+		name  string
+		flags map[string]string
+	}{
+		{"invalid --target", map[string]string{"target": "store"}},
+		{"--exclude on an order target", map[string]string{"target": "order", "exclude": "true"}},
+		{"product target without a scope", map[string]string{"target": "product"}},
 	}
-}
-
-func TestBuildCodeDiscountPayload_ExcludeOnOrderErrors(t *testing.T) {
-	in := newPlanInput(t, "percent-code", discountCodeFlags(), map[string]string{"target": "order", "exclude": "true"})
-	_, err := buildCodeDiscountPayload(in, "code_percent", "percent", 10)
-	if err == nil {
-		t.Error("expected error: --exclude only applies to --target=product")
-	}
-}
-
-func TestBuildCodeDiscountPayload_ProductTargetNoScopeErrors(t *testing.T) {
-	in := newPlanInput(t, "percent-code", discountCodeFlags(), map[string]string{"target": "product"})
-	_, err := buildCodeDiscountPayload(in, "code_percent", "percent", 10)
-	if err == nil {
-		t.Error("expected error: product target requires one of --products/--variants/--collections")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			in := newPlanInput(t, "percent-code", discountCodeFlags(), c.flags)
+			if _, err := buildCodeDiscountPayload(in, "code_percent", "percent", 10); err == nil {
+				t.Error("expected a refusal")
+			}
+		})
 	}
 }
 

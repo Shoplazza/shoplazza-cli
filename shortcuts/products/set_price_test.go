@@ -47,40 +47,27 @@ var setPriceExecFlags = map[string]string{
 	"price": "string", "compare-price": "string",
 }
 
-func TestSetPriceExecute_NeitherSelectorErrors(t *testing.T) {
-	in := newProductExecInput(t, setPriceExecFlags, map[string]string{"price": "9.99"}, false)
-	if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
-		t.Error("expected error when neither --variant-id nor --sku given")
+// Bad selector or price combinations are refused before any request goes out.
+func TestSetPriceExecute_Refusals(t *testing.T) {
+	cases := []struct {
+		name  string
+		flags map[string]string
+	}{
+		{"neither --variant-id nor --sku", map[string]string{"price": "9.99"}},
+		{"--all with --variant-id", map[string]string{"variant-id": "v-1", "all": "true", "price": "9.99"}},
+		{"non-numeric --price", map[string]string{"sku": "SKU-1", "price": "notanumber"}},
+		{"negative --price", map[string]string{"variant-id": "v-1", "price": "-1"}},
+		{"non-numeric --compare-price", map[string]string{"variant-id": "v-1", "price": "9.99", "compare-price": "x"}},
+		{"--product-id with --sku", map[string]string{"product-id": "p-1", "sku": "S", "price": "9.99"}},
+		{"--product-id with --all", map[string]string{"product-id": "p-1", "all": "true", "price": "9.99"}},
 	}
-}
-
-func TestSetPriceExecute_AllWithVariantIDErrors(t *testing.T) {
-	in := newProductExecInput(t, setPriceExecFlags, map[string]string{
-		"variant-id": "v-1", "all": "true", "price": "9.99",
-	}, false)
-	if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
-		t.Error("expected error when --all is combined with --variant-id")
-	}
-}
-
-func TestSetPriceExecute_InvalidPriceErrors(t *testing.T) {
-	in := newProductExecInput(t, setPriceExecFlags, map[string]string{"sku": "SKU-1", "price": "notanumber"}, false)
-	if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
-		t.Error("expected error for non-numeric --price")
-	}
-}
-
-func TestSetPriceExecute_NegativePriceErrors(t *testing.T) {
-	in := newProductExecInput(t, setPriceExecFlags, map[string]string{"variant-id": "v-1", "price": "-1"}, false)
-	if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
-		t.Error("expected error for negative --price")
-	}
-}
-
-func TestSetPriceExecute_InvalidComparePriceErrors(t *testing.T) {
-	in := newProductExecInput(t, setPriceExecFlags, map[string]string{"variant-id": "v-1", "price": "9.99", "compare-price": "x"}, false)
-	if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
-		t.Error("expected error for non-numeric --compare-price")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			in := newProductExecInput(t, setPriceExecFlags, c.flags, false)
+			if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
+				t.Error("expected a refusal")
+			}
+		})
 	}
 }
 
@@ -182,24 +169,6 @@ func TestSetPriceExecute_SKUMultiMatchRefuses(t *testing.T) {
 	}
 	if putCalled {
 		t.Error("must NOT update when the SKU matches multiple variants")
-	}
-}
-
-func TestSetPriceExecute_ProductIDWithSKUErrors(t *testing.T) {
-	in := newProductExecInput(t, setPriceExecFlags, map[string]string{
-		"product-id": "p-1", "sku": "S", "price": "9.99",
-	}, false)
-	if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
-		t.Error("expected error when --product-id is combined with --sku")
-	}
-}
-
-func TestSetPriceExecute_ProductIDWithAllErrors(t *testing.T) {
-	in := newProductExecInput(t, setPriceExecFlags, map[string]string{
-		"product-id": "p-1", "all": "true", "price": "9.99",
-	}, false)
-	if _, err := setPriceShortcut.Execute(context.Background(), in); err == nil {
-		t.Error("expected error when --all is combined with --product-id")
 	}
 }
 

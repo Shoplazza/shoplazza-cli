@@ -36,10 +36,18 @@ func TestResolveInput_Stdin(t *testing.T) {
 	}
 }
 
-func TestResolveInput_StdinNil(t *testing.T) {
-	_, err := ResolveInput("-", nil)
-	if err == nil {
-		t.Error("expected error when stdin is nil")
+func TestResolveInput_Refusals(t *testing.T) {
+	cases := []struct{ name, in string }{
+		{"stdin is nil", "-"},
+		{"empty @-file path", "@ "},
+		{"missing @-file", "@/nonexistent/path/file.json"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if _, err := ResolveInput(c.in, nil); err == nil {
+				t.Error("expected an error")
+			}
+		})
 	}
 }
 
@@ -48,20 +56,6 @@ func TestResolveInput_StdinEmpty(t *testing.T) {
 	_, err := ResolveInput("-", r)
 	if err == nil {
 		t.Error("expected error for empty stdin")
-	}
-}
-
-func TestResolveInput_AtFileEmpty(t *testing.T) {
-	_, err := ResolveInput("@ ", nil)
-	if err == nil {
-		t.Error("expected error for empty @-file path")
-	}
-}
-
-func TestResolveInput_AtFileMissing(t *testing.T) {
-	_, err := ResolveInput("@/nonexistent/path/file.json", nil)
-	if err == nil {
-		t.Error("expected error for missing file")
 	}
 }
 
@@ -95,24 +89,15 @@ func TestParseOptionalBody_PostValidJSON(t *testing.T) {
 	}
 }
 
-func TestParseOptionalBody_PutValidJSON(t *testing.T) {
-	body, err := ParseOptionalBody("PUT", `{"x":1}`, nil)
-	if err != nil || body == nil {
-		t.Errorf("PUT: got (%v, %v)", body, err)
-	}
-}
-
-func TestParseOptionalBody_PatchValidJSON(t *testing.T) {
-	body, err := ParseOptionalBody("PATCH", `{"x":1}`, nil)
-	if err != nil || body == nil {
-		t.Errorf("PATCH: got (%v, %v)", body, err)
-	}
-}
-
-func TestParseOptionalBody_DeleteValidJSON(t *testing.T) {
-	body, err := ParseOptionalBody("DELETE", `{"x":1}`, nil)
-	if err != nil || body == nil {
-		t.Errorf("DELETE: got (%v, %v)", body, err)
+// Every verb that may carry a body parses one.
+func TestParseOptionalBody_ValidJSON(t *testing.T) {
+	for _, method := range []string{"PUT", "PATCH", "DELETE"} {
+		t.Run(method, func(t *testing.T) {
+			body, err := ParseOptionalBody(method, `{"x":1}`, nil)
+			if err != nil || body == nil {
+				t.Errorf("got (%v, %v)", body, err)
+			}
+		})
 	}
 }
 

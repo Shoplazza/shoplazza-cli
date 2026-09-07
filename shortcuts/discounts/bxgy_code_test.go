@@ -16,38 +16,33 @@ func bxgyCodeFlags() map[string]string {
 	}
 }
 
-func TestBxgyCodePlan_NoBuySideErrors(t *testing.T) {
-	// products + get-products + get-quantity + get-free but no buy-quantity/buy-amount
-	in := newPlanInput(t, "bxgy-code", bxgyCodeFlags(), map[string]string{
-		"products": "p-1", "get-products": "p-2", "get-quantity": "1", "get-free": "true",
-	})
-	_, err := bxgyCodeShortcut.Plan(in)
-	if err == nil {
-		t.Error("expected error when neither --buy-quantity nor --buy-amount is set")
+// The buy side needs exactly one of --buy-quantity / --buy-amount, and the
+// get side needs a discount type.
+func TestBxgyCodePlan_Refusals(t *testing.T) {
+	cases := []struct {
+		name  string
+		flags map[string]string
+	}{
+		{"no buy side", map[string]string{
+			"products": "p-1", "get-products": "p-2", "get-quantity": "1", "get-free": "true",
+		}},
+		{"both buy-quantity and buy-amount", map[string]string{
+			"products": "p-1", "get-products": "p-2",
+			"buy-quantity": "2", "buy-amount": "10",
+			"get-quantity": "1", "get-free": "true",
+		}},
+		{"no get discount type", map[string]string{
+			"products": "p-1", "get-products": "p-2",
+			"buy-quantity": "2", "get-quantity": "1",
+		}},
 	}
-}
-
-func TestBxgyCodePlan_BothBuySideMutuallyExclusive(t *testing.T) {
-	in := newPlanInput(t, "bxgy-code", bxgyCodeFlags(), map[string]string{
-		"products": "p-1", "get-products": "p-2",
-		"buy-quantity": "2", "buy-amount": "10",
-		"get-quantity": "1", "get-free": "true",
-	})
-	_, err := bxgyCodeShortcut.Plan(in)
-	if err == nil {
-		t.Error("expected error when both --buy-quantity and --buy-amount are set")
-	}
-}
-
-func TestBxgyCodePlan_NoGetDiscountErrors(t *testing.T) {
-	// valid buy side, valid get side, but no get-percent/get-off/get-free
-	in := newPlanInput(t, "bxgy-code", bxgyCodeFlags(), map[string]string{
-		"products": "p-1", "get-products": "p-2",
-		"buy-quantity": "2", "get-quantity": "1",
-	})
-	_, err := bxgyCodeShortcut.Plan(in)
-	if err == nil {
-		t.Error("expected error when no get discount type is specified")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			in := newPlanInput(t, "bxgy-code", bxgyCodeFlags(), c.flags)
+			if _, err := bxgyCodeShortcut.Plan(in); err == nil {
+				t.Error("expected a refusal")
+			}
+		})
 	}
 }
 

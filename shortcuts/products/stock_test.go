@@ -444,23 +444,24 @@ func TestStockExecute_PlaceholderIndicesShiftWithResolveStep(t *testing.T) {
 	}
 }
 
-func TestStockExecute_BothFlagsErrors(t *testing.T) {
-	in := newProductExecInput(t, stockExecFlags, map[string]string{
-		"variant-id": "v-1", "set": "10", "adjust": "5",
-	}, false)
-	_, err := stockShortcut.Execute(context.Background(), in)
-	if err == nil {
-		t.Error("expected error when both --set and --adjust are provided")
+// --set and --adjust are mutually exclusive, one is required, and an adjust
+// of 0 is a no-op the command refuses rather than sends.
+func TestStockExecute_SetAdjustRefusals(t *testing.T) {
+	cases := []struct {
+		name  string
+		flags map[string]string
+	}{
+		{"both --set and --adjust", map[string]string{"variant-id": "v-1", "set": "10", "adjust": "5"}},
+		{"neither --set nor --adjust", map[string]string{"variant-id": "v-1"}},
+		{"--adjust 0", map[string]string{"variant-id": "v-1", "adjust": "0"}},
 	}
-}
-
-func TestStockExecute_NeitherFlagErrors(t *testing.T) {
-	in := newProductExecInput(t, stockExecFlags, map[string]string{
-		"variant-id": "v-1",
-	}, false)
-	_, err := stockShortcut.Execute(context.Background(), in)
-	if err == nil {
-		t.Error("expected error when neither --set nor --adjust is provided")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			in := newProductExecInput(t, stockExecFlags, c.flags, false)
+			if _, err := stockShortcut.Execute(context.Background(), in); err == nil {
+				t.Error("expected a refusal")
+			}
+		})
 	}
 }
 
@@ -473,52 +474,29 @@ func TestStockExecute_SetNegativeErrors(t *testing.T) {
 	}
 }
 
-func TestStockExecute_AdjustZeroErrors(t *testing.T) {
-	in := newProductExecInput(t, stockExecFlags, map[string]string{
-		"variant-id": "v-1", "adjust": "0",
-	}, false)
-	_, err := stockShortcut.Execute(context.Background(), in)
-	if err == nil {
-		t.Error("expected error when --adjust is 0")
+// Dry-run previews the whole chain: a lookup plus the write. --set previews
+// one more step than --adjust because it must read the current level first.
+func TestStockExecute_DryRunPlanCount(t *testing.T) {
+	cases := []struct {
+		name      string
+		flags     map[string]string
+		wantPlans int
+	}{
+		{"adjust, no location", map[string]string{"variant-id": "v-1", "adjust": "5"}, 2},
+		{"adjust, with location", map[string]string{"variant-id": "v-1", "adjust": "3", "location-id": "loc-1"}, 2},
+		{"set, no location", map[string]string{"variant-id": "v-1", "set": "10"}, 3},
 	}
-}
-
-func TestStockExecute_AdjustDryRun_NoLocation(t *testing.T) {
-	in := newProductExecInput(t, stockExecFlags, map[string]string{
-		"variant-id": "v-1", "adjust": "5",
-	}, true)
-	result, err := stockShortcut.Execute(context.Background(), in)
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if len(result.Plans) < 2 {
-		t.Errorf("expected ≥2 plans, got %d", len(result.Plans))
-	}
-}
-
-func TestStockExecute_AdjustDryRun_WithLocation(t *testing.T) {
-	in := newProductExecInput(t, stockExecFlags, map[string]string{
-		"variant-id": "v-1", "adjust": "3", "location-id": "loc-1",
-	}, true)
-	result, err := stockShortcut.Execute(context.Background(), in)
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if len(result.Plans) < 2 {
-		t.Errorf("expected ≥2 plans, got %d", len(result.Plans))
-	}
-}
-
-func TestStockExecute_SetDryRun_NoLocation(t *testing.T) {
-	in := newProductExecInput(t, stockExecFlags, map[string]string{
-		"variant-id": "v-1", "set": "10",
-	}, true)
-	result, err := stockShortcut.Execute(context.Background(), in)
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if len(result.Plans) < 3 {
-		t.Errorf("expected ≥3 plans, got %d", len(result.Plans))
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			in := newProductExecInput(t, stockExecFlags, c.flags, true)
+			result, err := stockShortcut.Execute(context.Background(), in)
+			if err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+			if len(result.Plans) < c.wantPlans {
+				t.Errorf("expected ≥%d plans, got %d", c.wantPlans, len(result.Plans))
+			}
+		})
 	}
 }
 
