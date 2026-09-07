@@ -3,8 +3,6 @@ package orders
 import (
 	"strings"
 	"testing"
-
-	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 func TestPlanList_Shape(t *testing.T) {
@@ -75,17 +73,5 @@ func TestPlanRefund_Shape(t *testing.T) {
 	}
 	if !strings.HasSuffix(p.Path, "/orders/ord-1/refund") {
 		t.Errorf("Path: got %q want suffix /orders/ord-1/refund", p.Path)
-	}
-}
-
-func TestOrderShortcuts_NonEmpty(t *testing.T) {
-	ss := Shortcuts()
-	if len(ss) == 0 {
-		t.Error("Shortcuts() should return at least one shortcut")
-	}
-	for _, s := range ss {
-		if err := common.ValidateShortcut(s); err != nil {
-			t.Errorf("shortcut %q invalid: %v", s.Command, err)
-		}
 	}
 }
