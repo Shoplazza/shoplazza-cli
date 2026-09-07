@@ -438,6 +438,24 @@ b19() { # 带内联子块的卡 + 自建 _blocks：add_section + append 两条 o
 }
 b19
 
+b20() { # +page 的 block 行带 cname —— 二次编辑时靠名字做意图匹配的依据
+  local name="b20-page-block-cname"
+  run_cli themes block +edit --theme "$TEST_THEME" --session "$OSEID" --content "$FX/gen_block_min.liquid" --template index --target "$CONTAINER.blocks"
+  expect "$name" "落一张卡 exit 0" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || { log "    $ERR"; return; }
+  local t tgt; t=$(jsonq "$OUT" "d['data']['type']"); CREATED_TYPES+=("$t"); tgt=$(jsonq "$OUT" "d['data']['instance']['target']")
+  run_cli themes +page --template index --theme "$TEST_THEME" --session "$OSEID" --section "$CONTAINER"
+  expect "$name" "读页面 exit 0" "$([[ $CODE -eq 0 ]] && echo 1 || echo 0)" || { log "    $ERR"; return; }
+  local row; row=$(jsonq "$OUT" "next(b for b in (d['data'].get('sections') or [d['data'].get('section')])[0]['blocks'] if b['target']=='$tgt')")
+  # 夹具 presets[0].cname = {"en-US":"CLI e2e card","zh-CN":"CLI 测试卡"}
+  expect "$name" "该 block 行带 cname（双语原样）" "$([[ "$row" == *'"CLI e2e card"'* && "$row" == *'"CLI 测试卡"'* ]] && echo 1 || echo 0)" || { log "    row=$row"; return; }
+  expect "$name" "type 仍是寻址用的标识" "$([[ "$row" == *"\"$t\""* ]] && echo 1 || echo 0)" || return
+  # 主题自带 block 也应带 cname（服务端已解析，按 type 从 schemas 取）
+  local n; n=$(jsonq "$OUT" "sum(1 for b in (d['data'].get('sections') or [d['data'].get('section')])[0]['blocks'] if b.get('cname'))")
+  expect "$name" "至少一行带 cname" "$([[ "${n:-0}" -ge 1 ]] && echo 1 || echo 0)" || return
+  result PASS "$name"
+}
+b20
+
 log ""; log "结果：PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
 [[ $FAIL -eq 0 ]] || { log "失败场景：${FAILED_NAMES[*]}"; exit 1; }
 exit 0

@@ -221,7 +221,7 @@ func TestBuildSectionRow_Visibility(t *testing.T) {
 		{map[string]any{"id": 1, "display": false}, false},                  // display off
 	}
 	for _, c := range cases {
-		if got := buildSectionRow(c.m)["visible"]; got != c.want {
+		if got := buildSectionRow(c.m, nil)["visible"]; got != c.want {
 			t.Errorf("visible for %v = %v, want %v", c.m, got, c.want)
 		}
 	}
@@ -253,7 +253,7 @@ func TestBuildSectionRow_Name(t *testing.T) {
 		}, nil},
 	}
 	for _, c := range cases {
-		got, ok := buildSectionRow(c.m)["name"]
+		got, ok := buildSectionRow(c.m, nil)["name"]
 		if c.want == nil {
 			if ok {
 				t.Errorf("%s: name = %v, want field absent", c.label, got)
@@ -348,7 +348,10 @@ func realSchemasPayload() []byte {
 			"page_sections": []any{},
 			"sections": []any{
 				map[string]any{"id": "footer", "type": "footer", "display": true,
-					"settings": map[string]any{}, "blocks": []any{}},
+					"settings": map[string]any{}, "blocks": []any{
+						map[string]any{"type": "blocks/footer_copyright", "settings": map[string]any{"text": "(c) 2026"}},
+						map[string]any{"type": "blocks/footer_social_media", "settings": map[string]any{}}, // no schema shipped
+					}},
 			},
 		},
 	}}
@@ -695,5 +698,41 @@ func TestPage_IncludePbDegradesOnMissingTemplate(t *testing.T) {
 		if !strings.Contains(ce, want) {
 			t.Errorf("canvas_error = %q, missing %q", ce, want)
 		}
+	}
+}
+
+// TestPage_BlockRowsCarryCName: a block row carries presets[0].cname from the
+// sibling schemas map, and omits it rather than falling back to the type slug.
+func TestPage_BlockRowsCarryCName(t *testing.T) {
+	var c pageServerCounters
+	srv := pageServer(t, &c, realSchemasPayload())
+	defer srv.Close()
+
+	body, err := pageExec(t, srv, map[string]any{"template": "index", "area": "footer"})
+	if err != nil {
+		t.Fatalf("pageExecute: %v", err)
+	}
+	sections := body["sections"].([]map[string]any)
+	if len(sections) != 1 {
+		t.Fatalf("sections = %v, want the footer card", sections)
+	}
+	rows := sections[0]["blocks"].([]map[string]any)
+	if len(rows) != 2 {
+		t.Fatalf("block rows = %v, want 2", rows)
+	}
+
+	cname, ok := rows[0]["cname"].(map[string]any)
+	if !ok {
+		t.Fatalf("first row carries no cname: %v", rows[0])
+	}
+	if cname["zh-CN"] != "版权信息" || cname["en-US"] != "Copyright information" {
+		t.Errorf("cname = %v, want the bilingual presets[0].cname", cname)
+	}
+	// The type stays the identifier +edit addresses; cname is only for matching.
+	if rows[0]["type"] != "blocks/footer_copyright" || rows[0]["target"] != "footer.blocks[0]" {
+		t.Errorf("row lost its identity: %v", rows[0])
+	}
+	if _, present := rows[1]["cname"]; present {
+		t.Errorf("a block with no preset must omit cname, got %v", rows[1]["cname"])
 	}
 }

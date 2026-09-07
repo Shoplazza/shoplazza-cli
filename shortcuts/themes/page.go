@@ -41,25 +41,19 @@ var pageShortcut = common.Shortcut{
 	Short:   "Read a template page: sections in render order, flattened blocks with ready-to-copy targets",
 	Long: `Read one template page of a theme in a single call: sections in render
 order with current settings, plus a depth-first flattened block list where
-every row carries a pre-built "target" path — copy it verbatim into the ops
-of "themes +edit".
+every row carries its "cname" display name and a pre-built "target" path —
+copy that target verbatim into the ops of "themes +edit".
 
 Omitting --session creates a fresh edit session (an edit draft copied from
 the theme draft) and echoes its oseid; pass that oseid to the follow-up
 "themes +edit --session" so read and write share one snapshot. Pass --session
-to re-read an existing edit session instead.
-
-Extras: --include schema adds a compact zh-CN field-schema projection;
---include pb expands page-builder custom cards with their canvas text;
---area defaults to "all" (every area, each section tagged with its area);
-pass page/header/footer/global to focus one; --list discovers the available
-templates when the template name is ambiguous.`,
+to re-read an existing edit session instead.`,
 	Flags: []common.Flag{
 		{Name: "template", Type: common.FlagString, Description: "Template name, e.g. index / product. Mutually exclusive with --file."},
 		{Name: "file", Type: common.FlagString, Description: "Theme file path, e.g. templates/index.liquid. Mutually exclusive with --template."},
 		{Name: "theme", Type: common.FlagString, Description: "Theme ID. Defaults to the published theme."},
 		{Name: "session", Type: common.FlagString, Description: "Edit session id (oseid) to read. Omit to create a fresh session (echoed in the response)."},
-		{Name: "area", Type: common.FlagString, Default: "all", Description: "Card area to read: all (default) | page | header | footer | global.", Completions: []string{"all", "page", "header", "footer", "global"}},
+		{Name: "area", Type: common.FlagString, Default: "all", Description: "Card area to read: all (default, every area with each section tagged by its own) | page | header | footer | global.", Completions: []string{"all", "page", "header", "footer", "global"}},
 		{Name: "section", Type: common.FlagString, Description: "Focus on a single section id (a page-builder card auto-expands its canvas)."},
 		{Name: "include", Type: common.FlagString, Description: "Comma-separated extras: schema (zh-CN field projection), pb (page-builder canvas)."},
 		{Name: "list", Type: common.FlagBool, Description: "List available templates (standard + custom) instead of reading a page."},
@@ -152,11 +146,12 @@ func pageExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		return common.ExecResult{}, err
 	}
 	byArea := sectionsByArea(inner)
+	schemas := mapField(inner, "schemas")
 	rowsByArea := map[string][]map[string]any{}
 	for _, a := range []string{"page", "header", "footer", "global"} {
 		rows := make([]map[string]any, 0, len(byArea[a]))
 		for _, m := range byArea[a] {
-			rows = append(rows, buildSectionRow(m))
+			rows = append(rows, buildSectionRow(m, schemas))
 		}
 		rowsByArea[a] = rows
 	}
@@ -314,9 +309,18 @@ func pageList(ctx context.Context, in common.ExecInput, themeID string) (common.
 	return common.ExecResult{Body: map[string]any{"theme_id": themeID, "templates": templates}}, nil
 }
 
+// blockCName returns a block type's display name, which the response carries
+// pre-parsed in the sibling schemas map as presets[0].cname.
+func blockCName(schemas map[string]any, blockType string) any {
+	if presets := mapSlice(mapField(schemas, blockType)["presets"]); len(presets) > 0 {
+		return presets[0]["cname"]
+	}
+	return nil
+}
+
 // buildSectionRow converts one schemas-list card into the +page output row
 // (id, visible, settings, flattened blocks); PB custom cards get kind:"pb".
-func buildSectionRow(m map[string]any) map[string]any {
+func buildSectionRow(m map[string]any, schemas map[string]any) map[string]any {
 	id := anyToString(m["id"])
 	typ := getString(m, "type")
 	row := map[string]any{
@@ -343,7 +347,11 @@ func buildSectionRow(m map[string]any) map[string]any {
 	flat := flattenBlocks(id, blocks)
 	rows := make([]map[string]any, 0, len(flat))
 	for _, b := range flat {
-		rows = append(rows, map[string]any{"type": b.Type, "settings": b.Settings, "target": b.Target})
+		br := map[string]any{"type": b.Type, "settings": b.Settings, "target": b.Target}
+		if c := blockCName(schemas, b.Type); c != nil {
+			br["cname"] = c
+		}
+		rows = append(rows, br)
 	}
 	row["blocks"] = rows
 	if isPbType(typ) {
