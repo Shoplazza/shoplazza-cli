@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
+	"github.com/spf13/cobra"
 )
 
 func newShopExecInputWithClient(t *testing.T, values map[string]string, c *client.Client) common.ExecInput {

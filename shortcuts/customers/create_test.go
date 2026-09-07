@@ -3,8 +3,8 @@ package customers
 import (
 	"testing"
 
-	"github.com/spf13/cobra"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
+	"github.com/spf13/cobra"
 )
 
 // newCustomerPlanInput builds a PlanInput backed by a cobra command.
