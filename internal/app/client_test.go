@@ -103,3 +103,63 @@ func TestExtensionDeploy_StoreIDIsJSONNumber(t *testing.T) {
 		t.Fatalf("store_id on the wire = %#v, want JSON number 365580", gotBody["store_id"])
 	}
 }
+
+// Dashboard fields decode; embed false stays distinct from absent.
+func TestDashboard_GetAppConfig_DashboardFields(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"code": "Success",
+			"data": map[string]any{"app": map[string]any{"client_id": "cid_1", "name": "A",
+				"app_url": "https://a.dev/auth", "redirect_url": "https://a.dev/cb", "embed": false, "status": "draft"}},
+		})
+	}))
+	defer srv.Close()
+
+	d := NewDashboard(client.New(srv.URL), "partner_tok")
+	cfg, err := d.GetAppConfig(context.Background(), "p1", "cid_1")
+	if err != nil {
+		t.Fatalf("GetAppConfig: %v", err)
+	}
+	if cfg.AppURL != "https://a.dev/auth" || cfg.RedirectURL != "https://a.dev/cb" || cfg.Status != "draft" {
+		t.Fatalf("config = %+v", cfg)
+	}
+	if cfg.Embed == nil || *cfg.Embed {
+		t.Fatalf("embed should decode to &false, got %v", cfg.Embed)
+	}
+}
+
+// UpdateApp PATCHes exactly the given keys and returns the stored app.
+func TestDashboard_UpdateApp_PatchesGivenKeysOnly(t *testing.T) {
+	var gotMethod string
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		if r.URL.Path != "/api/cli/v2/partners/p1/apps/cid_1" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"code": "Success",
+			"data": map[string]any{"app": map[string]any{"client_id": "cid_1", "name": "A",
+				"app_url": "https://n.dev/auth", "redirect_url": "https://old.dev/cb", "embed": false, "status": "draft"}},
+		})
+	}))
+	defer srv.Close()
+
+	d := NewDashboard(client.New(srv.URL), "partner_tok")
+	out, err := d.UpdateApp(context.Background(), "p1", "cid_1", map[string]any{"app_url": "https://n.dev/auth", "embed": false})
+	if err != nil {
+		t.Fatalf("UpdateApp: %v", err)
+	}
+	if gotMethod != http.MethodPatch {
+		t.Fatalf("method = %s, want PATCH", gotMethod)
+	}
+	if len(gotBody) != 2 || gotBody["app_url"] != "https://n.dev/auth" || gotBody["embed"] != false {
+		t.Fatalf("body = %v, want exactly app_url + embed", gotBody)
+	}
+	if out.AppURL != "https://n.dev/auth" || out.RedirectURL != "https://old.dev/cb" || out.PartnerID != "p1" {
+		t.Fatalf("out = %+v", out)
+	}
+}

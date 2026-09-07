@@ -168,6 +168,8 @@ shoplazza app list                              # 列出账户下的 App
 shoplazza app info                              # 查看 App 及扩展信息
 shoplazza app config use --config alt.toml      # 切换活跃 App 配置
 shoplazza app config link --client-id <id>      # 关联已有 App
+shoplazza app config push                       # 把 [dashboard]（name / app_url / redirect_url / embed）推送到 Partner 后台
+shoplazza app dev --write-urls                  # 同时把隧道 URL 写入 [dashboard]，随后用 app config push 同步
 
 # Function 扩展（单独编译/发布）
 shoplazza app function compile --extension my-fn

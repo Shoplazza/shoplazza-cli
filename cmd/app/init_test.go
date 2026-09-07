@@ -104,6 +104,10 @@ func TestRunInit_LinkExisting(t *testing.T) {
 	if cfg.PartnerID != "p1" {
 		t.Fatalf("partner_id not persisted into config: got %q, want p1", cfg.PartnerID)
 	}
+	// The app name lands in [dashboard] so a later `app config push` has it.
+	if cfg.Dashboard.Name != "MyApp" {
+		t.Fatalf("dashboard.name = %q, want MyApp", cfg.Dashboard.Name)
+	}
 	// The printed result echoes the resolved partner_id (no extra API call — it's
 	// the partner /info already derived during link).
 	var out map[string]any

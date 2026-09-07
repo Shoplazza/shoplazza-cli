@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
@@ -17,10 +19,13 @@ func TestDev_Flags(t *testing.T) {
 	// --client-id / --partner were removed: dev now reads both from the active
 	// config (partner is stored alongside client_id). --store-domain was removed
 	// too: dev always targets the current store.
-	for _, name := range []string{"path", "debug"} {
+	for _, name := range []string{"path", "debug", "write-urls"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Errorf("missing flag --%s", name)
 		}
+	}
+	if f := cmd.Flags().Lookup("write-urls"); f != nil && f.DefValue != "false" {
+		t.Errorf("--write-urls must default to off, got %q", f.DefValue)
 	}
 	for _, name := range []string{"client-id", "partner", "store-domain"} {
 		if cmd.Flags().Lookup(name) != nil {
@@ -146,4 +151,89 @@ func readEnv(t *testing.T, p string) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// writeDevURLs creates the section, overwrites on rerun, keeps other keys.
+func TestWriteDevURLs_CreatesMergesAndOverwrites(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "shoplazza.app.toml"),
+		[]byte("client_id = \"cid\"\nscopes = \"read\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := project.Open(root)
+
+	if err := writeDevURLs(p, "shoplazza.app.toml", "https://a.trycloudflare.com/auth", "https://a.trycloudflare.com/auth/callback"); err != nil {
+		t.Fatalf("writeDevURLs: %v", err)
+	}
+	cfg, _ := p.ReadConfig("shoplazza.app.toml")
+	if cfg.Dashboard.AppURL != "https://a.trycloudflare.com/auth" || cfg.Dashboard.RedirectURL != "https://a.trycloudflare.com/auth/callback" {
+		t.Fatalf("dashboard after first write = %+v", cfg.Dashboard)
+	}
+	if cfg.ClientID != "cid" || cfg.Scopes != "read" {
+		t.Fatalf("top-level keys must survive: %+v", cfg)
+	}
+
+	// User adds embed by hand, then a second dev session with a new tunnel.
+	if err := p.UpdateConfig("shoplazza.app.toml", map[string]any{project.DashboardKey: map[string]any{"embed": true}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeDevURLs(p, "shoplazza.app.toml", "https://b.trycloudflare.com/auth", "https://b.trycloudflare.com/auth/callback"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ = p.ReadConfig("shoplazza.app.toml")
+	if cfg.Dashboard.AppURL != "https://b.trycloudflare.com/auth" {
+		t.Fatalf("second write must overwrite, got %q", cfg.Dashboard.AppURL)
+	}
+	if cfg.Dashboard.Embed == nil || !*cfg.Dashboard.Embed {
+		t.Fatalf("embed must survive the URL rewrite, got %v", cfg.Dashboard.Embed)
+	}
+	raw, _ := os.ReadFile(filepath.Join(root, "shoplazza.app.toml"))
+	if n := strings.Count(string(raw), project.DashboardComment); n != 1 {
+		t.Fatalf("comment count = %d, want 1:\n%s", n, raw)
+	}
+	if n := strings.Count(string(raw), "app_url"); n != 1 {
+		t.Fatalf("app_url must appear once, got %d:\n%s", n, raw)
+	}
+}
+
+// writeDevURLs writes only the named config, leaving siblings alone.
+func TestWriteDevURLs_TargetsNamedConfig(t *testing.T) {
+	root := t.TempDir()
+	_ = os.WriteFile(filepath.Join(root, "shoplazza.app.toml"), []byte("client_id = \"base\"\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(root, "shoplazza.app.dev.toml"), []byte("client_id = \"dev\"\n"), 0o644)
+	p, _ := project.Open(root)
+	if err := writeDevURLs(p, "shoplazza.app.dev.toml", "https://t.dev/auth", "https://t.dev/auth/callback"); err != nil {
+		t.Fatal(err)
+	}
+	base, _ := p.ReadConfig("shoplazza.app.toml")
+	if base.Dashboard.AppURL != "" {
+		t.Fatalf("base config must be untouched: %+v", base.Dashboard)
+	}
+	dev, _ := p.ReadConfig("shoplazza.app.dev.toml")
+	if dev.Dashboard.AppURL != "https://t.dev/auth" {
+		t.Fatalf("named config not written: %+v", dev.Dashboard)
+	}
+}
+
+func TestDevNextSteps_TwoVariants(t *testing.T) {
+	res := app.DevResult{InstallURL: "https://install", AppURL: "https://t/auth", RedirectURL: "https://t/auth/callback"}
+	// Without --write-urls the text must not claim anything was written.
+	plain := devNextSteps(res, "/proj", "")
+	for _, want := range []string{"--write-urls", "cd /proj && shoplazza app config push", "https://t/auth", "https://t/auth/callback", "https://install"} {
+		if !strings.Contains(plain, want) {
+			t.Errorf("plain next steps missing %q:\n%s", want, plain)
+		}
+	}
+	if strings.Contains(plain, "written to") {
+		t.Errorf("plain next steps must not claim URLs were written:\n%s", plain)
+	}
+	written := devNextSteps(res, "/proj", "shoplazza.app.toml")
+	for _, want := range []string{"written to shoplazza.app.toml", "cd /proj && shoplazza app config push", "https://install"} {
+		if !strings.Contains(written, want) {
+			t.Errorf("write-urls next steps missing %q:\n%s", want, written)
+		}
+	}
+	if strings.Contains(written, "Redirect URL:") {
+		t.Errorf("write-urls variant should not repeat the URLs:\n%s", written)
+	}
 }

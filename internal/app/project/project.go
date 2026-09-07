@@ -31,7 +31,42 @@ type Config struct {
 	// Scopes is the space-separated OAuth scope string, e.g.
 	// "read_customer write_cart_transform". A legacy TOML array is also accepted.
 	Scopes string `toml:"scopes,omitempty"`
+	// Dashboard holds the fields `app config push` syncs; top-level keys stay local.
+	Dashboard Dashboard `toml:"dashboard,omitempty"`
 }
+
+// Dashboard is the [dashboard] section. Empty strings are skipped; Embed is a
+// pointer so false stays distinct from "not set".
+type Dashboard struct {
+	Name        string `toml:"name,omitempty"`
+	AppURL      string `toml:"app_url,omitempty"`
+	RedirectURL string `toml:"redirect_url,omitempty"`
+	Embed       *bool  `toml:"embed,omitempty"`
+}
+
+// Fields returns the keys that carry a value: non-empty strings, embed when set.
+func (d Dashboard) Fields() map[string]any {
+	m := map[string]any{}
+	if d.Name != "" {
+		m["name"] = d.Name
+	}
+	if d.AppURL != "" {
+		m["app_url"] = d.AppURL
+	}
+	if d.RedirectURL != "" {
+		m["redirect_url"] = d.RedirectURL
+	}
+	if d.Embed != nil {
+		m["embed"] = *d.Embed
+	}
+	return m
+}
+
+// DashboardKey is the TOML table name of the synced section.
+const DashboardKey = "dashboard"
+
+// DashboardComment is re-inserted above [dashboard] on every write.
+const DashboardComment = "# Synced to the Partner dashboard by 'shoplazza app config push'. An empty or missing field never clears the dashboard value."
 
 // DefaultScopes is the scope string the app template ships. `app config link`
 // writes it when neither the Dashboard nor the target config supplies scopes,
@@ -138,11 +173,12 @@ func (p *Project) ReadConfig(tomlName string) (Config, error) {
 		// instead of failing on string-vs-slice.
 		if joined, ok := scopesFromArray(path); ok {
 			var legacy struct {
-				ClientID  string `toml:"client_id"`
-				PartnerID string `toml:"partner_id"`
+				ClientID  string    `toml:"client_id"`
+				PartnerID string    `toml:"partner_id"`
+				Dashboard Dashboard `toml:"dashboard"`
 			}
 			if _, lErr := toml.DecodeFile(path, &legacy); lErr == nil {
-				return Config{ClientID: legacy.ClientID, PartnerID: legacy.PartnerID, Scopes: joined}, nil
+				return Config{ClientID: legacy.ClientID, PartnerID: legacy.PartnerID, Scopes: joined, Dashboard: legacy.Dashboard}, nil
 			}
 		}
 		return Config{}, err
@@ -172,20 +208,9 @@ func scopesFromArray(path string) (string, bool) {
 	return strings.Join(parts, " "), true
 }
 
-func (p *Project) WriteConfig(tomlName string, cfg Config) error {
-	if err := validateConfigName(tomlName); err != nil {
-		return err
-	}
-	var buf bytes.Buffer
-	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
-		return err
-	}
-	return fsx.WriteFileAtomic(filepath.Join(p.Root, tomlName), buf.Bytes(), 0o644)
-}
-
 // UpdateConfig sets the given keys in the toml file, preserving everything else
-// in it (the app template ships defaults — e.g. scopes — that a full overwrite
-// would erase). A missing file starts from empty.
+// in it. A missing file starts from empty. A map value merges one level deep
+// into an existing table; anything else replaces the key.
 func (p *Project) UpdateConfig(tomlName string, set map[string]any) error {
 	if err := validateConfigName(tomlName); err != nil {
 		return err
@@ -196,11 +221,40 @@ func (p *Project) UpdateConfig(tomlName string, set map[string]any) error {
 		return err
 	}
 	for k, v := range set {
+		newMap, isNewMap := v.(map[string]any)
+		oldMap, isOldMap := raw[k].(map[string]any)
+		if isNewMap && isOldMap {
+			for sk, sv := range newMap {
+				oldMap[sk] = sv
+			}
+			continue
+		}
 		raw[k] = v
 	}
 	var buf bytes.Buffer
 	if err := toml.NewEncoder(&buf).Encode(raw); err != nil {
 		return err
 	}
-	return fsx.WriteFileAtomic(path, buf.Bytes(), 0o644)
+	return fsx.WriteFileAtomic(path, annotateDashboard(buf.Bytes()), 0o644)
+}
+
+// annotateDashboard inserts DashboardComment above the [dashboard] header.
+func annotateDashboard(data []byte) []byte {
+	header := []byte("[" + DashboardKey + "]\n")
+	var i int
+	switch {
+	case bytes.HasPrefix(data, header):
+		i = 0
+	default:
+		j := bytes.Index(data, append([]byte("\n"), header...))
+		if j < 0 {
+			return data
+		}
+		i = j + 1
+	}
+	out := make([]byte, 0, len(data)+len(DashboardComment)+1)
+	out = append(out, data[:i]...)
+	out = append(out, DashboardComment...)
+	out = append(out, '\n')
+	return append(out, data[i:]...)
 }
