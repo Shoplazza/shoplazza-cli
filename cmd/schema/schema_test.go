@@ -185,9 +185,10 @@ func TestNewCmdSchema_ModulePathWithView_PrintsNote(t *testing.T) {
 	var errBuf bytes.Buffer
 	cmd.SetErr(&errBuf)
 	_ = cmd.Flags().Set("view", "request")
-	// A module-level path with --view triggers the note on stderr but should still succeed.
-	err := cmd.RunE(cmd, []string{"orders"})
-	if err != nil {
-		t.Logf("RunE returned %v (may be expected if orders module absent)", err)
+	// The note is printed before the spec lookup, so it lands whether or not
+	// the orders module resolves.
+	_ = cmd.RunE(cmd, []string{"orders"})
+	if !strings.Contains(errBuf.String(), "--view is only effective for leaf commands") {
+		t.Errorf("module path with --view must warn on stderr, got %q", errBuf.String())
 	}
 }

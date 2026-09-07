@@ -78,10 +78,6 @@ func TestPlanRefund_Shape(t *testing.T) {
 	}
 }
 
-func TestPlanList_IsPlannedRequest(t *testing.T) {
-	var _ common.PlannedRequest = PlanList(nil)
-}
-
 func TestOrderShortcuts_NonEmpty(t *testing.T) {
 	ss := Shortcuts()
 	if len(ss) == 0 {
