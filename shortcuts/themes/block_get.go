@@ -17,16 +17,12 @@ var blockGetShortcut = common.Shortcut{
 	Long: `Read a generated block inside an edit session.
 
 Without --section the output lists every placement (instances: template +
-target) with ref_count — the impact surface before an edit or delete.
+target) with ref_count — the impact surface before an edit or a delete. With
+--section it narrows to that section's instance (instance: template, target,
+settings), the three values "themes block +edit" takes; two placements in one
+section yield an array instead.
 
-With --section the output narrows to the instance in that section
-(instance: template, target, settings): the three values "themes block +edit"
-takes as --template / --target / --settings. Two placements in one section
-yield an array. Pass --template when the section is not among the block's
-recorded placements.
-
---with-content adds the liquid source (doc.content) and the display name
-parsed from its schema. --session is required (see "themes +page").`,
+--with-content also brings the display name parsed from the source.`,
 	Flags: []common.Flag{
 		{Name: "theme", Type: common.FlagString, Description: "Theme ID. Defaults to the published theme; required when the session is on another theme."},
 		{Name: "session", Type: common.FlagString, Required: true, Description: "Edit session id (oseid) from 'themes +page'."},

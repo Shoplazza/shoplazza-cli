@@ -49,10 +49,8 @@ failure does not stop or roll back the others. A partial failure returns an
 api error carrying per-op results; fix the failed ops and resend ONLY them
 with --session.
 
---promote saves the edit draft back onto the theme draft after all ops apply
-(reserve it for explicit user instruction; a conflict returns an api error
-with conflict=true and never forces). --publish then takes that draft live —
-it requires --promote, and a promote conflict stops the chain before it.
+A promote conflict returns an api error with conflict=true and never forces;
+it also stops --publish before anything goes live.
 
 "Already previewed, now ship it" is an empty batch: --ops '[]' with --session
 and --promote [--publish] skips the batch request entirely.`,

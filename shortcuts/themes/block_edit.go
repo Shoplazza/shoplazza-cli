@@ -19,36 +19,25 @@ var blockEditShortcut = common.Shortcut{
 	Long: `Write a generated block's liquid source inside an edit session and, when
 --template is given, place it on that page in the same call.
 
---id decides the mode:
-  omitted   create a new block file (the server names it); --target must be a
-            container path (<section_id>.blocks) and the instance is appended
-            there. Omit --target to wrap it in a new "_blocks" section.
-  given     update that block's source; --target must be the instance path
-            (<section_id>.blocks[N]) copied from "themes block +get --section".
-            The instance's current settings are read from the page and carried
-            onto the new schema (new fields take schema defaults). When the block
-            is referenced 2+ times the server branches it into a new file
-            (branched:true, previous_type); only the targeted instance switches,
-            the other references keep the old block.
+--id is the whole switch: without it the block is created and its instance
+appended, with it that block's source is rewritten. An update carries the
+instance's current settings onto the new schema (new fields take their schema
+default), and the server forks the file when the block is referenced 2+ times
+— only the targeted instance moves to the fork (branched:true,
+previous_type), every other reference keeps the old block.
 
---settings overrides the current values used for that migration (a JSON
-object, or a file). --ops merges extra setting keys into the placed instance
-as a second operation (only the keys to change). Omitting --template writes
-the file only (instance:null).
+A write that lands but fails to place returns an api error carrying
+stage:"place", block_type and revert_id: re-place it or revert the write
+("themes block revert-gen") rather than write again.
 
---session is required: create one with "themes +page" and reuse its oseid; pass
---theme when the session belongs to a theme other than the published one. Save
-or publish with "themes +edit --session <oseid> --ops '[]' --promote [--publish]".
-
-Placement failures after a successful write return an api error with
-stage:"place" plus block_type and revert_id, so the write can be re-placed
-or reverted (themes block revert-gen) rather than repeated.`,
+Saving and publishing stay with the shared session:
+"themes +edit --session <oseid> --ops '[]' --promote [--publish]".`,
 	Flags: []common.Flag{
 		{Name: "theme", Type: common.FlagString, Description: "Theme ID. Defaults to the published theme; required when the session is on another theme."},
 		{Name: "session", Type: common.FlagString, Required: true, Description: "Edit session id (oseid) from 'themes +page'."},
 		{Name: "id", Type: common.FlagString, Description: "Block id to update (file name without extension, e.g. gen_1a0d523). Omit to create."},
 		{Name: "template", Type: common.FlagString, Description: "Template page to place the block on, e.g. index / product. Omit to write the file only."},
-		{Name: "target", Type: common.FlagString, Description: "Where to place: a container path (<sid>.blocks) when creating, the instance path (<sid>.blocks[N]) when updating."},
+		{Name: "target", Type: common.FlagString, Description: "Where to place: a container path (<sid>.blocks) when creating, the instance path (<sid>.blocks[N]) when updating. Omit when creating and a \"_blocks\" container is added for it."},
 		{Name: "content", Type: common.FlagString, Required: true, Description: "Liquid source: a file path, or '-' for stdin. Must contain a {% schema %} tag."},
 		{Name: "settings", Type: common.FlagString, Description: "Update only: the instance's current settings (JSON object or file). Defaults to the values read from --target."},
 		{Name: "ops", Type: common.FlagString, Description: "Setting keys to change on the placed instance (JSON object or file), merged server-side. Requires --template and --target."},
