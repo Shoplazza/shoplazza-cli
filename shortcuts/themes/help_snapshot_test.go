@@ -2,6 +2,7 @@ package themes
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -47,6 +48,21 @@ func helpFor(t *testing.T, cmdPath ...string) string {
 		t.Fatalf("root.Execute(%v) returned error: %v", args, err)
 	}
 	return buf.String()
+}
+
+// shortcutFlags binds a shortcut's own flag declarations the way Mount does —
+// same names, same defaults — then sets vals on the result.
+func shortcutFlags(t *testing.T, sc common.Shortcut, vals map[string]any) common.FlagSet {
+	t.Helper()
+	parent := &cobra.Command{Use: "parent"}
+	common.Mount(sc, parent, &cmdutil.Factory{})
+	cmd := parent.Commands()[0]
+	for k, v := range vals {
+		if err := cmd.Flags().Set(k, fmt.Sprint(v)); err != nil {
+			t.Fatalf("set flag %s: %v", k, err)
+		}
+	}
+	return common.NewCobraFlagSet(cmd)
 }
 
 func TestHelp_Init(t *testing.T) {
@@ -145,15 +161,34 @@ func TestHelp_Serve_ThemeIDFlagIsOptional(t *testing.T) {
 	}
 }
 
-func TestHelp_BlockEdit(t *testing.T) {
-	out := helpFor(t, "themes", "block", "+edit")
-	for _, want := range []string{"+edit", "--session", "--content", "--id", "--template", "--target", "--settings", "--ops", "branched", "revert-gen"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("block +edit help missing %q in:\n%s", want, out)
-		}
+// TestHelp_BlockCommands checks each +command's help resolves through its own
+// Service path: the page-editing +edit stays under themes, the block-editing
+// one under themes block, and neither shadows the other.
+func TestHelp_BlockCommands(t *testing.T) {
+	cases := []struct {
+		path   []string
+		want   []string
+		absent string // must not appear among the flags
+	}{
+		{[]string{"themes", "block", "+edit"},
+			[]string{"+edit", "--session", "--content", "--id", "--template", "--target", "--settings", "--ops", "branched", "revert-gen"},
+			"--promote"}, // saving is themes +edit's job
+		{[]string{"themes", "block", "+get"},
+			[]string{"+get", "--session", "--id", "--section", "--template", "--with-content", "ref_count"}, ""},
+		{[]string{"themes", "+edit"}, []string{"--ops", "--promote"}, "--content"},
 	}
-	if flags := flagsSection(out); strings.Contains(flags, "--promote") {
-		t.Errorf("block +edit must not expose --promote (saving is themes +edit's job):\n%s", flags)
+	for _, c := range cases {
+		t.Run(strings.Join(c.path, " "), func(t *testing.T) {
+			out := helpFor(t, c.path...)
+			for _, want := range c.want {
+				if !strings.Contains(out, want) {
+					t.Errorf("help missing %q in:\n%s", want, out)
+				}
+			}
+			if flags := flagsSection(out); c.absent != "" && strings.Contains(flags, c.absent) {
+				t.Errorf("help must not expose %s:\n%s", c.absent, flags)
+			}
+		})
 	}
 }
 
@@ -163,26 +198,4 @@ func flagsSection(out string) string {
 		return out[i:]
 	}
 	return ""
-}
-
-func TestHelp_BlockGet(t *testing.T) {
-	out := helpFor(t, "themes", "block", "+get")
-	for _, want := range []string{"+get", "--session", "--id", "--section", "--template", "--with-content", "ref_count"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("block +get help missing %q in:\n%s", want, out)
-		}
-	}
-}
-
-// TestHelp_EditIsTopLevelOnly: the page-editing +edit stays under themes, the
-// block-editing +edit under themes block — the two must not shadow each other.
-func TestHelp_EditIsTopLevelOnly(t *testing.T) {
-	top := helpFor(t, "themes", "+edit")
-	if !strings.Contains(top, "--ops") || !strings.Contains(top, "--promote") {
-		t.Errorf("themes +edit help lost its flags:\n%s", top)
-	}
-	block := flagsSection(helpFor(t, "themes", "block", "+edit"))
-	if strings.Contains(block, "--promote") || !strings.Contains(block, "--content") {
-		t.Errorf("themes block +edit help resolved to the wrong command:\n%s", block)
-	}
 }

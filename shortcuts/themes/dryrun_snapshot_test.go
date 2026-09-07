@@ -80,7 +80,7 @@ func plansToMap(plans []common.PlannedRequest) map[string]any {
 func TestSnapshot_InitDryRun(t *testing.T) {
 	in := common.ExecInput{
 		DryRun: true,
-		Flags:  flagsWithName("my-shop"),
+		Flags:  flagsWithName(t, "my-shop"),
 	}
 	var res common.ExecResult
 	var execErr error
@@ -101,7 +101,7 @@ func TestSnapshot_PackageDryRun(t *testing.T) {
 	writeSettings(t, dir, "X", "1.0")
 	t.Chdir(dir)
 
-	in := common.ExecInput{DryRun: true, Flags: flagsWithNoIgnore(false)}
+	in := common.ExecInput{DryRun: true, Flags: flagsWithNoIgnore(t, false)}
 	var res common.ExecResult
 	var execErr error
 	captureStderr(t, func() {
@@ -121,7 +121,7 @@ func TestSnapshot_PackageDryRun(t *testing.T) {
 // TestSnapshot_PullDryRun locks pull's 2-plan dry-run shape (PlanDetail v2 +
 // PlanDownload v1).
 func TestSnapshot_PullDryRun(t *testing.T) {
-	in := common.ExecInput{DryRun: true, Flags: pullFlags("abc")}
+	in := common.ExecInput{DryRun: true, Flags: pullFlags(t, "abc")}
 	res, err := pullShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Execute err: %v", err)
@@ -138,7 +138,7 @@ func TestSnapshot_PushDryRun(t *testing.T) {
 	writeSettings(t, dir, "X", "1.0")
 	t.Chdir(dir)
 
-	in := common.ExecInput{DryRun: true, Flags: pushFlags("abc")}
+	in := common.ExecInput{DryRun: true, Flags: pushFlags(t, "abc")}
 	res, err := pushShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Execute err: %v", err)
@@ -154,7 +154,7 @@ func TestSnapshot_ShareDryRun(t *testing.T) {
 	writeSettings(t, dir, "X", "1.0")
 	t.Chdir(dir)
 
-	in := common.ExecInput{DryRun: true, Flags: shareFlags()}
+	in := common.ExecInput{DryRun: true, Flags: shareFlags(t)}
 	res, err := shareShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Execute err: %v", err)
@@ -171,7 +171,7 @@ func TestSnapshot_ServeDryRun(t *testing.T) {
 	writeSettings(t, dir, "X", "1.0")
 	t.Chdir(dir)
 
-	in := common.ExecInput{DryRun: true, Flags: serveFlags("abc", 21647)}
+	in := common.ExecInput{DryRun: true, Flags: serveFlags(t, "abc", 21647)}
 	res, err := serveShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Execute err: %v", err)

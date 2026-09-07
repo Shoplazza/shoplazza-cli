@@ -11,29 +11,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 func editFlags(t *testing.T, vals map[string]any) common.FlagSet {
-	t.Helper()
-	cmd := &cobra.Command{Use: "+edit"}
-	cmd.Flags().String("template", "", "")
-	cmd.Flags().String("file", "", "")
-	cmd.Flags().String("theme", "", "")
-	cmd.Flags().String("session", "", "")
-	cmd.Flags().String("ops", "", "")
-	cmd.Flags().Bool("promote", false, "")
-	cmd.Flags().Bool("publish", false, "")
-	for k, v := range vals {
-		if err := cmd.Flags().Set(k, fmt.Sprint(v)); err != nil {
-			t.Fatalf("set flag %s: %v", k, err)
-		}
-	}
-	return common.NewCobraFlagSet(cmd)
+	return shortcutFlags(t, editShortcut, vals)
 }
 
 // editServer fakes the whole +edit endpoint family and records every write

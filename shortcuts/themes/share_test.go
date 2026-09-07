@@ -11,14 +11,12 @@ import (
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
-
-	"github.com/spf13/cobra"
 )
 
 // shareFlags builds an empty FlagSet for the share shortcut, which has no
 // flags of its own — it always uploads the cwd as a fresh temporary theme.
-func shareFlags() common.FlagSet {
-	return common.NewCobraFlagSet(&cobra.Command{Use: "share"})
+func shareFlags(t *testing.T) common.FlagSet {
+	return shortcutFlags(t, shareShortcut, nil)
 }
 
 // TestShare_DryRunEmitsBothV1Plans: dry-run must emit exactly 2 planned
@@ -32,7 +30,7 @@ func TestShare_DryRunEmitsBothV1Plans(t *testing.T) {
 
 	res, err := shareShortcut.Execute(context.Background(), common.ExecInput{
 		DryRun: true,
-		Flags:  shareFlags(),
+		Flags:  shareFlags(t),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +62,7 @@ func TestShare_NoPlannedRequestHasShareEndpoint(t *testing.T) {
 
 	res, err := shareShortcut.Execute(context.Background(), common.ExecInput{
 		DryRun: true,
-		Flags:  shareFlags(),
+		Flags:  shareFlags(t),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +105,7 @@ func TestShare_LiveModePrintsPreviewURL(t *testing.T) {
 
 	res, err := shareShortcut.Execute(context.Background(), common.ExecInput{
 		Client: client.New(srv.URL),
-		Flags:  shareFlags(),
+		Flags:  shareFlags(t),
 	})
 	if err != nil {
 		t.Fatalf("live mode err: %v", err)
@@ -167,7 +165,7 @@ func TestShare_AsyncTaskResolvesThemeID(t *testing.T) {
 
 	res, err := shareShortcut.Execute(context.Background(), common.ExecInput{
 		Client: client.New(srv.URL),
-		Flags:  shareFlags(),
+		Flags:  shareFlags(t),
 	})
 	if err != nil {
 		t.Fatalf("async share err: %v", err)
@@ -219,7 +217,7 @@ func TestShare_NoTaskPolling(t *testing.T) {
 
 	_, err := shareShortcut.Execute(context.Background(), common.ExecInput{
 		Client: client.New(srv.URL),
-		Flags:  shareFlags(),
+		Flags:  shareFlags(t),
 	})
 	if err != nil {
 		t.Fatalf("share err: %v", err)
@@ -257,7 +255,7 @@ func TestShare_EmptyResolvedThemeIDErrors(t *testing.T) {
 
 	_, err := shareShortcut.Execute(context.Background(), common.ExecInput{
 		Client: client.New(srv.URL),
-		Flags:  shareFlags(),
+		Flags:  shareFlags(t),
 	})
 	if err == nil {
 		t.Fatal("expected error when no theme id can be resolved (broken preview URL otherwise)")

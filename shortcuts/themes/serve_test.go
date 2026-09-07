@@ -23,18 +23,13 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/pack"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/watch"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
-
-	"github.com/spf13/cobra"
 )
 
-// serveFlags builds a FlagSet over a cobra command with both --theme-id and
-// --port. Mirrors pushFlags / shareFlags. Passing themeID=""
-// selects development-theme mode (create-or-reuse a per-directory dev theme).
-func serveFlags(themeID string, port int) common.FlagSet {
-	cmd := &cobra.Command{Use: "serve"}
-	cmd.Flags().StringP("theme-id", "t", themeID, "")
-	cmd.Flags().Int("port", port, "")
-	return common.NewCobraFlagSet(cmd)
+// serveFlags builds a serve FlagSet carrying --theme-id and --port. Passing
+// themeID="" selects development-theme mode (create-or-reuse a per-directory
+// dev theme).
+func serveFlags(t *testing.T, themeID string, port int) common.FlagSet {
+	return shortcutFlags(t, serveShortcut, map[string]any{"theme-id": themeID, "port": port})
 }
 
 // ─────────── development-theme mode (--theme-id omitted) ───────────
@@ -122,7 +117,7 @@ func TestServe_NoThemeID_CreatesDevThemeAndSavesState(t *testing.T) {
 	srv := httptest.NewServer(rec)
 	t.Cleanup(srv.Close)
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags("", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0)); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 
@@ -169,7 +164,7 @@ func TestServe_NoThemeID_ReusesSavedDevTheme(t *testing.T) {
 		t.Fatalf("seed state: %v", err)
 	}
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags("", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0)); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 
@@ -225,7 +220,7 @@ func TestServe_NoThemeID_RecreatesWhenSavedThemeGone(t *testing.T) {
 		t.Fatalf("seed state: %v", err)
 	}
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags("", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0)); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 
@@ -256,7 +251,7 @@ func TestServe_DryRun_DevModeNoState(t *testing.T) {
 
 	res, err := serveShortcut.Execute(context.Background(), common.ExecInput{
 		DryRun: true,
-		Flags:  serveFlags("", 21647),
+		Flags:  serveFlags(t, "", 21647),
 	})
 	if err != nil {
 		t.Fatalf("dry-run err: %v", err)
@@ -301,7 +296,7 @@ func TestServe_DryRunDoesNotStartWatcherOrServer(t *testing.T) {
 
 	res, err := serveShortcut.Execute(context.Background(), common.ExecInput{
 		DryRun: true,
-		Flags:  serveFlags("abc", 21647),
+		Flags:  serveFlags(t, "abc", 21647),
 	})
 	if err != nil {
 		t.Fatalf("dry-run err: %v", err)
@@ -362,7 +357,7 @@ func TestServe_DoesNotModifyThemeFiles(t *testing.T) {
 	go func() {
 		_, e := serveShortcut.Execute(ctx, common.ExecInput{
 			Client: client.New(srv.URL),
-			Flags:  serveFlags("abc", 0),
+			Flags:  serveFlags(t, "abc", 0),
 		})
 		done <- e
 	}()
@@ -441,7 +436,7 @@ func TestServe_HTTPSyncFailureKeepsWatching(t *testing.T) {
 	go func() {
 		_, e := serveShortcut.Execute(ctx, common.ExecInput{
 			Client: client.New(srv.URL),
-			Flags:  serveFlags("abc", 0),
+			Flags:  serveFlags(t, "abc", 0),
 		})
 		done <- e
 	}()
@@ -760,7 +755,7 @@ func TestBuildWatchFilter_HonorsThemeignore(t *testing.T) {
 func TestServe_InvalidLiveReloadPortIsValidationError(t *testing.T) {
 	for _, port := range []int{-1, 65536, 99999} {
 		_, err := serveShortcut.Execute(context.Background(), common.ExecInput{
-			Flags: serveFlags("abc", port),
+			Flags: serveFlags(t, "abc", port),
 		})
 		if err == nil {
 			t.Fatalf("port %d: expected validation error", port)
@@ -781,7 +776,7 @@ func TestServe_InvalidLiveReloadPortIsValidationError(t *testing.T) {
 // paths; junk like "../x" must be rejected up front.
 func TestServe_InvalidThemeIDIsValidationError(t *testing.T) {
 	_, err := serveShortcut.Execute(context.Background(), common.ExecInput{
-		Flags: serveFlags("../x", 0),
+		Flags: serveFlags(t, "../x", 0),
 	})
 	if err == nil {
 		t.Fatal("expected validation error for malformed theme id")

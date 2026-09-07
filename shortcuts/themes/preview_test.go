@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
@@ -14,13 +12,8 @@ import (
 // TestPreviewDerivesDomainFromClient asserts the store domain comes from the
 // client base URL and that no API call is made.
 func TestPreviewDerivesDomainFromClient(t *testing.T) {
-	cmd := &cobra.Command{Use: "+preview"}
-	cmd.Flags().String("theme-id", "abc", "")
-	cmd.Flags().String("oseid", "", "")
-	cmd.Flags().String("path", "/", "")
-	cmd.Flags().String("locale", "", "")
 	in := common.ExecInput{
-		Flags:  common.NewCobraFlagSet(cmd),
+		Flags:  shortcutFlags(t, previewShortcut, map[string]any{"theme-id": "abc"}),
 		Client: client.New("https://demo.myshoplaza.com"),
 	}
 

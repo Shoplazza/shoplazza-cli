@@ -10,17 +10,12 @@ import (
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
-
-	"github.com/spf13/cobra"
 )
 
-// flagsWithNoIgnore builds a FlagSet over a freshly-constructed cobra command
-// so that GetBool("no-ignore") returns the supplied value. Mirrors the
-// flagsWithName helper used by init_test.go for symmetry.
-func flagsWithNoIgnore(noIgnore bool) common.FlagSet {
-	cmd := &cobra.Command{Use: "package"}
-	cmd.Flags().Bool("no-ignore", noIgnore, "")
-	return common.NewCobraFlagSet(cmd)
+// flagsWithNoIgnore builds a package FlagSet whose GetBool("no-ignore")
+// returns the supplied value.
+func flagsWithNoIgnore(t *testing.T, noIgnore bool) common.FlagSet {
+	return shortcutFlags(t, packageShortcut, map[string]any{"no-ignore": noIgnore})
 }
 
 // makeThemeAt populates dir with a minimal but valid theme directory
@@ -159,7 +154,7 @@ func TestPackage_FilenameFromThemeInfo(t *testing.T) {
 	t.Chdir(tmp)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(false),
+		Flags:  flagsWithNoIgnore(t, false),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -196,7 +191,7 @@ func TestPackage_FallbackNameToCwd(t *testing.T) {
 	t.Chdir(dir)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(false),
+		Flags:  flagsWithNoIgnore(t, false),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -220,7 +215,7 @@ func TestPackage_FallbackVersionToUnknown(t *testing.T) {
 	t.Chdir(tmp)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(false),
+		Flags:  flagsWithNoIgnore(t, false),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -243,7 +238,7 @@ func TestPackage_SettingsMissingExitsValidation(t *testing.T) {
 	t.Chdir(tmp)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(false),
+		Flags:  flagsWithNoIgnore(t, false),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -272,7 +267,7 @@ func TestPackage_ThemeignoreAutoDetect(t *testing.T) {
 	t.Chdir(tmp)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(false),
+		Flags:  flagsWithNoIgnore(t, false),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -302,7 +297,7 @@ func TestPackage_NoIgnoreForcesV1Behavior(t *testing.T) {
 	t.Chdir(tmp)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(true),
+		Flags:  flagsWithNoIgnore(t, true),
 		Tool:   "package",
 		DryRun: false,
 	}

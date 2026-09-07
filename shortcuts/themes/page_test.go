@@ -14,31 +14,13 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
-// pageFlags builds a FlagSet mirroring the +page flag declarations.
 func pageFlags(t *testing.T, vals map[string]any) common.FlagSet {
-	t.Helper()
-	cmd := &cobra.Command{Use: "+page"}
-	cmd.Flags().String("template", "", "")
-	cmd.Flags().String("file", "", "")
-	cmd.Flags().String("theme", "", "")
-	cmd.Flags().String("session", "", "")
-	cmd.Flags().String("area", "all", "")
-	cmd.Flags().String("section", "", "")
-	cmd.Flags().String("include", "", "")
-	cmd.Flags().Bool("list", false, "")
-	for k, v := range vals {
-		if err := cmd.Flags().Set(k, fmt.Sprint(v)); err != nil {
-			t.Fatalf("set flag %s: %v", k, err)
-		}
-	}
-	return common.NewCobraFlagSet(cmd)
+	return shortcutFlags(t, pageShortcut, vals)
 }
 
 // pageServerCounters tracks which endpoints the fake server saw.

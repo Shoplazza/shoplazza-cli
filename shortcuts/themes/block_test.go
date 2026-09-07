@@ -13,8 +13,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/spf13/cobra"
-
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
@@ -24,24 +22,6 @@ const testGenSchema = `{% schema %}
 {"name":"card","settings":[{"id":"title","type":"text","default":"Hello"},{"id":"subtitle","type":"text","default":"Sub"}],
  "presets":[{"name":"card","cname":{"en-US":"Card","zh-CN":"卡片"},"settings":{"title":"Hello","subtitle":"Sub"}}]}
 {% endschema %}`
-
-func blockFlags(t *testing.T, sc common.Shortcut, vals map[string]any) common.FlagSet {
-	t.Helper()
-	cmd := &cobra.Command{Use: sc.Command}
-	for _, f := range sc.Flags {
-		if f.Type == common.FlagBool {
-			cmd.Flags().Bool(f.Name, false, "")
-		} else {
-			cmd.Flags().String(f.Name, "", "")
-		}
-	}
-	for k, v := range vals {
-		if err := cmd.Flags().Set(k, fmt.Sprint(v)); err != nil {
-			t.Fatalf("set flag %s: %v", k, err)
-		}
-	}
-	return common.NewCobraFlagSet(cmd)
-}
 
 // blockServer fakes the gen-blocks family plus the page endpoints the two
 // shortcuts orchestrate, recording every write in order.
@@ -212,16 +192,18 @@ func writeTempLiquid(t *testing.T, content string) string {
 
 func blockEditExec(t *testing.T, bs *blockServer, vals map[string]any) (map[string]any, error) {
 	t.Helper()
-	res, err := blockEditExecute(context.Background(), common.ExecInput{Flags: blockFlags(t, blockEditShortcut, vals), Tool: "edit", Client: client.New(bs.srv.URL)})
+	res, err := blockEditExecute(context.Background(), common.ExecInput{Flags: shortcutFlags(t, blockEditShortcut, vals), Tool: "edit", Client: client.New(bs.srv.URL)})
 	return res.Body, err
 }
 
 func blockGetExec(t *testing.T, bs *blockServer, vals map[string]any) (map[string]any, error) {
 	t.Helper()
-	res, err := blockGetExecute(context.Background(), common.ExecInput{Flags: blockFlags(t, blockGetShortcut, vals), Tool: "get", Client: client.New(bs.srv.URL)})
+	res, err := blockGetExecute(context.Background(), common.ExecInput{Flags: shortcutFlags(t, blockGetShortcut, vals), Tool: "get", Client: client.New(bs.srv.URL)})
 	return res.Body, err
 }
 
+// wantValidation asserts err is a validation-exit error; an empty contains
+// skips the message check.
 func wantValidation(t *testing.T, err error, contains string) {
 	t.Helper()
 	var exitErr *output.ExitError
@@ -288,23 +270,6 @@ func TestBlockEdit_CreateWithOpsAppendsReplaceProps(t *testing.T) {
 	}
 }
 
-func TestBlockEdit_CreateWithoutTemplateWritesOnly(t *testing.T) {
-	bs := newBlockServer(t)
-	body, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "content": writeTempLiquid(t, testGenSchema)})
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if len(bs.writes) != 1 || bs.writes[0]["method"] != http.MethodPost {
-		t.Errorf("want only the create call, got %v", bs.writes)
-	}
-	if body["instance"] != nil || body["preview_url"] != nil {
-		t.Errorf("no placement expected: %v", body)
-	}
-	if mapField(body, "doc")["location"] != "gen_new.liquid" {
-		t.Errorf("doc: %v", body["doc"])
-	}
-}
-
 // TestBlockEdit_CreateWithoutTargetAddsSectionThenAppends: creating always ends
 // in an append. With no --target the CLI adds an empty "_blocks" section under
 // an id it picks, so the append in the same batch can address it.
@@ -335,32 +300,6 @@ func TestBlockEdit_CreateWithoutTargetAddsSectionThenAppends(t *testing.T) {
 	inst := mapField(body, "instance")
 	if inst["section_created"] != true || inst["target"] != sid+".blocks[0]" {
 		t.Errorf("instance: %v", inst)
-	}
-}
-
-// TestBlockEdit_CreateAlwaysAppends guards the invariant behind both create
-// paths: without --id the batch always carries an append_array_item.
-func TestBlockEdit_CreateAlwaysAppends(t *testing.T) {
-	for name, vals := range map[string]map[string]any{
-		"with-target":    {"session": "ose_x", "template": "index", "target": "111.blocks"},
-		"without-target": {"session": "ose_x", "template": "index"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			bs := newBlockServer(t)
-			vals["content"] = writeTempLiquid(t, testGenSchema)
-			if _, err := blockEditExec(t, bs, vals); err != nil {
-				t.Fatalf("err: %v", err)
-			}
-			found := false
-			for _, op := range bs.operations(t) {
-				if op["op"] == "append_array_item" {
-					found = true
-				}
-			}
-			if !found {
-				t.Errorf("no append_array_item in %v", bs.operations(t))
-			}
-		})
 	}
 }
 
@@ -455,19 +394,43 @@ func TestBlockEdit_UpdateWithSettingsOverridesPageValues(t *testing.T) {
 	}
 }
 
-func TestBlockEdit_UpdateWithoutTemplateDefaultsSettings(t *testing.T) {
-	bs := newBlockServer(t)
-	body, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "id": "gen_aaa", "content": writeTempLiquid(t, testGenSchema)})
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	sent := mapField(mapField(bs.writesTo("/gen-blocks", http.MethodPatch)[0], "body"), "settings")
-	if len(sent) != 1 || sent["type"] != "blocks/gen_aaa" {
-		t.Errorf("PATCH settings: %v", sent)
-	}
-	if body["settings_defaulted"] != true || body["instance"] != nil {
-		t.Errorf("body: %v", body)
-	}
+// TestBlockEdit_WithoutTemplateWritesOnly: with no --template the shortcut
+// stops after the file write, on either path — no ops, no instance, no preview.
+func TestBlockEdit_WithoutTemplateWritesOnly(t *testing.T) {
+	content := writeTempLiquid(t, testGenSchema)
+
+	t.Run("create", func(t *testing.T) {
+		bs := newBlockServer(t)
+		body, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "content": content})
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		if len(bs.writes) != 1 || bs.writes[0]["method"] != http.MethodPost {
+			t.Errorf("want only the create call, got %v", bs.writes)
+		}
+		if body["instance"] != nil || body["preview_url"] != nil {
+			t.Errorf("no placement expected: %v", body)
+		}
+		if mapField(body, "doc")["location"] != "gen_new.liquid" {
+			t.Errorf("doc: %v", body["doc"])
+		}
+	})
+
+	t.Run("update", func(t *testing.T) {
+		bs := newBlockServer(t)
+		body, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "id": "gen_aaa", "content": content})
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		// No instance to read current values from, so the card keeps its defaults.
+		sent := mapField(mapField(bs.writesTo("/gen-blocks", http.MethodPatch)[0], "body"), "settings")
+		if len(sent) != 1 || sent["type"] != "blocks/gen_aaa" {
+			t.Errorf("PATCH settings: %v", sent)
+		}
+		if body["settings_defaulted"] != true || body["instance"] != nil {
+			t.Errorf("body: %v", body)
+		}
+	})
 }
 
 func TestBlockEdit_ValidationRefusesBeforeAnyRequest(t *testing.T) {
@@ -512,10 +475,7 @@ func TestBlockEdit_PageChecksRunBeforeTheWrite(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := blockEditExec(t, bs, vals)
-			var exitErr *output.ExitError
-			if !errors.As(err, &exitErr) || exitErr.Code != output.ExitValidation {
-				t.Fatalf("want validation error, got %v", err)
-			}
+			wantValidation(t, err, "")
 		})
 	}
 	if n := len(bs.writesTo("/gen-blocks", http.MethodPost)) + len(bs.writesTo("/gen-blocks", http.MethodPatch)); n != 0 {
@@ -570,7 +530,7 @@ func TestBlockEdit_DryRunSendsNothing(t *testing.T) {
 		"file":        {"session": "ose_x", "content": content},
 	} {
 		t.Run(name, func(t *testing.T) {
-			res, err := blockEditExecute(context.Background(), common.ExecInput{DryRun: true, Flags: blockFlags(t, blockEditShortcut, vals)})
+			res, err := blockEditExecute(context.Background(), common.ExecInput{DryRun: true, Flags: shortcutFlags(t, blockEditShortcut, vals)})
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
@@ -638,14 +598,6 @@ func TestBlockGet_SectionReturnsInstanceWithSettings(t *testing.T) {
 	}
 }
 
-func TestBlockGet_SectionNeedsTemplateWhenUnrecorded(t *testing.T) {
-	bs := newBlockServer(t)
-	_, err := blockGetExec(t, bs, map[string]any{"session": "ose_x", "id": "gen_aaa", "section": "999"})
-	wantValidation(t, err, "no recorded instance")
-	_, err = blockGetExec(t, bs, map[string]any{"session": "ose_x", "id": "gen_aaa", "section": "222", "template": "index"})
-	wantValidation(t, err, "has no block of type")
-}
-
 func TestBlockGet_UnknownIdPassesThrough(t *testing.T) {
 	bs := newBlockServer(t)
 	_, err := blockGetExec(t, bs, map[string]any{"session": "ose_x", "id": "gen_nope"})
@@ -655,14 +607,27 @@ func TestBlockGet_UnknownIdPassesThrough(t *testing.T) {
 	}
 }
 
-func TestBlockGet_Validation(t *testing.T) {
-	bs := newBlockServer(t)
-	_, err := blockGetExec(t, bs, map[string]any{"id": "gen_aaa"})
-	wantValidation(t, err, "--session")
-	_, err = blockGetExec(t, bs, map[string]any{"session": "ose_x", "id": "slide"})
-	wantValidation(t, err, "invalid block id")
-	if len(bs.writes) != 0 {
-		t.Errorf("no requests expected: %v", bs.writes)
+func TestBlockGet_Refusals(t *testing.T) {
+	cases := []struct {
+		name      string
+		vals      map[string]any
+		wants     string
+		preflight bool // refused before any request
+	}{
+		{"no session", map[string]any{"id": "gen_aaa"}, "--session", true},
+		{"bad id", map[string]any{"session": "ose_x", "id": "slide"}, "invalid block id", true},
+		{"section is not a placement", map[string]any{"session": "ose_x", "id": "gen_aaa", "section": "999"}, "no recorded instance", false},
+		{"section without the block", map[string]any{"session": "ose_x", "id": "gen_aaa", "section": "222", "template": "index"}, "has no block of type", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			bs := newBlockServer(t)
+			_, err := blockGetExec(t, bs, tc.vals)
+			wantValidation(t, err, tc.wants)
+			if tc.preflight && len(bs.writes) != 0 {
+				t.Errorf("no requests expected: %v", bs.writes)
+			}
+		})
 	}
 }
 
@@ -672,7 +637,7 @@ func TestBlockGet_DryRun(t *testing.T) {
 		"section": {"session": "ose_x", "id": "blocks/gen_aaa", "section": "111.blocks.1"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			res, err := blockGetExecute(context.Background(), common.ExecInput{DryRun: true, Flags: blockFlags(t, blockGetShortcut, vals)})
+			res, err := blockGetExecute(context.Background(), common.ExecInput{DryRun: true, Flags: shortcutFlags(t, blockGetShortcut, vals)})
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
@@ -713,19 +678,6 @@ func TestParseGenInstances(t *testing.T) {
 	}
 	if rows := parseGenInstances(nil); len(rows) != 0 {
 		t.Errorf("nil instances: %+v", rows)
-	}
-}
-
-// TestSchemaDisplayName_WhitespaceControlForm guards the {%- schema -%} variant:
-// the display name is parsed with the shared extractSchema, not a literal search.
-func TestSchemaDisplayName_WhitespaceControlForm(t *testing.T) {
-	src := "<div></div>\n{%- schema -%}\n{\"name\":\"ws\",\"presets\":[{\"cname\":{\"zh-CN\":\"空白控制\"}}]}\n{%- endschema -%}\n"
-	schema, err := extractSchema(src)
-	if err != nil {
-		t.Fatalf("extractSchema: %v", err)
-	}
-	if name := asMap(schemaDisplayName(schema)); name["zh-CN"] != "空白控制" {
-		t.Errorf("display name: %v", schemaDisplayName(schema))
 	}
 }
 

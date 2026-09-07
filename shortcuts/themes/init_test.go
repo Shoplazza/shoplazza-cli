@@ -14,17 +14,12 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/pack"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
-
-	"github.com/spf13/cobra"
 )
 
-// flagsWithName builds a FlagSet over a freshly-constructed cobra command so
-// that GetString("name") returns the supplied value. Empty name means the flag
-// is registered but defaulted to "" (mirrors the missing-flag case).
-func flagsWithName(name string) common.FlagSet {
-	cmd := &cobra.Command{Use: "init"}
-	cmd.Flags().String("name", name, "")
-	return common.NewCobraFlagSet(cmd)
+// flagsWithName builds an init FlagSet whose GetString("name") returns the
+// supplied value; an empty name mirrors the missing-flag case.
+func flagsWithName(t *testing.T, name string) common.FlagSet {
+	return shortcutFlags(t, initShortcut, map[string]any{"name": name})
 }
 
 // captureStderr swaps os.Stderr for a pipe while fn runs, returns everything
@@ -56,7 +51,7 @@ func TestInit_DryRunPrintsCdHintToStderr(t *testing.T) {
 	stderr := captureStderr(t, func() {
 		in := common.ExecInput{
 			Args:   nil,
-			Flags:  flagsWithName("my-shop"),
+			Flags:  flagsWithName(t, "my-shop"),
 			Tool:   "init",
 			DryRun: true,
 		}
@@ -94,7 +89,7 @@ func TestInit_NameRequired(t *testing.T) {
 	var execErr error
 	_ = captureStderr(t, func() {
 		in := common.ExecInput{
-			Flags:  flagsWithName(""),
+			Flags:  flagsWithName(t, ""),
 			Tool:   "init",
 			DryRun: true,
 		}
@@ -115,7 +110,7 @@ func TestInit_RejectsUnsafeNames(t *testing.T) {
 		var execErr error
 		_ = captureStderr(t, func() {
 			_, execErr = initShortcut.Execute(context.Background(), common.ExecInput{
-				Flags: flagsWithName(name),
+				Flags: flagsWithName(t, name),
 				Tool:  "init",
 			})
 		})
@@ -151,7 +146,7 @@ func TestInit_NonEmptyTargetDirIsValidationError(t *testing.T) {
 	var execErr error
 	_ = captureStderr(t, func() {
 		_, execErr = initShortcut.Execute(context.Background(), common.ExecInput{
-			Flags: flagsWithName("my-shop"),
+			Flags: flagsWithName(t, "my-shop"),
 			Tool:  "init",
 		})
 	})
@@ -237,7 +232,7 @@ func TestInit_LiveModeClonesAndPrintsCdHint(t *testing.T) {
 	var execErr error
 	stderr := captureStderr(t, func() {
 		in := common.ExecInput{
-			Flags:  flagsWithName("my-shop"),
+			Flags:  flagsWithName(t, "my-shop"),
 			Tool:   "init",
 			DryRun: false,
 		}

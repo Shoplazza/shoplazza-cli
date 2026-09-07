@@ -19,8 +19,6 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
-
-	"github.com/spf13/cobra"
 )
 
 // ── taskStatusCode ────────────────────────────────────────────────────────────
@@ -120,12 +118,9 @@ func TestClassifyHTTPErr_500Passthrough(t *testing.T) {
 	}
 }
 
-// pushFlags builds a FlagSet over a cobra command with --theme-id. Mirrors
-// pullFlags but for the push shortcut.
-func pushFlags(themeID string) common.FlagSet {
-	cmd := &cobra.Command{Use: "push"}
-	cmd.Flags().StringP("theme-id", "t", themeID, "")
-	return common.NewCobraFlagSet(cmd)
+// pushFlags builds a push FlagSet carrying --theme-id.
+func pushFlags(t *testing.T, themeID string) common.FlagSet {
+	return shortcutFlags(t, pushShortcut, map[string]any{"theme-id": themeID})
 }
 
 // withPushPollOpts swaps in test-friendly poll options (tiny interval +
@@ -158,7 +153,7 @@ func envelopeOf(t *testing.T, err error) map[string]any {
 // TestPush_MissingThemeIDExitsValidation: the engine relies on
 // RequireThemeID inside Execute, not just cobra MarkFlagRequired.
 func TestPush_MissingThemeIDExitsValidation(t *testing.T) {
-	in := common.ExecInput{Flags: pushFlags("")}
+	in := common.ExecInput{Flags: pushFlags(t, "")}
 	_, err := pushShortcut.Execute(context.Background(), in)
 	if err == nil {
 		t.Fatalf("expected validation error for missing --theme-id")
@@ -176,7 +171,7 @@ func TestPush_MissingThemeIDExitsValidation(t *testing.T) {
 // PlanUpload (v1) + PlanTaskDetail (v2). The task_id is a placeholder
 // since dry-run never calls the upload endpoint.
 func TestPush_DryRunEmitsAllPlannedRequests(t *testing.T) {
-	in := common.ExecInput{DryRun: true, Flags: pushFlags("abc123")}
+	in := common.ExecInput{DryRun: true, Flags: pushFlags(t, "abc123")}
 	res, err := pushShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("dry-run err: %v", err)
@@ -289,7 +284,7 @@ func TestPush_TaskSuccessReturnsOK(t *testing.T) {
 	})
 	c := client.New(srv.URL)
 
-	in := common.ExecInput{Client: c, Flags: pushFlags("abc123")}
+	in := common.ExecInput{Client: c, Flags: pushFlags(t, "abc123")}
 	res, err := pushShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Execute err: %v", err)
@@ -331,7 +326,7 @@ func TestPush_TaskFailurePassThrough(t *testing.T) {
 	})
 	c := client.New(srv.URL)
 
-	in := common.ExecInput{Client: c, Flags: pushFlags("abc123")}
+	in := common.ExecInput{Client: c, Flags: pushFlags(t, "abc123")}
 	_, err := pushShortcut.Execute(context.Background(), in)
 	if err == nil {
 		t.Fatalf("expected business-failure error for status=2")
@@ -381,7 +376,7 @@ func TestPush_PollHTTPErrorCarriesTaskEndpoint(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := client.New(srv.URL)
 
-	in := common.ExecInput{Client: c, Flags: pushFlags("abc123")}
+	in := common.ExecInput{Client: c, Flags: pushFlags(t, "abc123")}
 	_, err := pushShortcut.Execute(context.Background(), in)
 	if err == nil {
 		t.Fatal("expected error when the task-poll endpoint returns 500")
@@ -433,7 +428,7 @@ func TestPush_TransientPollErrorRecovers(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := client.New(srv.URL)
 
-	in := common.ExecInput{Client: c, Flags: pushFlags("abc123")}
+	in := common.ExecInput{Client: c, Flags: pushFlags(t, "abc123")}
 	_, err := pushShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("a single transient poll 500 must not fail the push (task is still processing); got %v", err)
@@ -471,7 +466,7 @@ func TestPush_PollClientErrorAbortsImmediately(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := client.New(srv.URL)
 
-	in := common.ExecInput{Client: c, Flags: pushFlags("abc123")}
+	in := common.ExecInput{Client: c, Flags: pushFlags(t, "abc123")}
 	_, err := pushShortcut.Execute(context.Background(), in)
 	if err == nil {
 		t.Fatal("a 4xx during polling must abort the push")
@@ -521,7 +516,7 @@ func TestPush_ConsecutivePollErrorsResetOnSuccess(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := client.New(srv.URL)
 
-	in := common.ExecInput{Client: c, Flags: pushFlags("abc123")}
+	in := common.ExecInput{Client: c, Flags: pushFlags(t, "abc123")}
 	_, err := pushShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("non-consecutive 500s (reset by a good poll) must not fail the push; got %v", err)
@@ -546,7 +541,7 @@ func TestPush_TaskTimeoutClassifiesAsNetworkAndPassesPayload(t *testing.T) {
 	})
 	c := client.New(srv.URL)
 
-	in := common.ExecInput{Client: c, Flags: pushFlags("abc123")}
+	in := common.ExecInput{Client: c, Flags: pushFlags(t, "abc123")}
 	_, err := pushShortcut.Execute(context.Background(), in)
 	if err == nil {
 		t.Fatalf("expected timeout error after MaxDuration")
