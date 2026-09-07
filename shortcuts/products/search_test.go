@@ -2,6 +2,8 @@ package products
 
 import (
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/internal/shortcuttest"
 )
 
 var productSearchFlags = map[string]string{
@@ -11,7 +13,7 @@ var productSearchFlags = map[string]string{
 }
 
 func TestProductSearchPlan_DefaultsSuccess(t *testing.T) {
-	in := newProductPlanInput(t, "search", productSearchFlags, nil)
+	in := shortcuttest.PlanInput(t, "search", productSearchFlags, nil)
 	_, err := searchShortcut.Plan(in)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -19,7 +21,7 @@ func TestProductSearchPlan_DefaultsSuccess(t *testing.T) {
 }
 
 func TestProductSearchPlan_WithKeywordSuccess(t *testing.T) {
-	in := newProductPlanInput(t, "search", productSearchFlags, map[string]string{
+	in := shortcuttest.PlanInput(t, "search", productSearchFlags, map[string]string{
 		"keyword": "shirt", "page-limit": "10",
 	})
 	_, err := searchShortcut.Plan(in)
@@ -29,7 +31,7 @@ func TestProductSearchPlan_WithKeywordSuccess(t *testing.T) {
 }
 
 func TestProductSearchPlan_VendorMapsToVendorsArray(t *testing.T) {
-	in := newProductPlanInput(t, "search", productSearchFlags, map[string]string{"vendor": "Acme"})
+	in := shortcuttest.PlanInput(t, "search", productSearchFlags, map[string]string{"vendor": "Acme"})
 	p, err := searchShortcut.Plan(in)
 	if err != nil {
 		t.Fatal(err)
@@ -46,7 +48,7 @@ func TestProductSearchPlan_VendorMapsToVendorsArray(t *testing.T) {
 func TestProductSearchPlan_PublishedNormalized(t *testing.T) {
 	cases := map[string]string{"true": "published", "false": "unpublished", "any": "any", "published": "published"}
 	for in, want := range cases {
-		pin := newProductPlanInput(t, "search", productSearchFlags, map[string]string{"published": in})
+		pin := shortcuttest.PlanInput(t, "search", productSearchFlags, map[string]string{"published": in})
 		p, err := searchShortcut.Plan(pin)
 		if err != nil {
 			t.Fatalf("--published %q: %v", in, err)
@@ -58,7 +60,7 @@ func TestProductSearchPlan_PublishedNormalized(t *testing.T) {
 }
 
 func TestProductSearchPlan_PublishedInvalidErrors(t *testing.T) {
-	in := newProductPlanInput(t, "search", productSearchFlags, map[string]string{"published": "yes"})
+	in := shortcuttest.PlanInput(t, "search", productSearchFlags, map[string]string{"published": "yes"})
 	if _, err := searchShortcut.Plan(in); err == nil {
 		t.Error("expected error for an invalid --published value")
 	}

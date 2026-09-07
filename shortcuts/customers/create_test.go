@@ -4,38 +4,8 @@ import (
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
-	"github.com/spf13/cobra"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/internal/shortcuttest"
 )
-
-// newCustomerPlanInput builds a PlanInput backed by a cobra command.
-// flags maps flag-name → type; values maps flag-name → string value.
-func newCustomerPlanInput(t *testing.T, tool string, flags map[string]string, values map[string]string) common.PlanInput {
-	t.Helper()
-	cmd := &cobra.Command{Use: "test", RunE: func(*cobra.Command, []string) error { return nil }}
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	for name, typ := range flags {
-		switch typ {
-		case "string":
-			cmd.Flags().String(name, "", "")
-		case "int":
-			cmd.Flags().Int(name, 0, "")
-		case "bool":
-			cmd.Flags().Bool(name, false, "")
-		case "stringslice":
-			cmd.Flags().StringSlice(name, nil, "")
-		}
-	}
-	var args []string
-	for name, val := range values {
-		args = append(args, "--"+name+"="+val)
-	}
-	cmd.SetArgs(args)
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("cmd.Execute: %v", err)
-	}
-	return common.PlanInput{Tool: tool, Flags: common.NewCobraFlagSet(cmd)}
-}
 
 func TestCreateShortcut_DeclarativeShape(t *testing.T) {
 	if createShortcut.Service != "customers" || createShortcut.Command != "+create" {
@@ -118,7 +88,7 @@ var createShortcutFlags = map[string]string{
 }
 
 func TestCreateShortcutPlan_NoEmailOrPhoneErrors(t *testing.T) {
-	in := newCustomerPlanInput(t, "create", createShortcutFlags, nil)
+	in := shortcuttest.PlanInput(t, "create", createShortcutFlags, nil)
 	_, err := createShortcut.Plan(in)
 	if err == nil {
 		t.Error("expected error when neither --email nor --phone provided")
@@ -126,7 +96,7 @@ func TestCreateShortcutPlan_NoEmailOrPhoneErrors(t *testing.T) {
 }
 
 func TestCreateShortcutPlan_EmailSuccess(t *testing.T) {
-	in := newCustomerPlanInput(t, "create", createShortcutFlags, map[string]string{"email": "a@b.com"})
+	in := shortcuttest.PlanInput(t, "create", createShortcutFlags, map[string]string{"email": "a@b.com"})
 	_, err := createShortcut.Plan(in)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -142,7 +112,7 @@ var searchShortcutFlags = map[string]string{
 }
 
 func TestSearchShortcutPlan_DefaultsSuccess(t *testing.T) {
-	in := newCustomerPlanInput(t, "search", searchShortcutFlags, nil)
+	in := shortcuttest.PlanInput(t, "search", searchShortcutFlags, nil)
 	_, err := searchShortcut.Plan(in)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -150,7 +120,7 @@ func TestSearchShortcutPlan_DefaultsSuccess(t *testing.T) {
 }
 
 func TestSearchShortcutPlan_WithEmailSuccess(t *testing.T) {
-	in := newCustomerPlanInput(t, "search", searchShortcutFlags, map[string]string{"email": "a@b.com", "page-limit": "10"})
+	in := shortcuttest.PlanInput(t, "search", searchShortcutFlags, map[string]string{"email": "a@b.com", "page-limit": "10"})
 	_, err := searchShortcut.Plan(in)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)

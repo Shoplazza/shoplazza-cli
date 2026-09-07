@@ -2,6 +2,9 @@
 package testenv
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -73,4 +76,56 @@ func RunMainIsolated(m *testing.M) {
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)
+}
+
+// SkipIfDirWritable skips the test when dir turns out to be writable despite a
+// chmod 0o555 — true for root and for permissive filesystems, where a
+// write-failure path cannot be exercised.
+func SkipIfDirWritable(t *testing.T, dir string) {
+	t.Helper()
+	probe := filepath.Join(dir, ".write-probe")
+	if f, err := os.Create(probe); err == nil {
+		_ = f.Close()
+		_ = os.Remove(probe)
+		t.Skipf("%s is writable despite chmod 0o555 (root or a permissive filesystem); cannot exercise the write-failure path", dir)
+	}
+}
+
+// ErrEnvelope returns err's structured envelope, failing when err is nil or
+// carries none.
+func ErrEnvelope(t *testing.T, err error) map[string]any {
+	t.Helper()
+	if err == nil {
+		t.Fatal("err is nil")
+	}
+	type enveloper interface {
+		Envelope() map[string]any
+	}
+	if e, ok := err.(enveloper); ok {
+		return e.Envelope()
+	}
+	t.Fatalf("err does not expose Envelope(): %T", err)
+	return nil
+}
+
+// ConfigPaths isolates the config dir and returns the config.json and auth.json
+// paths inside it. The files are not created.
+func ConfigPaths(t *testing.T) (configPath, authPath string) {
+	t.Helper()
+	dir := IsolateConfigDir(t)
+	return filepath.Join(dir, "config.json"), filepath.Join(dir, "auth.json")
+}
+
+// NewStoreATExchangeStub serves the store access-token exchange envelope,
+// always answering with accessToken.
+func NewStoreATExchangeStub(t *testing.T, accessToken string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success", "data": map[string]any{
+			"access_token": accessToken, "store_id": "1",
+			"store_domain": "cn.myshoplazza.com", "granted_scopes": []string{"read_product"},
+			"at_expires_at": "2099-01-01T00:00:00Z",
+		}})
+	}))
 }

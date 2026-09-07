@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -13,18 +12,8 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
-// setupTempConfigInternal redirects auth/config/keychain paths to a temp dir
-// for internal-package tests.
-func setupTempConfigInternal(t *testing.T) (configPath, authPath string) {
-	t.Helper()
-	dir := testenv.IsolateConfigDir(t)
-	configPath = filepath.Join(dir, "config.json")
-	authPath = filepath.Join(dir, "auth.json")
-	return configPath, authPath
-}
-
 func TestAppTokenReady_MintsAndCaches(t *testing.T) {
-	cfgPath, authPath := setupTempConfigInternal(t)
+	cfgPath, authPath := testenv.ConfigPaths(t)
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
@@ -54,7 +43,7 @@ func TestAppTokenReady_MintsAndCaches(t *testing.T) {
 }
 
 func TestAppTokenReady_NoUAT(t *testing.T) {
-	cfgPath, authPath := setupTempConfigInternal(t)
+	cfgPath, authPath := testenv.ConfigPaths(t)
 	m := NewManager(core.CliConfig{}, cfgPath, client.New("http://unused"))
 	m.AuthPath = authPath
 	if _, err := m.AppTokenReady(context.Background(), "cid_1", "s", "p"); err == nil {

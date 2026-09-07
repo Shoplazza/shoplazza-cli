@@ -9,6 +9,7 @@ import (
 	"time"
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdtest"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
@@ -133,7 +134,7 @@ func runAuthCmd(t *testing.T, f *cmdutil.Factory, args ...string) string {
 // GATE-09 (display surface): auth status's tokenStatus tri-state, for the
 // current profile.
 func TestStatus_TokenStates(t *testing.T) {
-	f := seedLoggedInWithProfiles(t, "alice@co.com", "us")
+	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com", "us")
 	for _, tc := range []struct {
 		name, wantStatus string
 		expiresAt        time.Time

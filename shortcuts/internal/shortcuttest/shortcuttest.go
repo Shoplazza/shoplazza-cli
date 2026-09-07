@@ -1,13 +1,19 @@
-package products
+// Package shortcuttest holds test fixtures shared by the shortcut domain
+// packages. It is test-only support code; nothing in the built CLI imports it.
+package shortcuttest
 
 import (
 	"testing"
 
-	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 	"github.com/spf13/cobra"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
-func newProductExecInput(t *testing.T, flags map[string]string, values map[string]string, dryRun bool) common.ExecInput {
+// PlanInput builds a PlanInput for tool over a real cobra command: flags maps
+// each flag name to its type ("string", "int", "bool", "stringslice"), values
+// to the value to pass on the command line.
+func PlanInput(t *testing.T, tool string, flags map[string]string, values map[string]string) common.PlanInput {
 	t.Helper()
 	cmd := &cobra.Command{Use: "test", RunE: func(*cobra.Command, []string) error { return nil }}
 	cmd.SilenceErrors = true
@@ -32,7 +38,5 @@ func newProductExecInput(t *testing.T, flags map[string]string, values map[strin
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("cmd.Execute: %v", err)
 	}
-	return common.ExecInput{Flags: common.NewCobraFlagSet(cmd), DryRun: dryRun}
+	return common.PlanInput{Tool: tool, Flags: common.NewCobraFlagSet(cmd)}
 }
-
-var productIDFlags = map[string]string{"id": "string"}

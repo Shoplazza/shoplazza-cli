@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,18 +17,9 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
-// setupTempConfig redirects auth/config/keychain paths to a temp dir.
-func setupTempConfig(t *testing.T) (configPath, authPath string) {
-	t.Helper()
-	dir := testenv.IsolateConfigDir(t)
-	configPath = filepath.Join(dir, "config.json")
-	authPath = filepath.Join(dir, "auth.json")
-	return configPath, authPath
-}
-
 func newTestManager(t *testing.T, srv *httptest.Server) *internalauth.Manager {
 	t.Helper()
-	configPath, authPath := setupTempConfig(t)
+	configPath, authPath := testenv.ConfigPaths(t)
 	mgr := internalauth.NewManager(core.CliConfig{}, configPath, client.New(srv.URL))
 	mgr.AuthPath = authPath
 	return mgr
@@ -435,7 +425,7 @@ func TestPersistState_NoTokensInAuthJSON(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	configPath, authPath := setupTempConfig(t)
+	configPath, authPath := testenv.ConfigPaths(t)
 	mgr := internalauth.NewManager(core.CliConfig{}, configPath, client.New(srv.URL))
 	mgr.AuthPath = authPath
 
@@ -548,7 +538,7 @@ func TestE2E_Login_Refresh_Logout(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	configPath, authPath := setupTempConfig(t)
+	configPath, authPath := testenv.ConfigPaths(t)
 	mgr := internalauth.NewManager(core.CliConfig{}, configPath, client.New(srv.URL))
 	mgr.AuthPath = authPath
 

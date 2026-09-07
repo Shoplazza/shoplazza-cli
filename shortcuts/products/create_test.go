@@ -3,6 +3,8 @@ package products
 import (
 	"strings"
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/internal/shortcuttest"
 )
 
 var productCreateFlags = map[string]string{
@@ -13,7 +15,7 @@ var productCreateFlags = map[string]string{
 }
 
 func TestProductCreatePlan_InvalidPriceErrors(t *testing.T) {
-	in := newProductPlanInput(t, "create", productCreateFlags, map[string]string{
+	in := shortcuttest.PlanInput(t, "create", productCreateFlags, map[string]string{
 		"title": "Shirt", "price": "notanumber", "image": "http://img.example.com/x.jpg",
 	})
 	_, err := createShortcut.Plan(in)
@@ -23,7 +25,7 @@ func TestProductCreatePlan_InvalidPriceErrors(t *testing.T) {
 }
 
 func TestProductCreatePlan_NegativePriceErrors(t *testing.T) {
-	in := newProductPlanInput(t, "create", productCreateFlags, map[string]string{
+	in := shortcuttest.PlanInput(t, "create", productCreateFlags, map[string]string{
 		"title": "Shirt", "price": "-5", "image": "http://img.example.com/x.jpg",
 	})
 	_, err := createShortcut.Plan(in)
@@ -33,7 +35,7 @@ func TestProductCreatePlan_NegativePriceErrors(t *testing.T) {
 }
 
 func TestProductCreatePlan_ValidSuccess(t *testing.T) {
-	in := newProductPlanInput(t, "create", productCreateFlags, map[string]string{
+	in := shortcuttest.PlanInput(t, "create", productCreateFlags, map[string]string{
 		"title": "Shirt", "price": "29.99", "image": "http://img.example.com/x.jpg",
 	})
 	_, err := createShortcut.Plan(in)
@@ -43,7 +45,7 @@ func TestProductCreatePlan_ValidSuccess(t *testing.T) {
 }
 
 func TestProductCreatePlan_InvalidComparePriceErrors(t *testing.T) {
-	in := newProductPlanInput(t, "create", productCreateFlags, map[string]string{
+	in := shortcuttest.PlanInput(t, "create", productCreateFlags, map[string]string{
 		"title": "Shirt", "price": "29.99", "image": "http://img.example.com/x.jpg",
 		"compare-price": "notanumber",
 	})

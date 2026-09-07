@@ -2,6 +2,8 @@ package orders
 
 import (
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/internal/shortcuttest"
 )
 
 var orderCountFlags = map[string]string{
@@ -10,7 +12,7 @@ var orderCountFlags = map[string]string{
 }
 
 func TestOrderCountPlan_DefaultsSuccess(t *testing.T) {
-	in := newOrderPlanInput(t, "count", orderCountFlags, nil)
+	in := shortcuttest.PlanInput(t, "count", orderCountFlags, nil)
 	_, err := countShortcut.Plan(in)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -18,7 +20,7 @@ func TestOrderCountPlan_DefaultsSuccess(t *testing.T) {
 }
 
 func TestOrderCountPlan_WithStatusSuccess(t *testing.T) {
-	in := newOrderPlanInput(t, "count", orderCountFlags, map[string]string{"status": "placed"})
+	in := shortcuttest.PlanInput(t, "count", orderCountFlags, map[string]string{"status": "placed"})
 	_, err := countShortcut.Plan(in)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)

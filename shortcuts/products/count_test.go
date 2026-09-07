@@ -2,6 +2,8 @@ package products
 
 import (
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/internal/shortcuttest"
 )
 
 var productCountFlags = map[string]string{
@@ -9,7 +11,7 @@ var productCountFlags = map[string]string{
 }
 
 func TestProductCountPlan_DefaultsSuccess(t *testing.T) {
-	in := newProductPlanInput(t, "count", productCountFlags, nil)
+	in := shortcuttest.PlanInput(t, "count", productCountFlags, nil)
 	_, err := countShortcut.Plan(in)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -17,7 +19,7 @@ func TestProductCountPlan_DefaultsSuccess(t *testing.T) {
 }
 
 func TestProductCountPlan_PublishedNormalizedAndInvalid(t *testing.T) {
-	in := newProductPlanInput(t, "count", productCountFlags, map[string]string{"published": "false"})
+	in := shortcuttest.PlanInput(t, "count", productCountFlags, map[string]string{"published": "false"})
 	p, err := countShortcut.Plan(in)
 	if err != nil {
 		t.Fatal(err)
@@ -25,7 +27,7 @@ func TestProductCountPlan_PublishedNormalizedAndInvalid(t *testing.T) {
 	if p.Query["published_status"] != "unpublished" {
 		t.Errorf("--published false -> %v, want unpublished", p.Query["published_status"])
 	}
-	bad := newProductPlanInput(t, "count", productCountFlags, map[string]string{"published": "nope"})
+	bad := shortcuttest.PlanInput(t, "count", productCountFlags, map[string]string{"published": "nope"})
 	if _, err := countShortcut.Plan(bad); err == nil {
 		t.Error("expected error for invalid --published")
 	}

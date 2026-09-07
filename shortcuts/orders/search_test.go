@@ -2,6 +2,8 @@ package orders
 
 import (
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/internal/shortcuttest"
 )
 
 var orderSearchFlags = map[string]string{
@@ -12,7 +14,7 @@ var orderSearchFlags = map[string]string{
 }
 
 func TestOrderSearchPlan_DefaultsSuccess(t *testing.T) {
-	in := newOrderPlanInput(t, "search", orderSearchFlags, nil)
+	in := shortcuttest.PlanInput(t, "search", orderSearchFlags, nil)
 	_, err := searchShortcut.Plan(in)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -20,7 +22,7 @@ func TestOrderSearchPlan_DefaultsSuccess(t *testing.T) {
 }
 
 func TestOrderSearchPlan_WithFiltersSuccess(t *testing.T) {
-	in := newOrderPlanInput(t, "search", orderSearchFlags, map[string]string{
+	in := shortcuttest.PlanInput(t, "search", orderSearchFlags, map[string]string{
 		"status": "placed", "page-limit": "5",
 	})
 	_, err := searchShortcut.Plan(in)

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
@@ -130,23 +131,6 @@ func zipNames(t *testing.T, zipPath string) []string {
 	return out
 }
 
-// extractPackageEnvelope mirrors the helper in internal/theme/errors_test.go
-// but lives here because that helper is in a different package.
-func extractPackageEnvelope(t *testing.T, err error) map[string]any {
-	t.Helper()
-	if err == nil {
-		t.Fatal("err is nil")
-	}
-	type enveloper interface {
-		Envelope() map[string]any
-	}
-	if e, ok := err.(enveloper); ok {
-		return e.Envelope()
-	}
-	t.Fatalf("err does not expose Envelope(): %T", err)
-	return nil
-}
-
 func TestPackage_FilenameFromThemeInfo(t *testing.T) {
 	tmp := t.TempDir()
 	makeThemeAt(t, tmp)
@@ -246,7 +230,7 @@ func TestPackage_SettingsMissingExitsValidation(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected validation error when settings_schema.json missing")
 	}
-	env := extractPackageEnvelope(t, err)
+	env := testenv.ErrEnvelope(t, err)
 	if env["type"] != "validation" {
 		t.Errorf("envelope type = %v, want validation", env["type"])
 	}

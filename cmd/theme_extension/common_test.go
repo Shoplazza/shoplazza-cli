@@ -3,20 +3,17 @@ package theme_extension
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdtest"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
@@ -206,65 +203,6 @@ func TestPrintServeBanner_WithThemeID(t *testing.T) {
 	}
 }
 
-// newExchangeStub returns an httptest server stubbing the store-AT exchange
-// endpoint, always returning accessToken. Local copy of
-// internal/auth/profile_token_test.go's helper of the same name (unexported,
-// cross-package) — same envelope shape.
-func newExchangeStub(t *testing.T, accessToken string) *httptest.Server {
-	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success", "data": map[string]any{
-			"access_token": accessToken, "store_id": "1",
-			"store_domain": "cn.myshoplazza.com", "granted_scopes": []string{"read_product"},
-			"at_expires_at": "2099-01-01T00:00:00Z",
-		}})
-	}))
-}
-
-// allScopes mirrors cmd/auth/profile_sync_test.go's fixture scope set.
-var teAllScopes = []string{"read_product", "write_product"}
-
-// seedLoggedInWithProfiles builds an isolated Factory with account email
-// already logged in (uat seeded in keychain) and one profile per storeName,
-// each bound to "<name>.myshoplazza.com". Local copy of cmd/auth's helper of
-// the same name (unexported, cross-package) — same pattern, no AuthClient set
-// (callers point it at their own exchange stub). te's requireLogin gate reads
-// CurrentStatus (state.UAT) via the same v2 AccountUATKey, so seeding it here
-// covers both the login gate and the account/profile state.
-func seedLoggedInWithProfiles(t *testing.T, email string, storeNames ...string) *cmdutil.Factory {
-	t.Helper()
-	dir := testenv.IsolateConfigDir(t)
-	configPath := filepath.Join(dir, "config.json")
-
-	cfg := core.CliConfig{
-		Accounts: []core.AccountConfig{{Name: strings.ToLower(email), GrantedScopes: teAllScopes}},
-	}
-	for _, name := range storeNames {
-		cfg.Profiles = append(cfg.Profiles, core.ProfileConfig{
-			Name:        name,
-			Account:     strings.ToLower(email),
-			StoreDomain: name + ".myshoplazza.com",
-			Scopes:      append([]string{}, teAllScopes...),
-		})
-	}
-	if len(cfg.Profiles) > 0 {
-		cfg.CurrentProfile = cfg.Profiles[0].Name
-	}
-	if err := core.SaveConfig(configPath, cfg); err != nil {
-		t.Fatalf("seed config: %v", err)
-	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey(email), "uat-seed"); err != nil {
-		t.Fatalf("seed account uat: %v", err)
-	}
-
-	return &cmdutil.Factory{
-		IOStreams:  cmdutil.IOStreams{In: strings.NewReader(""), Out: io.Discard, ErrOut: io.Discard},
-		ConfigPath: configPath,
-		Config:     cfg,
-	}
-}
-
 // runTECmd executes the te command tree with args against f, discarding
 // output. The ad-hoc tests only assert post-command config/keychain state —
 // the mocked exchange server stands in for the auth exchange only; there is
@@ -290,9 +228,9 @@ func runTECmd(t *testing.T, f *cmdutil.Factory, args ...string) {
 // §4.2, zero residue for an ad-hoc domain).
 func TestTE_AdhocDomain_NoPersistence(t *testing.T) {
 	t.Setenv(envAccessToken, "") // force the profile/ephemeral path, not the env bypass
-	srv := newExchangeStub(t, "at-tmp")
+	srv := testenv.NewStoreATExchangeStub(t, "at-tmp")
 	defer srv.Close()
-	f := seedLoggedInWithProfiles(t, "alice@co.com", "us") // only us
+	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com", "us") // only us
 	f.AuthClient = client.New(srv.URL)
 
 	runTECmd(t, f, "list", "-s", "cn.myshoplazza.com")
@@ -316,9 +254,9 @@ func TestTE_AdhocDomain_NoPersistence(t *testing.T) {
 // ephemeral one).
 func TestTE_DomainMatchesProfile_UsesProfileCreds(t *testing.T) {
 	t.Setenv(envAccessToken, "") // force the profile/ephemeral path, not the env bypass
-	srv := newExchangeStub(t, "at-us")
+	srv := testenv.NewStoreATExchangeStub(t, "at-us")
 	defer srv.Close()
-	f := seedLoggedInWithProfiles(t, "alice@co.com", "us")
+	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com", "us")
 	f.AuthClient = client.New(srv.URL)
 
 	runTECmd(t, f, "list", "-s", "us.myshoplazza.com")
