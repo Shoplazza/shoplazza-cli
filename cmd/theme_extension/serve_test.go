@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/doc"
 )
 
@@ -114,5 +115,22 @@ func TestNewServeFilter_NestedPathSkippedWithNote(t *testing.T) {
 	}
 	if filter("README.md") {
 		t.Fatal("non-theme files must be filtered")
+	}
+}
+
+// TestServe_PreRunE_RequiresThemeID covers newCmdServe's --theme-id gate.
+func TestServe_PreRunE_RequiresThemeID(t *testing.T) {
+	cmd := newCmdServe(&cmdutil.Factory{})
+	if err := cmd.PreRunE(cmd, nil); err == nil {
+		t.Error("expected error when --theme-id is missing")
+	}
+}
+
+// TestServe_RunE_NotATEProjectErrors drives newCmdServe's RunE to te.ReadConfig.
+func TestServe_RunE_NotATEProjectErrors(t *testing.T) {
+	cmd := newCmdServe(&cmdutil.Factory{})
+	_ = cmd.Flags().Set("path", t.TempDir())
+	if err := cmd.RunE(cmd, nil); err == nil {
+		t.Fatal("expected error when --path is not a te project")
 	}
 }

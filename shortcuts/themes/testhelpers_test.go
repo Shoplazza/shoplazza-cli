@@ -1,6 +1,6 @@
 package themes
 
-// Shared test rig for this package: the golden-file snapshot helpers, the
+// Shared test helpers for this package: the golden-file snapshot helpers, the
 // command-mounting helpers behind the help and flag tests, and stderr capture.
 // The tests themselves live beside the command they cover.
 

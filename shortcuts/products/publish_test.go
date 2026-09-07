@@ -35,3 +35,11 @@ func TestPublishShortcut_Validates(t *testing.T) {
 		t.Errorf("ValidateShortcut(unpublish): %v", err)
 	}
 }
+
+func TestPublishShortcutPlan_Success(t *testing.T) {
+	in := newProductPlanInput(t, "publish", productIDFlags, map[string]string{"id": "prod-1"})
+	_, err := publishShortcutValue.Plan(in)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

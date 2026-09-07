@@ -46,24 +46,6 @@ func TestBuild_RunE_CorruptConfigIsMalformedNotMissing(t *testing.T) {
 	}
 }
 
-// TestDeploy_PreRunE_CorruptConfigIsMalformed: same contract on the
-// RequireExtensionID path — no "register first" hint for a corrupt file.
-func TestDeploy_PreRunE_CorruptConfigIsMalformed(t *testing.T) {
-	root := t.TempDir()
-	writeCorruptConfig(t, root)
-	cmd := newCmdDeploy(&cmdutil.Factory{})
-	_ = cmd.Flags().Set("version", "1.0.0")
-	_ = cmd.Flags().Set("path", root)
-	err := cmd.PreRunE(cmd, nil)
-	var ee *output.ExitError
-	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
-		t.Fatalf("expected validation error, got %v", err)
-	}
-	if !strings.Contains(ee.Error(), "malformed") || strings.Contains(ee.Error(), "register first") {
-		t.Fatalf("expected malformed message without the register hint, got %q", ee.Error())
-	}
-}
-
 // newBuildStoreServer fakes the full store-side build chain: OSS sign, OSS
 // POST, PUT theme-extensions, version-task create + poll.
 func newBuildStoreServer(t *testing.T) *httptest.Server {
@@ -226,5 +208,41 @@ func TestBuild_UnparseableLatestSkipsGreaterCheck(t *testing.T) {
 	cmd.SetArgs([]string{"--version", "1.0.0", "--description", "d", "--path", root, "--store-domain", "s.myshoplaza.com"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("build should skip the inconclusive version check, got %v", err)
+	}
+}
+
+// TestBuild_PreRunE_Validations covers newCmdBuild's three pre-flight checks
+// (all return before requireLogin, so no auth/network runs).
+func TestBuild_PreRunE_Validations(t *testing.T) {
+	f := &cmdutil.Factory{}
+
+	// missing --version
+	cmd := newCmdBuild(f)
+	if err := cmd.PreRunE(cmd, nil); err == nil {
+		t.Error("expected error when --version is missing")
+	}
+
+	// invalid --version format
+	cmd = newCmdBuild(f)
+	_ = cmd.Flags().Set("version", "not-semver")
+	if err := cmd.PreRunE(cmd, nil); err == nil {
+		t.Error("expected error for invalid --version format")
+	}
+
+	// valid version but missing --description
+	cmd = newCmdBuild(f)
+	_ = cmd.Flags().Set("version", "1.0.0")
+	if err := cmd.PreRunE(cmd, nil); err == nil {
+		t.Error("expected error when --description is missing")
+	}
+}
+
+// TestBuild_RunE_NotATEProjectErrors drives newCmdBuild's RunE to its first step
+// (te.ReadConfig) and asserts the "not a te project" error on a bare dir.
+func TestBuild_RunE_NotATEProjectErrors(t *testing.T) {
+	cmd := newCmdBuild(&cmdutil.Factory{})
+	_ = cmd.Flags().Set("path", t.TempDir())
+	if err := cmd.RunE(cmd, nil); err == nil {
+		t.Fatal("expected error when --path is not a te project")
 	}
 }

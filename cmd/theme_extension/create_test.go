@@ -87,3 +87,29 @@ func TestCreate_StatFailureIsInternal(t *testing.T) {
 		t.Fatalf("expected internal error on non-ENOENT stat, got %v", err)
 	}
 }
+
+// TestCreate_PreRunE covers both early-exit validation branches.
+func TestCreate_PreRunE_RequiresName(t *testing.T) {
+	cmd := newCmdCreate(&cmdutil.Factory{})
+	if err := cmd.PreRunE(cmd, nil); err == nil {
+		t.Error("expected error when --name is missing")
+	}
+}
+
+func TestCreate_PreRunE_RequiresValidType(t *testing.T) {
+	cmd := newCmdCreate(&cmdutil.Factory{})
+	_ = cmd.Flags().Set("name", "myext")
+	_ = cmd.Flags().Set("type", "unsupported")
+	if err := cmd.PreRunE(cmd, nil); err == nil {
+		t.Error("expected error for unsupported --type")
+	}
+}
+
+func TestCreate_PreRunE_PassesWithValidArgs(t *testing.T) {
+	cmd := newCmdCreate(&cmdutil.Factory{})
+	_ = cmd.Flags().Set("name", "myext")
+	_ = cmd.Flags().Set("type", "basic")
+	if err := cmd.PreRunE(cmd, nil); err != nil {
+		t.Errorf("unexpected PreRunE error: %v", err)
+	}
+}
