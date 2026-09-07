@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-08-13T02:19:23Z",
+  "generated_at": "2026-09-03T09:27:39Z",
   "modules": [
     {
       "name": "billing",
@@ -3426,6 +3426,63 @@
           "response_schema": "v202506.ListCarrierResponse"
         },
         {
+          "id": "order-transactions-batch",
+          "command_path": [
+            "transactions",
+            "batch-list"
+          ],
+          "summary": "Batch list order transactions",
+          "description": "Batch retrieve all transactions attached to the specified orders, including\nstatus, payment channel, amount, and gateway response details.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/orders/transactions"
+          },
+          "parameters": [
+            {
+              "name": "order_ids",
+              "in": "query",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "required": true,
+              "description": "Order IDs to query. Up to 50 per request. Example: ?order_ids=1001\u0026order_ids=1002",
+              "min_length": 1,
+              "max_length": 50
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "type": "string",
+              "description": "Cursor for pagination"
+            },
+            {
+              "name": "page_size",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Number of transactions per page. Range: 1-50, default: 10.",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
+            },
+            {
+              "name": "payment_channel",
+              "in": "query",
+              "type": "string",
+              "description": "Payment channel (e.g., paypal)."
+            },
+            {
+              "name": "status",
+              "in": "query",
+              "type": "string",
+              "description": "Transaction status. Applies to all orders in the request: - `authorized`: the transaction has been authorized but not yet captured - `void`: the transaction has been canceled - `processing`: the transaction is currently being processed - `success`: the transaction was successfully completed - `failure` / `error`: the transaction failed. Both values exist in the data, so match both when filtering for failed transactions - `refunding`: a refund for the transaction is in progress - `refunded`: the transaction has been successfully refunded - `refund_failed`: the refund attempt for the transaction has failed - `expired`: the transaction has expired"
+            }
+          ],
+          "response_schema": "v202601.BatchListTransactionsResponse"
+        },
+        {
           "id": "order-transactions",
           "command_path": [
             "transactions",
@@ -3451,7 +3508,7 @@
               "name": "status",
               "in": "query",
               "type": "string",
-              "description": "Transaction status: - `authorized`: the transaction has been authorized but not yet captured - `void`: the transaction has been canceled - `processing`: the transaction is currently being processed - `success`: the transaction was successfully completed - `error`: the transaction failed due to an error - `refunding`: a refund for the transaction is in progress - `refunded`: the transaction has been successfully refunded - `refund_failed`: the refund attempt for the transaction has failed - `expire`: the transaction has expired"
+              "description": "Transaction status: - `authorized`: the transaction has been authorized but not yet captured - `void`: the transaction has been canceled - `processing`: the transaction is currently being processed - `success`: the transaction was successfully completed - `failure` / `error`: the transaction failed. Both values exist in the data, so match both when filtering for failed transactions - `refunding`: a refund for the transaction is in progress - `refunded`: the transaction has been successfully refunded - `refund_failed`: the refund attempt for the transaction has failed - `expired`: the transaction has expired"
             },
             {
               "name": "payment_channel",
@@ -6544,7 +6601,7 @@
       "groups": {
         "analytics": {
           "summary": "Query sales metrics, traffic statistics, and business analytics for the store",
-          "description": "Data analysis exposes aggregated store performance metrics across products, landing pages,\nand traffic sources. Merchants and apps use it to monitor sales trends and channel\neffectiveness.\nProvides endpoints to query overall metrics and breakdowns by SPU, SKU, landing page, and\nUTM source."
+          "description": "Data analysis exposes aggregated store performance metrics across products, landing pages,\nand traffic sources. Merchants and apps use it to monitor sales trends and channel\neffectiveness.\nProvides endpoints to query overall metrics and breakdowns by SPU, SKU, landing page, UTM\nsource, on-site search keyword and traffic channel."
         },
         "articles": {
           "summary": "Manage articles published within a blog",
@@ -6642,7 +6699,7 @@
               {
                 "name": "sort_by",
                 "type": "string",
-                "description": "Field to sort by. Supported values: - `pv`: Page views - `uv`: Unique visitors - `add_cart_uv`: Unique visitors who added to cart - `begin_checkout_uv`: Unique visitors who began checkout - `add_payment_info_uv`: Unique visitors who added payment info - `orders`: Number of orders - `sales`: Total sales amount - `conversion_rate`: Conversion rate - `escape_rate`: Bounce rate - `avg_elapse`: Average time spent on page"
+                "description": "Field to sort by. Supported values: - `pv`: Page views - `uv`: Unique visitors - `add_cart_uv`: Unique visitors who added to cart - `begin_checkout_uv`: Unique visitors who began checkout - `add_payment_info_uv`: Unique visitors who added payment info - `orders`: Number of orders - `sales`: Total sales amount - `conversion_rate`: Conversion rate - `escape_rate`: Bounce rate - `avg_elapse`: Average time spent on page - `product_uv`: Unique visitors who viewed a product detail page - `order_customers`: Number of customers who placed an order"
               },
               {
                 "name": "time_zone",
@@ -6662,13 +6719,13 @@
                   "type": "string"
                 },
                 "required": true,
-                "description": "Dimensions to retrieve. Supported values: - `land_url_path`: Landing page URL path - `last_template_name`: Page type - `last_referrer_show`: Last interactive source",
+                "description": "Dimensions to retrieve. Supported values: - `land_url_path`: Landing page URL path - `last_template_name`: Page type - `last_referrer_show`: Last interactive source - `last_referrer_first_show`: Traffic type",
                 "min_length": 1
               },
               {
                 "name": "filters",
                 "type": "string",
-                "description": "Advanced filter conditions as a JSON string, expressed as a nested filter tree: - Array node `[ ... ]`: its children are combined with OR - Object node `{ ... }`: its entries are combined with AND - Leaf node: {\"operator\": \"...\", \"value\": ...} attached under a filter key The `value` type to send depends on the operator (operators are case-insensitive): - `in`, `not in`             -\u003e value is an ARRAY, e.g. [\"a\", \"b\"]. A scalar will NOT match, so always send an array for these operators. - `like`, `not like`         -\u003e value is a STRING, e.g. \"google\" - `=`, `\u003e`, `\u003e=`, `\u003c`, `\u003c=`  -\u003e value is a SCALAR (string or number), e.g. 10 value is auto-converted to the target field type. Common keys: `land_url_path`, `last_template_name` (page type), `last_referrer_show`. Unknown keys or unsupported operators are silently ignored, so a filter \"not taking effect\" usually means a mistyped key/operator. e.g. AND: {\"land_url_path\": {\"operator\": \"like\", \"value\": \"/\"}} OR : [{\"last_referrer_show\": {\"operator\": \"like\", \"value\": \"google\"}}, {\"last_referrer_show\": {\"operator\": \"like\", \"value\": \"facebook\"}}]"
+                "description": "Advanced filter conditions as a JSON string, expressed as a nested filter tree: - Array node `[ ... ]`: its children are combined with OR - Object node `{ ... }`: its entries are combined with AND - Leaf node: {\"operator\": \"...\", \"value\": ...} attached under a filter key The `value` type to send depends on the operator (operators are case-insensitive): - `in`, `not in`             -\u003e value is an ARRAY, e.g. [\"a\", \"b\"]. A scalar will NOT match, so always send an array for these operators. - `like`, `not like`         -\u003e value is a STRING, e.g. \"google\" - `=`, `\u003e`, `\u003e=`, `\u003c`, `\u003c=`  -\u003e value is a SCALAR (string or number), e.g. 10 value is auto-converted to the target field type. Common keys: `land_url_path`, `last_template_name` (page type), `last_referrer_show` (traffic channel), `last_referrer_first_show` (traffic type). Unknown keys or unsupported operators are silently ignored, so a filter \"not taking effect\" usually means a mistyped key/operator. e.g. AND: {\"land_url_path\": {\"operator\": \"like\", \"value\": \"/\"}} OR : [{\"last_referrer_show\": {\"operator\": \"like\", \"value\": \"google\"}}, {\"last_referrer_show\": {\"operator\": \"like\", \"value\": \"facebook\"}}]"
               },
               {
                 "name": "filter_crawler_type",
@@ -6932,6 +6989,11 @@
                 "name": "filter_crawler_type",
                 "type": "string",
                 "description": "Crawler-filtering policy that controls whether bot/crawler traffic is excluded from the statistics. Values: - `no_filter_crawler`: do not filter; count all traffic (default) - `official_crawler`: exclude known crawlers/bots"
+              },
+              {
+                "name": "sub_type",
+                "type": "string",
+                "description": "Grouping granularity, only effective when `type` is \"collection\". Values: - `collection` (default): group by collection; `product_id` is empty - `collection_product`: group by collection x product - `product`: group by product"
               }
             ]
           },
@@ -7124,10 +7186,216 @@
                   "type": "string"
                 },
                 "description": "Simple equality filters, keyed by dimension name with the exact value to match, e.g. {\"country_code\": \"US\"}. Each entry is an exact-match condition and multiple entries are combined with AND. Only keys within the supported `dimension` set take effect; unknown keys are ignored."
+              },
+              {
+                "name": "filter_crawler_type",
+                "type": "string",
+                "description": "Crawler-filtering policy that controls whether bot/crawler traffic is excluded from the statistics. Values: - `no_filter_crawler`: do not filter; count all traffic (default) - `official_crawler`: exclude known crawlers/bots"
               }
             ]
           },
           "response_schema": "v202506.GetDataAnalysisResponse"
+        },
+        {
+          "id": "data-analysis-search-keyword",
+          "command_path": [
+            "analytics",
+            "search-keyword"
+          ],
+          "summary": "Get data analysis by search keyword",
+          "description": "Retrieve on-site search analytics grouped by search keyword, including the number of searches, the number of searching users, whether the search returned results, and the click-through rate.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/data-analysis/search-keyword",
+            "body": "*"
+          },
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "begin_time",
+                "type": "string",
+                "required": true,
+                "description": "Start time, a Unix timestamp in seconds passed as a string, e.g. \"1748736000\"",
+                "min_length": 1
+              },
+              {
+                "name": "end_time",
+                "type": "string",
+                "required": true,
+                "description": "End time, a Unix timestamp in seconds passed as a string, e.g. \"1781481600\". Should be greater than begin_time",
+                "min_length": 1
+              },
+              {
+                "name": "time_zone",
+                "type": "integer",
+                "format": "int32",
+                "description": "Notice: Values outside the range -12 to 14 might lead to unexpected results in time-based calculations. Time zone offset (in hours) used for analysis. Recommended range: -12 to 14"
+              },
+              {
+                "name": "cursor",
+                "type": "string",
+                "description": "Cursor for pagination"
+              },
+              {
+                "name": "page_size",
+                "type": "integer",
+                "format": "int32",
+                "description": "Page size for pagination",
+                "default": 10,
+                "minimum": 1,
+                "maximum": 600
+              },
+              {
+                "name": "keyword",
+                "type": "string",
+                "description": "Fuzzy match on the search keyword",
+                "max_length": 500
+              },
+              {
+                "name": "sort_by",
+                "type": "string",
+                "description": "Field to sort by. Supported values: - `count`: Number of searches - `percent`: Share of all searches - `uv`: Number of searching users - `has_result`: Whether the search returned results - `click_rate`: Search click-through rate"
+              },
+              {
+                "name": "sort_direction",
+                "type": "string",
+                "description": "Sorting direction: asc (ascending) or desc (descending). Defaults to desc"
+              },
+              {
+                "name": "has_result",
+                "type": "string",
+                "description": "Filter by whether the search returned results: `1` with results, `0` without results. Defaults to no filtering"
+              },
+              {
+                "name": "country_code",
+                "type": "string",
+                "description": "Filter by the visitor's country/region code, e.g. \"US\""
+              },
+              {
+                "name": "filter_crawler_type",
+                "type": "string",
+                "description": "Crawler-filtering policy that controls whether bot/crawler traffic is excluded from the statistics. Values: - `no_filter_crawler`: do not filter; count all traffic (default) - `official_crawler`: exclude known crawlers/bots"
+              }
+            ]
+          },
+          "response_schema": "v202601.GetDataAnalysisSearchKeywordResponse"
+        },
+        {
+          "id": "data-analysis-traffic-channel",
+          "command_path": [
+            "analytics",
+            "traffic-channel"
+          ],
+          "summary": "Get data analysis by traffic channel",
+          "description": "Retrieve traffic channel analytics grouped by traffic type and traffic channel, including visiting users, sales, orders and each of their shares of the grand total.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/data-analysis/traffic-channel",
+            "body": "*"
+          },
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "begin_time",
+                "type": "string",
+                "required": true,
+                "description": "Start time, a Unix timestamp in seconds passed as a string, e.g. \"1748736000\"",
+                "min_length": 1
+              },
+              {
+                "name": "end_time",
+                "type": "string",
+                "required": true,
+                "description": "End time, a Unix timestamp in seconds passed as a string, e.g. \"1781481600\". Should be greater than begin_time",
+                "min_length": 1
+              },
+              {
+                "name": "dimensions",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "required": true,
+                "description": "Dimensions to group by. Supported values: - `last_referrer_first_show`: Traffic type (first-level channel) - `last_referrer_show`: Traffic channel (second-level channel)",
+                "min_length": 1
+              },
+              {
+                "name": "metrics",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "required": true,
+                "description": "Metrics to query. Supported values: - `uv`: Number of visiting users - `sales`: Sales amount - `orders`: Number of orders - `uv_rate`: Share of visiting users against the grand total - `sales_rate`: Share of sales against the grand total - `orders_rate`: Share of orders against the grand total",
+                "min_length": 1
+              },
+              {
+                "name": "time_zone",
+                "type": "integer",
+                "format": "int32",
+                "description": "Notice: Values outside the range -12 to 14 might lead to unexpected results in time-based calculations. Time zone offset (in hours) used for analysis. Recommended range: -12 to 14"
+              },
+              {
+                "name": "cursor",
+                "type": "string",
+                "description": "Cursor for pagination"
+              },
+              {
+                "name": "page_size",
+                "type": "integer",
+                "format": "int32",
+                "description": "Page size for pagination",
+                "default": 10,
+                "minimum": 1,
+                "maximum": 500
+              },
+              {
+                "name": "sort_by",
+                "type": "string",
+                "description": "Field to sort by. Must be one of the requested `metrics`; `uv_rate`, `sales_rate` and `orders_rate` sort by their underlying raw values"
+              },
+              {
+                "name": "sort_direction",
+                "type": "string",
+                "description": "Sorting direction: asc (ascending) or desc (descending)"
+              },
+              {
+                "name": "has_summary",
+                "type": "boolean",
+                "description": "Whether to return the `summary` grand-total row"
+              },
+              {
+                "name": "filters",
+                "type": "string",
+                "description": "Dimension filter conditions as a JSON string, keyed by dimension name: `{\"\u003cdimension\u003e\": {\"operator\": \"\u003coperator\u003e\", \"value\": \u003cvalue\u003e}}` The `value` type to send depends on the operator (operators are case-insensitive): - `in`, `not in`             -\u003e value is an ARRAY, e.g. [\"Social\"]. A scalar will NOT match, so always send an array for these operators. - `like`, `not like`         -\u003e value is a STRING, e.g. \"google\" - `=`, `\u003e`, `\u003e=`, `\u003c`, `\u003c=`  -\u003e value is a SCALAR (string or number) Supported keys are the two dimensions: `last_referrer_first_show` and `last_referrer_show`; entries are combined with AND. Unknown keys or unsupported operators are silently ignored, so a filter \"not taking effect\" usually means a mistyped key/operator. e.g. {\"last_referrer_first_show\": {\"operator\": \"in\", \"value\": [\"Social\"]}, \"last_referrer_show\": {\"operator\": \"in\", \"value\": [\"Facebook\", \"TikTok\"]}}"
+              },
+              {
+                "name": "filter_crawler_type",
+                "type": "string",
+                "description": "Crawler-filtering policy that controls whether bot/crawler traffic is excluded from the statistics. Values: - `no_filter_crawler`: do not filter; count all traffic (default) - `official_crawler`: exclude known crawlers/bots"
+              }
+            ]
+          },
+          "response_schema": "v202601.GetDataAnalysisTrafficChannelResponse"
+        },
+        {
+          "id": "data-analysis-traffic-channel-options",
+          "command_path": [
+            "analytics",
+            "traffic-channel-options"
+          ],
+          "summary": "Get traffic channel options",
+          "description": "Retrieve the complete traffic type (first-level) to traffic channel (second-level) mapping.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/data-analysis/traffic-channel/options"
+          },
+          "response_schema": "v202601.GetDataAnalysisTrafficChannelOptionsResponse"
         },
         {
           "id": "article-authors",
@@ -13568,6 +13836,28 @@
           "name": "escape_rate_original",
           "type": "number",
           "format": "float"
+        },
+        {
+          "name": "last_referrer_first_show",
+          "type": "string"
+        },
+        {
+          "name": "product_uv",
+          "type": "string"
+        },
+        {
+          "name": "product_uv_original",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "order_customers",
+          "type": "string"
+        },
+        {
+          "name": "order_customers_original",
+          "type": "integer",
+          "format": "int32"
         }
       ]
     },
@@ -13936,6 +14226,19 @@
         {
           "name": "impression",
           "type": "string"
+        },
+        {
+          "name": "collection_id",
+          "type": "string"
+        },
+        {
+          "name": "collection_title",
+          "type": "string"
+        },
+        {
+          "name": "impression_original",
+          "type": "integer",
+          "format": "int64"
         }
       ]
     },
@@ -21081,6 +21384,31 @@
       ]
     },
     "v202601.BatchDeleteProductsResponse": {},
+    "v202601.BatchListTransactionsResponse": {
+      "fields": [
+        {
+          "name": "transactions",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.Transaction"
+          }
+        },
+        {
+          "name": "cursor",
+          "type": "string"
+        },
+        {
+          "name": "has_more",
+          "type": "boolean"
+        },
+        {
+          "name": "total",
+          "type": "integer",
+          "format": "int32"
+        }
+      ]
+    },
     "v202601.Blog": {
       "fields": [
         {
@@ -21659,6 +21987,105 @@
         }
       ]
     },
+    "v202601.DataBySearchKeyword": {
+      "fields": [
+        {
+          "name": "item",
+          "type": "string"
+        },
+        {
+          "name": "count",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "name": "percent",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "name": "uv",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "name": "has_result",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "click_rate",
+          "type": "number",
+          "format": "double"
+        }
+      ]
+    },
+    "v202601.DataByTrafficChannel": {
+      "fields": [
+        {
+          "name": "last_referrer_first_show",
+          "type": "string"
+        },
+        {
+          "name": "last_referrer_show",
+          "type": "string"
+        },
+        {
+          "name": "uv",
+          "type": "string"
+        },
+        {
+          "name": "uv_original",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "name": "sales",
+          "type": "string"
+        },
+        {
+          "name": "sales_original",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "name": "orders",
+          "type": "string"
+        },
+        {
+          "name": "orders_original",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "name": "uv_rate",
+          "type": "string"
+        },
+        {
+          "name": "uv_rate_original",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "name": "sales_rate",
+          "type": "string"
+        },
+        {
+          "name": "sales_rate_original",
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "name": "orders_rate",
+          "type": "string"
+        },
+        {
+          "name": "orders_rate_original",
+          "type": "number",
+          "format": "double"
+        }
+      ]
+    },
     "v202601.DeleteCollectionResponse": {},
     "v202601.DeleteLanguageResponse": {},
     "v202601.DeleteMarketProductsResponse": {},
@@ -21850,6 +22277,77 @@
           "name": "collection",
           "type": "object",
           "schema": "v202601.Collection"
+        }
+      ]
+    },
+    "v202601.GetDataAnalysisSearchKeywordResponse": {
+      "fields": [
+        {
+          "name": "count",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "cursor",
+          "type": "string"
+        },
+        {
+          "name": "has_more",
+          "type": "boolean"
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.DataBySearchKeyword"
+          }
+        }
+      ]
+    },
+    "v202601.GetDataAnalysisTrafficChannelOptionsResponse": {
+      "fields": [
+        {
+          "name": "traffic_channels",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.TrafficChannelOption"
+          }
+        }
+      ]
+    },
+    "v202601.GetDataAnalysisTrafficChannelResponse": {
+      "fields": [
+        {
+          "name": "count",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "last_updated_at",
+          "type": "string"
+        },
+        {
+          "name": "cursor",
+          "type": "string"
+        },
+        {
+          "name": "has_more",
+          "type": "boolean"
+        },
+        {
+          "name": "data",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.DataByTrafficChannel"
+          }
+        },
+        {
+          "name": "summary",
+          "type": "object",
+          "schema": "v202601.DataByTrafficChannel"
         }
       ]
     },
@@ -23622,6 +24120,21 @@
         {
           "name": "tracking_url",
           "type": "string"
+        }
+      ]
+    },
+    "v202601.TrafficChannelOption": {
+      "fields": [
+        {
+          "name": "last_referrer_first_show",
+          "type": "string"
+        },
+        {
+          "name": "last_referrer_shows",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       ]
     },

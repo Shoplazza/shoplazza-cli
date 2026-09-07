@@ -149,23 +149,6 @@ func TestResolve_EmptyPath(t *testing.T) {
 	}
 }
 
-func TestWriteConfig_RoundTrip(t *testing.T) {
-	root := t.TempDir()
-	p, _ := Open(root)
-
-	cfg := Config{ClientID: "cid-wc", PartnerID: "p-wc", Scopes: "read_orders"}
-	if err := p.WriteConfig("shoplazza.app.toml", cfg); err != nil {
-		t.Fatalf("WriteConfig: %v", err)
-	}
-	got, err := p.ReadConfig("shoplazza.app.toml")
-	if err != nil {
-		t.Fatalf("ReadConfig after WriteConfig: %v", err)
-	}
-	if got.ClientID != cfg.ClientID || got.PartnerID != cfg.PartnerID {
-		t.Errorf("round-trip mismatch: got %+v want %+v", got, cfg)
-	}
-}
-
 // TestConfigName_TraversalRejected verifies --config style names must be bare
 // file names — "../evil.toml" would otherwise escape the project root.
 func TestConfigName_TraversalRejected(t *testing.T) {
@@ -185,9 +168,6 @@ func TestConfigName_TraversalRejected(t *testing.T) {
 		if uErr := p.UpdateConfig(name, map[string]any{"client_id": "x"}); uErr == nil {
 			t.Errorf("UpdateConfig(%q) should be rejected", name)
 		}
-		if wErr := p.WriteConfig(name, Config{ClientID: "x"}); wErr == nil {
-			t.Errorf("WriteConfig(%q) should be rejected", name)
-		}
 		if sErr := p.SetActiveConfig(name, "x"); sErr == nil {
 			t.Errorf("SetActiveConfig(%q) should be rejected", name)
 		}
@@ -205,7 +185,7 @@ func TestConfigName_TraversalRejected(t *testing.T) {
 func TestWrites_AtomicShape(t *testing.T) {
 	root := t.TempDir()
 	p, _ := Open(root)
-	if err := p.WriteConfig("shoplazza.app.toml", Config{ClientID: "cid"}); err != nil {
+	if err := p.UpdateConfig("shoplazza.app.toml", map[string]any{"client_id": "cid"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := p.UpdateConfig("shoplazza.app.toml", map[string]any{"partner_id": "p1"}); err != nil {
@@ -271,4 +251,167 @@ func getKeychain(t *testing.T, account string) string {
 		t.Fatalf("getKeychain: %v", err)
 	}
 	return v
+}
+
+// ── [dashboard] section ───────────────────────────────────────────────────────
+
+func TestReadConfig_DashboardSection(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "shoplazza.app.toml"),
+		"client_id = \"cid\"\n\n[dashboard]\n  name = \"My App\"\n  app_url = \"https://x.dev/auth\"\n  redirect_url = \"https://x.dev/auth/callback\"\n  embed = true\n")
+	p, _ := Open(root)
+	cfg, err := p.ReadConfig("shoplazza.app.toml")
+	if err != nil {
+		t.Fatalf("ReadConfig: %v", err)
+	}
+	d := cfg.Dashboard
+	if d.Name != "My App" || d.AppURL != "https://x.dev/auth" || d.RedirectURL != "https://x.dev/auth/callback" {
+		t.Fatalf("dashboard = %+v", d)
+	}
+	if d.Embed == nil || !*d.Embed {
+		t.Fatalf("embed should decode to &true, got %v", d.Embed)
+	}
+}
+
+// A missing embed line decodes to nil, never false.
+func TestReadConfig_EmbedMissingIsNil(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "shoplazza.app.toml"),
+		"client_id = \"cid\"\n[dashboard]\n  name = \"A\"\n")
+	p, _ := Open(root)
+	cfg, err := p.ReadConfig("shoplazza.app.toml")
+	if err != nil {
+		t.Fatalf("ReadConfig: %v", err)
+	}
+	if cfg.Dashboard.Embed != nil {
+		t.Fatalf("embed = %v, want nil when the key is absent", *cfg.Dashboard.Embed)
+	}
+	// And no section at all is fine too.
+	writeFile(t, filepath.Join(root, "shoplazza.app.toml"), "client_id = \"cid\"\n")
+	cfg, err = p.ReadConfig("shoplazza.app.toml")
+	if err != nil || cfg.Dashboard != (Dashboard{}) {
+		t.Fatalf("no [dashboard] should read as zero value, got %+v err=%v", cfg.Dashboard, err)
+	}
+}
+
+// A sub-key write merges into the table; other keys survive.
+func TestUpdateConfig_NestedMergePreservesSectionKeys(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "shoplazza.app.toml"),
+		"client_id = \"cid\"\ncustom_key = \"keep\"\n\n[dashboard]\n  name = \"Old\"\n  embed = true\n  extra = \"x\"\n")
+	p, _ := Open(root)
+	err := p.UpdateConfig("shoplazza.app.toml", map[string]any{
+		DashboardKey: map[string]any{"app_url": "https://t.dev/auth", "name": "New"},
+	})
+	if err != nil {
+		t.Fatalf("UpdateConfig: %v", err)
+	}
+	cfg, _ := p.ReadConfig("shoplazza.app.toml")
+	if cfg.Dashboard.Name != "New" || cfg.Dashboard.AppURL != "https://t.dev/auth" {
+		t.Fatalf("merged fields not applied: %+v", cfg.Dashboard)
+	}
+	if cfg.Dashboard.Embed == nil || !*cfg.Dashboard.Embed {
+		t.Fatalf("embed must survive a sibling-key write, got %v", cfg.Dashboard.Embed)
+	}
+	raw, _ := os.ReadFile(filepath.Join(root, "shoplazza.app.toml"))
+	for _, want := range []string{"extra = \"x\"", "custom_key = \"keep\"", "client_id = \"cid\""} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("%s missing after nested merge, file:\n%s", want, raw)
+		}
+	}
+}
+
+// A missing section is created.
+func TestUpdateConfig_CreatesSectionWhenAbsent(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "shoplazza.app.toml"), "client_id = \"cid\"\n")
+	p, _ := Open(root)
+	if err := p.UpdateConfig("shoplazza.app.toml", map[string]any{
+		DashboardKey: map[string]any{"redirect_url": "https://t.dev/cb"},
+	}); err != nil {
+		t.Fatalf("UpdateConfig: %v", err)
+	}
+	cfg, _ := p.ReadConfig("shoplazza.app.toml")
+	if cfg.Dashboard.RedirectURL != "https://t.dev/cb" || cfg.ClientID != "cid" {
+		t.Fatalf("section not created / top-level lost: %+v", cfg)
+	}
+}
+
+// The comment sits directly above [dashboard], exactly once.
+func TestUpdateConfig_DashboardCommentOnceAboveHeader(t *testing.T) {
+	root := t.TempDir()
+	p, _ := Open(root)
+	for i := 0; i < 3; i++ {
+		if err := p.UpdateConfig("shoplazza.app.toml", map[string]any{
+			"client_id":  "cid",
+			DashboardKey: map[string]any{"name": "A"},
+		}); err != nil {
+			t.Fatalf("UpdateConfig #%d: %v", i, err)
+		}
+	}
+	raw, _ := os.ReadFile(filepath.Join(root, "shoplazza.app.toml"))
+	text := string(raw)
+	if n := strings.Count(text, DashboardComment); n != 1 {
+		t.Fatalf("comment count = %d, want 1; file:\n%s", n, text)
+	}
+	if !strings.Contains(text, DashboardComment+"\n[dashboard]") {
+		t.Fatalf("comment must directly precede the [dashboard] header; file:\n%s", text)
+	}
+	// Still a valid, readable toml.
+	if cfg, err := p.ReadConfig("shoplazza.app.toml"); err != nil || cfg.Dashboard.Name != "A" {
+		t.Fatalf("re-read after annotation: %+v %v", cfg, err)
+	}
+}
+
+// No [dashboard] table → no comment (nothing to annotate).
+func TestUpdateConfig_NoDashboardNoComment(t *testing.T) {
+	root := t.TempDir()
+	p, _ := Open(root)
+	if err := p.UpdateConfig("shoplazza.app.toml", map[string]any{"client_id": "cid"}); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(root, "shoplazza.app.toml"))
+	if strings.Contains(string(raw), "#") {
+		t.Fatalf("unexpected comment without a [dashboard] section:\n%s", raw)
+	}
+}
+
+// The legacy scopes-array fallback must keep [dashboard].
+func TestReadConfig_LegacyArrayScopes_KeepsDashboard(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "shoplazza.app.toml"),
+		"client_id = \"cid\"\nscopes = [\"read_customer\", \"write_cart_transform\"]\n\n[dashboard]\n  app_url = \"https://t.dev/auth\"\n  embed = true\n")
+	p, _ := Open(root)
+	cfg, err := p.ReadConfig("shoplazza.app.toml")
+	if err != nil {
+		t.Fatalf("ReadConfig: %v", err)
+	}
+	if cfg.Scopes != "read_customer write_cart_transform" {
+		t.Fatalf("scopes = %q", cfg.Scopes)
+	}
+	if cfg.Dashboard.AppURL != "https://t.dev/auth" || cfg.Dashboard.Embed == nil || !*cfg.Dashboard.Embed {
+		t.Fatalf("legacy fallback dropped [dashboard]: %+v", cfg.Dashboard)
+	}
+}
+
+func TestDashboard_Fields(t *testing.T) {
+	f := false
+	got := Dashboard{Name: "", AppURL: "https://a/x", RedirectURL: "", Embed: &f}.Fields()
+	if len(got) != 2 || got["app_url"] != "https://a/x" || got["embed"] != false {
+		t.Fatalf("Fields = %v, want app_url + embed:false only", got)
+	}
+	if n := len((Dashboard{}).Fields()); n != 0 {
+		t.Fatalf("zero Dashboard should have no fields, got %d", n)
+	}
+}
+
+// annotateDashboard handles a [dashboard] header on the very first line too.
+func TestAnnotateDashboard_HeaderAtStart(t *testing.T) {
+	out := string(annotateDashboard([]byte("[dashboard]\n  name = \"A\"\n")))
+	if !strings.HasPrefix(out, DashboardComment+"\n[dashboard]\n") {
+		t.Fatalf("unexpected output:\n%s", out)
+	}
+	if got := string(annotateDashboard([]byte("client_id = \"x\"\n"))); got != "client_id = \"x\"\n" {
+		t.Fatalf("no header must be a no-op, got %q", got)
+	}
 }

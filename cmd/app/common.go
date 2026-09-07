@@ -216,6 +216,17 @@ type appRef struct {
 	PartnerID string
 	Scopes    []string
 	Name      string
+	// Dashboard is zero in create mode.
+	Dashboard project.Dashboard
+}
+
+// dashboardSet returns the [dashboard] fields to merge; nil when empty.
+func dashboardSet(ref appRef) map[string]any {
+	dash := ref.Dashboard.Fields()
+	if len(dash) == 0 {
+		return nil
+	}
+	return dash
 }
 
 // resolveAppRef resolves the target app: either create a new app (init: --name;
@@ -251,7 +262,8 @@ func resolveAppRef(ctx context.Context, d *app.Dashboard, clientID string, creat
 		if err != nil {
 			return appRef{}, apiError(err)
 		}
-		return appRef{ClientID: created.ClientID, PartnerID: pid, Scopes: created.Scopes, Name: created.Name}, nil
+		return appRef{ClientID: created.ClientID, PartnerID: pid, Scopes: created.Scopes, Name: created.Name,
+			Dashboard: project.Dashboard{Name: created.Name}}, nil
 	}
 	// Link existing: derive the owning partner from the client_id.
 	info, err := d.GetCompleteInfo(ctx, clientID)
@@ -266,7 +278,8 @@ func resolveAppRef(ctx context.Context, d *app.Dashboard, clientID string, creat
 	if err != nil {
 		return appRef{}, apiError(err)
 	}
-	return appRef{ClientID: cfg.ClientID, PartnerID: pid, Scopes: cfg.Scopes, Name: cfg.Name}, nil
+	return appRef{ClientID: cfg.ClientID, PartnerID: pid, Scopes: cfg.Scopes, Name: cfg.Name,
+		Dashboard: project.Dashboard{Name: cfg.Name, AppURL: cfg.AppURL, RedirectURL: cfg.RedirectURL, Embed: cfg.Embed}}, nil
 }
 
 // activeAppConfig reads the project's active config and validates that client_id
@@ -276,15 +289,25 @@ func resolveAppRef(ctx context.Context, d *app.Dashboard, clientID string, creat
 // read commands (dev/deploy/function) now that partner is sourced from the config
 // rather than a --partner flag.
 func activeAppConfig(p *project.Project) (project.Config, *output.ExitError) {
-	cfg, err := p.ActiveConfig()
+	_, cfg, ex := activeAppConfigNamed(p)
+	return cfg, ex
+}
+
+// activeAppConfigNamed is activeAppConfig plus the active toml's file name.
+func activeAppConfigNamed(p *project.Project) (string, project.Config, *output.ExitError) {
+	name, err := p.ActiveConfigName()
 	if err != nil {
-		return project.Config{}, output.ErrValidation("cannot read active config: %v", err)
+		return "", project.Config{}, output.ErrValidation("cannot read active config: %v", err)
+	}
+	cfg, err := p.ReadConfig(name)
+	if err != nil {
+		return "", project.Config{}, output.ErrValidation("cannot read active config: %v", err)
 	}
 	if cfg.ClientID == "" {
-		return project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+		return "", project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
 			"no client_id in active config", "run 'shoplazza app config link' or 'shoplazza app config use'")
 	}
-	return cfg, nil
+	return name, cfg, nil
 }
 
 // ensurePartnerID returns the config's partner_id, resolving it live from /info

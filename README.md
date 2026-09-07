@@ -167,7 +167,9 @@ shoplazza app versions
 shoplazza app list                              # List apps in your account
 shoplazza app info                              # Print app and extension info
 shoplazza app config use --config alt.toml      # Switch active app config
-shoplazza app config link --client-id <id>      # Link an existing app
+shoplazza app config link --client-id <id>      # Link an existing app (pulls its dashboard settings into [dashboard])
+shoplazza app config push                       # Push [dashboard] (name / app_url / redirect_url / embed) to the Partner dashboard
+shoplazza app dev --write-urls                  # Also record the tunnel URLs in [dashboard], then `app config push` them
 
 # Function extensions (compile/release individually)
 shoplazza app function compile --extension my-fn
