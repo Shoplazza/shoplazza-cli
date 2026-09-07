@@ -406,3 +406,23 @@ func TestClassifyPullDownloadErr_NoTmpPathMention(t *testing.T) {
 		}
 	}
 }
+
+// TestSnapshot_PullDryRun locks pull's 2-plan dry-run shape (PlanDetail v2 +
+// PlanDownload v1).
+func TestSnapshot_PullDryRun(t *testing.T) {
+	in := common.ExecInput{DryRun: true, Flags: pullFlags(t, "abc")}
+	res, err := pullShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Execute err: %v", err)
+	}
+	snapshot(t, "pull_dry_run", plansToMap(res.Plans))
+}
+
+func TestHelp_Pull(t *testing.T) {
+	out := helpFor(t, "themes", "pull")
+	for _, want := range []string{"pull", "--theme-id", "-t", "themes list"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("pull help missing %q:\n%s", want, out)
+		}
+	}
+}

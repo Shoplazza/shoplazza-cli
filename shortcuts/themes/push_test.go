@@ -699,3 +699,27 @@ func TestDecodeTaskJSONFields_LeavesInvalidJSONAndEmpty(t *testing.T) {
 		t.Errorf("empty string must be left as-is, got %v", task["manifest"])
 	}
 }
+
+// TestSnapshot_PushDryRun locks push's 3-plan dry-run shape (detail + upload
+// + task-poll). The task_id is a static placeholder since dry-run never
+// hits the upload endpoint.
+func TestSnapshot_PushDryRun(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+
+	in := common.ExecInput{DryRun: true, Flags: pushFlags(t, "abc")}
+	res, err := pushShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Execute err: %v", err)
+	}
+	snapshot(t, "push_dry_run", plansToMap(res.Plans))
+}
+
+func TestHelp_Push(t *testing.T) {
+	out := helpFor(t, "themes", "push")
+	if !strings.Contains(out, "--theme-id") {
+		t.Errorf("push help missing --theme-id:\n%s", out)
+	}
+}

@@ -313,3 +313,32 @@ func TestThemeIDFromTask_Empty(t *testing.T) {
 		t.Errorf("expected empty for missing theme_id, got %q", got)
 	}
 }
+
+// TestSnapshot_ShareDryRun locks share's dry-run shape: PlanShareShop +
+// PlanShareUpload with theme_id="" (always a fresh temporary theme).
+func TestSnapshot_ShareDryRun(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+
+	in := common.ExecInput{DryRun: true, Flags: shareFlags(t)}
+	res, err := shareShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Execute err: %v", err)
+	}
+	snapshot(t, "share_dry_run_path_a", plansToMap(res.Plans))
+}
+
+// TestHelp_Share_HasNoThemeID: share is a non-destructive snapshot — it always
+// uploads a fresh temporary theme and never takes a --theme-id. Overwriting an
+// existing theme is `themes push`'s job; share must not expose a -t footgun.
+func TestHelp_Share_HasNoThemeID(t *testing.T) {
+	out := helpFor(t, "themes", "share")
+	if strings.Contains(out, "--theme-id") {
+		t.Errorf("share must NOT expose --theme-id (overwrite is push's job):\n%s", out)
+	}
+	if !strings.Contains(strings.ToLower(out), "temporary") {
+		t.Errorf("share help should describe the upload as a temporary preview:\n%s", out)
+	}
+}

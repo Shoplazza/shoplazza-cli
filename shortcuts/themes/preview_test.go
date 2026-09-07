@@ -99,3 +99,12 @@ func TestBuildPreviewURL_Session(t *testing.T) {
 		t.Errorf("session URL should honour explicit locale, got %q", got)
 	}
 }
+
+func TestHelp_Preview(t *testing.T) {
+	out := helpFor(t, "themes", "+preview")
+	for _, want := range []string{"+preview", "--theme-id", "-t", "--oseid"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("+preview help missing %q:\n%s", want, out)
+		}
+	}
+}

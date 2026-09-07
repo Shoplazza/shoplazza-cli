@@ -369,3 +369,35 @@ func TestSanitizeFileComponent_NoSeparatorsSurvive(t *testing.T) {
 		}
 	}
 }
+
+// TestSnapshot_PackageDryRun locks package's Body. The absolute zip_path
+// must be normalised to <TMP> so the golden is reproducible across machines.
+func TestSnapshot_PackageDryRun(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+
+	in := common.ExecInput{DryRun: true, Flags: flagsWithNoIgnore(t, false)}
+	var res common.ExecResult
+	var execErr error
+	captureStderr(t, func() {
+		res, execErr = packageShortcut.Execute(context.Background(), in)
+	})
+	if execErr != nil {
+		t.Fatalf("Execute err: %v", execErr)
+	}
+	// Normalise the absolute tmp path (and the OS path separator) so the snapshot
+	// is deterministic across machines and platforms.
+	if zp, ok := res.Body["zip_path"].(string); ok {
+		res.Body["zip_path"] = filepath.ToSlash(strings.ReplaceAll(zp, dir, "<TMP>"))
+	}
+	snapshot(t, "package_dry_run", res.Body)
+}
+
+func TestHelp_Package(t *testing.T) {
+	out := helpFor(t, "themes", "package")
+	if !strings.Contains(out, "--no-ignore") {
+		t.Errorf("package help missing --no-ignore:\n%s", out)
+	}
+}

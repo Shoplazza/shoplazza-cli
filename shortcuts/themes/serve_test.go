@@ -813,3 +813,62 @@ func TestIsEditorTempFiltersAtomicSaveArtifacts(t *testing.T) {
 		}
 	}
 }
+
+// TestSnapshot_ServeDryRun locks serve's 4-plan dry-run shape (detail +
+// upload + task-poll + doctree). Watcher and LiveReload server are not
+// started; this is a pure preview.
+func TestSnapshot_ServeDryRun(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+
+	in := common.ExecInput{DryRun: true, Flags: serveFlags(t, "abc", 21647)}
+	res, err := serveShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Execute err: %v", err)
+	}
+	snapshot(t, "serve_dry_run", plansToMap(res.Plans))
+}
+
+func TestHelp_Serve_HasLivereloadPort(t *testing.T) {
+	out := helpFor(t, "themes", "serve")
+	if !strings.Contains(out, "--port") {
+		t.Errorf("serve help missing --port:\n%s", out)
+	}
+	if strings.Contains(out, "--no-livereload") {
+		t.Errorf("serve help must NOT expose --no-livereload:\n%s", out)
+	}
+}
+
+// TestHelp_Serve_ExplainsDualMode: serve's long help must explain the two
+// modes (default development theme vs explicit --theme-id), where the dev
+// theme id is persisted, the overwrite semantics of the explicit mode, the
+// theme-directory requirement, and the one-way (local → remote) sync.
+func TestHelp_Serve_ExplainsDualMode(t *testing.T) {
+	out := helpFor(t, "themes", "serve")
+	for _, want := range []string{
+		"development theme",           // default mode named
+		".shoplazza/theme-state.json", // where the id is written back
+		"overwrites",                  // explicit mode is destructive
+		"config/settings_schema.json", // theme-directory requirement
+		"themes pull",                 // editor changes are not synced back
+		"serve [--theme-id <id>]",     // usage shows the flag as optional
+	} {
+		if !strings.Contains(strings.ToLower(out), strings.ToLower(want)) {
+			t.Errorf("serve help missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+// TestHelp_Serve_ThemeIDFlagIsOptional: the --theme-id flag description must
+// flag itself as optional and point at the development-theme default.
+func TestHelp_Serve_ThemeIDFlagIsOptional(t *testing.T) {
+	out := helpFor(t, "themes", "serve")
+	if strings.Contains(out, "Theme ID (required)") {
+		t.Errorf("serve --theme-id must no longer be documented as required:\n%s", out)
+	}
+	if !strings.Contains(strings.ToLower(out), "omit") {
+		t.Errorf("serve --theme-id description should explain what omitting it does:\n%s", out)
+	}
+}
