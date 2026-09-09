@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd/internal/cmdtest"
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdtest"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
