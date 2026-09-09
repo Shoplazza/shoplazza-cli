@@ -2,6 +2,7 @@ package themes
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"time"
 
@@ -12,6 +13,12 @@ import (
 // Preview-path resolution for themes +edit: map the edited template to a
 // representative storefront path. Fail-open: any miss falls back to the
 // homepage and never blocks the write.
+//
+// A custom template (product.custom, page.20260909144720) rides along as the
+// storefront's template=<suffix> query parameter — the same switch the theme
+// editor uses — so the preview renders the edited template on any page of
+// that type, bound or not. Without it the storefront picks the template by
+// binding, which an unbound or freshly created template never wins.
 
 // previewStaticPaths maps static template names straight to a path
 // ("" renders as / in buildPreviewURL).
@@ -34,46 +41,51 @@ var previewResourcePages = map[string]struct{ prefix, queryPath, sizeParam strin
 const previewHandleTimeout = 5 * time.Second
 
 // resolvePreviewPath maps --template/--file to a storefront path: static pages
-// resolve locally, resource pages fetch one representative handle.
+// resolve locally, resource pages fetch one representative item. A custom
+// template's suffix is appended as ?template=<suffix>.
 func resolvePreviewPath(ctx context.Context, c *client.Client, template, file string) string {
-	page := previewPageName(template, file)
+	page, suffix := previewPageName(template, file)
 	if page == "" {
 		return ""
 	}
-	if path, ok := previewStaticPaths[page]; ok {
-		return path
-	}
-	res, ok := previewResourcePages[page]
+	path, ok := previewStaticPaths[page]
 	if !ok {
-		return ""
+		res, known := previewResourcePages[page]
+		if !known {
+			return ""
+		}
+		path = representativePath(ctx, c, res.queryPath, res.sizeParam, res.prefix)
+		if path == "" {
+			return ""
+		}
 	}
-	handle := representativeHandle(ctx, c, res.queryPath, res.sizeParam)
-	if handle == "" {
-		return ""
+	if suffix != "" {
+		path += "?template=" + url.QueryEscape(suffix)
 	}
-	return res.prefix + "/" + handle
+	return path
 }
 
-// previewPageName extracts the page name (first dot segment, product.custom →
-// product); a --file counts only when it is a templates-group file.
-func previewPageName(template, file string) string {
+// previewPageName splits --template/--file into the page name and the custom
+// template suffix (product.custom → "product", "custom"); a --file counts only
+// when it is a templates-group file.
+func previewPageName(template, file string) (page, suffix string) {
 	name := template
 	if name == "" {
 		group, location, err := templateLocation("", file)
 		if err != nil || group != "templates" {
-			return ""
+			return "", ""
 		}
 		name = strings.TrimSuffix(location, ".liquid")
 	}
 	if i := strings.IndexByte(name, '.'); i > 0 {
-		name = name[:i]
+		return name[:i], name[i+1:]
 	}
-	return name
+	return name, ""
 }
 
-// representativeHandle fetches one item from a list endpoint and returns its
-// handle; "" on any failure, bounded by previewHandleTimeout.
-func representativeHandle(ctx context.Context, c *client.Client, path, sizeParam string) string {
+// representativePath fetches one item from a list endpoint and returns its
+// storefront path; "" on any failure, bounded by previewHandleTimeout.
+func representativePath(ctx context.Context, c *client.Client, path, sizeParam, prefix string) string {
 	ctx, cancel := context.WithTimeout(ctx, previewHandleTimeout)
 	defer cancel()
 	resp, err := common.Send(ctx, c, common.PlannedRequest{
@@ -82,12 +94,14 @@ func representativeHandle(ctx context.Context, c *client.Client, path, sizeParam
 	if err != nil {
 		return ""
 	}
-	return firstHandleIn(resp)
+	return firstPathIn(resp, prefix)
 }
 
-// firstHandleIn scans a list response for the first object slice whose head
-// carries a non-empty handle, tolerating data wrappers and per-resource list keys.
-func firstHandleIn(resp map[string]any) string {
+// firstPathIn scans a list response for the first object slice whose head
+// yields a storefront path, tolerating data wrappers and per-resource list
+// keys. products/collections/blogs carry `handle` (→ prefix/handle); pages
+// carry a ready `url` (/pages/xxx) and no handle.
+func firstPathIn(resp map[string]any, prefix string) string {
 	root := resp
 	for i := 0; i < 2; i++ {
 		if d := mapField(root, "data"); d != nil {
@@ -95,22 +109,28 @@ func firstHandleIn(resp map[string]any) string {
 		}
 	}
 	for _, key := range []string{"products", "collections", "pages", "blogs", "list", "items"} {
-		if h := headHandle(root[key]); h != "" {
-			return h
+		if p := headPath(root[key], prefix); p != "" {
+			return p
 		}
 	}
 	for _, v := range root {
-		if h := headHandle(v); h != "" {
-			return h
+		if p := headPath(v, prefix); p != "" {
+			return p
 		}
 	}
 	return ""
 }
 
-func headHandle(v any) string {
+func headPath(v any, prefix string) string {
 	items := mapSlice(v)
 	if len(items) == 0 {
 		return ""
 	}
-	return getString(items[0], "handle")
+	if h := getString(items[0], "handle"); h != "" {
+		return prefix + "/" + h
+	}
+	if u := getString(items[0], "url"); u != "" {
+		return strings.TrimPrefix(u, "/")
+	}
+	return ""
 }

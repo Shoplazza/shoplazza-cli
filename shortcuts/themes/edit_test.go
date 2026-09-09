@@ -281,18 +281,21 @@ func TestEdit_PreviewPathByTemplate(t *testing.T) {
 	}
 }
 
-// TestPreviewPageName covers the template/file → page-name extraction.
+// TestPreviewPageName covers the template/file → (page name, custom suffix)
+// extraction.
 func TestPreviewPageName(t *testing.T) {
-	cases := []struct{ template, file, want string }{
-		{"index", "", "index"},
-		{"product.custom", "", "product"},
-		{"", "templates/page.summer.liquid", "page"},
-		{"", "sections/foo.liquid", ""}, // non-templates group: no storefront page
-		{"", "", ""},
+	cases := []struct{ template, file, page, suffix string }{
+		{"index", "", "index", ""},
+		{"product.custom", "", "product", "custom"},
+		{"page.20260909144720", "", "page", "20260909144720"},
+		{"", "templates/page.summer.liquid", "page", "summer"},
+		{"", "sections/foo.liquid", "", ""}, // non-templates group: no storefront page
+		{"", "", "", ""},
 	}
 	for _, c := range cases {
-		if got := previewPageName(c.template, c.file); got != c.want {
-			t.Errorf("previewPageName(%q, %q) = %q, want %q", c.template, c.file, got, c.want)
+		page, suffix := previewPageName(c.template, c.file)
+		if page != c.page || suffix != c.suffix {
+			t.Errorf("previewPageName(%q, %q) = (%q, %q), want (%q, %q)", c.template, c.file, page, suffix, c.page, c.suffix)
 		}
 	}
 }
@@ -315,22 +318,48 @@ func TestResolvePreviewPath_LocalOnly(t *testing.T) {
 	}
 }
 
-// TestFirstHandleIn covers list-response shapes: named key, data wrapper,
-// generic slice, and the empty fallback.
-func TestFirstHandleIn(t *testing.T) {
+// TestResolvePreviewPath_CustomPageTemplate: pages carry `url` (no `handle`),
+// and a custom template rides along as the storefront's template= parameter.
+func TestResolvePreviewPath_CustomPageTemplate(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/openapi/2026-01/pages" {
+			t.Errorf("unexpected request %s", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"pages": []any{
+			map[string]any{"id": 12065579, "title": "About Us", "url": "/pages/about-us"},
+		}}})
+	}))
+	defer srv.Close()
+	c := client.New(srv.URL)
+
+	if got := resolvePreviewPath(context.Background(), c, "page.20260909144720", ""); got != "pages/about-us?template=20260909144720" {
+		t.Errorf("custom page template = %q, want pages/about-us?template=20260909144720", got)
+	}
+	if got := resolvePreviewPath(context.Background(), c, "page", ""); got != "pages/about-us" {
+		t.Errorf("default page template = %q, want pages/about-us", got)
+	}
+}
+
+// TestFirstPathIn covers list-response shapes: named key, data wrapper,
+// generic slice, url-only items (pages), handle winning over url, and the
+// empty fallback.
+func TestFirstPathIn(t *testing.T) {
 	cases := []struct {
-		resp map[string]any
-		want string
+		resp   map[string]any
+		prefix string
+		want   string
 	}{
-		{map[string]any{"products": []any{map[string]any{"handle": "p1"}}}, "p1"},
-		{map[string]any{"data": map[string]any{"collections": []any{map[string]any{"handle": "c1"}}}}, "c1"},
-		{map[string]any{"whatever": []any{map[string]any{"handle": "x1"}}}, "x1"},
-		{map[string]any{"products": []any{}}, ""},
-		{map[string]any{}, ""},
+		{map[string]any{"products": []any{map[string]any{"handle": "p1"}}}, "products", "products/p1"},
+		{map[string]any{"data": map[string]any{"collections": []any{map[string]any{"handle": "c1"}}}}, "collections", "collections/c1"},
+		{map[string]any{"whatever": []any{map[string]any{"handle": "x1"}}}, "products", "products/x1"},
+		{map[string]any{"pages": []any{map[string]any{"url": "/pages/about-us"}}}, "pages", "pages/about-us"},
+		{map[string]any{"pages": []any{map[string]any{"handle": "h", "url": "/pages/u"}}}, "pages", "pages/h"},
+		{map[string]any{"products": []any{}}, "products", ""},
+		{map[string]any{}, "products", ""},
 	}
 	for _, c := range cases {
-		if got := firstHandleIn(c.resp); got != c.want {
-			t.Errorf("firstHandleIn(%v) = %q, want %q", c.resp, got, c.want)
+		if got := firstPathIn(c.resp, c.prefix); got != c.want {
+			t.Errorf("firstPathIn(%v, %q) = %q, want %q", c.resp, c.prefix, got, c.want)
 		}
 	}
 }
