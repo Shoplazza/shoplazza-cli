@@ -100,8 +100,8 @@ func TestBuildPreviewURL_Session(t *testing.T) {
 	}
 }
 
-// TestBuildPreviewURL_PathWithQuery: a path that already carries a query
-// (custom template's template=) is continued with & rather than a second ?.
+// TestBuildPreviewURL_PathWithQuery: a path that already carries a query is
+// continued with & rather than a second ?.
 func TestBuildPreviewURL_PathWithQuery(t *testing.T) {
 	got := buildPreviewURL("shop.myshoplaza.com", "pages/about-us?template=abc", "t1", "", "")
 	if got != "https://shop.myshoplaza.com/pages/about-us?template=abc&preview_theme_id=t1" {

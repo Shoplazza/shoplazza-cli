@@ -281,8 +281,7 @@ func TestEdit_PreviewPathByTemplate(t *testing.T) {
 	}
 }
 
-// TestPreviewPageName covers the template/file → (page name, custom suffix)
-// extraction.
+// TestPreviewPageName covers the template/file → (page name, custom suffix) split.
 func TestPreviewPageName(t *testing.T) {
 	cases := []struct{ template, file, page, suffix string }{
 		{"index", "", "index", ""},
@@ -318,8 +317,8 @@ func TestResolvePreviewPath_LocalOnly(t *testing.T) {
 	}
 }
 
-// TestResolvePreviewPath_CustomPageTemplate: pages carry `url` (no `handle`),
-// and a custom template rides along as the storefront's template= parameter.
+// TestResolvePreviewPath_CustomPageTemplate resolves a page template from a
+// url-only list item, with and without a custom suffix.
 func TestResolvePreviewPath_CustomPageTemplate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/openapi/2026-01/pages" {
@@ -340,9 +339,8 @@ func TestResolvePreviewPath_CustomPageTemplate(t *testing.T) {
 	}
 }
 
-// TestFirstPathIn covers list-response shapes: named key, data wrapper,
-// generic slice, url-only items (pages), handle winning over url, and the
-// empty fallback.
+// TestFirstPathIn covers list-response shapes: named key, data wrapper, generic
+// slice, url-only items, handle winning over url, and the empty fallback.
 func TestFirstPathIn(t *testing.T) {
 	cases := []struct {
 		resp   map[string]any

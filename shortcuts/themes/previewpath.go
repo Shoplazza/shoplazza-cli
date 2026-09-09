@@ -11,14 +11,9 @@ import (
 )
 
 // Preview-path resolution for themes +edit: map the edited template to a
-// representative storefront path. Fail-open: any miss falls back to the
-// homepage and never blocks the write.
-//
-// A custom template (product.custom, page.20260909144720) rides along as the
-// storefront's template=<suffix> query parameter — the same switch the theme
-// editor uses — so the preview renders the edited template on any page of
-// that type, bound or not. Without it the storefront picks the template by
-// binding, which an unbound or freshly created template never wins.
+// representative storefront path, with a custom template's suffix carried as
+// the storefront's template=<suffix> parameter. Fail-open: any miss falls
+// back to the homepage and never blocks the write.
 
 // previewStaticPaths maps static template names straight to a path
 // ("" renders as / in buildPreviewURL).
@@ -30,7 +25,7 @@ var previewStaticPaths = map[string]string{
 }
 
 // previewResourcePages maps resource templates to their storefront prefix and
-// the list endpoint (with its page-size param) yielding a representative handle.
+// the list endpoint (with its page-size param) yielding a representative item.
 var previewResourcePages = map[string]struct{ prefix, queryPath, sizeParam string }{
 	"product":    {"products", common.APIPrefix + "/products", "per_page"},
 	"collection": {"collections", common.APIPrefix + "/collections", "page_size"},
@@ -38,7 +33,7 @@ var previewResourcePages = map[string]struct{ prefix, queryPath, sizeParam strin
 	"blog":       {"blogs", common.APIPrefix + "/blogs", "page_size"},
 }
 
-const previewHandleTimeout = 5 * time.Second
+const previewPathTimeout = 5 * time.Second
 
 // resolvePreviewPath maps --template/--file to a storefront path: static pages
 // resolve locally, resource pages fetch one representative item. A custom
@@ -54,8 +49,7 @@ func resolvePreviewPath(ctx context.Context, c *client.Client, template, file st
 		if !known {
 			return ""
 		}
-		path = representativePath(ctx, c, res.queryPath, res.sizeParam, res.prefix)
-		if path == "" {
+		if path = representativePath(ctx, c, res.queryPath, res.sizeParam, res.prefix); path == "" {
 			return ""
 		}
 	}
@@ -84,9 +78,9 @@ func previewPageName(template, file string) (page, suffix string) {
 }
 
 // representativePath fetches one item from a list endpoint and returns its
-// storefront path; "" on any failure, bounded by previewHandleTimeout.
+// storefront path; "" on any failure, bounded by previewPathTimeout.
 func representativePath(ctx context.Context, c *client.Client, path, sizeParam, prefix string) string {
-	ctx, cancel := context.WithTimeout(ctx, previewHandleTimeout)
+	ctx, cancel := context.WithTimeout(ctx, previewPathTimeout)
 	defer cancel()
 	resp, err := common.Send(ctx, c, common.PlannedRequest{
 		Method: "GET", Path: path, Query: map[string]any{sizeParam: "1"},
@@ -98,9 +92,7 @@ func representativePath(ctx context.Context, c *client.Client, path, sizeParam, 
 }
 
 // firstPathIn scans a list response for the first object slice whose head
-// yields a storefront path, tolerating data wrappers and per-resource list
-// keys. products/collections/blogs carry `handle` (→ prefix/handle); pages
-// carry a ready `url` (/pages/xxx) and no handle.
+// yields a storefront path, tolerating data wrappers and per-resource list keys.
 func firstPathIn(resp map[string]any, prefix string) string {
 	root := resp
 	for i := 0; i < 2; i++ {

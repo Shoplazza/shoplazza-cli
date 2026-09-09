@@ -85,7 +85,7 @@ func buildPreviewURL(domain, path, themeID, oseid, locale string) string {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	sep := "?" // path may already carry a query (custom template's template=)
+	sep := "?"
 	if strings.Contains(path, "?") {
 		sep = "&"
 	}
