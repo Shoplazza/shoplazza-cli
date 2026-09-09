@@ -85,9 +85,13 @@ func buildPreviewURL(domain, path, themeID, oseid, locale string) string {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
+	sep := "?" // path may already carry a query (custom template's template=)
+	if strings.Contains(path, "?") {
+		sep = "&"
+	}
 
 	if oseid == "" {
-		u := fmt.Sprintf("https://%s%s?preview_theme_id=%s", domain, path, url.QueryEscape(themeID))
+		u := fmt.Sprintf("https://%s%s%spreview_theme_id=%s", domain, path, sep, url.QueryEscape(themeID))
 		if locale != "" {
 			u += "&locale=" + url.QueryEscape(locale)
 		}
@@ -97,7 +101,7 @@ func buildPreviewURL(domain, path, themeID, oseid, locale string) string {
 	if locale == "" {
 		locale = "en_US"
 	}
-	return fmt.Sprintf("https://%s%s?%d&oseid=%s&preview_theme_id=%s&locale=%s&st=",
-		domain, path, time.Now().UnixMilli(),
+	return fmt.Sprintf("https://%s%s%s%d&oseid=%s&preview_theme_id=%s&locale=%s&st=",
+		domain, path, sep, time.Now().UnixMilli(),
 		url.QueryEscape(oseid), url.QueryEscape(themeID), url.QueryEscape(locale))
 }
