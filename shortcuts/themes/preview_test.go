@@ -100,6 +100,22 @@ func TestBuildPreviewURL_Session(t *testing.T) {
 	}
 }
 
+// TestBuildPreviewURL_PathWithQuery: a path that already carries a query is
+// continued with & rather than a second ?.
+func TestBuildPreviewURL_PathWithQuery(t *testing.T) {
+	got := buildPreviewURL("shop.myshoplaza.com", "pages/about-us?template=abc", "t1", "", "")
+	if got != "https://shop.myshoplaza.com/pages/about-us?template=abc&preview_theme_id=t1" {
+		t.Errorf("no-session URL = %q", got)
+	}
+	got = buildPreviewURL("shop.myshoplaza.com", "/pages/about-us?template=abc", "t1", "sess-1", "")
+	if !strings.HasPrefix(got, "https://shop.myshoplaza.com/pages/about-us?template=abc&") || strings.Count(got, "?") != 1 {
+		t.Errorf("session URL must continue the existing query with &, got %q", got)
+	}
+	if !strings.Contains(got, "&oseid=sess-1") {
+		t.Errorf("session URL missing oseid, got %q", got)
+	}
+}
+
 func TestHelp_Preview(t *testing.T) {
 	out := helpFor(t, "themes", "+preview")
 	for _, want := range []string{"+preview", "--theme-id", "-t", "--oseid"} {

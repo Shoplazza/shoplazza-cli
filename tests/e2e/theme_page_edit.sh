@@ -73,7 +73,7 @@ grep -q '^\s*+page\b' <<<"$THEMES_HELP" || { log "FATAL: 'themes +page' 未实�
 grep -q '^\s*+edit\b' <<<"$THEMES_HELP" || { log "FATAL: 'themes +edit' 未实现（M3 未完成）"; exit 11; }
 log "  CLI 与两条命令均就绪：$("$BIN" --version 2>/dev/null | head -1)"
 
-# x-rf: feature-cli 网关路由头已写死在 CLI（internal/client），无需环境变量
+# x-rf: feature-theme-skills 网关路由头已写死在 CLI（internal/client），无需环境变量
 
 TEST_THEME="${SHOPLAZZA_TEST_THEME_ID:-}"
 if [[ "$LIVE" == "1" ]]; then

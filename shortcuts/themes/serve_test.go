@@ -72,9 +72,36 @@ func uploadThemeIDOf(line string) (string, bool) {
 	return q.Get("theme_id"), true
 }
 
+// waitFor polls cond until it holds, failing the test after 10s with what it
+// was waiting for and dump()'s view of what actually happened.
+func waitFor(t *testing.T, what string, cond func() bool, dump func() string) {
+	t.Helper()
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(2 * time.Millisecond) {
+		if cond() {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s did not happen within 10s; got:\n%s", what, dump())
+		}
+	}
+}
+
+// waitForRequest blocks until rec has recorded a request line containing substr.
+func waitForRequest(t *testing.T, rec *recordingHandler, substr string) {
+	t.Helper()
+	waitFor(t, "request "+substr, func() bool {
+		for _, line := range rec.requests() {
+			if strings.Contains(line, substr) {
+				return true
+			}
+		}
+		return false
+	}, func() string { return strings.Join(rec.requests(), "\n") })
+}
+
 // runServeBriefly executes serve with the given client and flags, lets it
 // run until the watcher is up, then cancels and waits for a clean exit.
-func runServeBriefly(t *testing.T, c *client.Client, fs common.FlagSet) error {
+func runServeBriefly(t *testing.T, c *client.Client, fs common.FlagSet, rec *recordingHandler) error {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -82,7 +109,7 @@ func runServeBriefly(t *testing.T, c *client.Client, fs common.FlagSet) error {
 		_, e := serveShortcut.Execute(ctx, common.ExecInput{Client: c, Flags: fs})
 		done <- e
 	}()
-	time.Sleep(500 * time.Millisecond)
+	waitForRequest(t, rec, shopV202601)
 	cancel()
 	select {
 	case err := <-done:
@@ -117,7 +144,7 @@ func TestServe_NoThemeID_CreatesDevThemeAndSavesState(t *testing.T) {
 	srv := httptest.NewServer(rec)
 	t.Cleanup(srv.Close)
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0), rec); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 
@@ -164,7 +191,7 @@ func TestServe_NoThemeID_ReusesSavedDevTheme(t *testing.T) {
 		t.Fatalf("seed state: %v", err)
 	}
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0), rec); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 
@@ -220,7 +247,7 @@ func TestServe_NoThemeID_RecreatesWhenSavedThemeGone(t *testing.T) {
 		t.Fatalf("seed state: %v", err)
 	}
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0), rec); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 
@@ -350,24 +377,12 @@ func TestServe_DoesNotModifyThemeFiles(t *testing.T) {
 		t.Fatalf("before snapshot: %v", err)
 	}
 
-	srv := newServeMockServer(t)
+	rec := &recordingHandler{next: mockServeOK}
+	srv := httptest.NewServer(rec)
+	t.Cleanup(srv.Close)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() {
-		_, e := serveShortcut.Execute(ctx, common.ExecInput{
-			Client: client.New(srv.URL),
-			Flags:  serveFlags(t, "abc", 0),
-		})
-		done <- e
-	}()
-	// Give serve time to do its initial push + doctree + start watcher.
-	time.Sleep(500 * time.Millisecond)
-	cancel()
-	select {
-	case <-done:
-	case <-time.After(3 * time.Second):
-		t.Fatalf("serve did not exit within 3s after ctx cancel")
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "abc", 0), rec); err != nil {
+		t.Fatalf("serve err: %v", err)
 	}
 
 	afterMtime, err := dirSnapshot(dir)
@@ -425,11 +440,30 @@ func TestServe_HTTPSyncFailureKeepsWatching(t *testing.T) {
 	os.Stderr = pw
 	t.Cleanup(func() { os.Stderr = oldStderr })
 
-	stderrCh := make(chan string, 1)
+	var stderrMu sync.Mutex
+	var stderrBuf strings.Builder
 	go func() {
-		b, _ := io.ReadAll(pr)
-		stderrCh <- string(b)
+		buf := make([]byte, 4096)
+		for {
+			n, err := pr.Read(buf)
+			if n > 0 {
+				stderrMu.Lock()
+				stderrBuf.Write(buf[:n])
+				stderrMu.Unlock()
+			}
+			if err != nil {
+				return
+			}
+		}
 	}()
+	stderrSoFar := func() string {
+		stderrMu.Lock()
+		defer stderrMu.Unlock()
+		return stderrBuf.String()
+	}
+	waitForStderr := func(substr string) {
+		waitFor(t, "stderr line "+substr, func() bool { return strings.Contains(stderrSoFar(), substr) }, stderrSoFar)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -441,8 +475,7 @@ func TestServe_HTTPSyncFailureKeepsWatching(t *testing.T) {
 		done <- e
 	}()
 
-	// Allow time for initial push + doctree + watcher startup.
-	time.Sleep(600 * time.Millisecond)
+	waitForStderr("Listening for file changes")
 	// Modify an existing file under the theme tree. The watcher will fire
 	// OnUpdate; the snapshot returned by mockServeOK's doctree shape may or
 	// may not contain assets/main.css depending on doc.FromDocTreeResponse
@@ -452,8 +485,7 @@ func TestServe_HTTPSyncFailureKeepsWatching(t *testing.T) {
 	if err := os.WriteFile(target, []byte("changed"), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
-	// Watcher debounce is 50ms + 25ms tick interval; allow ample slack.
-	time.Sleep(800 * time.Millisecond)
+	waitForStderr("unsynced:")
 
 	// Cancel context — serve must exit cleanly without panicking.
 	cancel()
@@ -463,7 +495,7 @@ func TestServe_HTTPSyncFailureKeepsWatching(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatalf("serve did not exit within 3s after ctx cancel; sync failure may have escaped to fatal")
 	}
-	captured := <-stderrCh
+	captured := stderrSoFar()
 	os.Stderr = oldStderr
 
 	// Assert the unsynced marker is present. We do NOT assert on a
