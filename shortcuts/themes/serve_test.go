@@ -39,6 +39,15 @@ func serveFlags(themeID string, port int) common.FlagSet {
 	return common.NewCobraFlagSet(cmd)
 }
 
+// serveFlagsResume adds --task-id to serveFlags.
+func serveFlagsResume(themeID, taskID string, port int) common.FlagSet {
+	cmd := &cobra.Command{Use: "serve"}
+	cmd.Flags().StringP("theme-id", "t", themeID, "")
+	cmd.Flags().String("task-id", taskID, "")
+	cmd.Flags().Int("port", port, "")
+	return common.NewCobraFlagSet(cmd)
+}
+
 // withSyncRetryBackoff replaces the sync retry waits for the test.
 func withSyncRetryBackoff(t *testing.T, backoff []time.Duration) {
 	t.Helper()
@@ -1085,6 +1094,117 @@ func TestIsEditorTempFiltersAtomicSaveArtifacts(t *testing.T) {
 	for _, f := range reals {
 		if doc.IsEditorTemp(f) {
 			t.Errorf("isEditorTemp(%q) = true, want false (real theme file)", f)
+		}
+	}
+}
+
+// ── --task-id resume ─────────────────────────────────────────────────────────
+
+// Dev mode + --task-id: no upload; the theme id comes from the task, is
+// saved, renamed, and the pipeline continues against it.
+func TestServe_TaskID_DevModeAdoptsThemeFromTask(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+	withPushPollOpts(t, asynctask.PollOptions{Interval: time.Millisecond, MaxDuration: 5 * time.Second})
+
+	rec := &recordingHandler{next: func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/themes/task/t9") {
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{
+				"task": map[string]any{"id": "t9", "status": 1, "info": `{"theme_id":"dev9"}`}}})
+			return
+		}
+		mockServeOK(w, r)
+	}}
+	srv := httptest.NewServer(rec)
+	t.Cleanup(srv.Close)
+
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlagsResume("", "t9", 0)); err != nil {
+		t.Fatalf("serve err: %v", err)
+	}
+	if id, ok := devstate.Load(dir, devstate.StoreKey(srv.URL)); !ok || id != "dev9" {
+		t.Errorf("devstate = (%q, %v), want (\"dev9\", true)", id, ok)
+	}
+	var sawUpload, sawRename, sawDocTree bool
+	for _, line := range rec.requests() {
+		if _, isUpload := uploadThemeIDOf(line); isUpload {
+			sawUpload = true
+		}
+		if strings.HasPrefix(line, "PATCH ") && strings.Contains(line, "/themes/dev9/name") {
+			sawRename = true
+		}
+		if strings.Contains(line, "/themes/dev9/doctree") {
+			sawDocTree = true
+		}
+	}
+	if sawUpload || !sawRename || !sawDocTree {
+		t.Errorf("upload=%v rename=%v doctree=%v; requests:\n%s", sawUpload, sawRename, sawDocTree,
+			strings.Join(rec.requests(), "\n"))
+	}
+}
+
+// Explicit theme + --task-id: no upload, wait for the task, then doctree.
+func TestServe_TaskID_ExplicitSkipsUpload(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+	withPushPollOpts(t, asynctask.PollOptions{Interval: time.Millisecond, MaxDuration: 5 * time.Second})
+
+	rec := &recordingHandler{next: mockServeOK}
+	srv := httptest.NewServer(rec)
+	t.Cleanup(srv.Close)
+
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlagsResume("abc", "t1", 0)); err != nil {
+		t.Fatalf("serve err: %v", err)
+	}
+	var sawUpload, sawDetail, sawTask, sawDocTree bool
+	for _, line := range rec.requests() {
+		if _, isUpload := uploadThemeIDOf(line); isUpload {
+			sawUpload = true
+		}
+		if strings.HasPrefix(line, "GET ") && strings.HasSuffix(line, "/themes/abc?") {
+			sawDetail = true
+		}
+		if strings.Contains(line, "/themes/task/t1") {
+			sawTask = true
+		}
+		if strings.Contains(line, "/themes/abc/doctree") {
+			sawDocTree = true
+		}
+	}
+	if sawUpload || !sawDetail || !sawTask || !sawDocTree {
+		t.Errorf("upload=%v detail=%v task=%v doctree=%v; requests:\n%s", sawUpload, sawDetail, sawTask, sawDocTree,
+			strings.Join(rec.requests(), "\n"))
+	}
+}
+
+// --task-id dry-run: task poll (+ rename in dev mode) + doctree, no upload plan.
+func TestServe_DryRun_TaskID(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+
+	dev, err := serveShortcut.Execute(context.Background(), common.ExecInput{DryRun: true, Flags: serveFlagsResume("", "t9", 21647)})
+	if err != nil {
+		t.Fatalf("dev dry-run err: %v", err)
+	}
+	if len(dev.Plans) != 3 || !strings.HasSuffix(dev.Plans[0].Path, "/task/t9") || !strings.HasSuffix(dev.Plans[1].Path, "/name") {
+		t.Errorf("dev plans = %+v", dev.Plans)
+	}
+	exp, err := serveShortcut.Execute(context.Background(), common.ExecInput{DryRun: true, Flags: serveFlagsResume("abc", "t1", 21647)})
+	if err != nil {
+		t.Fatalf("explicit dry-run err: %v", err)
+	}
+	if len(exp.Plans) != 3 || !strings.HasSuffix(exp.Plans[1].Path, "/task/t1") || !strings.HasSuffix(exp.Plans[2].Path, "/doctree") {
+		t.Errorf("explicit plans = %+v", exp.Plans)
+	}
+	for _, p := range append(dev.Plans, exp.Plans...) {
+		if strings.Contains(p.Path, "/upload") {
+			t.Errorf("--task-id dry-run must not plan an upload: %+v", p)
 		}
 	}
 }

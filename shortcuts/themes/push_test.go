@@ -128,6 +128,14 @@ func pushFlags(themeID string) common.FlagSet {
 	return common.NewCobraFlagSet(cmd)
 }
 
+// pushFlagsResume builds a FlagSet with --theme-id and --task-id.
+func pushFlagsResume(themeID, taskID string) common.FlagSet {
+	cmd := &cobra.Command{Use: "push"}
+	cmd.Flags().StringP("theme-id", "t", themeID, "")
+	cmd.Flags().String("task-id", taskID, "")
+	return common.NewCobraFlagSet(cmd)
+}
+
 // withPushPollOpts swaps in test-friendly poll options (tiny interval +
 // bounded MaxDuration) for the duration of the test, restoring originals
 // in t.Cleanup. Required because the production defaults (3s / 3m) would
@@ -602,8 +610,8 @@ func TestTransientPollError_ContextCancelled(t *testing.T) {
 }
 
 func TestTransientPollError_ContextDeadline(t *testing.T) {
-	if transientPollError(context.DeadlineExceeded) {
-		t.Error("context.DeadlineExceeded must be non-transient")
+	if !transientPollError(context.DeadlineExceeded) {
+		t.Error("a client-side timeout (DeadlineExceeded) must be transient")
 	}
 }
 
@@ -724,5 +732,59 @@ func TestDecodeTaskJSONFields_LeavesInvalidJSONAndEmpty(t *testing.T) {
 	}
 	if task["manifest"] != "" {
 		t.Errorf("empty string must be left as-is, got %v", task["manifest"])
+	}
+}
+
+// --task-id skips packaging and upload and waits for the given task.
+func TestPush_TaskIDResumesWithoutUpload(t *testing.T) {
+	setupThemeCWD(t, "Nova", "1.0.0")
+	withPushPollOpts(t, asynctask.PollOptions{Interval: time.Millisecond, MaxDuration: 5 * time.Second})
+	srv := newPushTestServer(t, []string{
+		`{"data":{"task":{"status":0,"info":"still working"}}}`,
+		`{"data":{"task":{"status":1,"info":"done"}}}`,
+	})
+
+	res, err := pushShortcut.Execute(context.Background(), common.ExecInput{
+		Client: client.New(srv.URL), Flags: pushFlagsResume("abc123", "task-old")})
+	if err != nil {
+		t.Fatalf("resume err: %v", err)
+	}
+	if n := atomic.LoadInt32(&srv.uploadCalled); n != 0 {
+		t.Fatalf("upload calls = %d, want 0", n)
+	}
+	if n := atomic.LoadInt32(&srv.taskCalls); n != 2 {
+		t.Fatalf("task polls = %d, want 2", n)
+	}
+	if res.Body["theme_id"] != "abc123" {
+		t.Fatalf("body = %v", res.Body)
+	}
+}
+
+// --task-id dry-run previews only the detail check and the task poll.
+func TestPush_DryRunTaskID(t *testing.T) {
+	setupThemeCWD(t, "Nova", "1.0.0")
+	res, err := pushShortcut.Execute(context.Background(), common.ExecInput{
+		DryRun: true, Flags: pushFlagsResume("abc123", "task-old")})
+	if err != nil {
+		t.Fatalf("dry-run err: %v", err)
+	}
+	if len(res.Plans) != 2 || !strings.HasSuffix(res.Plans[1].Path, "/task/task-old") {
+		t.Fatalf("plans = %+v", res.Plans)
+	}
+}
+
+// A canceled wait reports the task id so it can be resumed.
+func TestPush_CanceledWaitIsResumable(t *testing.T) {
+	setupThemeCWD(t, "Nova", "1.0.0")
+	withPushPollOpts(t, asynctask.PollOptions{Interval: time.Millisecond, MaxDuration: 5 * time.Second})
+	srv := newPushTestServer(t, []string{`{"data":{"task":{"status":0}}}`})
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(30 * time.Millisecond); cancel() }()
+
+	_, err := pushShortcut.Execute(ctx, common.ExecInput{
+		Client: client.New(srv.URL), Flags: pushFlagsResume("abc123", "task-old")})
+	env := envelopeOf(t, err)
+	if hint, _ := env["hint"].(string); !strings.Contains(hint, "--task-id task-old") {
+		t.Fatalf("hint = %v", env)
 	}
 }
