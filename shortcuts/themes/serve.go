@@ -225,7 +225,8 @@ Editor are not written back to local files; fetch them with
 					return common.ExecResult{}, rerr
 				}
 			}
-			step := prog.Begin(fmt.Sprintf("[serve] resuming upload task %s", taskID))
+			fmt.Fprintf(os.Stderr, "[serve] resuming upload task %s\n", taskID)
+			step := prog.Begin("[serve] waiting for the server to process the theme")
 			payload, werr := waitUploadTask(ctx, in.Client, taskID)
 			if werr != nil {
 				step.Fail()

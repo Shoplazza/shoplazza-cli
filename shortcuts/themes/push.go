@@ -151,12 +151,14 @@ var pushShortcut = common.Shortcut{
 			if taskID, err = packAndUpload(ctx, in.Client, prog, cwd, themeID, name, version); err != nil {
 				return common.ExecResult{}, err
 			}
+			fmt.Fprintf(os.Stderr, "[push] upload task %s\n", taskID)
 		} else {
-			prog.Begin(fmt.Sprintf("[push] resuming upload task %s", taskID)).Done()
+			fmt.Fprintf(os.Stderr, "[push] resuming upload task %s\n", taskID)
 		}
 
-		// Step 4: wait for the task to reach a terminal state.
-		waitStep := prog.Begin(fmt.Sprintf("[push] waiting for the server to process the theme (task %s)", taskID))
+		// Step 4: wait for the task to reach a terminal state. The task id is
+		// printed on its own line: the spinner label must stay within a terminal row.
+		waitStep := prog.Begin("[push] waiting for the server to process the theme")
 		payload, err := waitUploadTask(ctx, in.Client, taskID)
 		if err != nil {
 			waitStep.Fail()
