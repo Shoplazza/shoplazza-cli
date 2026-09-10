@@ -39,19 +39,23 @@ func ErrTaskBusinessFailure(task map[string]any) error {
 		WithField("task", task)
 }
 
-// ErrTaskTimeout is the task-polling cap. Network-class because the cap
-// protects against an unresponsive remote, not a server rejection.
-// elapsed is the real time spent waiting (rounded to one decimal so test
-// assertions are stable); cap is the configured PollOptions.MaxDuration,
-// interpolated into the message so non-default callers report the truth.
-// The task payload (last observed status) is passed through for triage.
-func ErrTaskTimeout(elapsed, cap time.Duration, task map[string]any) error {
+// ErrTaskTimeout is the task-polling cap error; it carries the task id and
+// last payload so the wait can be resumed with --task-id.
+func ErrTaskTimeout(elapsed, cap time.Duration, taskID string, task map[string]any) error {
 	elapsedSec := math.Round(elapsed.Seconds()*10) / 10
 	return output.Errorf(output.ExitNetwork, output.TypeNetwork,
 		"theme upload task did not finish within %s", cap).
 		WithField("elapsed_seconds", elapsedSec).
+		WithField("task_id", taskID).
 		WithField("task", task).
-		WithHint("task is still running on server; query status manually via the API or wait and retry")
+		WithHint(fmt.Sprintf("task is still running on server; re-run with --task-id %s to keep waiting, or check it with 'shoplazza themes task'", taskID))
+}
+
+// ErrTaskInterrupted reports a locally canceled wait; the task keeps running on the server.
+func ErrTaskInterrupted(taskID string) error {
+	return output.ErrWithHint(output.ExitNetwork, output.TypeNetwork,
+		fmt.Sprintf("stopped waiting for theme upload task %s", taskID),
+		fmt.Sprintf("the task keeps running on the server; re-run with --task-id %s to keep waiting", taskID))
 }
 
 // ErrLiveReloadBindFailed flags livereload --port conflicts. Network-class

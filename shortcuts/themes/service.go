@@ -39,6 +39,11 @@ func PlanDelete(themeID string) common.PlannedRequest {
 	return common.PlannedRequest{Method: "DELETE", Path: themeBaseV202601 + "/" + themeID}
 }
 
+// PlanRename describes PATCH /themes/{id}/name (set the theme display name).
+func PlanRename(themeID, name string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "PATCH", Path: themeBaseV202601 + "/" + themeID + "/name", Body: map[string]any{"name": name}}
+}
+
 // PlanTaskDetail describes GET /themes/task/{taskID} (async task polling).
 // This is v2 spec — the dynamic `themes task` command maps to the same path.
 func PlanTaskDetail(taskID string) common.PlannedRequest {

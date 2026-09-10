@@ -2,13 +2,16 @@ package themes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 	"unicode/utf8"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -33,7 +36,9 @@ import (
 //     the theme still exists; otherwise a fresh dev theme is created by
 //     uploading the cwd zip with an EMPTY theme_id (the same
 //     /themes/upload contract `themes share` uses) and the new id is
-//     saved back. Existing merchant themes are never touched in dev mode.
+//     saved back, then the theme is renamed "Development - <name>"
+//     (best-effort). Existing merchant themes are never touched in dev mode.
+//     --task-id resumes waiting for an earlier upload task instead of uploading.
 //  1. Runs an initial push (zip → multipart upload → task polling) so the
 //     remote theme matches the cwd starting state. Skipped when dev-theme
 //     creation just uploaded the identical tree.
@@ -57,7 +62,7 @@ import (
 var serveShortcut = common.Shortcut{
 	Service: "themes",
 	Command: "serve",
-	Use:     "serve [--theme-id <id>]",
+	Use:     "serve [--theme-id <id>] [--task-id <id>]",
 	Short:   "Upload to a development theme (or --theme-id), watch the current theme, and live-reload browsers",
 	Long: `Start a local theme development loop: upload the current directory's theme
 files to a remote theme, then watch the directory and push every change,
@@ -80,6 +85,12 @@ Two modes:
     with your local copies, starting with a full upload at startup. Only
     point it at a theme whose remote content you intend to replace.
 
+Resuming after a timeout:
+    If a run gave up while waiting for the upload task, pass --task-id <id>
+    (the task_id from the error) to keep waiting for that task instead of
+    uploading again. In development mode the new theme's id is read from
+    the task and saved.
+
 Syncing is one-way (local -> remote). Changes made in the online Theme
 Editor are not written back to local files; fetch them with
 'shoplazza themes pull'.`,
@@ -94,6 +105,11 @@ Editor are not written back to local files; fetch them with
 				"Run `shoplazza themes list` to discover IDs.",
 		},
 		{
+			Name:        "task-id",
+			Type:        common.FlagString,
+			Description: "Resume waiting for an earlier upload task instead of uploading again (task_id from a timeout error).",
+		},
+		{
 			Name:        "port",
 			Type:        common.FlagInt,
 			Default:     21647,
@@ -105,6 +121,7 @@ Editor are not written back to local files; fetch them with
 		if err := theme.ValidateThemeID(explicitID); err != nil {
 			return common.ExecResult{}, err
 		}
+		taskID := in.Flags.GetString("task-id")
 		port := in.Flags.GetInt("port")
 		// Validate the port range up front: an out-of-range value previously
 		// surfaced as a network-class bind failure with a misleading
@@ -125,10 +142,17 @@ Editor are not written back to local files; fetch them with
 		// Dry-run. Explicit mode previews the four live plans (detail +
 		// upload + task-poll + doctree). Dev mode reads the state file (no
 		// writes): a saved id previews the reuse path; no saved id previews
-		// the create path (upload with an empty theme_id, its task poll, and
-		// a doctree fetch with a placeholder id).
+		// the create path (upload with an empty theme_id, its task poll, the
+		// rename, and a doctree fetch with a placeholder id).
 		if in.DryRun {
 			if explicitID != "" {
+				if taskID != "" {
+					return common.ExecResult{Plans: []common.PlannedRequest{
+						PlanDetail(explicitID),
+						PlanTaskDetail(taskID),
+						PlanDocTree(explicitID),
+					}}, nil
+				}
 				return common.ExecResult{Plans: []common.PlannedRequest{
 					PlanDetail(explicitID),
 					PlanUpload(explicitID, "<theme_name>", "<theme_version>"),
@@ -139,6 +163,17 @@ Editor are not written back to local files; fetch them with
 			cwd, gerr := os.Getwd()
 			if gerr != nil {
 				return common.ExecResult{}, theme.ErrLocalIO("getwd", gerr)
+			}
+			if taskID != "" {
+				name, _, _ := readThemeInfo(cwd)
+				if name == "" {
+					name = "<theme>"
+				}
+				return common.ExecResult{Plans: []common.PlannedRequest{
+					PlanTaskDetail(taskID),
+					PlanRename("<dev_theme_id>", devThemeName(name)),
+					PlanDocTree("<dev_theme_id>"),
+				}}, nil
 			}
 			if savedID, ok := devstate.Load(cwd, storeKey); ok {
 				return common.ExecResult{Plans: []common.PlannedRequest{
@@ -158,6 +193,7 @@ Editor are not written back to local files; fetch them with
 			return common.ExecResult{Plans: []common.PlannedRequest{
 				PlanShareUpload("", devThemeName(name), version),
 				PlanTaskDetail("<task_id-from-upload>"),
+				PlanRename("<dev_theme_id>", devThemeName(name)),
 				PlanDocTree("<dev_theme_id>"),
 			}}, nil
 		}
@@ -175,7 +211,39 @@ Editor are not written back to local files; fetch them with
 		// the saved theme 404s (deleted remotely).
 		themeID := explicitID
 		initialPushDone := false
-		if themeID == "" {
+		if taskID != "" {
+			// Resume: wait for the earlier upload task instead of uploading.
+			var name string
+			if themeID != "" {
+				if _, derr := common.Send(ctx, in.Client, PlanDetail(themeID)); derr != nil {
+					return common.ExecResult{}, classifyHTTPErr(derr, themeID)
+				}
+				prog.Begin(fmt.Sprintf("[serve] target theme: %s", themeID)).Done()
+			} else {
+				var rerr error
+				if name, _, rerr = readThemeInfo(cwd); rerr != nil {
+					return common.ExecResult{}, rerr
+				}
+			}
+			fmt.Fprintf(os.Stderr, "[serve] resuming upload task %s\n", taskID)
+			step := prog.Begin("[serve] waiting for the server to process the theme")
+			payload, werr := waitUploadTask(ctx, in.Client, taskID)
+			if werr != nil {
+				step.Fail()
+				return common.ExecResult{}, werr
+			}
+			step.Done()
+			if themeID == "" {
+				if themeID = themeIDFromTask(payload); themeID == "" {
+					return common.ExecResult{}, theme.ErrValidation(
+						"task %s did not report a theme id; re-run with --theme-id <id>", taskID)
+				}
+				if aerr := adoptDevTheme(ctx, in.Client, prog, cwd, storeKey, themeID, devThemeName(name)); aerr != nil {
+					return common.ExecResult{}, aerr
+				}
+			}
+			initialPushDone = true
+		} else if themeID == "" {
 			if savedID, ok := devstate.Load(cwd, storeKey); ok {
 				if _, derr := common.Send(ctx, in.Client, PlanDetail(savedID)); derr == nil {
 					themeID = savedID
@@ -198,11 +266,9 @@ Editor are not written back to local files; fetch them with
 					return common.ExecResult{}, cerr
 				}
 				step.Done()
-				if serr := devstate.Save(cwd, storeKey, newID); serr != nil {
-					return common.ExecResult{}, theme.ErrLocalIO("write .shoplazza/theme-state.json", serr)
+				if aerr := adoptDevTheme(ctx, in.Client, prog, cwd, storeKey, newID, devThemeName(name)); aerr != nil {
+					return common.ExecResult{}, aerr
 				}
-				fmt.Fprintf(os.Stderr, "[serve] development theme %s created (id saved to %s)\n",
-					newID, filepath.ToSlash(filepath.Join(".shoplazza", "theme-state.json")))
 				themeID = newID
 				// The create upload already pushed the cwd tree — the
 				// initial push would re-upload identical bytes.
@@ -411,6 +477,34 @@ func (p *pendingFailures) count() int {
 	return len(p.files)
 }
 
+// syncRetryBackoff is the wait before each sync retry; tests shrink it.
+var syncRetryBackoff = []time.Duration{time.Second, 2 * time.Second}
+
+// transientSyncError reports whether a sync failure is retried: 5xx, 429,
+// a non-JSON 404, or a transport error (including a client-side timeout).
+func transientSyncError(err error) bool {
+	var httpErr *client.HTTPError
+	if !errors.As(err, &httpErr) {
+		return true
+	}
+	return httpErr.StatusCode >= 500 || httpErr.StatusCode == http.StatusTooManyRequests || isGatewayNotFound(httpErr)
+}
+
+// sendSync sends a sync request, retrying transient failures until ctx is canceled.
+func sendSync(ctx context.Context, c *client.Client, plan common.PlannedRequest) (map[string]any, error) {
+	for attempt := 0; ; attempt++ {
+		resp, err := common.Send(ctx, c, plan)
+		if err == nil || ctx.Err() != nil || attempt >= len(syncRetryBackoff) || !transientSyncError(err) {
+			return resp, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(syncRetryBackoff[attempt]):
+		}
+	}
+}
+
 // handleSync routes a single fsnotify event into the right v2 spec /doc
 // API call, updates the in-memory snapshot, broadcasts a livereload
 // refresh, and tracks per-file failure state. Called from the watcher's
@@ -424,10 +518,8 @@ func (p *pendingFailures) count() int {
 //	                             : POST {type,location} stub + snapshot.Add, then PATCH content
 //	delete        → DELETE /themes/{id}/doc?type=&location=; snapshot.Remove
 //
-// HTTP failure → file added to pendingFailures, warn line emitted, NO
-// livereload broadcast (the browser still has a stale-but-known state;
-// refreshing without a successful sync would flicker the merchant view).
-// Success → file removed from pendingFailures, lr.Refresh fires.
+// HTTP failure (after retries) → file added to pendingFailures, warn line
+// emitted, no livereload broadcast. Success → removed, lr.Refresh fires.
 func handleSync(
 	ctx context.Context,
 	c *client.Client,
@@ -480,7 +572,7 @@ func handleSync(
 		// existing docs, and POSTing a create-stub for an existing doc 500s.
 		if !snap.Has(typ, loc) {
 			// New doc: the server requires a stub to exist before any /doc PATCH.
-			if _, err := common.Send(ctx, c,
+			if _, err := sendSync(ctx, c,
 				PlanDocCreate(themeID, map[string]any{"type": typ, "location": loc})); err != nil {
 				pending.add(rel)
 				fmt.Fprintf(stderr, "[%s] %s -> FAIL %v   [unsynced: %d]\n",
@@ -489,7 +581,7 @@ func handleSync(
 			}
 			snap.Add(typ, loc)
 		}
-		if _, err := common.Send(ctx, c, PlanDocPatch(themeID,
+		if _, err := sendSync(ctx, c, PlanDocPatch(themeID,
 			map[string]any{"type": typ, "location": loc, "content": string(content)})); err != nil {
 			pending.add(rel)
 			fmt.Fprintf(stderr, "[%s] %s -> FAIL %v   [unsynced: %d]\n",
@@ -500,7 +592,7 @@ func handleSync(
 
 	case "delete":
 		// Query-string parameters per spec — body is empty on DELETE.
-		if _, err := common.Send(ctx, c, PlanDocDelete(themeID,
+		if _, err := sendSync(ctx, c, PlanDocDelete(themeID,
 			map[string]any{"type": typ, "location": loc})); err != nil {
 			pending.add(rel)
 			fmt.Fprintf(stderr, "[delete] %s -> FAIL %v   [unsynced: %d]\n",

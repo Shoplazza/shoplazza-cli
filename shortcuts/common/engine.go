@@ -166,49 +166,54 @@ func classifyExecError(err error) error {
 	return output.ErrInternal("%v", err)
 }
 
+// flagUsage returns the flag usage text with backticks rendered as single quotes.
+func flagUsage(f Flag) string {
+	return strings.ReplaceAll(f.Description, "`", "'")
+}
+
 func bindFlag(cmd *cobra.Command, f Flag) {
 	switch f.Type {
 	case FlagString:
 		def := defaultString(f)
 		if f.Short != "" {
-			cmd.Flags().StringP(f.Name, f.Short, def, f.Description)
+			cmd.Flags().StringP(f.Name, f.Short, def, flagUsage(f))
 		} else {
-			cmd.Flags().String(f.Name, def, f.Description)
+			cmd.Flags().String(f.Name, def, flagUsage(f))
 		}
 	case FlagInt:
 		def := defaultInt(f)
 		if f.Short != "" {
-			cmd.Flags().IntP(f.Name, f.Short, def, f.Description)
+			cmd.Flags().IntP(f.Name, f.Short, def, flagUsage(f))
 		} else {
-			cmd.Flags().Int(f.Name, def, f.Description)
+			cmd.Flags().Int(f.Name, def, flagUsage(f))
 		}
 	case FlagFloat:
 		def := defaultFloat(f)
 		if f.Short != "" {
-			cmd.Flags().Float64P(f.Name, f.Short, def, f.Description)
+			cmd.Flags().Float64P(f.Name, f.Short, def, flagUsage(f))
 		} else {
-			cmd.Flags().Float64(f.Name, def, f.Description)
+			cmd.Flags().Float64(f.Name, def, flagUsage(f))
 		}
 	case FlagBool:
 		def := defaultBool(f)
 		if f.Short != "" {
-			cmd.Flags().BoolP(f.Name, f.Short, def, f.Description)
+			cmd.Flags().BoolP(f.Name, f.Short, def, flagUsage(f))
 		} else {
-			cmd.Flags().Bool(f.Name, def, f.Description)
+			cmd.Flags().Bool(f.Name, def, flagUsage(f))
 		}
 	case FlagStringSlice:
 		def := defaultStringSlice(f)
 		if f.Short != "" {
-			cmd.Flags().StringSliceP(f.Name, f.Short, def, f.Description)
+			cmd.Flags().StringSliceP(f.Name, f.Short, def, flagUsage(f))
 		} else {
-			cmd.Flags().StringSlice(f.Name, def, f.Description)
+			cmd.Flags().StringSlice(f.Name, def, flagUsage(f))
 		}
 	case FlagStringArray:
 		def := defaultStringArray(f)
 		if f.Short != "" {
-			cmd.Flags().StringArrayP(f.Name, f.Short, def, f.Description)
+			cmd.Flags().StringArrayP(f.Name, f.Short, def, flagUsage(f))
 		} else {
-			cmd.Flags().StringArray(f.Name, def, f.Description)
+			cmd.Flags().StringArray(f.Name, def, flagUsage(f))
 		}
 	default:
 		panic(fmt.Errorf("shortcuts: flag %q has unknown FlagType %v", f.Name, f.Type))

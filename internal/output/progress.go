@@ -6,11 +6,15 @@ import (
 	"os"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 // progressTick is how often a running step rewrites its elapsed-time line on a
 // terminal.
 const progressTick = 100 * time.Millisecond
+
+// termWidth reports the terminal column count; tests replace it.
+var termWidth = terminalWidth
 
 // Progress renders step-by-step progress for long-running setup work. On a
 // terminal each step shows a live elapsed timer that refreshes in place every
@@ -40,6 +44,7 @@ type Step struct {
 	stop  chan struct{} // closed to ask the ticker to exit (TTY only)
 	done  chan struct{} // closed by the ticker once it has exited (TTY only)
 	once  sync.Once     // guards finish so Done/Fail are safe to call more than once
+	rows  int           // terminal rows the last frame wrapped onto (TTY only)
 }
 
 // Begin starts a step labeled label. On a terminal it launches a 100ms ticker
@@ -76,13 +81,36 @@ func (s *Step) run() {
 	}
 }
 
-// render rewrites the current line with the live elapsed time (TTY only). \r
-// returns to column 0 and \033[K clears to end of line so a shorter string never
-// leaves stale characters behind.
+// render redraws the frame with the live elapsed time (TTY only).
 func (s *Step) render() {
 	s.p.mu.Lock()
 	defer s.p.mu.Unlock()
-	fmt.Fprintf(s.p.w, "\r%s... %s\033[K", s.label, fmtElapsed(time.Since(s.start)))
+	s.redraw(fmt.Sprintf("%s... %s", s.label, fmtElapsed(time.Since(s.start))), false)
+}
+
+// redraw replaces the previous frame with text: the cursor moves up over any
+// rows the previous frame wrapped onto, then the screen is cleared from there.
+// A final frame ends the line and stops tracking rows.
+func (s *Step) redraw(text string, final bool) {
+	if s.rows > 1 {
+		fmt.Fprintf(s.p.w, "\033[%dA", s.rows-1)
+	}
+	fmt.Fprintf(s.p.w, "\r\033[J%s", text)
+	if final {
+		fmt.Fprint(s.p.w, "\n")
+		s.rows = 0
+		return
+	}
+	s.rows = frameRows(text, termWidth(s.p.w))
+}
+
+// frameRows returns how many terminal rows text occupies at cols columns.
+func frameRows(text string, cols int) int {
+	n := utf8.RuneCountInString(text)
+	if cols <= 0 || n <= cols {
+		return 1
+	}
+	return (n + cols - 1) / cols
 }
 
 // Done finalizes the step as succeeded, freezing the line at its final elapsed
@@ -106,18 +134,14 @@ func (s *Step) finish(state string) {
 		}
 		s.p.mu.Lock()
 		defer s.p.mu.Unlock()
-		prefix := ""
-		if s.p.isTTY {
-			prefix = "\r" // overwrite the last ticker frame
-		}
-		suffix := "\033[K"
-		if !s.p.isTTY {
-			suffix = "" // no ANSI on a non-terminal
-		}
+		text := fmt.Sprintf("%s... %s", s.label, el)
 		if state != "" {
-			fmt.Fprintf(s.p.w, "%s%s... %s (%s)%s\n", prefix, s.label, state, el, suffix)
+			text = fmt.Sprintf("%s... %s (%s)", s.label, state, el)
+		}
+		if s.p.isTTY {
+			s.redraw(text, true)
 		} else {
-			fmt.Fprintf(s.p.w, "%s%s... %s%s\n", prefix, s.label, el, suffix)
+			fmt.Fprintln(s.p.w, text) // no ANSI on a non-terminal
 		}
 	})
 }
