@@ -11,7 +11,7 @@
 
 ### Fixed
 - `themes serve` retries a file sync that hit a transient failure (5xx, 429, a gateway-level 404, a dropped connection or a client-side timeout) twice with a short backoff before marking the file unsynced; previously a single gateway hiccup left the file out of sync until it was edited again. Business 4xx responses are still reported immediately.
-- The upload task poll treated a client-side timeout as fatal and aborted the whole push; it is now tolerated like any other transient error (up to five in a row).
+- The upload task poll treated a client-side timeout or a gateway-level 404 as fatal and aborted the whole push; both are now tolerated like any other transient error (up to five in a row).
 - Flag help rendered a backticked phrase as the value placeholder (`-t, --theme-id shoplazza themes list`); descriptions now show `--theme-id string` with the phrase in quotes. Affected `themes pull`, `themes push` and `themes serve`.
 
 ## 2.0.11 - 2026-09-07

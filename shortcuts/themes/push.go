@@ -39,7 +39,8 @@ var maxConsecutivePollErrors = 5
 // when the status endpoint blips, and a task *failure* comes back as HTTP 200
 // with status=2 (not a 5xx), so retrying a read error never masks a real failure.
 //
-//   - 4xx → deterministic (bad task id, auth, malformed): never recovers → NOT transient.
+//   - 4xx → deterministic (bad task id, auth, malformed): never recovers → NOT transient,
+//     except a non-JSON 404, which is the gateway router rather than the API.
 //   - ctx canceled → deliberate stop → NOT transient.
 //   - 5xx → server hiccup → transient.
 //   - non-HTTP (dial/client timeout/conn reset) → transient connectivity.
@@ -49,9 +50,15 @@ func transientPollError(err error) bool {
 	}
 	var httpErr *client.HTTPError
 	if errors.As(err, &httpErr) {
-		return httpErr.StatusCode >= 500
+		return httpErr.StatusCode >= 500 || isGatewayNotFound(httpErr)
 	}
 	return true
+}
+
+// isGatewayNotFound reports a plain-text 404 from the gateway router; the API's
+// own 404 carries a JSON body.
+func isGatewayNotFound(e *client.HTTPError) bool {
+	return e.StatusCode == http.StatusNotFound && !json.Valid([]byte(e.Body))
 }
 
 // pushShortcut is the `themes push` workflow: zip the cwd, multipart-upload it

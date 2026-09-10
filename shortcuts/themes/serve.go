@@ -2,7 +2,6 @@ package themes
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -487,13 +486,7 @@ func transientSyncError(err error) bool {
 	if !errors.As(err, &httpErr) {
 		return true
 	}
-	switch {
-	case httpErr.StatusCode >= 500, httpErr.StatusCode == http.StatusTooManyRequests:
-		return true
-	case httpErr.StatusCode == http.StatusNotFound:
-		return !json.Valid([]byte(httpErr.Body))
-	}
-	return false
+	return httpErr.StatusCode >= 500 || httpErr.StatusCode == http.StatusTooManyRequests || isGatewayNotFound(httpErr)
 }
 
 // sendSync sends a sync request, retrying transient failures until ctx is canceled.

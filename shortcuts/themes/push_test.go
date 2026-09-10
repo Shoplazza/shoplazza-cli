@@ -615,6 +615,16 @@ func TestTransientPollError_ContextDeadline(t *testing.T) {
 	}
 }
 
+// A plain-text 404 comes from the gateway router and is transient; the API's JSON 404 is not.
+func TestTransientPollError_GatewayNotFound(t *testing.T) {
+	if !transientPollError(&client.HTTPError{StatusCode: http.StatusNotFound, Body: "404 page not found"}) {
+		t.Error("plain-text 404 must be transient")
+	}
+	if transientPollError(&client.HTTPError{StatusCode: http.StatusNotFound, Body: `{"code":"NotFound"}`}) {
+		t.Error("JSON 404 must be non-transient")
+	}
+}
+
 // ── isTaskShaped ─────────────────────────────────────────────────────────────
 
 func TestIsTaskShaped_WithInfoField(t *testing.T) {
