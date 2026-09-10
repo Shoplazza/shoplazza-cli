@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.12 - 2026-09-10
+
+### Added
+- `themes push --task-id` / `themes serve --task-id` — resume waiting for an earlier upload task instead of packaging and uploading again. In development mode `serve` reads the new theme id from the task, saves it to `.shoplazza/theme-state.json` and renames the theme, so a run that was cut off no longer leaves an orphan theme and a second run no longer creates another one. The timeout error and a Ctrl-C during the wait both report the `task_id` and the exact resume command; before, Ctrl-C exited silently and the timeout only said to "query status manually".
+
+### Changed
+- The theme upload task wait (`push`, `serve`, `share`) allows 10 minutes instead of 3. The 3-minute cap was copied from v1 as "3 × 60" but v1 polled 180 times at 3s (≈9 min); large themes were reported as failed at the 3-minute mark while the server was still processing them. The `waiting for the server` progress line now shows the task id.
+- `themes serve` names the development theme it creates `Development - <theme name>`, as the help text always promised. The upload endpoint names a theme after `theme_info`, so the rename is a separate request; when it fails the theme keeps its uploaded name and a warning is printed.
+
+### Fixed
+- `themes serve` retries a file sync that hit a transient failure (5xx, 429, a gateway-level 404, a dropped connection or a client-side timeout) twice with a short backoff before marking the file unsynced; previously a single gateway hiccup left the file out of sync until it was edited again. Business 4xx responses are still reported immediately.
+- The upload task poll treated a client-side timeout as fatal and aborted the whole push; it is now tolerated like any other transient error (up to five in a row).
+- Flag help rendered a backticked phrase as the value placeholder (`-t, --theme-id shoplazza themes list`); descriptions now show `--theme-id string` with the phrase in quotes. Affected `themes pull`, `themes push` and `themes serve`.
+
 ## 2.0.11 - 2026-09-07
 
 ### Added
