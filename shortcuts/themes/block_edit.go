@@ -30,6 +30,10 @@ A write that lands but fails to place returns an api error carrying
 stage:"place", block_type and revert_id: re-place it or revert the write
 ("themes block revert-gen") rather than write again.
 
+--section-name is the display name of the "_blocks" container section the
+block sits in, stored as that section's settings.title: it names the
+container the CLI adds, and renames the one addressed by --target.
+
 Saving and publishing stay with the shared session:
 "themes +edit --session <oseid> --ops '[]' --promote [--publish]".`,
 	Flags: []common.Flag{
@@ -41,6 +45,7 @@ Saving and publishing stay with the shared session:
 		{Name: "content", Type: common.FlagString, Required: true, Description: "Liquid source: a file path, or '-' for stdin. Must contain a {% schema %} tag."},
 		{Name: "settings", Type: common.FlagString, Description: "Update only: the instance's current settings (JSON object or file). Defaults to the values read from --target."},
 		{Name: "ops", Type: common.FlagString, Description: "Setting keys to change on the placed instance (JSON object or file), merged server-side. Requires --template and --target."},
+		{Name: "section-name", Type: common.FlagString, Description: "Display name of the \"_blocks\" container section the block sits in, stored as its settings.title. Names the container the CLI adds, or renames the one addressed by --target. Requires --template."},
 	},
 	Execute: blockEditExecute,
 }
@@ -54,6 +59,7 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	contentArg := in.Flags.GetString("content")
 	settingsArg := in.Flags.GetString("settings")
 	opsArg := in.Flags.GetString("ops")
+	sectionName := in.Flags.GetString("section-name")
 
 	// Network-free validation first.
 	if oseid == "" {
@@ -70,6 +76,10 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	if opsArg != "" && (template == "" || target == "") {
 		return common.ExecResult{}, output.ErrValidation("--ops requires --template and --target").
 			WithHint("--ops changes settings on the placed instance, so the placement must be addressed")
+	}
+	if sectionName != "" && template == "" {
+		return common.ExecResult{}, output.ErrValidation("--section-name requires --template").
+			WithHint("--section-name names the container section the block lands in, so the placement must be addressed")
 	}
 	if id != "" && template != "" && target == "" {
 		return common.ExecResult{}, output.ErrValidation("updating with --template requires --target").
@@ -128,7 +138,7 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	}
 
 	if in.DryRun {
-		return common.ExecResult{Plans: blockEditDryRunPlans(themeID, oseid, cardType, template, ref, content, settings, ops)}, nil
+		return common.ExecResult{Plans: blockEditDryRunPlans(themeID, oseid, cardType, template, sectionName, ref, content, settings, ops)}, nil
 	}
 
 	// Page context: only when placing.
@@ -234,6 +244,7 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	instance := map[string]any{"type": newType, "settings": instSettings}
 	var operations []map[string]any
 	instTarget, instDot := target, dotBlockPath(ref)
+	containerSID := ref.SectionID
 	sectionCreated := false
 	switch {
 	case id == "":
@@ -245,6 +256,7 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		if target == "" {
 			sectionCreated = true
 			sid := newSectionID()
+			containerSID = sid
 			container, at, base = sid+".blocks", 0, sid+".blocks"
 			operations = append(operations, map[string]any{
 				"op": "add_section", "section_id": sid,
@@ -271,6 +283,15 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	if ops != nil {
 		operations = append(operations, map[string]any{"op": "replace_props", "target": instDot, "props": ops})
 	}
+	// The name always travels as its own op, last — never inside the
+	// add_section value: a container whose schema does not declare the field
+	// would fail the add itself, taking the whole placement with it.
+	renameOp := -1
+	if sectionName != "" {
+		renameOp = len(operations)
+		operations = append(operations, map[string]any{"op": "replace_props", "target": containerSID,
+			"props": containerSettings(sectionName)})
+	}
 
 	previewURLFor := previewURLLater(ctx, in.Client, template, "")
 	bresp, err := common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
@@ -284,6 +305,7 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	results := batchResultStrings(bresp)
 	applied := make([]map[string]any, 0, len(operations))
 	var failed []int
+	renamed := renameOp < 0 // nothing to rename when no name was given
 	for i, op := range operations {
 		res := ""
 		if i < len(results) {
@@ -293,7 +315,12 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		if t, ok := op["target"]; ok {
 			entry["target"] = t
 		}
-		if res != "success" {
+		switch {
+		case i == renameOp:
+			// The name is cosmetic: a container that refused it must not sink a
+			// placement that landed. The applied row still carries the reason.
+			renamed = res == "success"
+		case res != "success":
 			failed = append(failed, i)
 		}
 		applied = append(applied, entry)
@@ -302,13 +329,24 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		return common.ExecResult{}, blockPlaceFailErr(oseid, newType, revertID, applied, failed)
 	}
 	body["applied"] = applied
-	body["instance"] = map[string]any{"template": template, "target": instTarget, "section_created": sectionCreated}
+	inst := map[string]any{"template": template, "target": instTarget, "section_created": sectionCreated}
+	if sectionName != "" && renamed {
+		inst["section_name"] = sectionName
+	}
+	body["instance"] = inst
 	body["preview_url"] = previewURLFor(themeID, oseid)
 	return common.ExecResult{Body: body}, nil
 }
 
+// containerSettings builds the props of the rename op: the "_blocks" container
+// section's display name lives in settings.title, declared as a field of the
+// container's own schema.
+func containerSettings(name string) map[string]any {
+	return map[string]any{"title": name}
+}
+
 // blockEditDryRunPlans lists every intended request without sending any.
-func blockEditDryRunPlans(themeID, oseid, cardType, template string, ref targetRef, content string, settings, ops map[string]any) []common.PlannedRequest {
+func blockEditDryRunPlans(themeID, oseid, cardType, template, sectionName string, ref targetRef, content string, settings, ops map[string]any) []common.PlannedRequest {
 	var plans []common.PlannedRequest
 	themeRef := themeID
 	if template != "" {
@@ -334,11 +372,13 @@ func blockEditDryRunPlans(themeID, oseid, cardType, template string, ref targetR
 	instance := map[string]any{"type": phGenBlockType, "settings": phGenSettings}
 	var operations []map[string]any
 	var dot string
+	containerSID := ref.SectionID
 	switch {
 	case cardType == "":
 		container := dotContainerPath(ref)
 		dot = container + ".<new_index>"
 		if ref.SectionID == "" { // no --target: the CLI adds the container first
+			containerSID = phSectionID
 			container, dot = phSectionID+".blocks", phSectionID+".blocks.0"
 			operations = append(operations, map[string]any{
 				"op": "add_section", "section_id": phSectionID,
@@ -352,6 +392,10 @@ func blockEditDryRunPlans(themeID, oseid, cardType, template string, ref targetR
 	}
 	if ops != nil && dot != "" {
 		operations = append(operations, map[string]any{"op": "replace_props", "target": dot, "props": ops})
+	}
+	if sectionName != "" {
+		operations = append(operations, map[string]any{"op": "replace_props", "target": containerSID,
+			"props": containerSettings(sectionName)})
 	}
 	return append(plans, PlanBatchOps(oseid, phDocID, operations))
 }

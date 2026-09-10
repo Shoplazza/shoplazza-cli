@@ -303,6 +303,122 @@ func TestBlockEdit_CreateWithoutTargetAddsSectionThenAppends(t *testing.T) {
 	}
 }
 
+// TestBlockEdit_SectionNameNamesTheContainer: --section-name is the container
+// section's display name, stored as its settings.title. A container addressed
+// by --target is renamed by a props merge on the section itself, whether the
+// block is being created into it or updated in place.
+func TestBlockEdit_SectionNameNamesTheContainer(t *testing.T) {
+	content := writeTempLiquid(t, testGenSchema)
+	cases := []struct {
+		name string
+		vals map[string]any
+	}{
+		{"create-into-existing-container", map[string]any{
+			"session": "ose_x", "content": content, "template": "index", "target": "111.blocks", "section-name": "商品推荐"}},
+		{"update-in-place", map[string]any{
+			"session": "ose_x", "id": "gen_aaa", "content": content, "template": "index", "target": "111.blocks[1]", "section-name": "商品推荐"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			bs := newBlockServer(t)
+			body, err := blockEditExec(t, bs, tc.vals)
+			if err != nil {
+				t.Fatalf("err: %v", err)
+			}
+			ops := bs.operations(t)
+			last := ops[len(ops)-1]
+			if last["op"] != "replace_props" || last["target"] != "111" {
+				t.Errorf("renaming an existing container is a props merge on the section: %v", ops)
+			}
+			if mapField(last, "props")["title"] != "商品推荐" {
+				t.Errorf("the name goes to settings.title: %v", last)
+			}
+			if mapField(body, "instance")["section_name"] != "商品推荐" {
+				t.Errorf("instance: %v", body["instance"])
+			}
+		})
+	}
+}
+
+// TestBlockEdit_RefusedSectionNameKeepsThePlacement: a container whose schema
+// has no title field refuses the rename. The block still landed, so the call
+// must succeed — with the name dropped from the echo and the reason kept in
+// applied — instead of sending the caller into placement recovery.
+func TestBlockEdit_RefusedSectionNameKeepsThePlacement(t *testing.T) {
+	bs := newBlockServer(t)
+	bs.failResults = map[int]string{1: "invalid_field:title"}
+	body, err := blockEditExec(t, bs, map[string]any{
+		"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index",
+		"target": "111.blocks", "section-name": "商品推荐",
+	})
+	if err != nil {
+		t.Fatalf("a refused name must not fail the placement: %v", err)
+	}
+	inst := mapField(body, "instance")
+	if _, named := inst["section_name"]; named {
+		t.Errorf("the name did not stick, so it must not be echoed: %v", inst)
+	}
+	if inst["target"] != "111.blocks[2]" {
+		t.Errorf("the placement stands: %v", inst)
+	}
+	applied, _ := body["applied"].([]map[string]any)
+	if len(applied) != 2 || applied[1]["result"] != "invalid_field:title" {
+		t.Errorf("applied must carry why the rename failed: %v", applied)
+	}
+}
+
+// TestBlockEdit_SectionNameStaysOutOfTheAddedSection: naming a container the
+// CLI adds in this same batch is still its own trailing op — an add_section
+// carrying a field the container's schema does not declare would fail the add,
+// and with it the append that depends on it.
+func TestBlockEdit_SectionNameStaysOutOfTheAddedSection(t *testing.T) {
+	bs := newBlockServer(t)
+	body, err := blockEditExec(t, bs, map[string]any{
+		"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index", "section-name": "商品推荐",
+	})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	ops := bs.operations(t)
+	if len(ops) != 3 {
+		t.Fatalf("want add_section + append_array_item + rename, got %v", ops)
+	}
+	sid := getString(ops[0], "section_id")
+	if s := mapField(mapField(ops[0], "value"), "settings"); len(s) != 0 {
+		t.Errorf("the added section must stay an empty shell: %v", s)
+	}
+	if ops[2]["op"] != "replace_props" || ops[2]["target"] != sid {
+		t.Errorf("the rename must address the section just added: %v", ops[2])
+	}
+	if mapField(ops[2], "props")["title"] != "商品推荐" {
+		t.Errorf("props: %v", ops[2])
+	}
+	inst := mapField(body, "instance")
+	if inst["section_created"] != true || inst["section_name"] != "商品推荐" {
+		t.Errorf("instance: %v", inst)
+	}
+}
+
+// TestBlockEdit_RefusedNameKeepsTheSectionItJustAdded: same non-fatal contract
+// on the create path — the container and the block stay, only the name is gone.
+func TestBlockEdit_RefusedNameKeepsTheSectionItJustAdded(t *testing.T) {
+	bs := newBlockServer(t)
+	bs.failResults = map[int]string{2: "invalid_field:title"}
+	body, err := blockEditExec(t, bs, map[string]any{
+		"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index", "section-name": "商品推荐",
+	})
+	if err != nil {
+		t.Fatalf("a refused name must not fail the placement: %v", err)
+	}
+	inst := mapField(body, "instance")
+	if _, named := inst["section_name"]; named {
+		t.Errorf("the name did not stick, so it must not be echoed: %v", inst)
+	}
+	if inst["section_created"] != true {
+		t.Errorf("the container still went in: %v", inst)
+	}
+}
+
 func TestBlockEdit_UpdateInPlaceMigratesSettings(t *testing.T) {
 	bs := newBlockServer(t)
 	body, err := blockEditExec(t, bs, map[string]any{
@@ -452,6 +568,7 @@ func TestBlockEdit_ValidationRefusesBeforeAnyRequest(t *testing.T) {
 		{"update-with-container-target", map[string]any{"session": "ose_x", "id": "gen_aaa", "content": content, "template": "index", "target": "111.blocks"}, "instance path"},
 		{"settings-type-mismatch", map[string]any{"session": "ose_x", "id": "gen_aaa", "content": content, "settings": `{"type":"blocks/gen_zzz"}`}, "does not match"},
 		{"ops-array", map[string]any{"session": "ose_x", "content": content, "template": "index", "target": "111.blocks", "ops": `[{"op":"x"}]`}, "JSON object"},
+		{"section-name-without-template", map[string]any{"session": "ose_x", "content": content, "section-name": "商品推荐"}, "--section-name requires --template"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
