@@ -19,12 +19,10 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
-// pushPollOpts controls the upload-task polling cadence. Declared at
-// package scope so tests can swap in tiny intervals via withPushPollOpts;
-// production defaults match the v1 CLI (3-second cadence, 3-minute cap).
+// pushPollOpts controls the upload-task polling cadence (3s interval, 10-minute cap); tests swap it.
 var pushPollOpts = asynctask.PollOptions{
 	Interval:    3 * time.Second,
-	MaxDuration: 3 * time.Minute,
+	MaxDuration: 10 * time.Minute,
 }
 
 // maxConsecutivePollErrors bounds how many CONSECUTIVE transient errors (5xx /
@@ -180,9 +178,8 @@ var pushShortcut = common.Shortcut{
 		uplStep.Done()
 
 		// Step 4: poll the task until the server reports terminal state. The
-		// task API is hit every pushPollOpts.Interval; waitStart feeds the
-		// timeout envelope's elapsed_seconds. fetch maps numeric status codes
-		// to asynctask.Status, accepting json.Number (UseNumber) or float64.
+		// task API is hit every pushPollOpts.Interval; fetch maps numeric
+		// status codes to asynctask.Status, accepting json.Number or float64.
 		waitStart := time.Now()
 		waitStep := prog.Begin("[push] waiting for the server to process the theme")
 		consecutivePollErrors := 0

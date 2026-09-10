@@ -571,6 +571,28 @@ func TestPush_TaskTimeoutClassifiesAsNetworkAndPassesPayload(t *testing.T) {
 	}
 }
 
+// A task that stays running for many rounds still completes within the cap.
+func TestPush_WaitsForSlowTaskWithinCap(t *testing.T) {
+	setupThemeCWD(t, "Nova", "1.0.0")
+	withPushPollOpts(t, asynctask.PollOptions{Interval: time.Millisecond, MaxDuration: 5 * time.Second})
+
+	running := `{"data":{"task":{"status":0,"info":"still working","message":"in progress"}}}`
+	responses := make([]string, 0, 41)
+	for i := 0; i < 40; i++ {
+		responses = append(responses, running)
+	}
+	responses = append(responses, `{"data":{"task":{"status":1,"info":"done"}}}`)
+	srv := newPushTestServer(t, responses)
+
+	in := common.ExecInput{Client: client.New(srv.URL), Flags: pushFlags("abc123")}
+	if _, err := pushShortcut.Execute(context.Background(), in); err != nil {
+		t.Fatalf("a slow-but-running task must be waited out, got %v", err)
+	}
+	if got := atomic.LoadInt32(&srv.taskCalls); got != 41 {
+		t.Fatalf("task polls = %d, want 41", got)
+	}
+}
+
 // ── transientPollError ───────────────────────────────────────────────────────
 
 func TestTransientPollError_ContextCancelled(t *testing.T) {
