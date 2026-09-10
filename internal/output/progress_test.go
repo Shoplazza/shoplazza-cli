@@ -2,6 +2,7 @@ package output
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -73,6 +74,44 @@ func TestFmtElapsed(t *testing.T) {
 	for _, c := range cases {
 		if got := fmtElapsed(c.d); got != c.want {
 			t.Errorf("fmtElapsed(%s) = %q, want %q", c.d, got, c.want)
+		}
+	}
+}
+
+// A frame wider than the terminal wraps; the next frame moves the cursor back up
+// over the wrapped rows so nothing piles up below.
+func TestProgress_TTY_MultiRowRedraw(t *testing.T) {
+	prev := termWidth
+	termWidth = func(io.Writer) int { return 20 }
+	t.Cleanup(func() { termWidth = prev })
+
+	var buf bytes.Buffer
+	p := &Progress{w: &buf, isTTY: true}
+	s := &Step{p: p, label: strings.Repeat("x", 30), start: time.Now(), stop: make(chan struct{}), done: make(chan struct{})}
+	close(s.done) // no ticker goroutine in this test
+	s.render()    // 30 + "... 0.0s" → 38 columns → 2 rows
+	s.render()
+	s.Done()
+
+	out := buf.String()
+	if !strings.HasPrefix(out, "\r\033[J"+s.label) {
+		t.Fatalf("first frame must start at column 0 with a clear: %q", out)
+	}
+	if got := strings.Count(out, "\033[1A"); got != 2 {
+		t.Fatalf("second frame and final line must each move up one row; cursor-up count = %d in %q", got, out)
+	}
+	if !strings.HasSuffix(out, "\n") || strings.Count(out, "\n") != 1 {
+		t.Fatalf("exactly one newline, at the end: %q", out)
+	}
+}
+
+func TestFrameRows(t *testing.T) {
+	cases := []struct {
+		n, cols, want int
+	}{{10, 20, 1}, {20, 20, 1}, {21, 20, 2}, {40, 20, 2}, {41, 20, 3}, {100, 0, 1}}
+	for _, c := range cases {
+		if got := frameRows(strings.Repeat("a", c.n), c.cols); got != c.want {
+			t.Errorf("frameRows(%d chars, %d cols) = %d, want %d", c.n, c.cols, got, c.want)
 		}
 	}
 }
