@@ -240,6 +240,12 @@ func PlanUpdateGenBlock(oseid, content string, settings map[string]any) common.P
 	return common.PlannedRequest{Method: "PATCH", Path: editSessionBase(oseid) + "/gen-blocks", Body: map[string]any{"content": content, "settings": settings}}
 }
 
+// PlanRevertGenBlock describes POST .../gen-blocks/revert: restores the objects
+// in the snapshot the write returned as revert_id.
+func PlanRevertGenBlock(oseid, revertID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/gen-blocks/revert", Body: map[string]any{"revert_id": revertID}}
+}
+
 // PlanGetGenBlock describes GET .../gen-blocks?type=… (themes block get-gen).
 func PlanGetGenBlock(oseid, cardType string, withContent bool) common.PlannedRequest {
 	q := map[string]any{"type": cardType}

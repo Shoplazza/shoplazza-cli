@@ -28,9 +28,13 @@ const testGenSchema = `{% schema %}
 type blockServer struct {
 	srv *httptest.Server
 
-	mu          sync.Mutex
-	writes      []map[string]any
+	mu     sync.Mutex
+	writes []map[string]any
+	// failResults keys the op sequence across every batch of one call, so a
+	// case reads the same whether the ops travel in one request or several.
 	failResults map[int]string
+	opSeq       int
+	revertFails bool
 	branched    bool
 	added       []string
 }
@@ -110,6 +114,16 @@ func newBlockServer(t *testing.T) *blockServer {
 				resp["settings"] = genSchema("blocks/gen_bbb")
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": resp})
+		case strings.HasSuffix(p, "/gen-blocks/revert") && r.Method == http.MethodPost:
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			record(r, body)
+			if bs.revertFails {
+				w.WriteHeader(http.StatusConflict)
+				_, _ = w.Write([]byte(`{"code":"Conflict","message":"snapshot gone"}`))
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"revert_id": "rev_undo"}})
 		case strings.HasSuffix(p, "/gen-blocks") && r.Method == http.MethodGet:
 			q := r.URL.Query()
 			record(r, map[string]any{"type": q.Get("type"), "with_content": q.Get("with_content")})
@@ -136,9 +150,11 @@ func newBlockServer(t *testing.T) *blockServer {
 			ops, _ := body["operations"].([]any)
 			results := make([]any, 0, len(ops))
 			bs.mu.Lock()
-			for i, o := range ops {
+			for _, o := range ops {
 				om, _ := o.(map[string]any)
 				res := "success"
+				i := bs.opSeq
+				bs.opSeq++
 				if fr, ok := bs.failResults[i]; ok {
 					res = fr
 				} else if om["op"] == "add_section" {
@@ -172,13 +188,24 @@ func (bs *blockServer) writesTo(suffix, method string) []map[string]any {
 	return out
 }
 
+// operations flattens every batch of one call in order — the split between
+// batches is asserted by opBatches where it matters.
 func (bs *blockServer) operations(t *testing.T) []map[string]any {
 	t.Helper()
-	ws := bs.writesTo("/operations", http.MethodPost)
-	if len(ws) != 1 {
-		t.Fatalf("want exactly one operations batch, got %d", len(ws))
+	var out []map[string]any
+	for _, batch := range bs.opBatches(t) {
+		out = append(out, batch...)
 	}
-	return mapSlice(mapField(ws[0], "body")["operations"])
+	return out
+}
+
+func (bs *blockServer) opBatches(t *testing.T) [][]map[string]any {
+	t.Helper()
+	var out [][]map[string]any
+	for _, wr := range bs.writesTo("/operations", http.MethodPost) {
+		out = append(out, mapSlice(mapField(wr, "body")["operations"]))
+	}
+	return out
 }
 
 func writeTempLiquid(t *testing.T, content string) string {
@@ -303,6 +330,122 @@ func TestBlockEdit_CreateWithoutTargetAddsSectionThenAppends(t *testing.T) {
 	}
 }
 
+// TestBlockEdit_SectionNameNamesTheContainer: --section-name is the container
+// section's display name, stored as its settings.title. A container addressed
+// by --target is renamed by a props merge on the section itself, whether the
+// block is being created into it or updated in place.
+func TestBlockEdit_SectionNameNamesTheContainer(t *testing.T) {
+	content := writeTempLiquid(t, testGenSchema)
+	cases := []struct {
+		name string
+		vals map[string]any
+	}{
+		{"create-into-existing-container", map[string]any{
+			"session": "ose_x", "content": content, "template": "index", "target": "111.blocks", "section-name": "商品推荐"}},
+		{"update-in-place", map[string]any{
+			"session": "ose_x", "id": "gen_aaa", "content": content, "template": "index", "target": "111.blocks[1]", "section-name": "商品推荐"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			bs := newBlockServer(t)
+			body, err := blockEditExec(t, bs, tc.vals)
+			if err != nil {
+				t.Fatalf("err: %v", err)
+			}
+			ops := bs.operations(t)
+			last := ops[len(ops)-1]
+			if last["op"] != "replace_props" || last["target"] != "111" {
+				t.Errorf("renaming an existing container is a props merge on the section: %v", ops)
+			}
+			if mapField(last, "props")["title"] != "商品推荐" {
+				t.Errorf("the name goes to settings.title: %v", last)
+			}
+			if mapField(body, "instance")["section_name"] != "商品推荐" {
+				t.Errorf("instance: %v", body["instance"])
+			}
+		})
+	}
+}
+
+// TestBlockEdit_RefusedSectionNameKeepsThePlacement: a container whose schema
+// has no title field refuses the rename. The block still landed, so the call
+// must succeed — with the name dropped from the echo and the reason kept in
+// applied — instead of sending the caller into placement recovery.
+func TestBlockEdit_RefusedSectionNameKeepsThePlacement(t *testing.T) {
+	bs := newBlockServer(t)
+	bs.failResults = map[int]string{1: "invalid_field:title"}
+	body, err := blockEditExec(t, bs, map[string]any{
+		"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index",
+		"target": "111.blocks", "section-name": "商品推荐",
+	})
+	if err != nil {
+		t.Fatalf("a refused name must not fail the placement: %v", err)
+	}
+	inst := mapField(body, "instance")
+	if _, named := inst["section_name"]; named {
+		t.Errorf("the name did not stick, so it must not be echoed: %v", inst)
+	}
+	if inst["target"] != "111.blocks[2]" {
+		t.Errorf("the placement stands: %v", inst)
+	}
+	applied, _ := body["applied"].([]map[string]any)
+	if len(applied) != 2 || applied[1]["result"] != "invalid_field:title" {
+		t.Errorf("applied must carry why the rename failed: %v", applied)
+	}
+}
+
+// TestBlockEdit_SectionNameStaysOutOfTheAddedSection: naming a container the
+// CLI adds in this same batch is still its own trailing op — an add_section
+// carrying a field the container's schema does not declare would fail the add,
+// and with it the append that depends on it.
+func TestBlockEdit_SectionNameStaysOutOfTheAddedSection(t *testing.T) {
+	bs := newBlockServer(t)
+	body, err := blockEditExec(t, bs, map[string]any{
+		"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index", "section-name": "商品推荐",
+	})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	ops := bs.operations(t)
+	if len(ops) != 3 {
+		t.Fatalf("want add_section + append_array_item + rename, got %v", ops)
+	}
+	sid := getString(ops[0], "section_id")
+	if s := mapField(mapField(ops[0], "value"), "settings"); len(s) != 0 {
+		t.Errorf("the added section must stay an empty shell: %v", s)
+	}
+	if ops[2]["op"] != "replace_props" || ops[2]["target"] != sid {
+		t.Errorf("the rename must address the section just added: %v", ops[2])
+	}
+	if mapField(ops[2], "props")["title"] != "商品推荐" {
+		t.Errorf("props: %v", ops[2])
+	}
+	inst := mapField(body, "instance")
+	if inst["section_created"] != true || inst["section_name"] != "商品推荐" {
+		t.Errorf("instance: %v", inst)
+	}
+}
+
+// TestBlockEdit_RefusedNameKeepsTheSectionItJustAdded: same non-fatal contract
+// on the create path — the container and the block stay, only the name is gone.
+func TestBlockEdit_RefusedNameKeepsTheSectionItJustAdded(t *testing.T) {
+	bs := newBlockServer(t)
+	bs.failResults = map[int]string{2: "invalid_field:title"}
+	body, err := blockEditExec(t, bs, map[string]any{
+		"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index", "section-name": "商品推荐",
+	})
+	if err != nil {
+		t.Fatalf("a refused name must not fail the placement: %v", err)
+	}
+	inst := mapField(body, "instance")
+	if _, named := inst["section_name"]; named {
+		t.Errorf("the name did not stick, so it must not be echoed: %v", inst)
+	}
+	if inst["section_created"] != true {
+		t.Errorf("the container still went in: %v", inst)
+	}
+}
+
 func TestBlockEdit_UpdateInPlaceMigratesSettings(t *testing.T) {
 	bs := newBlockServer(t)
 	body, err := blockEditExec(t, bs, map[string]any{
@@ -338,7 +481,11 @@ func TestBlockEdit_UpdateInPlaceMigratesSettings(t *testing.T) {
 	}
 }
 
-func TestBlockEdit_UpdateBranchedSwapsInstanceType(t *testing.T) {
+// TestBlockEdit_UpdateBranchedRepointsInPlace: the fork keeps the instance
+// where it is — update_slot swaps the type it points at (replace_props answers
+// invalid_field:type) and the migrated settings follow in their own op, so
+// nothing depends on an index shifting.
+func TestBlockEdit_UpdateBranchedRepointsInPlace(t *testing.T) {
 	bs := newBlockServer(t)
 	bs.branched = true
 	body, err := blockEditExec(t, bs, map[string]any{
@@ -348,31 +495,61 @@ func TestBlockEdit_UpdateBranchedSwapsInstanceType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	if batches := bs.opBatches(t); len(batches) != 1 {
+		t.Fatalf("want one batch, got %v", batches)
+	}
 	ops := bs.operations(t)
-	// remove old + append new (migrated settings), then --ops. The target is the
-	// container's last index (1 of 2), so the move-back is an identity and skipped.
 	if len(ops) != 3 {
 		t.Fatalf("ops: %v", ops)
 	}
-	if ops[0]["op"] != "remove_array_item" || ops[0]["target"] != "111.blocks.1" {
-		t.Errorf("remove: %v", ops[0])
+	if ops[0]["op"] != "update_slot" || ops[0]["target"] != "111.blocks.1" || mapField(ops[0], "props")["type"] != "blocks/gen_bbb" {
+		t.Errorf("type swap: %v", ops[0])
 	}
-	if ops[1]["op"] != "append_array_item" || ops[1]["target"] != "111.blocks" {
-		t.Errorf("append: %v", ops[1])
+	for _, op := range ops {
+		if op["op"] == "remove_array_item" || op["op"] == "move_array_item" {
+			t.Errorf("the instance must not be rebuilt: %v", ops)
+		}
 	}
-	val := mapField(ops[1], "value")
-	vs := mapField(val, "settings")
-	if val["type"] != "blocks/gen_bbb" || vs["title"] != "cur" || vs["subtitle"] != "Sub" {
-		t.Errorf("append value not migrated to new card: %v", val)
+	vs := mapField(ops[1], "props")
+	if ops[1]["op"] != "replace_props" || ops[1]["target"] != "111.blocks.1" || vs["title"] != "cur" || vs["subtitle"] != "Sub" {
+		t.Errorf("migrated settings: %v", ops[1])
 	}
 	if _, stale := vs["old_key"]; stale {
-		t.Errorf("append value must drop keys absent from the new schema: %v", vs)
+		t.Errorf("migration must drop keys absent from the new schema: %v", vs)
 	}
 	if ops[2]["op"] != "replace_props" || ops[2]["target"] != "111.blocks.1" || mapField(ops[2], "props")["subtitle"] != "z" {
 		t.Errorf("ops replace_props: %v", ops[2])
 	}
 	if body["branched"] != true || body["type"] != "blocks/gen_bbb" || body["previous_type"] != "blocks/gen_aaa" {
 		t.Errorf("body: %v", body)
+	}
+}
+
+// TestBlockEdit_BranchedRollbackPutsTheTypeBack: with the type swapped and the
+// migration refused, the instance points at a block whose file the rollback is
+// about to undo — the type goes back first so nothing dangles.
+func TestBlockEdit_BranchedRollbackPutsTheTypeBack(t *testing.T) {
+	bs := newBlockServer(t)
+	bs.branched = true
+	bs.failResults = map[int]string{1: "invalid_field:settings"} // the migration
+	_, err := blockEditExec(t, bs, map[string]any{
+		"session": "ose_x", "id": "gen_aaa", "content": writeTempLiquid(t, testGenSchema), "template": "index", "target": "111.blocks.1",
+	})
+	var exitErr *output.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("want api error, got %v", err)
+	}
+	if env := exitErr.Envelope(); env["reverted"] != true {
+		t.Errorf("envelope: %v", env)
+	}
+	undo := bs.opBatches(t)
+	last := undo[len(undo)-1]
+	if len(last) != 1 || last[0]["op"] != "update_slot" || mapField(last[0], "props")["type"] != "blocks/gen_aaa" {
+		t.Errorf("want the type put back before the file is reverted, got %v", last)
+	}
+	reverts := bs.writesTo("/gen-blocks/revert", http.MethodPost)
+	if len(reverts) != 1 {
+		t.Errorf("want one revert, got %d", len(reverts))
 	}
 }
 
@@ -452,6 +629,7 @@ func TestBlockEdit_ValidationRefusesBeforeAnyRequest(t *testing.T) {
 		{"update-with-container-target", map[string]any{"session": "ose_x", "id": "gen_aaa", "content": content, "template": "index", "target": "111.blocks"}, "instance path"},
 		{"settings-type-mismatch", map[string]any{"session": "ose_x", "id": "gen_aaa", "content": content, "settings": `{"type":"blocks/gen_zzz"}`}, "does not match"},
 		{"ops-array", map[string]any{"session": "ose_x", "content": content, "template": "index", "target": "111.blocks", "ops": `[{"op":"x"}]`}, "JSON object"},
+		{"section-name-without-template", map[string]any{"session": "ose_x", "content": content, "section-name": "商品推荐"}, "--section-name requires --template"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -499,7 +677,10 @@ func TestBlockEdit_InvalidLiquidIsAnAPIErrorAtWriteStage(t *testing.T) {
 	}
 }
 
-func TestBlockEdit_PlacementFailureKeepsTheWrite(t *testing.T) {
+// TestBlockEdit_PlacementFailureRollsBackTheWrite: an op that had to land and
+// did not leaves nothing behind — the file write goes back through the server
+// snapshot, so the caller can send the very same command again.
+func TestBlockEdit_PlacementFailureRollsBackTheWrite(t *testing.T) {
 	bs := newBlockServer(t)
 	bs.failResults = map[int]string{0: "target_not_found"}
 	_, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index", "target": "111.blocks"})
@@ -508,14 +689,108 @@ func TestBlockEdit_PlacementFailureKeepsTheWrite(t *testing.T) {
 		t.Fatalf("want api error, got %v", err)
 	}
 	env := exitErr.Envelope()
-	if env["stage"] != "place" || env["block_type"] != "blocks/gen_new" || env["revert_id"] != "rev_create" {
+	if env["stage"] != "place" || env["block_type"] != "blocks/gen_new" || env["reverted"] != true {
 		t.Errorf("envelope: %v", env)
 	}
-	if failed, _ := env["failed"].([]int); len(failed) != 1 || failed[0] != 0 {
+	if _, kept := env["revert_id"]; kept {
+		t.Errorf("a rolled-back write has nothing left to revert: %v", env)
+	}
+	if failed, _ := env["failed"].([]string); len(failed) != 1 || failed[0] != "append" {
 		t.Errorf("failed: %v", env["failed"])
 	}
-	if !strings.Contains(getString(env, "hint"), "revert-gen") || !strings.Contains(getString(env, "hint"), "--id gen_new") {
+	if !strings.Contains(getString(env, "hint"), "same command again") {
 		t.Errorf("hint: %v", env["hint"])
+	}
+	if n := len(bs.writesTo("/gen-blocks/revert", http.MethodPost)); n != 1 {
+		t.Errorf("want one revert, got %d", n)
+	}
+}
+
+// TestBlockEdit_RollbackAlsoDropsTheAddedContainer: the container the CLI adds
+// itself is part of what this call wrote, so it goes too — otherwise a retry
+// stacks empty "_blocks" shells on the page.
+func TestBlockEdit_RollbackAlsoDropsTheAddedContainer(t *testing.T) {
+	bs := newBlockServer(t)
+	bs.failResults = map[int]string{1: "block_type_invalid"} // the append, after add_section
+	_, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index"})
+	var exitErr *output.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("want api error, got %v", err)
+	}
+	env := exitErr.Envelope()
+	if env["reverted"] != true || !strings.HasSuffix(getString(env, "container"), ".blocks") {
+		t.Errorf("envelope: %v", env)
+	}
+	last := bs.opBatches(t)
+	removal := last[len(last)-1]
+	if len(removal) != 1 || removal[0]["op"] != "remove_section" || removal[0]["target"] == "" {
+		t.Errorf("want the added container removed, got %v", removal)
+	}
+}
+
+// TestBlockEdit_RollbackFailureTellsTheCallerNotToRetry: with the file still in
+// the session, sending the command again would write a second one.
+func TestBlockEdit_RollbackFailureTellsTheCallerNotToRetry(t *testing.T) {
+	bs := newBlockServer(t)
+	bs.failResults = map[int]string{0: "target_not_found"}
+	bs.revertFails = true
+	_, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index", "target": "111.blocks"})
+	var exitErr *output.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("want api error, got %v", err)
+	}
+	env := exitErr.Envelope()
+	if env["revert_failed"] != true || env["revert_id"] != "rev_create" || getString(env, "revert_error") == "" {
+		t.Errorf("envelope: %v", env)
+	}
+	if h := getString(env, "hint"); !strings.Contains(h, "instead of sending the command again") {
+		t.Errorf("hint: %v", h)
+	}
+}
+
+// TestBlockEdit_BranchedAppendFailureStopsBeforeTheRemove: the old instance is
+// the merchant's only working card until the new one is in.
+func TestBlockEdit_BranchedAppendFailureStopsBeforeTheRemove(t *testing.T) {
+	bs := newBlockServer(t)
+	bs.branched = true
+	bs.failResults = map[int]string{0: "block_type_invalid"}
+	_, err := blockEditExec(t, bs, map[string]any{
+		"session": "ose_x", "id": "gen_aaa", "content": writeTempLiquid(t, testGenSchema), "template": "index", "target": "111.blocks[1]",
+	})
+	if err == nil {
+		t.Fatal("want an api error")
+	}
+	for _, batch := range bs.opBatches(t) {
+		for _, op := range batch {
+			if op["op"] == "remove_array_item" {
+				t.Errorf("the old instance must stay: %v", batch)
+			}
+		}
+	}
+	if n := len(bs.writesTo("/gen-blocks/revert", http.MethodPost)); n != 1 {
+		t.Errorf("want the branched file reverted, got %d reverts", n)
+	}
+}
+
+// TestBlockEdit_DegradedOpsKeepThePlacement: the block landed, so the call
+// succeeds and names what did not stick instead of sending the caller into a
+// retry that would write the file twice.
+func TestBlockEdit_DegradedOpsKeepThePlacement(t *testing.T) {
+	bs := newBlockServer(t)
+	bs.failResults = map[int]string{1: "invalid_field:subtitle"} // --ops, after the migration
+	body, err := blockEditExec(t, bs, map[string]any{
+		"session": "ose_x", "id": "gen_aaa", "content": writeTempLiquid(t, testGenSchema), "template": "index", "target": "111.blocks[1]",
+		"ops": `{"subtitle":"z"}`,
+	})
+	if err != nil {
+		t.Fatalf("a degraded op must not fail the call: %v", err)
+	}
+	degraded, _ := body["degraded"].([]string)
+	if len(degraded) != 1 || degraded[0] != "ops" {
+		t.Errorf("degraded: %v", body["degraded"])
+	}
+	if n := len(bs.writesTo("/gen-blocks/revert", http.MethodPost)); n != 0 {
+		t.Errorf("the placement stands, nothing to revert (%d reverts)", n)
 	}
 }
 
@@ -701,7 +976,7 @@ func TestHelp_BlockCommands(t *testing.T) {
 		absent string // must not appear among the flags
 	}{
 		{[]string{"themes", "block", "+edit"},
-			[]string{"+edit", "--session", "--content", "--id", "--template", "--target", "--settings", "--ops", "branched", "revert-gen"},
+			[]string{"+edit", "--session", "--content", "--id", "--template", "--target", "--settings", "--ops", "--section-name", "branched", "reverted", "degraded"},
 			"--promote"}, // saving is themes +edit's job
 		{[]string{"themes", "block", "+get"},
 			[]string{"+get", "--session", "--id", "--section", "--template", "--with-content", "ref_count"}, ""},

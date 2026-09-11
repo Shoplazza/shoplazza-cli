@@ -3,7 +3,6 @@ package themes
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -192,18 +191,24 @@ func blockStageErr(err error, stage, oseid string) error {
 	return err
 }
 
-// blockPlaceFailErr reports a written block file whose page placement failed:
-// the file persists, so the caller re-runs placement only (or reverts).
-func blockPlaceFailErr(oseid, cardType, revertID string, results []map[string]any, failed []int) *output.ExitError {
-	return output.Errorf(output.ExitAPI, output.TypeAPI, "block file written but %d of %d placement ops failed", len(failed), len(results)).
+// blockPlaceFailErr reports an op that had to land but did not. An empty undone
+// means the rollback put the session back, so the same command can be sent
+// again; otherwise the block stayed behind and a second send would add another.
+func blockPlaceFailErr(oseid, cardType, revertID string, results []map[string]any, stuck []string, undone string) *output.ExitError {
+	e := output.Errorf(output.ExitAPI, output.TypeAPI, "placement failed: %s", strings.Join(stuck, ", ")).
 		WithField("stage", "place").
 		WithField("block_type", cardType).
-		WithField("revert_id", revertID).
 		WithField("oseid", oseid).
 		WithField("results", results).
-		WithField("failed", failed).
-		WithHint(fmt.Sprintf("the block file is saved in the session; re-run placement with --id %s --template <name> --target <path>, or undo the write: themes block revert-gen --params '{\"oseid\":\"%s\"}' --data '{\"revert_id\":\"%s\"}'",
-			strings.TrimPrefix(cardType, genTypePrefix), oseid, revertID))
+		WithField("failed", stuck)
+	if undone == "" {
+		return e.WithField("reverted", true).
+			WithHint("the write was rolled back, nothing was left in the session — send the same command again")
+	}
+	return e.WithField("revert_failed", true).
+		WithField("revert_error", undone).
+		WithField("revert_id", revertID).
+		WithHint("the block file stayed in the session (" + undone + ") — report the failure instead of sending the command again, which would write a second file")
 }
 
 // newSectionID mints the id for a CLI-added section. The server honours a
