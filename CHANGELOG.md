@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.13 - 2026-09-11
+
+### Changed
+- `themes serve` (first run, development mode) and `themes share` print the upload as separate steps — `packaging theme files`, `uploading <zip> (<bytes>)`, `upload task <id>`, `waiting for the server to process the theme` — instead of one `creating development theme` / `uploading and processing theme` line. The task id is now visible while waiting, so an interrupted first run can be resumed with `--task-id`, the same as `push`.
+
 ## 2.0.12 - 2026-09-10
 
 ### Added

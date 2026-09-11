@@ -189,19 +189,13 @@ func packAndUpload(ctx context.Context, c *client.Client, prog *output.Progress,
 		return "", theme.ErrLocalIO("pack zip", err)
 	}
 	defer os.Remove(zipPath)
-	// Size label is best-effort: on stat failure omit it entirely
-	// rather than printing a wrong "(0 bytes)".
-	sizeLabel := ""
-	if zipInfo, statErr := os.Stat(zipPath); statErr == nil {
-		sizeLabel = fmt.Sprintf(" (%d bytes)", zipInfo.Size())
-	}
 	pkgStep.Done()
 
 	// Step 3: multipart upload via client.DoRaw (PlannedRequest has no
 	// Headers field for the per-request Content-Type). NoTimeout: a large
 	// zip on a slow uplink can exceed the client-wide 30s timeout; ctx
 	// still aborts on signal.
-	uplStep := prog.Begin(fmt.Sprintf("[push] uploading %s%s", zipName, sizeLabel))
+	uplStep := prog.Begin(fmt.Sprintf("[push] uploading %s%s", zipName, zipSizeLabel(zipPath)))
 	body, ct, err := multipartx.FileFormBody("file", zipPath, "application/zip", nil)
 	if err != nil {
 		uplStep.Fail()
@@ -229,6 +223,15 @@ func packAndUpload(ctx context.Context, c *client.Client, prog *output.Progress,
 	}
 	uplStep.Done()
 	return taskID, nil
+}
+
+// zipSizeLabel returns " (<n> bytes)" for zipPath, or "" when it cannot be stat'ed.
+func zipSizeLabel(zipPath string) string {
+	info, err := os.Stat(zipPath)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf(" (%d bytes)", info.Size())
 }
 
 // waitUploadTask polls an upload task until it ends and returns its payload.
