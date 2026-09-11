@@ -1208,3 +1208,68 @@ func TestServe_DryRun_TaskID(t *testing.T) {
 		}
 	}
 }
+
+// asyncCreateHandler mimics an upload that only returns a task id, with the
+// task later reporting the new theme id.
+func asyncCreateHandler(themeID string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(r.URL.Path, "/themes/upload"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"task": map[string]any{"task": map[string]any{"id": "task-1", "status": "0"}},
+			})
+		case strings.Contains(r.URL.Path, "/themes/task/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"ok": true,
+				"data": map[string]any{"task": map[string]any{
+					"status":  1,
+					"message": "success",
+					"info":    `{"name":"X","theme_id":"` + themeID + `"}`,
+				}},
+			})
+		case strings.Contains(r.URL.Path, "/shop"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"ok":   true,
+				"data": map[string]any{"shop": map[string]any{"domain": "demo.test"}},
+			})
+		default:
+			mockServeOK(w, r)
+		}
+	}
+}
+
+// First-time serve prints the create upload as separate steps, including the
+// task id needed for --task-id.
+func TestServe_CreateDevTheme_PrintsUploadSteps(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+	withPushPollOpts(t, asynctask.PollOptions{Interval: time.Millisecond, MaxDuration: 5 * time.Second})
+
+	srv := httptest.NewServer(asyncCreateHandler("dev9"))
+	t.Cleanup(srv.Close)
+
+	var err error
+	captured := captureStderr(t, func() {
+		err = runServeBriefly(t, client.New(srv.URL), serveFlags("", 0))
+	})
+	if err != nil {
+		t.Fatalf("serve err: %v", err)
+	}
+	for _, want := range []string{
+		"[serve] packaging theme files",
+		"[serve] uploading Development - X-1.0.zip (",
+		"[serve] upload task task-1",
+		"[serve] waiting for the server to process the theme",
+		"[serve] development theme dev9 created",
+	} {
+		if !strings.Contains(captured, want) {
+			t.Errorf("stderr missing %q; captured:\n%s", want, captured)
+		}
+	}
+	if strings.Contains(captured, "creating development theme") {
+		t.Errorf("single-line create spinner should be gone; captured:\n%s", captured)
+	}
+}

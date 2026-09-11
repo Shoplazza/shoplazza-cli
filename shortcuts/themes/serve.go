@@ -259,13 +259,10 @@ Editor are not written back to local files; fetch them with
 				if rerr != nil {
 					return common.ExecResult{}, rerr
 				}
-				step := prog.Begin("[serve] creating development theme")
-				newID, cerr := createDevTheme(ctx, in.Client, cwd, devThemeName(name), version)
+				newID, cerr := createDevTheme(ctx, in.Client, prog, cwd, devThemeName(name), version)
 				if cerr != nil {
-					step.Fail()
 					return common.ExecResult{}, cerr
 				}
-				step.Done()
 				if aerr := adoptDevTheme(ctx, in.Client, prog, cwd, storeKey, newID, devThemeName(name)); aerr != nil {
 					return common.ExecResult{}, aerr
 				}
