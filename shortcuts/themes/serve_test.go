@@ -29,14 +29,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// serveFlags builds a FlagSet over a cobra command with both --theme-id and
-// --port. Mirrors pushFlags / shareFlags. Passing themeID=""
-// selects development-theme mode (create-or-reuse a per-directory dev theme).
-func serveFlags(themeID string, port int) common.FlagSet {
-	cmd := &cobra.Command{Use: "serve"}
-	cmd.Flags().StringP("theme-id", "t", themeID, "")
-	cmd.Flags().Int("port", port, "")
-	return common.NewCobraFlagSet(cmd)
+// serveFlags builds a serve FlagSet carrying --theme-id and --port. Passing
+// themeID="" selects development-theme mode (create-or-reuse a per-directory
+// dev theme).
+func serveFlags(t *testing.T, themeID string, port int) common.FlagSet {
+	return shortcutFlags(t, serveShortcut, map[string]any{"theme-id": themeID, "port": port})
 }
 
 // serveFlagsResume adds --task-id to serveFlags.
@@ -96,9 +93,36 @@ func uploadThemeIDOf(line string) (string, bool) {
 	return q.Get("theme_id"), true
 }
 
+// waitFor polls cond until it holds, failing the test after 10s with what it
+// was waiting for and dump()'s view of what actually happened.
+func waitFor(t *testing.T, what string, cond func() bool, dump func() string) {
+	t.Helper()
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(2 * time.Millisecond) {
+		if cond() {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s did not happen within 10s; got:\n%s", what, dump())
+		}
+	}
+}
+
+// waitForRequest blocks until rec has recorded a request line containing substr.
+func waitForRequest(t *testing.T, rec *recordingHandler, substr string) {
+	t.Helper()
+	waitFor(t, "request "+substr, func() bool {
+		for _, line := range rec.requests() {
+			if strings.Contains(line, substr) {
+				return true
+			}
+		}
+		return false
+	}, func() string { return strings.Join(rec.requests(), "\n") })
+}
+
 // runServeBriefly executes serve with the given client and flags, lets it
 // run until the watcher is up, then cancels and waits for a clean exit.
-func runServeBriefly(t *testing.T, c *client.Client, fs common.FlagSet) error {
+func runServeBriefly(t *testing.T, c *client.Client, fs common.FlagSet, rec *recordingHandler) error {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -106,7 +130,7 @@ func runServeBriefly(t *testing.T, c *client.Client, fs common.FlagSet) error {
 		_, e := serveShortcut.Execute(ctx, common.ExecInput{Client: c, Flags: fs})
 		done <- e
 	}()
-	time.Sleep(500 * time.Millisecond)
+	waitForRequest(t, rec, shopV202601)
 	cancel()
 	select {
 	case err := <-done:
@@ -141,7 +165,7 @@ func TestServe_NoThemeID_CreatesDevThemeAndSavesState(t *testing.T) {
 	srv := httptest.NewServer(rec)
 	t.Cleanup(srv.Close)
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags("", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0), rec); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 
@@ -187,7 +211,7 @@ func TestServe_NoThemeID_NamesDevTheme(t *testing.T) {
 
 	var mu sync.Mutex
 	var renamed string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	rec := &recordingHandler{next: func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case strings.Contains(r.URL.Path, "/themes/upload"):
@@ -202,10 +226,11 @@ func TestServe_NoThemeID_NamesDevTheme(t *testing.T) {
 		default:
 			mockServeOK(w, r)
 		}
-	}))
+	}}
+	srv := httptest.NewServer(rec)
 	t.Cleanup(srv.Close)
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags("", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0), rec); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 	mu.Lock()
@@ -237,7 +262,7 @@ func TestServe_NoThemeID_RenameFailureIsNonFatal(t *testing.T) {
 	srv := httptest.NewServer(rec)
 	t.Cleanup(srv.Close)
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags("", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0), rec); err != nil {
 		t.Fatalf("serve must not fail on a rename error: %v", err)
 	}
 	if id, ok := devstate.Load(dir, devstate.StoreKey(srv.URL)); !ok || id != "dev1" {
@@ -273,7 +298,7 @@ func TestServe_NoThemeID_ReusesSavedDevTheme(t *testing.T) {
 		t.Fatalf("seed state: %v", err)
 	}
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags("", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0), rec); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 
@@ -329,7 +354,7 @@ func TestServe_NoThemeID_RecreatesWhenSavedThemeGone(t *testing.T) {
 		t.Fatalf("seed state: %v", err)
 	}
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlags("", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0), rec); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 
@@ -360,7 +385,7 @@ func TestServe_DryRun_DevModeNoState(t *testing.T) {
 
 	res, err := serveShortcut.Execute(context.Background(), common.ExecInput{
 		DryRun: true,
-		Flags:  serveFlags("", 21647),
+		Flags:  serveFlags(t, "", 21647),
 	})
 	if err != nil {
 		t.Fatalf("dry-run err: %v", err)
@@ -410,7 +435,7 @@ func TestServe_DryRunDoesNotStartWatcherOrServer(t *testing.T) {
 
 	res, err := serveShortcut.Execute(context.Background(), common.ExecInput{
 		DryRun: true,
-		Flags:  serveFlags("abc", 21647),
+		Flags:  serveFlags(t, "abc", 21647),
 	})
 	if err != nil {
 		t.Fatalf("dry-run err: %v", err)
@@ -464,24 +489,12 @@ func TestServe_DoesNotModifyThemeFiles(t *testing.T) {
 		t.Fatalf("before snapshot: %v", err)
 	}
 
-	srv := newServeMockServer(t)
+	rec := &recordingHandler{next: mockServeOK}
+	srv := httptest.NewServer(rec)
+	t.Cleanup(srv.Close)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() {
-		_, e := serveShortcut.Execute(ctx, common.ExecInput{
-			Client: client.New(srv.URL),
-			Flags:  serveFlags("abc", 0),
-		})
-		done <- e
-	}()
-	// Give serve time to do its initial push + doctree + start watcher.
-	time.Sleep(500 * time.Millisecond)
-	cancel()
-	select {
-	case <-done:
-	case <-time.After(3 * time.Second):
-		t.Fatalf("serve did not exit within 3s after ctx cancel")
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlags(t, "abc", 0), rec); err != nil {
+		t.Fatalf("serve err: %v", err)
 	}
 
 	afterMtime, err := dirSnapshot(dir)
@@ -540,24 +553,42 @@ func TestServe_HTTPSyncFailureKeepsWatching(t *testing.T) {
 	os.Stderr = pw
 	t.Cleanup(func() { os.Stderr = oldStderr })
 
-	stderrCh := make(chan string, 1)
+	var stderrMu sync.Mutex
+	var stderrBuf strings.Builder
 	go func() {
-		b, _ := io.ReadAll(pr)
-		stderrCh <- string(b)
+		buf := make([]byte, 4096)
+		for {
+			n, err := pr.Read(buf)
+			if n > 0 {
+				stderrMu.Lock()
+				stderrBuf.Write(buf[:n])
+				stderrMu.Unlock()
+			}
+			if err != nil {
+				return
+			}
+		}
 	}()
+	stderrSoFar := func() string {
+		stderrMu.Lock()
+		defer stderrMu.Unlock()
+		return stderrBuf.String()
+	}
+	waitForStderr := func(substr string) {
+		waitFor(t, "stderr line "+substr, func() bool { return strings.Contains(stderrSoFar(), substr) }, stderrSoFar)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
 		_, e := serveShortcut.Execute(ctx, common.ExecInput{
 			Client: client.New(srv.URL),
-			Flags:  serveFlags("abc", 0),
+			Flags:  serveFlags(t, "abc", 0),
 		})
 		done <- e
 	}()
 
-	// Allow time for initial push + doctree + watcher startup.
-	time.Sleep(600 * time.Millisecond)
+	waitForStderr("Listening for file changes")
 	// Modify an existing file under the theme tree. The watcher will fire
 	// OnUpdate; the snapshot returned by mockServeOK's doctree shape may or
 	// may not contain assets/main.css depending on doc.FromDocTreeResponse
@@ -567,8 +598,7 @@ func TestServe_HTTPSyncFailureKeepsWatching(t *testing.T) {
 	if err := os.WriteFile(target, []byte("changed"), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
-	// Watcher debounce is 50ms + 25ms tick interval; allow ample slack.
-	time.Sleep(800 * time.Millisecond)
+	waitForStderr("unsynced:")
 
 	// Cancel context — serve must exit cleanly without panicking.
 	cancel()
@@ -578,7 +608,7 @@ func TestServe_HTTPSyncFailureKeepsWatching(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatalf("serve did not exit within 3s after ctx cancel; sync failure may have escaped to fatal")
 	}
-	captured := <-stderrCh
+	captured := stderrSoFar()
 	os.Stderr = oldStderr
 
 	// Assert the unsynced marker is present. We do NOT assert on a
@@ -1039,7 +1069,7 @@ func TestBuildWatchFilter_HonorsThemeignore(t *testing.T) {
 func TestServe_InvalidLiveReloadPortIsValidationError(t *testing.T) {
 	for _, port := range []int{-1, 65536, 99999} {
 		_, err := serveShortcut.Execute(context.Background(), common.ExecInput{
-			Flags: serveFlags("abc", port),
+			Flags: serveFlags(t, "abc", port),
 		})
 		if err == nil {
 			t.Fatalf("port %d: expected validation error", port)
@@ -1060,7 +1090,7 @@ func TestServe_InvalidLiveReloadPortIsValidationError(t *testing.T) {
 // paths; junk like "../x" must be rejected up front.
 func TestServe_InvalidThemeIDIsValidationError(t *testing.T) {
 	_, err := serveShortcut.Execute(context.Background(), common.ExecInput{
-		Flags: serveFlags("../x", 0),
+		Flags: serveFlags(t, "../x", 0),
 	})
 	if err == nil {
 		t.Fatal("expected validation error for malformed theme id")
@@ -1098,6 +1128,65 @@ func TestIsEditorTempFiltersAtomicSaveArtifacts(t *testing.T) {
 	}
 }
 
+// TestSnapshot_ServeDryRun locks serve's 4-plan dry-run shape (detail +
+// upload + task-poll + doctree). Watcher and LiveReload server are not
+// started; this is a pure preview.
+func TestSnapshot_ServeDryRun(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+
+	in := common.ExecInput{DryRun: true, Flags: serveFlags(t, "abc", 21647)}
+	res, err := serveShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Execute err: %v", err)
+	}
+	snapshot(t, "serve_dry_run", plansToMap(res.Plans))
+}
+
+func TestHelp_Serve_HasLivereloadPort(t *testing.T) {
+	out := helpFor(t, "themes", "serve")
+	if !strings.Contains(out, "--port") {
+		t.Errorf("serve help missing --port:\n%s", out)
+	}
+	if strings.Contains(out, "--no-livereload") {
+		t.Errorf("serve help must NOT expose --no-livereload:\n%s", out)
+	}
+}
+
+// TestHelp_Serve_ExplainsDualMode: serve's long help must explain the two
+// modes (default development theme vs explicit --theme-id), where the dev
+// theme id is persisted, the overwrite semantics of the explicit mode, the
+// theme-directory requirement, and the one-way (local → remote) sync.
+func TestHelp_Serve_ExplainsDualMode(t *testing.T) {
+	out := helpFor(t, "themes", "serve")
+	for _, want := range []string{
+		"development theme",           // default mode named
+		".shoplazza/theme-state.json", // where the id is written back
+		"overwrites",                  // explicit mode is destructive
+		"config/settings_schema.json", // theme-directory requirement
+		"themes pull",                 // editor changes are not synced back
+		"serve [--theme-id <id>]",     // usage shows the flag as optional
+	} {
+		if !strings.Contains(strings.ToLower(out), strings.ToLower(want)) {
+			t.Errorf("serve help missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+// TestHelp_Serve_ThemeIDFlagIsOptional: the --theme-id flag description must
+// flag itself as optional and point at the development-theme default.
+func TestHelp_Serve_ThemeIDFlagIsOptional(t *testing.T) {
+	out := helpFor(t, "themes", "serve")
+	if strings.Contains(out, "Theme ID (required)") {
+		t.Errorf("serve --theme-id must no longer be documented as required:\n%s", out)
+	}
+	if !strings.Contains(strings.ToLower(out), "omit") {
+		t.Errorf("serve --theme-id description should explain what omitting it does:\n%s", out)
+	}
+}
+
 // ── --task-id resume ─────────────────────────────────────────────────────────
 
 // Dev mode + --task-id: no upload; the theme id comes from the task, is
@@ -1121,7 +1210,7 @@ func TestServe_TaskID_DevModeAdoptsThemeFromTask(t *testing.T) {
 	srv := httptest.NewServer(rec)
 	t.Cleanup(srv.Close)
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlagsResume("", "t9", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlagsResume("", "t9", 0), rec); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 	if id, ok := devstate.Load(dir, devstate.StoreKey(srv.URL)); !ok || id != "dev9" {
@@ -1157,7 +1246,7 @@ func TestServe_TaskID_ExplicitSkipsUpload(t *testing.T) {
 	srv := httptest.NewServer(rec)
 	t.Cleanup(srv.Close)
 
-	if err := runServeBriefly(t, client.New(srv.URL), serveFlagsResume("abc", "t1", 0)); err != nil {
+	if err := runServeBriefly(t, client.New(srv.URL), serveFlagsResume("abc", "t1", 0), rec); err != nil {
 		t.Fatalf("serve err: %v", err)
 	}
 	var sawUpload, sawDetail, sawTask, sawDocTree bool

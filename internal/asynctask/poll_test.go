@@ -90,13 +90,3 @@ func TestPoll_DefaultsApplied(t *testing.T) {
 		t.Fatal("fetch never called")
 	}
 }
-
-func TestPoll_DoesNotHardcodeStatusEnums(t *testing.T) {
-	// Asserting by inspection: Status only has Done/Success/Message/Payload;
-	// no numeric or string status enum lives in this package.
-	var s Status
-	_ = s.Done
-	_ = s.Success
-	_ = s.Message
-	_ = s.Payload
-}

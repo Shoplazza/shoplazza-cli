@@ -28,7 +28,7 @@ func meOnlyServer(t *testing.T) *httptest.Server {
 func TestLoadState_InvalidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
 	defer srv.Close()
-	configPath, authPath := setupTempConfig(t)
+	configPath, authPath := testenv.ConfigPaths(t)
 	if err := os.MkdirAll(filepath.Dir(authPath), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestLoadState_InvalidJSON(t *testing.T) {
 func TestLogin_DefaultAuthPath_UATInjection(t *testing.T) {
 	srv := meOnlyServer(t)
 	defer srv.Close()
-	configPath, _ := setupTempConfig(t)
+	configPath, _ := testenv.ConfigPaths(t)
 	mgr := internalauth.NewManager(core.CliConfig{}, configPath, client.New(srv.URL)) // AuthPath unset → defaultAuthMetaPath
 	res, err := mgr.Login(context.Background(), "", nil, "uat_dp", 5*time.Second, time.Millisecond, nil)
 	if err != nil || !res.Status.LoggedIn {
@@ -97,7 +97,7 @@ func TestKeychainKeyNaming(t *testing.T) {
 // verifies the key convention round-trips, that LoadState reads the slot, and
 // that Logout removes it (driven by the auth.json apps map).
 func TestAppSlot_RoundTripAndLogoutCleanup(t *testing.T) {
-	configPath, authPath := setupTempConfig(t)
+	configPath, authPath := testenv.ConfigPaths(t)
 
 	// Seed auth.json with an app-slot entry + the keychain tokens a future
 	// select-app command would write.

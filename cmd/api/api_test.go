@@ -1,11 +1,16 @@
 package api
 
 import (
+	"bytes"
+	"context"
 	"io"
 	"strings"
 	"testing"
+	"time"
 
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdtest"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 )
 
@@ -62,5 +67,32 @@ func TestNewCmdRest_RunE_DryRun_WithParams(t *testing.T) {
 	_ = cmd.Flags().Set("params", `{"limit":10}`)
 	if err := cmd.RunE(cmd, []string{"GET", "/products"}); err != nil {
 		t.Errorf("unexpected error in dry-run with params: %v", err)
+	}
+}
+
+// runAPICmd runs the api command tree with args, capturing stdout, and fails
+// the test on any RunE error.
+func runAPICmd(t *testing.T, f *cmdutil.Factory, args ...string) string {
+	t.Helper()
+	var buf bytes.Buffer
+	cmd := NewCmdAPI(f)
+	cmd.SetOut(&buf)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs(args)
+	cmd.SetContext(context.Background())
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("api %v: unexpected error: %v", args, err)
+	}
+	return buf.String()
+}
+
+// GATE-10: dry-run still goes through the Gate, so it can print the full
+// resolved URL (profile base URL) without sending a real request.
+func TestAPIRest_DryRun_PrintsProfileBaseURL(t *testing.T) {
+	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com", "us")
+	cmdtest.SeedProfileToken(t, internalauth.AuthDir(f.ConfigPath), "us", "at-1", time.Now().Add(time.Hour))
+	out := runAPICmd(t, f, "rest", "GET", "/products.json", "--dry-run")
+	if !strings.Contains(out, `"dry_run": true`) || !strings.Contains(out, "us.myshoplazza.com") {
+		t.Fatalf("dry-run must resolve URL through profile: %s", out)
 	}
 }

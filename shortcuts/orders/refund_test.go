@@ -1,6 +1,7 @@
 package orders
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -141,5 +142,23 @@ func TestBuildRefundBody_ReturnItems_SkipsNonMapAndEmptyID(t *testing.T) {
 	annotated, _ := body["refund_line_items"].([]map[string]any)
 	if len(annotated) != 1 || annotated[0]["line_item_id"] != "li-valid" {
 		t.Errorf("only valid items should be annotated; got %v", annotated)
+	}
+}
+
+var refundExecFlags = map[string]string{
+	"order-id": "string", "amount": "string",
+	"payment-line-id": "string", "note": "string", "return-items": "bool",
+}
+
+func TestRefundExecute_DryRunReturnsTwoPlans(t *testing.T) {
+	in := newOrderExecInput(t, refundExecFlags, map[string]string{
+		"order-id": "ord-1", "amount": "10.00",
+	}, true)
+	result, err := refundShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(result.Plans) != 2 {
+		t.Errorf("expected 2 plans (GET + POST), got %d", len(result.Plans))
 	}
 }

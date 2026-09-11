@@ -1,0 +1,18 @@
+<div {{ block.shoplaza_attributes }} class="cli-e2e-card cli-e2e-card--v2">
+  <h3>{{ block.settings.title }}</h3>
+  <p>{{ block.settings.subtitle }}</p>
+</div>
+
+{% schema %}
+{
+  "name": "cli_e2e_card",
+  "settings": [
+    { "type": "text", "id": "title", "label": { "zh-CN": "标题", "en-US": "Title" }, "default": "Hello from CLI" },
+    { "type": "text", "id": "subtitle", "label": { "zh-CN": "副标题", "en-US": "Subtitle" }, "default": "v2 subtitle" }
+  ],
+  "presets": [
+    { "name": "cli_e2e_card", "cname": { "en-US": "CLI e2e card v2", "zh-CN": "CLI 测试卡 v2" }, "category": { "en-US": "Custom", "zh-CN": "自定义" }, "display": true,
+      "settings": { "title": "Hello from CLI", "subtitle": "v2 subtitle" } }
+  ]
+}
+{% endschema %}

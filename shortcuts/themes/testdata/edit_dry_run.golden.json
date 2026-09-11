@@ -1,0 +1,138 @@
+{
+  "plans": [
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes",
+      "query": {
+        "published": "1"
+      }
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/\u003ctheme_id\u003e/doctree",
+      "query": null
+    },
+    {
+      "body": null,
+      "method": "POST",
+      "path": "/openapi/2026-01/themes/\u003ctheme_id\u003e/edit-sessions",
+      "query": null
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/files/\u003cdoc_id\u003e/sections",
+      "query": null
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/page-builder/blocks",
+      "query": {
+        "event_type": "page-builder",
+        "source_ids": "global-777"
+      }
+    },
+    {
+      "body": {
+        "action": "save",
+        "doc_id": "\u003cdoc_id\u003e",
+        "event_type": "theme",
+        "ops": [
+          {
+            "action": "update",
+            "settings": {},
+            "targetId": "0"
+          }
+        ],
+        "origin": "custom",
+        "origin_template_id": "\u003ccustom_id\u003e",
+        "oseid": "\u003coseid\u003e",
+        "section_id": "222",
+        "theme_id": "\u003ctheme_id\u003e"
+      },
+      "method": "POST",
+      "path": "/openapi/2026-01/themes/page-builder/blocks",
+      "query": null
+    },
+    {
+      "body": {
+        "operations": [
+          {
+            "op": "replace_props",
+            "props": {
+              "title": "X"
+            },
+            "target": "111.blocks.0"
+          },
+          {
+            "op": "remove_array_item",
+            "target": "111.blocks.1"
+          },
+          {
+            "op": "append_array_item",
+            "target": "111.blocks",
+            "value": {
+              "settings": {},
+              "type": "slide"
+            }
+          },
+          {
+            "op": "add_section",
+            "value": {
+              "type": "\u003cpb_template_type_uri\u003e"
+            }
+          },
+          {
+            "op": "add_section",
+            "value": {
+              "blocks": [
+                {
+                  "settings": {
+                    "heading": "A"
+                  },
+                  "type": "rich_head"
+                }
+              ],
+              "name": "rich_text",
+              "settings": {
+                "text_align": "left"
+              },
+              "type": "rich_text"
+            }
+          },
+          {
+            "op": "remove_section",
+            "target": "222"
+          },
+          {
+            "op": "add_section",
+            "value": {
+              "type": "\u003cgenerated_theme_card\u003e"
+            }
+          }
+        ]
+      },
+      "method": "POST",
+      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/files/\u003cdoc_id\u003e/operations",
+      "query": null
+    },
+    {
+      "body": {
+        "operations": [
+          {
+            "move_target": "\u003cfirst_section_id\u003e",
+            "op": "move_section",
+            "position": "before",
+            "target": "\u003cnew_section_id\u003e"
+          }
+        ]
+      },
+      "method": "POST",
+      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/files/\u003cdoc_id\u003e/operations",
+      "query": null
+    }
+  ]
+}

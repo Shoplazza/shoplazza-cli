@@ -1,0 +1,17 @@
+<div {{ block.shoplaza_attributes }} class="cli-e2e-card" style="background:{{ block.settings.bg_color }}">
+  <h3>{{ block.settings.title }}</h3>
+</div>
+
+{% schema %}
+{
+  "name": "cli_e2e_card",
+  "settings": [
+    { "type": "text", "id": "title", "label": { "zh-CN": "标题", "en-US": "Title" }, "default": "Hello from CLI" },
+    { "type": "color", "id": "bg_color", "label": { "zh-CN": "背景色", "en-US": "Background" }, "default": "#FFF3E0" }
+  ],
+  "presets": [
+    { "name": "cli_e2e_card", "cname": { "en-US": "CLI e2e card", "zh-CN": "CLI 测试卡" }, "category": { "en-US": "Custom", "zh-CN": "自定义" }, "display": true,
+      "settings": { "title": "Hello from CLI", "bg_color": "#FFF3E0" } }
+  ]
+}
+{% endschema %}

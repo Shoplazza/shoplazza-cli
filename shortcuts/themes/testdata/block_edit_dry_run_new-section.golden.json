@@ -1,0 +1,59 @@
+{
+  "plans": [
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes",
+      "query": {
+        "published": "1"
+      }
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/\u003ctheme_id\u003e/doctree",
+      "query": null
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/edit-sessions/ose_x/files/\u003cdoc_id\u003e/sections",
+      "query": null
+    },
+    {
+      "body": {
+        "content": "{% schema %}{}{% endschema %}"
+      },
+      "method": "POST",
+      "path": "/openapi/2026-01/themes/edit-sessions/ose_x/gen-blocks",
+      "query": null
+    },
+    {
+      "body": {
+        "operations": [
+          {
+            "op": "add_section",
+            "section_id": "\u003cnew_section_id\u003e",
+            "value": {
+              "blocks": [],
+              "name": "_blocks",
+              "settings": {},
+              "type": "_blocks"
+            }
+          },
+          {
+            "op": "append_array_item",
+            "target": "\u003cnew_section_id\u003e.blocks",
+            "value": {
+              "settings": "\u003cgen_block_settings\u003e",
+              "type": "\u003cgen_block_type\u003e"
+            }
+          }
+        ]
+      },
+      "method": "POST",
+      "path": "/openapi/2026-01/themes/edit-sessions/ose_x/files/\u003cdoc_id\u003e/operations",
+      "query": null
+    }
+  ]
+}

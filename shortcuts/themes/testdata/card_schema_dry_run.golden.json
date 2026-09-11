@@ -1,0 +1,22 @@
+{
+  "plans": [
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/abc/doc",
+      "query": {
+        "location": "hero_slideshow.liquid",
+        "type": "sections"
+      }
+    },
+    {
+      "body": null,
+      "method": "GET",
+      "path": "/openapi/2026-01/themes/abc/doc",
+      "query": {
+        "location": "icon_text.liquid",
+        "type": "sections"
+      }
+    }
+  ]
+}

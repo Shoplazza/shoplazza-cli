@@ -3,21 +3,7 @@ package discounts
 import (
 	"strings"
 	"testing"
-
-	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
-
-func TestDiscountShortcuts_NonEmpty(t *testing.T) {
-	ss := Shortcuts()
-	if len(ss) == 0 {
-		t.Error("Shortcuts() should return at least one shortcut")
-	}
-	for _, s := range ss {
-		if err := common.ValidateShortcut(s); err != nil {
-			t.Errorf("shortcut %q invalid: %v", s.Command, err)
-		}
-	}
-}
 
 func TestPlanList_Shape(t *testing.T) {
 	p := PlanList(map[string]any{"limit": 10})

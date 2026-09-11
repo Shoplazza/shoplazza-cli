@@ -53,13 +53,7 @@ var shareShortcut = common.Shortcut{
 		// the settings_schema.json lookup is skipped so dry-run doesn't
 		// fail in directories without a theme.
 		if in.DryRun {
-			name, version, _ := readThemeInfo(cwd)
-			if name == "" {
-				name = "<theme>"
-			}
-			if version == "" {
-				version = "<version>"
-			}
+			name, version := themeInfoForDryRun(cwd)
 			uploadPlan = PlanShareUpload("", name, version)
 			return common.ExecResult{Plans: []common.PlannedRequest{shopPlan, uploadPlan}}, nil
 		}

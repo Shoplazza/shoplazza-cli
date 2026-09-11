@@ -9,18 +9,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
-
-	"github.com/spf13/cobra"
 )
 
-// flagsWithNoIgnore builds a FlagSet over a freshly-constructed cobra command
-// so that GetBool("no-ignore") returns the supplied value. Mirrors the
-// flagsWithName helper used by init_test.go for symmetry.
-func flagsWithNoIgnore(noIgnore bool) common.FlagSet {
-	cmd := &cobra.Command{Use: "package"}
-	cmd.Flags().Bool("no-ignore", noIgnore, "")
-	return common.NewCobraFlagSet(cmd)
+// flagsWithNoIgnore builds a package FlagSet whose GetBool("no-ignore")
+// returns the supplied value.
+func flagsWithNoIgnore(t *testing.T, noIgnore bool) common.FlagSet {
+	return shortcutFlags(t, packageShortcut, map[string]any{"no-ignore": noIgnore})
 }
 
 // makeThemeAt populates dir with a minimal but valid theme directory
@@ -135,23 +131,6 @@ func zipNames(t *testing.T, zipPath string) []string {
 	return out
 }
 
-// extractPackageEnvelope mirrors the helper in internal/theme/errors_test.go
-// but lives here because that helper is in a different package.
-func extractPackageEnvelope(t *testing.T, err error) map[string]any {
-	t.Helper()
-	if err == nil {
-		t.Fatal("err is nil")
-	}
-	type enveloper interface {
-		Envelope() map[string]any
-	}
-	if e, ok := err.(enveloper); ok {
-		return e.Envelope()
-	}
-	t.Fatalf("err does not expose Envelope(): %T", err)
-	return nil
-}
-
 func TestPackage_FilenameFromThemeInfo(t *testing.T) {
 	tmp := t.TempDir()
 	makeThemeAt(t, tmp)
@@ -159,7 +138,7 @@ func TestPackage_FilenameFromThemeInfo(t *testing.T) {
 	t.Chdir(tmp)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(false),
+		Flags:  flagsWithNoIgnore(t, false),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -196,7 +175,7 @@ func TestPackage_FallbackNameToCwd(t *testing.T) {
 	t.Chdir(dir)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(false),
+		Flags:  flagsWithNoIgnore(t, false),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -220,7 +199,7 @@ func TestPackage_FallbackVersionToUnknown(t *testing.T) {
 	t.Chdir(tmp)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(false),
+		Flags:  flagsWithNoIgnore(t, false),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -243,7 +222,7 @@ func TestPackage_SettingsMissingExitsValidation(t *testing.T) {
 	t.Chdir(tmp)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(false),
+		Flags:  flagsWithNoIgnore(t, false),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -251,7 +230,7 @@ func TestPackage_SettingsMissingExitsValidation(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected validation error when settings_schema.json missing")
 	}
-	env := extractPackageEnvelope(t, err)
+	env := testenv.ErrEnvelope(t, err)
 	if env["type"] != "validation" {
 		t.Errorf("envelope type = %v, want validation", env["type"])
 	}
@@ -272,7 +251,7 @@ func TestPackage_ThemeignoreAutoDetect(t *testing.T) {
 	t.Chdir(tmp)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(false),
+		Flags:  flagsWithNoIgnore(t, false),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -302,7 +281,7 @@ func TestPackage_NoIgnoreForcesV1Behavior(t *testing.T) {
 	t.Chdir(tmp)
 
 	in := common.ExecInput{
-		Flags:  flagsWithNoIgnore(true),
+		Flags:  flagsWithNoIgnore(t, true),
 		Tool:   "package",
 		DryRun: false,
 	}
@@ -372,5 +351,37 @@ func TestSanitizeFileComponent_NoSeparatorsSurvive(t *testing.T) {
 		if out == "" || out == "." || out == ".." {
 			t.Errorf("sanitizeFileComponent(%q) = %q is not a safe filename", in, out)
 		}
+	}
+}
+
+// TestSnapshot_PackageDryRun locks package's Body. The absolute zip_path
+// must be normalised to <TMP> so the golden is reproducible across machines.
+func TestSnapshot_PackageDryRun(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+
+	in := common.ExecInput{DryRun: true, Flags: flagsWithNoIgnore(t, false)}
+	var res common.ExecResult
+	var execErr error
+	captureStderr(t, func() {
+		res, execErr = packageShortcut.Execute(context.Background(), in)
+	})
+	if execErr != nil {
+		t.Fatalf("Execute err: %v", execErr)
+	}
+	// Normalise the absolute tmp path (and the OS path separator) so the snapshot
+	// is deterministic across machines and platforms.
+	if zp, ok := res.Body["zip_path"].(string); ok {
+		res.Body["zip_path"] = filepath.ToSlash(strings.ReplaceAll(zp, dir, "<TMP>"))
+	}
+	snapshot(t, "package_dry_run", res.Body)
+}
+
+func TestHelp_Package(t *testing.T) {
+	out := helpFor(t, "themes", "package")
+	if !strings.Contains(out, "--no-ignore") {
+		t.Errorf("package help missing --no-ignore:\n%s", out)
 	}
 }

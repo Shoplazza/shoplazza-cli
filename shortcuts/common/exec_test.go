@@ -35,18 +35,6 @@ func TestExecResult_FieldsCompile(t *testing.T) {
 	}
 }
 
-func TestShortcut_ExecuteFieldAccepted(t *testing.T) {
-	_ = common.Shortcut{
-		Service: "svc",
-		Command: "+x",
-		Use:     "+x",
-		Short:   "x",
-		Execute: func(_ context.Context, _ common.ExecInput) (common.ExecResult, error) {
-			return common.ExecResult{}, nil
-		},
-	}
-}
-
 func TestEngine_ExecutePathWraps_Body_Envelope(t *testing.T) {
 	parent := &cobra.Command{Use: "svc"}
 	parent.PersistentFlags().Bool("dry-run", false, "")

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/internal/shortcuttest"
 )
 
 func TestPublishShortcut_NoPositionalArgs(t *testing.T) {
@@ -33,5 +34,13 @@ func TestPublishShortcut_Validates(t *testing.T) {
 	}
 	if err := common.ValidateShortcut(unpublishShortcutValue); err != nil {
 		t.Errorf("ValidateShortcut(unpublish): %v", err)
+	}
+}
+
+func TestPublishShortcutPlan_Success(t *testing.T) {
+	in := shortcuttest.PlanInput(t, "publish", productIDFlags, map[string]string{"id": "prod-1"})
+	_, err := publishShortcutValue.Plan(in)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
