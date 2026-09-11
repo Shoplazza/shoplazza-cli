@@ -3,14 +3,16 @@ package themes
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
-	"time"
+	"path/filepath"
 
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/asynctask"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/multipartx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/devstate"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/pack"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
@@ -86,32 +88,11 @@ func uploadZipResolveThemeID(
 	returnedThemeID := extractStringField(asMap(resp.Body), "theme_id")
 	if returnedThemeID == "" {
 		if taskID := extractTaskID(resp.Body); taskID != "" {
-			waitStart := time.Now()
-			st, perr := asynctask.Poll(ctx, func(ctx context.Context) (asynctask.Status, error) {
-				tr, terr := common.Send(ctx, c, PlanTaskDetail(taskID))
-				if terr != nil {
-					return asynctask.Status{}, terr
-				}
-				task := extractTaskPayload(tr)
-				code := taskStatusCode(task["status"])
-				return asynctask.Status{
-					Done:    code != 0,
-					Success: code == 1,
-					Message: getString(task, "message"),
-					Payload: task,
-				}, nil
-			}, pushPollOpts)
+			payload, perr := waitUploadTask(ctx, c, taskID)
 			if perr != nil {
-				if errors.Is(perr, asynctask.ErrTimeout) {
-					return "", theme.ErrTaskTimeout(
-						time.Since(waitStart), pushPollOpts.MaxDuration, st.Payload)
-				}
 				return "", perr
 			}
-			if !st.Success {
-				return "", theme.ErrTaskBusinessFailure(st.Payload)
-			}
-			returnedThemeID = themeIDFromTask(st.Payload)
+			returnedThemeID = themeIDFromTask(payload)
 		}
 	}
 	if returnedThemeID == "" {
@@ -124,4 +105,21 @@ func uploadZipResolveThemeID(
 func isHTTPNotFound(err error) bool {
 	var httpErr *client.HTTPError
 	return errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusNotFound
+}
+
+// adoptDevTheme saves id as the directory's development theme and renames it (best-effort).
+func adoptDevTheme(ctx context.Context, c *client.Client, prog *output.Progress, cwd, storeKey, id, devName string) error {
+	if err := devstate.Save(cwd, storeKey, id); err != nil {
+		return theme.ErrLocalIO("write .shoplazza/theme-state.json", err)
+	}
+	fmt.Fprintf(os.Stderr, "[serve] development theme %s created (id saved to %s)\n",
+		id, filepath.ToSlash(filepath.Join(".shoplazza", "theme-state.json")))
+	step := prog.Begin(fmt.Sprintf("[serve] naming development theme %q", devName))
+	if _, err := common.Send(ctx, c, PlanRename(id, devName)); err != nil {
+		step.Fail()
+		fmt.Fprintf(os.Stderr, "[serve] warning: development theme keeps its uploaded name: %v\n", err)
+		return nil
+	}
+	step.Done()
+	return nil
 }

@@ -36,9 +36,10 @@ var previewResourcePages = map[string]struct{ prefix, queryPath, sizeParam strin
 const previewPathTimeout = 5 * time.Second
 
 // resolvePreviewPath maps --template/--file to a storefront path: static pages
-// resolve locally, resource pages fetch one representative item. A custom
-// template's suffix is appended as ?template=<suffix>.
-func resolvePreviewPath(ctx context.Context, c *client.Client, template, file string) string {
+// resolve locally, resource pages resolve the custom template's bound object
+// and otherwise fetch one representative item. A custom template's suffix is
+// appended as ?template=<suffix>.
+func resolvePreviewPath(ctx context.Context, c *client.Client, themeID, template, file string) string {
 	page, suffix := previewPageName(template, file)
 	if page == "" {
 		return ""
@@ -49,8 +50,13 @@ func resolvePreviewPath(ctx context.Context, c *client.Client, template, file st
 		if !known {
 			return ""
 		}
-		if path = representativePath(ctx, c, res.queryPath, res.sizeParam, res.prefix); path == "" {
-			return ""
+		if suffix != "" {
+			path = boundPath(ctx, c, themeID, page, suffix, res.queryPath, res.prefix)
+		}
+		if path == "" {
+			if path = representativePath(ctx, c, res.queryPath, res.sizeParam, res.prefix); path == "" {
+				return ""
+			}
 		}
 	}
 	if suffix != "" {
@@ -75,6 +81,57 @@ func previewPageName(template, file string) (page, suffix string) {
 		return name[:i], name[i+1:]
 	}
 	return name, ""
+}
+
+// boundPath resolves a custom template to the storefront path of the object it
+// is bound to: the template list carries obj_id once bound, and that object's
+// detail carries the handle. "" when the theme is unknown, the template is
+// unbound, or either call fails; bounded by previewPathTimeout.
+func boundPath(ctx context.Context, c *client.Client, themeID, page, suffix, queryPath, prefix string) string {
+	if themeID == "" {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(ctx, previewPathTimeout)
+	defer cancel()
+	resp, err := common.Send(ctx, c, PlanListTemplates(themeID, map[string]any{"type": page, "per_page": "100"}))
+	if err != nil {
+		return ""
+	}
+	var objID string
+	for _, item := range mapSlice(unwrapData(resp)["theme_templates"]) {
+		if getString(item, "suffix") != suffix {
+			continue
+		}
+		if objID = getString(item, "obj_id"); objID != "" {
+			break
+		}
+	}
+	if objID == "" {
+		return ""
+	}
+	detail, err := common.Send(ctx, c, common.PlannedRequest{Method: "GET", Path: queryPath + "/" + objID})
+	if err != nil {
+		return ""
+	}
+	return detailPath(detail, prefix)
+}
+
+// detailPath reads the storefront path out of a single-object detail response,
+// which wraps the object under its resource name ({"collection":{…}}),
+// optionally inside a data envelope.
+func detailPath(resp map[string]any, prefix string) string {
+	root := unwrapData(resp)
+	if p := objPath(root, prefix); p != "" {
+		return p
+	}
+	for _, v := range root {
+		if m, ok := v.(map[string]any); ok {
+			if p := objPath(m, prefix); p != "" {
+				return p
+			}
+		}
+	}
+	return ""
 }
 
 // representativePath fetches one item from a list endpoint and returns its
@@ -118,10 +175,17 @@ func headPath(v any, prefix string) string {
 	if len(items) == 0 {
 		return ""
 	}
-	if h := getString(items[0], "handle"); h != "" {
+	return objPath(items[0], prefix)
+}
+
+// objPath maps one resource object to its storefront path: a handle under the
+// resource prefix, else the url the object carries itself (pages have no
+// handle field, only url).
+func objPath(item map[string]any, prefix string) string {
+	if h := getString(item, "handle"); h != "" {
 		return prefix + "/" + h
 	}
-	if u := getString(items[0], "url"); u != "" {
+	if u := getString(item, "url"); u != "" {
 		return strings.TrimPrefix(u, "/")
 	}
 	return ""
