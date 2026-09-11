@@ -19,12 +19,10 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
-// pushPollOpts controls the upload-task polling cadence. Declared at
-// package scope so tests can swap in tiny intervals via withPushPollOpts;
-// production defaults match the v1 CLI (3-second cadence, 3-minute cap).
+// pushPollOpts controls the upload-task polling cadence (3s interval, 10-minute cap); tests swap it.
 var pushPollOpts = asynctask.PollOptions{
 	Interval:    3 * time.Second,
-	MaxDuration: 3 * time.Minute,
+	MaxDuration: 10 * time.Minute,
 }
 
 // maxConsecutivePollErrors bounds how many CONSECUTIVE transient errors (5xx /
@@ -41,19 +39,26 @@ var maxConsecutivePollErrors = 5
 // when the status endpoint blips, and a task *failure* comes back as HTTP 200
 // with status=2 (not a 5xx), so retrying a read error never masks a real failure.
 //
-//   - 4xx → deterministic (bad task id, auth, malformed): never recovers → NOT transient.
-//   - ctx canceled/deadline → deliberate stop → NOT transient.
+//   - 4xx → deterministic (bad task id, auth, malformed): never recovers → NOT transient,
+//     except a non-JSON 404, which is the gateway router rather than the API.
+//   - ctx canceled → deliberate stop → NOT transient.
 //   - 5xx → server hiccup → transient.
-//   - non-HTTP (dial/timeout/conn reset) → transient connectivity.
+//   - non-HTTP (dial/client timeout/conn reset) → transient connectivity.
 func transientPollError(err error) bool {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, context.Canceled) {
 		return false
 	}
 	var httpErr *client.HTTPError
 	if errors.As(err, &httpErr) {
-		return httpErr.StatusCode >= 500
+		return httpErr.StatusCode >= 500 || isGatewayNotFound(httpErr)
 	}
 	return true
+}
+
+// isGatewayNotFound reports a plain-text 404 from the gateway router; the API's
+// own 404 carries a JSON body.
+func isGatewayNotFound(e *client.HTTPError) bool {
+	return e.StatusCode == http.StatusNotFound && !json.Valid([]byte(e.Body))
 }
 
 // pushShortcut is the `themes push` workflow: zip the cwd, multipart-upload it
@@ -71,7 +76,7 @@ func transientPollError(err error) bool {
 var pushShortcut = common.Shortcut{
 	Service: "themes",
 	Command: "push",
-	Use:     "push --theme-id <id>",
+	Use:     "push --theme-id <id> [--task-id <id>]",
 	Short:   "Package cwd, upload to remote theme, and poll the upload task",
 	Flags: []common.Flag{
 		{
@@ -81,12 +86,18 @@ var pushShortcut = common.Shortcut{
 			Required:    true,
 			Description: "Theme ID (required). Run `shoplazza themes list` to discover.",
 		},
+		{
+			Name:        "task-id",
+			Type:        common.FlagString,
+			Description: "Resume waiting for an earlier upload task instead of uploading again (task_id from a timeout error).",
+		},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		themeID, err := theme.RequireThemeID(in.Flags.GetString("theme-id"))
 		if err != nil {
 			return common.ExecResult{}, err
 		}
+		taskID := in.Flags.GetString("task-id")
 		cwd, err := os.Getwd()
 		if err != nil {
 			return common.ExecResult{}, theme.ErrLocalIO("getwd", err)
@@ -96,6 +107,12 @@ var pushShortcut = common.Shortcut{
 		// PlanTaskDetail so users see the full request shape. No file I/O,
 		// no auth wire-up.
 		if in.DryRun {
+			if taskID != "" {
+				return common.ExecResult{Plans: []common.PlannedRequest{
+					PlanDetail(themeID),
+					PlanTaskDetail(taskID),
+				}}, nil
+			}
 			// readThemeInfo may fail in dry-run if the cwd isn't a theme;
 			// fall back to "<placeholder>" semantics — best-effort
 			// name/version with zero-value fallbacks.
@@ -107,10 +124,12 @@ var pushShortcut = common.Shortcut{
 			}}, nil
 		}
 
-		// Step 0: read theme metadata (required live).
-		name, version, err := readThemeInfo(cwd)
-		if err != nil {
-			return common.ExecResult{}, err
+		// Step 0: read theme metadata (only a fresh upload needs it).
+		var name, version string
+		if taskID == "" {
+			if name, version, err = readThemeInfo(cwd); err != nil {
+				return common.ExecResult{}, err
+			}
 		}
 
 		// Step 1: detail GET — confirms the theme exists. A 404 here means
@@ -121,116 +140,133 @@ var pushShortcut = common.Shortcut{
 			return common.ExecResult{}, classifyHTTPErr(derr, themeID)
 		}
 
-		// Step 2: pack cwd into a tmp zip. Defer cleanup unconditionally
-		// — even on later failures the artifact has no diagnostic value
-		// (the user can rebuild it from cwd).
 		prog := output.NewProgress(os.Stderr)
-		pkgStep := prog.Begin("[push] packaging theme files")
-		zipName := themeZipName(name, version)
-		zipPath, err := pack.Pack(cwd, zipName, pack.PackOptions{})
-		if err != nil {
-			pkgStep.Fail()
-			return common.ExecResult{}, theme.ErrLocalIO("pack zip", err)
-		}
-		defer os.Remove(zipPath)
-		// Size label is best-effort: on stat failure omit it entirely
-		// rather than printing a wrong "(0 bytes)".
-		sizeLabel := ""
-		if zipInfo, statErr := os.Stat(zipPath); statErr == nil {
-			sizeLabel = fmt.Sprintf(" (%d bytes)", zipInfo.Size())
-		}
-		pkgStep.Done()
-
-		// Step 3: multipart upload via client.DoRaw (PlannedRequest has no
-		// Headers field for the per-request Content-Type). NoTimeout: a large
-		// zip on a slow uplink can exceed the client-wide 30s timeout; ctx
-		// still aborts on signal.
-		uplStep := prog.Begin(fmt.Sprintf("[push] uploading %s%s", zipName, sizeLabel))
-		body, ct, err := multipartx.FileFormBody("file", zipPath, "application/zip", nil)
-		if err != nil {
-			uplStep.Fail()
-			return common.ExecResult{}, theme.ErrLocalIO("build multipart", err)
-		}
-		upload := PlanUpload(themeID, name, version)
-		resp, err := in.Client.DoRaw(ctx, client.RawRequest{
-			Method:    upload.Method,
-			Path:      upload.Path,
-			Params:    upload.Query,
-			Data:      body,
-			Headers:   map[string]string{"Content-Type": ct},
-			NoTimeout: true,
-		})
-		if err != nil {
-			uplStep.Fail()
-			return common.ExecResult{}, classifyHTTPErr(err, themeID)
-		}
-		taskID := extractTaskID(resp.Body)
 		if taskID == "" {
-			uplStep.Fail()
-			return common.ExecResult{}, theme.ErrLocalIO(
-				"upload response missing task_id",
-				fmt.Errorf("response body: %v", resp.Body))
-		}
-		uplStep.Done()
-
-		// Step 4: poll the task until the server reports terminal state. The
-		// task API is hit every pushPollOpts.Interval; waitStart feeds the
-		// timeout envelope's elapsed_seconds. fetch maps numeric status codes
-		// to asynctask.Status, accepting json.Number (UseNumber) or float64.
-		waitStart := time.Now()
-		waitStep := prog.Begin("[push] waiting for the server to process the theme")
-		consecutivePollErrors := 0
-		fetch := func(ctx context.Context) (asynctask.Status, error) {
-			tr, err := common.Send(ctx, in.Client, PlanTaskDetail(taskID))
-			if err != nil {
-				// A real error (4xx, ctx cancel) aborts immediately. A transient one
-				// (5xx / network blip) is tolerated while the task keeps processing,
-				// but only up to maxConsecutivePollErrors in a row, so a genuinely
-				// down endpoint still fails fast. Any successful poll resets the
-				// streak, so isolated blips never accumulate.
-				if !transientPollError(err) {
-					return asynctask.Status{}, err
-				}
-				consecutivePollErrors++
-				if consecutivePollErrors >= maxConsecutivePollErrors {
-					return asynctask.Status{}, err
-				}
-				// Not done, no error: Poll sleeps Interval and retries.
-				return asynctask.Status{Done: false}, nil
+			if taskID, err = packAndUpload(ctx, in.Client, prog, cwd, themeID, name, version); err != nil {
+				return common.ExecResult{}, err
 			}
-			consecutivePollErrors = 0
-			task := extractTaskPayload(tr)
-			statusCode := taskStatusCode(task["status"])
-			return asynctask.Status{
-				Done:    statusCode != 0,
-				Success: statusCode == 1,
-				Message: getString(task, "message"),
-				Payload: task,
-			}, nil
+			fmt.Fprintf(os.Stderr, "[push] upload task %s\n", taskID)
+		} else {
+			fmt.Fprintf(os.Stderr, "[push] resuming upload task %s\n", taskID)
 		}
-		st, err := asynctask.Poll(ctx, fetch, pushPollOpts)
+
+		// Step 4: wait for the task to reach a terminal state. The task id is
+		// printed on its own line: the spinner label must stay within a terminal row.
+		waitStep := prog.Begin("[push] waiting for the server to process the theme")
+		payload, err := waitUploadTask(ctx, in.Client, taskID)
 		if err != nil {
 			waitStep.Fail()
-			if errors.Is(err, asynctask.ErrTimeout) {
-				return common.ExecResult{}, theme.ErrTaskTimeout(
-					time.Since(waitStart), pushPollOpts.MaxDuration, st.Payload)
-			}
 			return common.ExecResult{}, err
-		}
-		if !st.Success {
-			waitStep.Fail()
-			return common.ExecResult{}, theme.ErrTaskBusinessFailure(st.Payload)
 		}
 		waitStep.Done()
 		// The server ships task.info and task.manifest as JSON-encoded STRINGS
 		// (e.g. info: "{\"theme_id\":...}"). Decode them into real nested JSON so
 		// the result prints cleanly instead of as an escaped \" blob.
-		decodeTaskJSONFields(st.Payload)
+		decodeTaskJSONFields(payload)
 		return common.ExecResult{Body: map[string]any{
 			"theme_id": themeID,
-			"task":     st.Payload,
+			"task":     payload,
 		}}, nil
 	},
+}
+
+// packAndUpload zips cwd, uploads it to themeID, and returns the upload task id.
+func packAndUpload(ctx context.Context, c *client.Client, prog *output.Progress, cwd, themeID, name, version string) (string, error) {
+	// Step 2: pack cwd into a tmp zip. Defer cleanup unconditionally
+	// — even on later failures the artifact has no diagnostic value
+	// (the user can rebuild it from cwd).
+	pkgStep := prog.Begin("[push] packaging theme files")
+	zipName := themeZipName(name, version)
+	zipPath, err := pack.Pack(cwd, zipName, pack.PackOptions{})
+	if err != nil {
+		pkgStep.Fail()
+		return "", theme.ErrLocalIO("pack zip", err)
+	}
+	defer os.Remove(zipPath)
+	// Size label is best-effort: on stat failure omit it entirely
+	// rather than printing a wrong "(0 bytes)".
+	sizeLabel := ""
+	if zipInfo, statErr := os.Stat(zipPath); statErr == nil {
+		sizeLabel = fmt.Sprintf(" (%d bytes)", zipInfo.Size())
+	}
+	pkgStep.Done()
+
+	// Step 3: multipart upload via client.DoRaw (PlannedRequest has no
+	// Headers field for the per-request Content-Type). NoTimeout: a large
+	// zip on a slow uplink can exceed the client-wide 30s timeout; ctx
+	// still aborts on signal.
+	uplStep := prog.Begin(fmt.Sprintf("[push] uploading %s%s", zipName, sizeLabel))
+	body, ct, err := multipartx.FileFormBody("file", zipPath, "application/zip", nil)
+	if err != nil {
+		uplStep.Fail()
+		return "", theme.ErrLocalIO("build multipart", err)
+	}
+	upload := PlanUpload(themeID, name, version)
+	resp, err := c.DoRaw(ctx, client.RawRequest{
+		Method:    upload.Method,
+		Path:      upload.Path,
+		Params:    upload.Query,
+		Data:      body,
+		Headers:   map[string]string{"Content-Type": ct},
+		NoTimeout: true,
+	})
+	if err != nil {
+		uplStep.Fail()
+		return "", classifyHTTPErr(err, themeID)
+	}
+	taskID := extractTaskID(resp.Body)
+	if taskID == "" {
+		uplStep.Fail()
+		return "", theme.ErrLocalIO(
+			"upload response missing task_id",
+			fmt.Errorf("response body: %v", resp.Body))
+	}
+	uplStep.Done()
+	return taskID, nil
+}
+
+// waitUploadTask polls an upload task until it ends and returns its payload.
+// Timeouts and task failures come back as envelopes.
+func waitUploadTask(ctx context.Context, c *client.Client, taskID string) (map[string]any, error) {
+	waitStart := time.Now()
+	consecutivePollErrors := 0
+	fetch := func(ctx context.Context) (asynctask.Status, error) {
+		tr, err := common.Send(ctx, c, PlanTaskDetail(taskID))
+		if err != nil {
+			// Transient errors are tolerated up to maxConsecutivePollErrors in a row.
+			if ctx.Err() != nil || !transientPollError(err) {
+				return asynctask.Status{}, err
+			}
+			consecutivePollErrors++
+			if consecutivePollErrors >= maxConsecutivePollErrors {
+				return asynctask.Status{}, err
+			}
+			return asynctask.Status{Done: false}, nil
+		}
+		consecutivePollErrors = 0
+		task := extractTaskPayload(tr)
+		statusCode := taskStatusCode(task["status"])
+		return asynctask.Status{
+			Done:    statusCode != 0,
+			Success: statusCode == 1,
+			Message: getString(task, "message"),
+			Payload: task,
+		}, nil
+	}
+	st, err := asynctask.Poll(ctx, fetch, pushPollOpts)
+	if err != nil {
+		if errors.Is(err, asynctask.ErrTimeout) {
+			return st.Payload, theme.ErrTaskTimeout(time.Since(waitStart), pushPollOpts.MaxDuration, taskID, st.Payload)
+		}
+		if errors.Is(err, context.Canceled) {
+			return st.Payload, theme.ErrTaskInterrupted(taskID)
+		}
+		return st.Payload, err
+	}
+	if !st.Success {
+		return st.Payload, theme.ErrTaskBusinessFailure(st.Payload)
+	}
+	return st.Payload, nil
 }
 
 // decodeTaskJSONFields replaces task fields the server ships as JSON-encoded

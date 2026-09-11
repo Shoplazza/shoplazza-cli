@@ -50,7 +50,7 @@ func TestErrTaskBusinessFailure_PassthroughPayload(t *testing.T) {
 // TestErrTaskTimeout_NonDefaultCapInterpolated: a caller-configured cap
 // (not the 3-minute default) must appear in the message verbatim.
 func TestErrTaskTimeout_NonDefaultCapInterpolated(t *testing.T) {
-	e := ErrTaskTimeout(9*time.Second, 10*time.Second, nil)
+	e := ErrTaskTimeout(9*time.Second, 10*time.Second, "t1", nil)
 	env := testenv.ErrEnvelope(t, e)
 	msg, _ := env["message"].(string)
 	if !strings.Contains(msg, "10s") {
@@ -63,7 +63,7 @@ func TestErrTaskTimeout_NonDefaultCapInterpolated(t *testing.T) {
 
 func TestErrTaskTimeout_Shape(t *testing.T) {
 	task := map[string]any{"task_id": "t1", "status": 0, "info": "compressing"}
-	e := ErrTaskTimeout(180*time.Second+200*time.Millisecond, 3*time.Minute, task)
+	e := ErrTaskTimeout(180*time.Second+200*time.Millisecond, 3*time.Minute, "t1", task)
 	env := testenv.ErrEnvelope(t, e)
 	if env["type"] != "network" || env["code"] != 4 {
 		t.Errorf("envelope: %v", env)
@@ -83,8 +83,11 @@ func TestErrTaskTimeout_Shape(t *testing.T) {
 	if env["task"] == nil {
 		t.Errorf("task passthrough required")
 	}
-	if !strings.Contains(env["hint"].(string), "still running") {
-		t.Errorf("hint: %v", env["hint"])
+	if hint := env["hint"].(string); !strings.Contains(hint, "still running") || !strings.Contains(hint, "--task-id t1") {
+		t.Errorf("hint: %v", hint)
+	}
+	if env["task_id"] != "t1" {
+		t.Errorf("task_id = %v, want t1", env["task_id"])
 	}
 }
 
@@ -139,5 +142,15 @@ func TestErrCloneNetwork_Shape(t *testing.T) {
 	}
 	if !strings.Contains(env["hint"].(string), "network connection") {
 		t.Errorf("hint: %v", env["hint"])
+	}
+}
+
+func TestErrTaskInterrupted_Shape(t *testing.T) {
+	env := testenv.ErrEnvelope(t, ErrTaskInterrupted("t1"))
+	if env["type"] != "network" {
+		t.Errorf("type = %v, want network", env["type"])
+	}
+	if hint, _ := env["hint"].(string); !strings.Contains(hint, "--task-id t1") {
+		t.Errorf("hint: %v", hint)
 	}
 }

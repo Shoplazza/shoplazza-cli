@@ -320,3 +320,39 @@ func TestEngine_RequiredFlagEnforced(t *testing.T) {
 		t.Errorf("expected error to mention 'x', got: %v", err)
 	}
 }
+
+// Backticks in a flag description render as quotes, not as the value placeholder.
+func TestEngine_FlagDescriptionBackticksStayProse(t *testing.T) {
+	parent := &cobra.Command{Use: "svc"}
+	s := common.Shortcut{
+		Service: "svc",
+		Command: "thing",
+		Use:     "thing",
+		Short:   "do a thing",
+		Flags: []common.Flag{{
+			Name: "theme-id", Short: "t", Type: common.FlagString,
+			Description: "Theme ID. Run `shoplazza themes list` to discover.",
+		}},
+		Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
+			return common.PlannedRequest{Method: "GET", Path: "/x"}, nil
+		},
+	}
+	common.Mount(s, parent, newFakeFactory(t))
+
+	var sub *cobra.Command
+	for _, c := range parent.Commands() {
+		if c.Name() == "thing" {
+			sub = c
+		}
+	}
+	if sub == nil {
+		t.Fatal("expected thing subcommand mounted under svc")
+	}
+	usage := sub.Flags().FlagUsages()
+	if !strings.Contains(usage, "--theme-id string") {
+		t.Errorf("placeholder should be the value type:\n%s", usage)
+	}
+	if strings.Contains(usage, "`") || !strings.Contains(usage, "'shoplazza themes list'") {
+		t.Errorf("backticks should render as quotes:\n%s", usage)
+	}
+}

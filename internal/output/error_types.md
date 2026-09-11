@@ -25,7 +25,7 @@ new types may be introduced.
 | HTTP 404 / resource not found / task not found           | api          | 1    | server normally answered                    |
 | HTTP 5xx                                                 | api          | 1    | message passthrough                         |
 | task ended status=2 (server-side failure)                | api          | 1    | server answered, business failed            |
-| task polling timeout (3min)                              | network      | 4    | special envelope shape; see Decision 16     |
+| task polling timeout (10min)                             | network      | 4    | special envelope shape; see Decision 16     |
 | DNS / dial / TLS handshake / read timeout / reset        | network      | 4    | real network layer                          |
 | livereload port bind failed (in-use / permissions)       | network      | 4    | Decision 14                                 |
 | fsnotify watcher fatal (EMFILE / loss / perms revoked)   | internal     | 5    | OS resource; hint to change OS config       |

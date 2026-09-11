@@ -10,6 +10,21 @@
 - `themes block +edit` — write an AI-generated block file inside an edit session and place it on a template page in one call. Without `--id` it creates the file (server-named) and appends an instance into the `--target` container; omit `--target` and the CLI adds a `_blocks` container first, under an id it supplies so the append addresses it in the same batch — creating always ends in an `append_array_item`; with `--id` it updates the source, reads the targeted instance's current settings from the page, carries them onto the new schema and writes them back. A block referenced 2+ times is branched by the server into a new file: the command switches only the targeted instance to it and reports `branched:true` with `previous_type`. `--ops` merges extra setting keys into the placed instance; a placement failure after a successful write returns `stage:"place"` with the new type and `revert_id` so the write can be re-placed or reverted instead of repeated.
 - `themes block +get` — read a generated block: file info, `ref_count` and every placement (`instances`: template + target); with `--section` it returns that instance's `template` / `target` / `settings` — exactly the inputs `+edit` takes; `--with-content` adds the liquid source and the schema display name.
 
+## 2.0.12 - 2026-09-10
+
+### Added
+- `themes push --task-id` / `themes serve --task-id` — resume waiting for an earlier upload task instead of packaging and uploading again. In development mode `serve` reads the new theme id from the task, saves it to `.shoplazza/theme-state.json` and renames the theme, so a run that was cut off no longer leaves an orphan theme and a second run no longer creates another one. The timeout error and a Ctrl-C during the wait both report the `task_id` and the exact resume command; before, Ctrl-C exited silently and the timeout only said to "query status manually".
+
+### Changed
+- The theme upload task wait (`push`, `serve`, `share`) allows 10 minutes instead of 3. The 3-minute cap was copied from v1 as "3 × 60" but v1 polled 180 times at 3s (≈9 min); large themes were reported as failed at the 3-minute mark while the server was still processing them. The `waiting for the server` progress line now shows the task id.
+- `themes serve` names the development theme it creates `Development - <theme name>`, as the help text always promised. The upload endpoint names a theme after `theme_info`, so the rename is a separate request; when it fails the theme keeps its uploaded name and a warning is printed.
+
+### Fixed
+- `themes serve` retries a file sync that hit a transient failure (5xx, 429, a gateway-level 404, a dropped connection or a client-side timeout) twice with a short backoff before marking the file unsynced; previously a single gateway hiccup left the file out of sync until it was edited again. Business 4xx responses are still reported immediately.
+- The upload task poll treated a client-side timeout or a gateway-level 404 as fatal and aborted the whole push; both are now tolerated like any other transient error (up to five in a row).
+- Progress lines wider than the terminal window used to print a new row on every refresh; the frame is now redrawn in place across the rows it wraps onto.
+- Flag help rendered a backticked phrase as the value placeholder (`-t, --theme-id shoplazza themes list`); descriptions now show `--theme-id string` with the phrase in quotes. Affected `themes pull`, `themes push` and `themes serve`.
+
 ## 2.0.11 - 2026-09-07
 
 ### Added
