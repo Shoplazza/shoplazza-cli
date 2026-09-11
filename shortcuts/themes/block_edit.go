@@ -3,8 +3,9 @@ package themes
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"slices"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
@@ -26,9 +27,13 @@ default), and the server forks the file when the block is referenced 2+ times
 — only the targeted instance moves to the fork (branched:true,
 previous_type), every other reference keeps the old block.
 
-A write that lands but fails to place returns an api error carrying
-stage:"place", block_type and revert_id: re-place it or revert the write
-("themes block revert-gen") rather than write again.
+When an op that has to land does not, the write is rolled back and the error
+carries stage:"place" with reverted:true — the session is where it was, so
+send the same command again. revert_failed:true instead means the block file
+stayed behind and a second send would write another one.
+
+Ops the placement can live without (--ops, --section-name) never fail the
+call: the block landed, and their names come back in degraded.
 
 --section-name is the display name of the "_blocks" container section the
 block sits in, stored as that section's settings.title: it names the
@@ -240,9 +245,15 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		return common.ExecResult{Body: body}, nil
 	}
 
-	// Place it: one batch, ops apply independently server-side.
+	// Place it in one batch. Each op carries a name: the ones that have to land
+	// fail the call and are undone, the rest only report.
 	instance := map[string]any{"type": newType, "settings": instSettings}
 	var operations []map[string]any
+	var names []string
+	add := func(name string, op map[string]any) {
+		operations, names = append(operations, op), append(names, name)
+	}
+	degradable := map[string]bool{"ops": true, "section_name": true}
 	instTarget, instDot := target, dotBlockPath(ref)
 	containerSID := ref.SectionID
 	sectionCreated := false
@@ -258,43 +269,38 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 			sid := newSectionID()
 			containerSID = sid
 			container, at, base = sid+".blocks", 0, sid+".blocks"
-			operations = append(operations, map[string]any{
+			add("add_section", map[string]any{
 				"op": "add_section", "section_id": sid,
 				"value": map[string]any{"type": genSectionType, "name": genSectionType, "settings": map[string]any{}, "blocks": []any{}},
 			})
 		}
 		instTarget = fmt.Sprintf("%s[%d]", base, at)
 		instDot = fmt.Sprintf("%s.%d", container, at)
-		operations = append(operations, map[string]any{"op": "append_array_item", "target": container, "value": instance})
+		add("append", map[string]any{"op": "append_array_item", "target": container, "value": instance})
 	case branched:
-		// Repoint to the branched card by replacing the block (the server's
-		// in-place type swap rejects fields of the new schema).
-		operations = append(operations,
-			map[string]any{"op": "remove_array_item", "target": instDot},
-			map[string]any{"op": "append_array_item", "target": dotContainerPath(ref), "value": instance},
-		)
-		if containerLen-1 != ref.BlockIndex {
-			operations = append(operations, map[string]any{"op": "move_array_item", "target": dotContainerPath(ref),
-				"move_target": strconv.Itoa(containerLen - 1), "position": strconv.Itoa(ref.BlockIndex)})
-		}
+		// The instance keeps its slot and is repointed at the fork. update_slot
+		// is the op that takes a type (replace_props answers invalid_field:type)
+		// and it ignores settings passed alongside, so migration follows in its
+		// own op.
+		add("type", map[string]any{"op": "update_slot", "target": instDot, "props": map[string]any{"type": newType}})
+		add("migrate", map[string]any{"op": "replace_props", "target": instDot, "props": instSettings})
 	default:
-		operations = append(operations, map[string]any{"op": "replace_props", "target": instDot, "props": instSettings})
+		add("migrate", map[string]any{"op": "replace_props", "target": instDot, "props": instSettings})
 	}
 	if ops != nil {
-		operations = append(operations, map[string]any{"op": "replace_props", "target": instDot, "props": ops})
+		add("ops", map[string]any{"op": "replace_props", "target": instDot, "props": ops})
 	}
-	// The name always travels as its own op, last — never inside the
-	// add_section value: a container whose schema does not declare the field
-	// would fail the add itself, taking the whole placement with it.
-	renameOp := -1
+	// The name always travels as its own op, never inside the add_section
+	// value: a container whose schema does not declare the field would fail
+	// the add itself, taking the whole placement with it.
 	if sectionName != "" {
-		renameOp = len(operations)
-		operations = append(operations, map[string]any{"op": "replace_props", "target": containerSID,
-			"props": containerSettings(sectionName)})
+		add("section_name", map[string]any{"op": "replace_props", "target": containerSID, "props": containerSettings(sectionName)})
 	}
 
 	previewURLFor := previewURLLater(ctx, in.Client, themeID, template, "")
-	bresp, err := common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
+	applied := make([]map[string]any, 0, len(operations))
+
+	results, err := runOps(ctx, in.Client, oseid, docID, operations, names, &applied)
 	if err != nil {
 		e := blockStageErr(err, "place", oseid)
 		if exitErr, ok := e.(*output.ExitError); ok {
@@ -302,10 +308,66 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		}
 		return common.ExecResult{}, e
 	}
-	results := batchResultStrings(bresp)
-	applied := make([]map[string]any, 0, len(operations))
-	var failed []int
-	renamed := renameOp < 0 // nothing to rename when no name was given
+	var fatal, degraded []string
+	for _, n := range names {
+		switch {
+		case results[n] == opSucceeded:
+		case degradable[n]:
+			degraded = append(degraded, n)
+		default:
+			fatal = append(fatal, n)
+		}
+	}
+	if len(fatal) > 0 {
+		// Put back only what landed: the container this call added, and — on the
+		// fork — the type and settings the instance held before.
+		undo := placementUndo{instance: instDot}
+		if sectionCreated && results["add_section"] == opSucceeded {
+			undo.container = containerSID
+		}
+		if results["type"] == opSucceeded {
+			undo.prevType = cardType
+		}
+		if results["migrate"] == opSucceeded && branched {
+			undo.prevProps = current
+		}
+		undone := revertPlacement(ctx, in.Client, oseid, docID, revertID, undo)
+		e := blockPlaceFailErr(oseid, newType, revertID, applied, fatal, undone)
+		if sectionCreated {
+			e.WithField("container", containerSID+".blocks")
+		} else if id != "" {
+			e.WithField("instance_target", instTarget)
+		}
+		return common.ExecResult{}, e
+	}
+
+	body["applied"] = applied
+	inst := map[string]any{"template": template, "target": instTarget, "section_created": sectionCreated}
+	if sectionName != "" && !slices.Contains(degraded, "section_name") {
+		inst["section_name"] = sectionName
+	}
+	body["instance"] = inst
+	if len(degraded) > 0 {
+		body["degraded"] = degraded
+	}
+	body["preview_url"] = previewURLFor(themeID, oseid)
+	return common.ExecResult{Body: body}, nil
+}
+
+const opSucceeded = "success"
+
+// runOps sends one batch, records a row per op in applied, and returns each
+// op's result by name. A request that fails outright leaves every result empty.
+func runOps(ctx context.Context, c *client.Client, oseid, docID string, operations []map[string]any, names []string, applied *[]map[string]any) (map[string]string, error) {
+	out := map[string]string{}
+	if len(operations) == 0 {
+		return out, nil
+	}
+	resp, err := common.Send(ctx, c, PlanBatchOps(oseid, docID, operations))
+	if err != nil {
+		return out, err
+	}
+	results := batchResultStrings(resp)
 	for i, op := range operations {
 		res := ""
 		if i < len(results) {
@@ -315,27 +377,52 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		if t, ok := op["target"]; ok {
 			entry["target"] = t
 		}
-		switch {
-		case i == renameOp:
-			// The name is cosmetic: a container that refused it must not sink a
-			// placement that landed. The applied row still carries the reason.
-			renamed = res == "success"
-		case res != "success":
-			failed = append(failed, i)
+		*applied = append(*applied, entry)
+		out[names[i]] = res
+	}
+	return out, nil
+}
+
+// placementUndo is what a failed call did land on the page, to be put back:
+// the container the CLI added, and what the instance held before a fork
+// repointed it.
+type placementUndo struct {
+	container string
+	instance  string
+	prevType  string
+	prevProps map[string]any
+}
+
+// revertPlacement puts the session back to where this call found it after an
+// op that had to land failed. The page goes first: reverting the block while an
+// instance still points at it would leave that reference dangling, so a page it
+// cannot restore stops the rollback. Returns why it could not, or "".
+func revertPlacement(ctx context.Context, c *client.Client, oseid, docID, revertID string, undo placementUndo) string {
+	var ops []map[string]any
+	if undo.prevType != "" {
+		ops = append(ops, map[string]any{"op": "update_slot", "target": undo.instance, "props": map[string]any{"type": undo.prevType}})
+	}
+	if undo.prevProps != nil {
+		ops = append(ops, map[string]any{"op": "replace_props", "target": undo.instance, "props": undo.prevProps})
+	}
+	if undo.container != "" {
+		ops = append(ops, map[string]any{"op": "remove_section", "target": undo.container})
+	}
+	if len(ops) > 0 {
+		resp, err := common.Send(ctx, c, PlanBatchOps(oseid, docID, ops))
+		if err != nil {
+			return "the page changes could not be put back: " + err.Error()
 		}
-		applied = append(applied, entry)
+		for i, res := range batchResultStrings(resp) {
+			if res != opSucceeded {
+				return "the page change " + getString(ops[i], "op") + " could not be put back: " + res
+			}
+		}
 	}
-	if len(failed) > 0 {
-		return common.ExecResult{}, blockPlaceFailErr(oseid, newType, revertID, applied, failed)
+	if _, err := common.Send(ctx, c, PlanRevertGenBlock(oseid, revertID)); err != nil {
+		return "the block write could not be reverted: " + err.Error()
 	}
-	body["applied"] = applied
-	inst := map[string]any{"template": template, "target": instTarget, "section_created": sectionCreated}
-	if sectionName != "" && renamed {
-		inst["section_name"] = sectionName
-	}
-	body["instance"] = inst
-	body["preview_url"] = previewURLFor(themeID, oseid)
-	return common.ExecResult{Body: body}, nil
+	return ""
 }
 
 // containerSettings builds the props of the rename op: the "_blocks" container
@@ -390,6 +477,8 @@ func blockEditDryRunPlans(themeID, oseid, cardType, template, sectionName string
 		dot = dotBlockPath(ref)
 		operations = append(operations, map[string]any{"op": "replace_props", "target": dot, "props": phGenSettings})
 	}
+	// One batch, like a real run. The rollback a failure would trigger is not
+	// planned — it only happens on failure.
 	if ops != nil && dot != "" {
 		operations = append(operations, map[string]any{"op": "replace_props", "target": dot, "props": ops})
 	}
