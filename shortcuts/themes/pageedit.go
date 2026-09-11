@@ -283,11 +283,11 @@ func readFlagInput(flag, val string, inlinePrefixes ...byte) ([]byte, error) {
 
 // previewURLLater starts the two preview-URL lookups concurrently and returns
 // the assembler. Buffered, so an early return never blocks the goroutines.
-func previewURLLater(ctx context.Context, c *client.Client, template, file string) func(themeID, oseid string) string {
+func previewURLLater(ctx context.Context, c *client.Client, themeID, template, file string) func(themeID, oseid string) string {
 	domainCh := make(chan string, 1)
 	go func() { domainCh <- extractStoreDomainBest(ctx, c) }()
 	pathCh := make(chan string, 1)
-	go func() { pathCh <- resolvePreviewPath(ctx, c, template, file) }()
+	go func() { pathCh <- resolvePreviewPath(ctx, c, themeID, template, file) }()
 	return func(themeID, oseid string) string {
 		return buildPreviewURL(<-domainCh, <-pathCh, themeID, oseid, "")
 	}
