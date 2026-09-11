@@ -311,7 +311,7 @@ func TestResolvePreviewPath_LocalOnly(t *testing.T) {
 		{"whatever", ""},
 	}
 	for _, c := range cases {
-		if got := resolvePreviewPath(context.Background(), nil, c.template, ""); got != c.want {
+		if got := resolvePreviewPath(context.Background(), nil, "", c.template, ""); got != c.want {
 			t.Errorf("resolvePreviewPath(%q) = %q, want %q", c.template, got, c.want)
 		}
 	}
@@ -331,10 +331,10 @@ func TestResolvePreviewPath_CustomPageTemplate(t *testing.T) {
 	defer srv.Close()
 	c := client.New(srv.URL)
 
-	if got := resolvePreviewPath(context.Background(), c, "page.20260909144720", ""); got != "pages/about-us?template=20260909144720" {
+	if got := resolvePreviewPath(context.Background(), c, "", "page.20260909144720", ""); got != "pages/about-us?template=20260909144720" {
 		t.Errorf("custom page template = %q, want pages/about-us?template=20260909144720", got)
 	}
-	if got := resolvePreviewPath(context.Background(), c, "page", ""); got != "pages/about-us" {
+	if got := resolvePreviewPath(context.Background(), c, "", "page", ""); got != "pages/about-us" {
 		t.Errorf("default page template = %q, want pages/about-us", got)
 	}
 }

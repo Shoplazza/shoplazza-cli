@@ -167,7 +167,7 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	}
 
 	// Prefetch the preview-URL inputs concurrently with the batch.
-	previewURLFor := previewURLLater(ctx, in.Client, template, file)
+	previewURLFor := previewURLLater(ctx, in.Client, themeID, template, file)
 
 	// One request for the whole batch: ops apply and persist independently
 	// server-side — no abort, no rollback.

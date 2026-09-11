@@ -272,7 +272,7 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		operations = append(operations, map[string]any{"op": "replace_props", "target": instDot, "props": ops})
 	}
 
-	previewURLFor := previewURLLater(ctx, in.Client, template, "")
+	previewURLFor := previewURLLater(ctx, in.Client, themeID, template, "")
 	bresp, err := common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
 	if err != nil {
 		e := blockStageErr(err, "place", oseid)
