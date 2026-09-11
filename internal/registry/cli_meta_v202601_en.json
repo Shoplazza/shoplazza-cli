@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-09-02T10:23:11Z",
+  "generated_at": "2026-09-07T09:44:07Z",
   "modules": [
     {
       "name": "billing",
@@ -11420,7 +11420,7 @@
             "save-block"
           ],
           "summary": "Save page-builder block",
-          "description": "Create or update a page-builder custom template block: the downstream apply-ops aggregate applies\nops to the base template and saves the card, then the new card is written into the target section\nof the edit session (skipped when the base template's event_type is not \"theme\").",
+          "description": "Create or update a page-builder custom template block: ops are applied to the base template and\nthe card is saved, then written into the target section of the edit session (skipped when the\nbase template's event_type is not \"theme\").",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11454,7 +11454,7 @@
                 "name": "action",
                 "type": "string",
                 "required": true,
-                "description": "Save action: save / save_as / update (required by downstream bullterrier)",
+                "description": "Save action: save / save_as / update",
                 "min_length": 1
               },
               {
@@ -11738,7 +11738,7 @@
             "cards"
           ],
           "summary": "List addable theme cards (aggregated)",
-          "description": "List all addable cards under the current theme, aggregated from five sources\n(theme / pb / custom / extension / public) with de-dup, fixed source ordering and a\nunified cursor. The five upstream data sources are hidden from the caller.",
+          "description": "List all addable cards under the current theme across sources\n(theme / pb / custom / extension / public / gen), de-duplicated, ordered by source and paginated.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -11749,7 +11749,7 @@
               "name": "theme_id",
               "in": "query",
               "type": "string",
-              "description": "Theme ID. Optional; only used by the \"theme\" source (leopard card-list). Empty -\u003e theme source returns empty"
+              "description": "Theme ID. Optional; only used by the \"theme\" source. Empty -\u003e the theme source returns empty"
             },
             {
               "name": "source",
@@ -11758,7 +11758,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Data source filter: theme / pb / custom / extension / public. Multi-value (repeat the param source=pb\u0026source=public, or comma-join source=pb,public). Empty aggregates all five; any invalid value -\u003e 400."
+              "description": "Data source filter: theme / pb / custom / extension / public / gen (AI-generated cards). Multi-value (repeat the param source=pb\u0026source=public, or comma-join source=pb,public). Empty aggregates every source."
             },
             {
               "name": "category",
