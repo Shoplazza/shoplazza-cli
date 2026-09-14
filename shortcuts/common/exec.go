@@ -24,6 +24,11 @@ type ExecInput struct {
 type ExecResult struct {
 	Plans []PlannedRequest
 	Body  map[string]any
+
+	// Summary is optional dry-run detail the request list cannot show on its
+	// own — e.g. which rows a full-replace body would drop. Rendered under
+	// "summary" in the dry-run envelope; ignored in live mode.
+	Summary map[string]any
 }
 
 // ExecuteFunc is the signature of Shortcut.Execute. Exposed as a named type

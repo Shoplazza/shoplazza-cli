@@ -18,7 +18,9 @@ import (
 // While dimension names are unchanged, existing variants are matched to new
 // combos by option values and keep their id (the API then preserves fields
 // absent from the body: sku, inventory, image). When the dimension set
-// changes, every variant is rebuilt and each deleted one is listed in the
+// changes, no id survives: every variant is rebuilt, and each combo inherits
+// price (and, while the mapping is 1:1, sku) from the old variants sharing its
+// values on the dimensions that stayed. Each deleted variant is listed in the
 // output. The output is a bounded summary, never the full product.
 var setVariantsShortcut = common.Shortcut{
 	Service: "products",
@@ -42,18 +44,29 @@ the dimensions here with --action add.
 
 Identity rules: while the dimension NAMES are unchanged, existing variants
 whose values match a new combination keep their id, and the API preserves any
-field not present in the body (sku, inventory, image). When the dimension set
-changes (added/removed/renamed), every variant is rebuilt and all old variants
-are deleted — each is listed in the output with its id/sku/inventory.
+field not present in the body (sku, inventory, image).
+
+When the dimension set changes (added/removed/renamed) no variant keeps its id:
+every one is rebuilt and all old variants are deleted, each listed in the output
+with its id/sku/inventory/price. A new combination is matched to the old
+variants sharing its values on the dimensions that stayed, and inherits from
+them:
+  price             always
+  sku               only while that mapping is 1:1 — dropping a dimension, or
+                    adding one with a single value; otherwise left unset, so
+                    set them with --sku-template
+  inventory, image  never
 Deleted variants do not break past orders (line items are snapshotted and the
 order can still be paid/fulfilled); only variant-keyed references go stale.
 
---price applies to newly created variants only; matched variants keep their
-current price. Renaming a value or dimension is not detected as a rename: the
-old one is deleted and the new one created.
+--price applies to variants that inherit nothing: a brand-new combination, or a
+rebuilt one whose counterpart had no price. An edit that only deletes needs no
+--price. Renaming a value or dimension is not detected as a rename: the old one
+is deleted and the new one created.
 
-The output is a bounded summary ({created, inherited, deleted} + deleted
-detail), never the full product body. Preview requests with --dry-run.`,
+The output is a bounded summary ({created, inherited, carried_over, deleted} +
+deleted detail), never the full product body. --dry-run reads the product and
+prints the exact request body it would send, plus the same summary.`,
 	Flags: []common.Flag{
 		{Name: "id", Type: common.FlagString, Required: true, Description: "Product ID (required)."},
 		{Name: "action", Type: common.FlagString, Required: true,
@@ -61,7 +74,7 @@ detail), never the full product body. Preview requests with --dry-run.`,
 			Completions: []string{"add", "remove", "update"}},
 		{Name: "option", Type: common.FlagStringArray, Required: true,
 			Description: `Dimension payload as "Name:v1,v2,..." (repeat per dimension; values comma-separated, order = storefront order). Bare "Name" only with --action remove.`},
-		{Name: "price", Type: common.FlagString, Description: "Price for newly created variants (required whenever new combinations appear). Matched variants keep their current price."},
+		{Name: "price", Type: common.FlagString, Description: "Price for variants that inherit none (required whenever a brand-new combination appears). Matched and rebuilt variants keep their current price."},
 		{Name: "sku-template", Type: common.FlagString, Description: `SKU pattern with {Option Name} placeholders, e.g. "TS-{Color}-{Size}". Applied to EVERY variant (overwrites inherited skus).`},
 		{Name: "stock", Type: common.FlagInt, Description: "Inventory quantity set on EVERY variant (absolute set at the default location; overwrites inherited stock). Omit to leave stock untouched."},
 	},
@@ -286,17 +299,10 @@ func setComboOptions(variant map[string]any, combo []string) {
 func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action string, specs []optionDim,
 	price float64, hasPrice bool, skuTemplate string, hasStock bool, stock int) (common.ExecResult, error) {
 
+	// The read runs in dry-run too: the write is a full replace, so only the
+	// current matrix says which variants it would delete and what each new one
+	// inherits. Nothing is written either way.
 	getPlan := PlanGet(id)
-	if in.DryRun {
-		preview := PlanUpdate(id, map[string]any{"product": map[string]any{
-			"options": fmt.Sprintf("<current dimensions after --action %s>", action),
-			"variants": "<cartesian product of the merged matrix; while dimension names are unchanged, " +
-				"existing variant ids are matched in by value and their sku/inventory preserved; otherwise a full rebuild>",
-			"has_only_default_variant": false,
-		}})
-		return common.ExecResult{Plans: []common.PlannedRequest{getPlan, preview}}, nil
-	}
-
 	getResp, err := common.Send(ctx, in.Client, getPlan)
 	if err != nil {
 		return common.ExecResult{}, err
@@ -320,66 +326,111 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 		summary["inherited"] = len(oldVariants)
 		summary["deleted"] = 0
 		summary["no_change"] = true
+		if in.DryRun {
+			return common.ExecResult{Plans: []common.PlannedRequest{getPlan}, Summary: summary}, nil
+		}
 		return common.ExecResult{Body: summary}, nil
 	}
 
-	// Dimension sets are compared by option NAME (normalized): same names in
-	// any order → variants are matchable; otherwise a full rebuild.
-	sameDims := len(currentDims) == len(dims)
+	// Dimensions are matched by option NAME (normalized). Names present on both
+	// sides carry identity across the edit: an unchanged set lets a variant keep
+	// its id, and a changed set still leaves the retained names to project old
+	// values onto the new combos.
 	oldPosByName := map[string]int{} // normalized name → 1-based old option slot
 	for i, cd := range currentDims {
 		oldPosByName[normKey(cd.Name)] = cd.slot(i + 1)
-		if sameDims {
-			found := false
-			for _, d := range dims {
-				if normKey(d.Name) == normKey(cd.Name) {
-					found = true
-					break
-				}
-			}
-			sameDims = found
+	}
+	var retained []int // indexes into dims whose name also exists on the product
+	fanOut := 1        // new combos each old variant expands into
+	for i, d := range dims {
+		if _, ok := oldPosByName[normKey(d.Name)]; ok {
+			retained = append(retained, i)
+		} else {
+			fanOut *= len(d.Values)
 		}
 	}
+	sameDims := len(retained) == len(dims) && len(dims) == len(currentDims)
 
-	// Index old variants by their value tuple projected onto the NEW dimension
-	// order. Only meaningful when the dimension sets match.
-	oldByKey := map[string]oldVariant{}
-	if sameDims {
+	// Old variants grouped by their values on the retained dimensions. With the
+	// dimension set unchanged the projection is the full tuple, so a group holds
+	// one variant and its id is reusable. On a rebuild several old variants can
+	// collapse into one group (a dimension was dropped) or one group can feed
+	// several combos (a dimension was added).
+	oldByKey := map[string][]oldVariant{}
+	if len(retained) > 0 {
 		for _, ov := range oldVariants {
-			values := make([]string, len(dims))
-			for i, d := range dims {
-				values[i] = ov.optionValue(oldPosByName[normKey(d.Name)])
+			values := make([]string, len(retained))
+			for n, i := range retained {
+				values[n] = ov.optionValue(oldPosByName[normKey(dims[i].Name)])
 			}
 			key := comboKey(values)
-			if _, dup := oldByKey[key]; !dup {
-				oldByKey[key] = ov
-			}
+			oldByKey[key] = append(oldByKey[key], ov)
 		}
+	}
+	project := func(combo []string) string {
+		values := make([]string, len(retained))
+		for n, i := range retained {
+			values[n] = combo[i]
+		}
+		return comboKey(values)
 	}
 
 	combos := cartesian(dims)
+	sources := make([]*oldVariant, len(combos))
+	for i, combo := range combos {
+		sources[i] = pickSource(oldByKey[project(combo)])
+	}
+
+	// --price is only needed by combos that inherit nothing: one with no old
+	// counterpart, or a rebuilt one whose counterpart carries no price.
 	if !hasPrice {
-		for _, combo := range combos {
-			if _, ok := oldByKey[comboKey(combo)]; !ok {
+		for i, combo := range combos {
+			switch src := sources[i]; {
+			case src == nil:
 				return common.ExecResult{}, output.ErrValidation(
 					"new variant(s) would be created (e.g. %q) — pass --price to give them one",
+					strings.Join(combo, "/"))
+			case !sameDims && src.Price == nil:
+				return common.ExecResult{}, output.ErrValidation(
+					"variant(s) would be rebuilt with no price to inherit (e.g. %q) — pass --price to give them one",
 					strings.Join(combo, "/"))
 			}
 		}
 	}
 
 	variants := make([]any, len(combos))
-	matched := map[string]bool{} // old variant ids that found a combo
-	inherited := 0
-	created := 0
+	matched := map[string]bool{} // old variant ids that kept their identity
+	inherited, carried, created := 0, 0, 0
 	for i, combo := range combos {
 		v := map[string]any{}
 		setComboOptions(v, combo)
-		if ov, ok := oldByKey[comboKey(combo)]; ok && !matched[ov.ID] {
-			matched[ov.ID] = true
-			v["id"] = ov.ID
+		switch src := sources[i]; {
+		case src != nil && sameDims && !matched[src.ID]:
+			// The id pins the row and the API merges onto it, so price, sku,
+			// stock and image survive without being sent.
+			matched[src.ID] = true
+			v["id"] = src.ID
 			inherited++
-		} else {
+		case src != nil:
+			// A dimension change retires every id, so whatever should survive
+			// has to be written back. The sku rides along only while the mapping
+			// stays 1:1; copying one sku onto several new variants is the
+			// mis-pick hazard the rebuild rules exist to avoid.
+			gotPrice, gotSKU := src.Price != nil, fanOut == 1 && src.SKU != ""
+			if gotPrice {
+				v["price"] = src.Price
+			} else {
+				v["price"] = price
+			}
+			if gotSKU {
+				v["sku"] = src.SKU
+			}
+			if gotPrice || gotSKU {
+				carried++
+			} else {
+				created++ // a counterpart with nothing worth keeping
+			}
+		default:
 			created++
 			v["price"] = price
 		}
@@ -404,16 +455,16 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 		"variants":                 variants,
 		"has_only_default_variant": false,
 	}}
-	resp, err := common.Send(ctx, in.Client, PlanUpdate(id, body))
-	if err != nil {
-		return common.ExecResult{}, err
-	}
+	updatePlan := PlanUpdate(id, body)
 
-	summary := matrixSummary(id, dims, respVariantCount(resp, len(combos)))
+	summary := matrixSummary(id, dims, len(combos))
 	summary["action"] = action
 	summary["dimension_change"] = !sameDims
 	summary["created"] = created
 	summary["inherited"] = inherited
+	if carried > 0 {
+		summary["carried_over"] = carried
+	}
 	summary["deleted"] = len(deletedDetail)
 	addDetail(summary, "deleted_detail", deletedDetail)
 	if skuTemplate != "" {
@@ -422,7 +473,30 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 	if hasStock {
 		summary["stock_applied"] = stock
 	}
+
+	if in.DryRun {
+		return common.ExecResult{Plans: []common.PlannedRequest{getPlan, updatePlan}, Summary: summary}, nil
+	}
+	resp, err := common.Send(ctx, in.Client, updatePlan)
+	if err != nil {
+		return common.ExecResult{}, err
+	}
+	summary["variants_total"] = respVariantCount(resp, len(combos))
 	return common.ExecResult{Body: summary}, nil
+}
+
+// pickSource returns the old variant a combo descends from: the first in its
+// group carrying a price, so price and sku are inherited from the same row.
+func pickSource(group []oldVariant) *oldVariant {
+	for i := range group {
+		if group[i].Price != nil {
+			return &group[i]
+		}
+	}
+	if len(group) == 0 {
+		return nil
+	}
+	return &group[0]
 }
 
 // applyMatrixAction merges the --option payloads into the current dimensions.
@@ -519,9 +593,12 @@ func applyMatrixAction(current []optionDim, action string, specs []optionDim) ([
 
 // oldVariant is the slice of an existing variant the mapping needs.
 type oldVariant struct {
-	ID        string
-	Options   [3]string // option1..option3, "" when absent
-	SKU       string
+	ID      string
+	Options [3]string // option1..option3, "" when absent
+	SKU     string
+	// Price is the raw JSON value (the API answers with a string); it is written
+	// back verbatim so a rebuild cannot round-trip it into a different number.
+	Price     any
 	Inventory *int
 }
 
@@ -543,6 +620,9 @@ func (ov oldVariant) detail() map[string]any {
 	d := map[string]any{"id": ov.ID, "options": strings.Join(parts, "/")}
 	if ov.SKU != "" {
 		d["sku"] = ov.SKU
+	}
+	if ov.Price != nil {
+		d["price"] = ov.Price
 	}
 	if ov.Inventory != nil {
 		d["inventory_quantity"] = *ov.Inventory
@@ -609,6 +689,7 @@ func readProductMatrix(resp map[string]any) (dims []optionDim, variants []oldVar
 				}
 			}
 			ov.SKU, _ = m["sku"].(string)
+			ov.Price = m["price"]
 			if q, ok := asInt(m["inventory_quantity"]); ok {
 				ov.Inventory = &q
 			}

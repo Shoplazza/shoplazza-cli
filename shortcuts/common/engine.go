@@ -100,6 +100,9 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 					"dry_run":  true,
 					"requests": summaries,
 				}
+				if len(result.Summary) > 0 {
+					envelope["summary"] = result.Summary
+				}
 				return output.PrintBody(c.OutOrStdout(), envelope, format, jq)
 			}
 			if local {

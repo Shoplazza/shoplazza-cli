@@ -36,15 +36,16 @@
       "access_tier": "shortcut",
       "must_ask": true,
       "ask_must_cover": [
-        "重建|rebuild|sku|库存"
+        "重建|rebuild|库存|stock"
       ],
       "semantic_rubric": [
-        "recognizes a NEW dimension name → full rebuild: every variant recreated, skus/stock reset — states this BEFORE any command",
-        "asks for --price (all rebuilt variants are new); never invents a number",
+        "recognizes a NEW dimension name → full rebuild: every variant recreated with a new id and stock reset — states this BEFORE any command",
+        "does NOT claim prices are lost: each existing variant's price is carried onto the combos it expands into",
+        "does NOT ask for --price — nothing brand-new appears, so there is nothing for it to fill",
         "emits no write command until the user answers (ask-first)"
       ]
     },
-    "notes": "Ask-first case: rebuild warning + price question; no command expected in the same reply."
+    "notes": "Ask-first case: rebuild warning (new ids, stock reset) + go-ahead; no command expected in the same reply. Prices ride across the rebuild and skus do not (one sku cannot serve S/M/L), so --price is not required here."
   },
   {
     "case_id": "products.set-variants-03",

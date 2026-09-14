@@ -322,7 +322,7 @@ func TestSetVariants_BadPrice(t *testing.T) {
 // ── update mode ───────────────────────────────────────────────────────────────
 
 // existingColorProduct returns a GET body: options [Color(Red,Blue)], two
-// variants with ids/skus/stock.
+// variants with ids/skus/prices/stock.
 func existingColorProduct() map[string]any {
 	return map[string]any{
 		"id": "p-1",
@@ -330,9 +330,31 @@ func existingColorProduct() map[string]any {
 			map[string]any{"name": "Color", "values": []any{"Red", "Blue"}, "position": float64(1)},
 		},
 		"variants": []any{
-			map[string]any{"id": "v-red", "option1": "Red", "sku": "SKU-RED", "inventory_quantity": float64(7)},
-			map[string]any{"id": "v-blue", "option1": "Blue", "sku": "SKU-BLUE", "inventory_quantity": float64(9)},
+			map[string]any{"id": "v-red", "option1": "Red", "sku": "SKU-RED", "price": "88.00", "inventory_quantity": float64(7)},
+			map[string]any{"id": "v-blue", "option1": "Blue", "sku": "SKU-BLUE", "price": "77.00", "inventory_quantity": float64(9)},
 		},
+	}
+}
+
+// colorSizeProduct returns a GET body: Color(Red,Blue) × Size(S,M), each colour
+// at its own price, every variant with its own sku.
+func colorSizeProduct() map[string]any {
+	variants := []any{}
+	for _, c := range []struct{ name, price string }{{"Red", "88.00"}, {"Blue", "77.00"}} {
+		for _, size := range []string{"S", "M"} {
+			variants = append(variants, map[string]any{
+				"id": "v-" + c.name + "-" + size, "option1": c.name, "option2": size,
+				"sku": "TS-" + c.name + "-" + size, "price": c.price, "inventory_quantity": float64(5),
+			})
+		}
+	}
+	return map[string]any{
+		"id": "p-1",
+		"options": []any{
+			map[string]any{"name": "Color", "values": []any{"Red", "Blue"}, "position": float64(1)},
+			map[string]any{"name": "Size", "values": []any{"S", "M"}, "position": float64(2)},
+		},
+		"variants": variants,
 	}
 }
 
@@ -586,51 +608,136 @@ func TestSetVariants_AddDimensionRebuilds(t *testing.T) {
 		if _, hasID := v["id"]; hasID {
 			t.Errorf("rebuild must not carry any old id, got %+v", v)
 		}
-		if v["price"] != float64(12) {
-			t.Errorf("every rebuilt variant needs --price, got %v", v["price"])
+	}
+	// Each colour's price rides across the rebuild; --price stays unused.
+	for _, tc := range []struct{ color, size, price string }{
+		{"Red", "S", "88.00"}, {"Red", "M", "88.00"},
+		{"Blue", "S", "77.00"}, {"Blue", "M", "77.00"},
+	} {
+		v := variantByOptions(t, variants, tc.color, tc.size, "")
+		if v["price"] != tc.price {
+			t.Errorf("%s/%s must inherit %s, got %v", tc.color, tc.size, tc.price, v["price"])
+		}
+		// One sku cannot serve two sizes, so it is dropped rather than duplicated.
+		if _, hasSKU := v["sku"]; hasSKU {
+			t.Errorf("%s/%s must not inherit a duplicated sku, got %v", tc.color, tc.size, v["sku"])
 		}
 	}
-	// Existing dimension stays in position 1 (Fatal inside if missing).
-	variantByOptions(t, variants, "Red", "S", "")
 
-	if res.Body["dimension_change"] != true || res.Body["created"] != 4 || res.Body["inherited"] != 0 || res.Body["deleted"] != 2 {
+	if res.Body["dimension_change"] != true || res.Body["carried_over"] != 4 || res.Body["created"] != 0 ||
+		res.Body["inherited"] != 0 || res.Body["deleted"] != 2 {
 		t.Errorf("summary wrong: %+v", res.Body)
 	}
 	detail := res.Body["deleted_detail"].([]map[string]any)
-	if len(detail) != 2 || detail[0]["sku"] != "SKU-RED" {
-		t.Errorf("rebuild must list every deleted variant with sku/stock: %+v", detail)
+	if len(detail) != 2 || detail[0]["sku"] != "SKU-RED" || detail[0]["price"] != "88.00" {
+		t.Errorf("rebuild must list every deleted variant with sku/stock/price: %+v", detail)
+	}
+}
+
+// Adding a single-value dimension is a 1:1 remap, so the skus come along too.
+func TestSetVariants_AddSingleValueDimensionKeepsSKU(t *testing.T) {
+	var captured map[string]any
+	srv := matrixServer(t, existingColorProduct(), &captured, nil)
+	defer srv.Close()
+
+	in := newSetVariantsInput(t, []string{"Size:S"}, map[string]string{"id": "p-1", "action": "add"}, false)
+	in.Client = client.New(srv.URL)
+
+	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("a 1:1 rebuild inherits every price, so --price must not be required: %v", err)
+	}
+	variants := capturedVariants(t, captured)
+	red := variantByOptions(t, variants, "Red", "S", "")
+	if red["sku"] != "SKU-RED" || red["price"] != "88.00" {
+		t.Errorf("Red/S must keep sku and price, got %+v", red)
+	}
+	if res.Body["carried_over"] != 2 || res.Body["created"] != 0 {
+		t.Errorf("summary wrong: %+v", res.Body)
 	}
 }
 
 func TestSetVariants_RemoveWholeDimensionRebuilds(t *testing.T) {
+	var captured map[string]any
+	srv := matrixServer(t, colorSizeProduct(), &captured, nil)
+	defer srv.Close()
+
+	in := newSetVariantsInput(t, []string{"Size"}, map[string]string{"id": "p-1", "action": "remove"}, false)
+	in.Client = client.New(srv.URL)
+
+	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("a pure delete creates no variant, so --price must not be required: %v", err)
+	}
+	variants := capturedVariants(t, captured)
+	if len(variants) != 2 {
+		t.Fatalf("want 2 variants (Red, Blue), got %d", len(variants))
+	}
+	// Survivors keep their own price instead of collapsing onto one number.
+	if v := variantByOptions(t, variants, "Red", "", ""); v["price"] != "88.00" || v["sku"] != "TS-Red-S" {
+		t.Errorf("Red must inherit its own price/sku, got %+v", v)
+	}
+	if v := variantByOptions(t, variants, "Blue", "", ""); v["price"] != "77.00" || v["sku"] != "TS-Blue-S" {
+		t.Errorf("Blue must inherit its own price/sku, got %+v", v)
+	}
+	if res.Body["dimension_change"] != true || res.Body["deleted"] != 4 ||
+		res.Body["carried_over"] != 2 || res.Body["created"] != 0 {
+		t.Errorf("summary wrong: %+v", res.Body)
+	}
+}
+
+// --price still covers combos with nothing to inherit, even on a rebuild.
+func TestSetVariants_RebuildStillNeedsPriceForBrandNewCombos(t *testing.T) {
 	product := map[string]any{
 		"id": "p-1",
 		"options": []any{
 			map[string]any{"name": "Color", "values": []any{"Red"}, "position": float64(1)},
-			map[string]any{"name": "Size", "values": []any{"S", "M"}, "position": float64(2)},
 		},
 		"variants": []any{
-			map[string]any{"id": "v-1", "option1": "Red", "option2": "S", "sku": "K1", "inventory_quantity": float64(3)},
-			map[string]any{"id": "v-2", "option1": "Red", "option2": "M", "sku": "K2", "inventory_quantity": float64(4)},
+			map[string]any{"id": "v-red", "option1": "Red", "price": "88.00"},
 		},
 	}
 	var captured map[string]any
 	srv := matrixServer(t, product, &captured, nil)
 	defer srv.Close()
 
-	in := newSetVariantsInput(t, []string{"Size"}, map[string]string{"id": "p-1", "action": "remove", "price": "9"}, false)
+	// Green has no counterpart on the retained dimension; Size is new on top.
+	in := newSetVariantsInput(t, []string{"Color:Green", "Size:S"}, map[string]string{"id": "p-1", "action": "add"}, false)
 	in.Client = client.New(srv.URL)
 
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
-	if err != nil {
-		t.Fatal(err)
+	_, err := setVariantsShortcut.Execute(context.Background(), in)
+	if err == nil || !strings.Contains(err.Error(), "--price") {
+		t.Errorf("want price-required error naming the new combo, got %v", err)
 	}
-	variants := capturedVariants(t, captured)
-	if len(variants) != 1 {
-		t.Fatalf("want 1 variant (Red), got %d", len(variants))
+	if captured != nil {
+		t.Error("the PUT must not be sent when validation fails")
 	}
-	if res.Body["dimension_change"] != true || res.Body["deleted"] != 2 || res.Body["created"] != 1 {
-		t.Errorf("summary wrong: %+v", res.Body)
+}
+
+// A rebuilt combo whose source has no price to inherit still needs --price.
+func TestSetVariants_RebuildWithoutInheritablePriceNeedsPrice(t *testing.T) {
+	product := map[string]any{
+		"id": "p-1",
+		"options": []any{
+			map[string]any{"name": "Color", "values": []any{"Red"}, "position": float64(1)},
+		},
+		"variants": []any{
+			map[string]any{"id": "v-red", "option1": "Red", "sku": "SKU-RED"},
+		},
+	}
+	var captured map[string]any
+	srv := matrixServer(t, product, &captured, nil)
+	defer srv.Close()
+
+	in := newSetVariantsInput(t, []string{"Size:S"}, map[string]string{"id": "p-1", "action": "add"}, false)
+	in.Client = client.New(srv.URL)
+
+	_, err := setVariantsShortcut.Execute(context.Background(), in)
+	if err == nil || !strings.Contains(err.Error(), "--price") {
+		t.Errorf("want price-required error, got %v", err)
+	}
+	if captured != nil {
+		t.Error("the PUT must not be sent when validation fails")
 	}
 }
 
@@ -674,14 +781,55 @@ func TestSetVariants_SkuTemplateValidatedAgainstMergedDims(t *testing.T) {
 
 // ── dry-run ───────────────────────────────────────────────────────────────────
 
-func TestSetVariants_DryRunUpdate(t *testing.T) {
+// Dry-run reads the product and previews the real body — a full-replace PUT is
+// only reviewable next to the matrix it replaces.
+func TestSetVariants_DryRunPreviewsTheRealBody(t *testing.T) {
+	var captured map[string]any
+	srv := matrixServer(t, existingColorProduct(), &captured, nil)
+	defer srv.Close()
+
 	in := newSetVariantsInput(t, []string{"Color:White"}, map[string]string{"id": "p-1", "action": "add", "price": "9"}, true)
+	in.Client = client.New(srv.URL)
+
 	res, err := setVariantsShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if captured != nil {
+		t.Fatal("dry-run must not send the PUT")
+	}
 	if len(res.Plans) != 2 || res.Plans[0].Method != "GET" || res.Plans[1].Method != "PUT" {
 		t.Fatalf("want [GET, PUT] plans, got %+v", res.Plans)
+	}
+	body, _ := res.Plans[1].Body.(map[string]any)
+	prod, _ := body["product"].(map[string]any)
+	variants, _ := prod["variants"].([]any)
+	if len(variants) != 3 {
+		t.Fatalf("preview body must carry the real variants array, got %+v", prod["variants"])
+	}
+	if res.Summary["created"] != 1 || res.Summary["inherited"] != 2 {
+		t.Errorf("dry-run must report the same summary as the live run: %+v", res.Summary)
+	}
+}
+
+// Nothing to do: the preview shows the read and no write at all.
+func TestSetVariants_DryRunNoChangeHasNoWrite(t *testing.T) {
+	var captured map[string]any
+	srv := matrixServer(t, existingColorProduct(), &captured, nil)
+	defer srv.Close()
+
+	in := newSetVariantsInput(t, []string{"Color:Red"}, map[string]string{"id": "p-1", "action": "add", "price": "9"}, true)
+	in.Client = client.New(srv.URL)
+
+	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Plans) != 1 || res.Plans[0].Method != "GET" {
+		t.Fatalf("want the read alone, got %+v", res.Plans)
+	}
+	if res.Summary["no_change"] != true {
+		t.Errorf("summary must say nothing changes: %+v", res.Summary)
 	}
 }
 
