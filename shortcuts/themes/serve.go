@@ -41,7 +41,7 @@ import (
 //     --task-id resumes waiting for an earlier upload task instead of uploading.
 //  1. Runs an initial push (zip → multipart upload → task polling) so the
 //     remote theme matches the cwd starting state. Skipped when dev-theme
-//     creation just uploaded the identical tree.
+//     creation just uploaded the identical tree, and skipped by --skip-push.
 //  2. Pulls the doctree so subsequent incremental syncs know which files
 //     already exist on the server (decides POST-create-then-PATCH vs
 //     plain-PATCH).
@@ -62,7 +62,7 @@ import (
 var serveShortcut = common.Shortcut{
 	Service: "themes",
 	Command: "serve",
-	Use:     "serve [--theme-id <id>] [--task-id <id>]",
+	Use:     "serve [--theme-id <id>] [--task-id <id>] [--skip-push]",
 	Short:   "Upload to a development theme (or --theme-id), watch the current theme, and live-reload browsers",
 	Long: `Start a local theme development loop: upload the current directory's theme
 files to a remote theme, then watch the directory and push every change,
@@ -84,6 +84,12 @@ Two modes:
     serve uploads to and continuously overwrites that theme's remote files
     with your local copies, starting with a full upload at startup. Only
     point it at a theme whose remote content you intend to replace.
+
+Skipping the startup upload (--skip-push):
+    Starts watching immediately against the theme as it already is on the
+    server. Nothing reconciles the two trees, so only the files you change
+    while serve runs are sent; everything else keeps whatever the server
+    already holds. serve prints how many files exist on only one side.
 
 Resuming after a timeout:
     If a run gave up while waiting for the upload task, pass --task-id <id>
@@ -110,6 +116,12 @@ Editor are not written back to local files; fetch them with
 			Description: "Resume waiting for an earlier upload task instead of uploading again (task_id from a timeout error).",
 		},
 		{
+			Name: "skip-push",
+			Type: common.FlagBool,
+			Description: "Skip the startup full upload and watch right away. Sync stays one-way " +
+				"(local -> remote) and covers only the files you change while serve runs.",
+		},
+		{
 			Name:        "port",
 			Type:        common.FlagInt,
 			Default:     21647,
@@ -122,6 +134,12 @@ Editor are not written back to local files; fetch them with
 			return common.ExecResult{}, err
 		}
 		taskID := in.Flags.GetString("task-id")
+		skipPush := in.Flags.GetBool("skip-push")
+		// The task --task-id waits for is itself a full upload.
+		if skipPush && taskID != "" {
+			return common.ExecResult{}, theme.ErrValidation(
+				"--skip-push conflicts with --task-id: the task it waits for is itself a full upload; pass only one")
+		}
 		port := in.Flags.GetInt("port")
 		// Validate the port range up front: an out-of-range value previously
 		// surfaced as a network-class bind failure with a misleading
@@ -153,6 +171,12 @@ Editor are not written back to local files; fetch them with
 						PlanDocTree(explicitID),
 					}}, nil
 				}
+				if skipPush {
+					return common.ExecResult{Plans: []common.PlannedRequest{
+						PlanDetail(explicitID),
+						PlanDocTree(explicitID),
+					}}, nil
+				}
 				return common.ExecResult{Plans: []common.PlannedRequest{
 					PlanDetail(explicitID),
 					PlanUpload(explicitID, "<theme_name>", "<theme_version>"),
@@ -176,12 +200,21 @@ Editor are not written back to local files; fetch them with
 				}}, nil
 			}
 			if savedID, ok := devstate.Load(cwd, storeKey); ok {
+				if skipPush {
+					return common.ExecResult{Plans: []common.PlannedRequest{
+						PlanDetail(savedID),
+						PlanDocTree(savedID),
+					}}, nil
+				}
 				return common.ExecResult{Plans: []common.PlannedRequest{
 					PlanDetail(savedID),
 					PlanUpload(savedID, "<theme_name>", "<theme_version>"),
 					PlanTaskDetail("<task_id-from-upload>"),
 					PlanDocTree(savedID),
 				}}, nil
+			}
+			if skipPush {
+				return common.ExecResult{}, errSkipPushNoDevTheme()
 			}
 			name, version, _ := readThemeInfo(cwd)
 			if name == "" {
@@ -255,6 +288,9 @@ Editor are not written back to local files; fetch them with
 				// 404 → stale record; fall through and recreate.
 			}
 			if themeID == "" {
+				if skipPush {
+					return common.ExecResult{}, errSkipPushNoDevTheme()
+				}
 				name, version, rerr := readThemeInfo(cwd)
 				if rerr != nil {
 					return common.ExecResult{}, rerr
@@ -272,6 +308,12 @@ Editor are not written back to local files; fetch them with
 				initialPushDone = true
 			}
 		} else {
+			// The skipped push is what would have validated the id.
+			if skipPush {
+				if _, derr := common.Send(ctx, in.Client, PlanDetail(themeID)); derr != nil {
+					return common.ExecResult{}, classifyHTTPErr(derr, themeID)
+				}
+			}
 			prog.Begin(fmt.Sprintf("[serve] target theme: %s", themeID)).Done()
 		}
 
@@ -279,7 +321,9 @@ Editor are not written back to local files; fetch them with
 		// detail → pack → upload → poll pipeline), passing a fresh ExecInput
 		// with just the --theme-id flag. Skipped when the dev-theme creation
 		// just uploaded the same tree.
-		if !initialPushDone {
+		if skipPush {
+			prog.Begin("[serve] skipping the startup upload (--skip-push)").Done()
+		} else if !initialPushDone {
 			pushIn := common.ExecInput{
 				Client: in.Client,
 				Flags:  buildPushFlagSet(themeID),
@@ -334,6 +378,8 @@ Editor are not written back to local files; fetch them with
 		// unchanged content are skipped. The walk covers only the 8 standard
 		// theme dirs (mirroring watch.Watch / pack.EnumerateThemeFiles).
 		dedup := doc.NewDeduper()
+		// Local file set, for the --skip-push drift summary below.
+		localRel := map[string]struct{}{}
 		for _, d := range pack.ThemeDirs {
 			base := filepath.Join(cwd, d)
 			if _, serr := os.Stat(base); serr != nil {
@@ -357,11 +403,16 @@ Editor are not written back to local files; fetch them with
 				if !watchFilter(relSlash) {
 					return nil
 				}
+				localRel[relSlash] = struct{}{}
 				if b, e := os.ReadFile(p); e == nil {
 					dedup.Record(relSlash, b)
 				}
 				return nil
 			})
+		}
+
+		if skipPush {
+			printDriftSummary(os.Stderr, snap, localRel)
 		}
 
 		stop, err := watch.Watch(cwd, watch.WatchOptions{Filter: watchFilter}, watch.Callback{
@@ -411,6 +462,40 @@ Editor are not written back to local files; fetch them with
 		}
 		return common.ExecResult{Body: map[string]any{"status": "stopped"}}, nil
 	},
+}
+
+// errSkipPushNoDevTheme rejects --skip-push when no development theme exists
+// yet: creating one is itself a full upload.
+func errSkipPushNoDevTheme() error {
+	return theme.ErrValidation(
+		"--skip-push needs a theme that already exists: this directory has no development theme for " +
+			"this store yet, and creating one requires a full upload. Re-run without --skip-push, " +
+			"or pass --theme-id <id>.")
+}
+
+// printDriftSummary counts files present on only one side. Set difference
+// only — the doctree carries no content hashes.
+func printDriftSummary(w io.Writer, snap doc.FileSnapshot, localRel map[string]struct{}) {
+	remote := map[string]struct{}{}
+	for typ, locs := range snap {
+		for _, loc := range locs {
+			remote[typ+"/"+loc] = struct{}{}
+		}
+	}
+	remoteOnly := 0
+	for rel := range remote {
+		if _, ok := localRel[rel]; !ok {
+			remoteOnly++
+		}
+	}
+	localOnly := 0
+	for rel := range localRel {
+		if _, ok := remote[rel]; !ok {
+			localOnly++
+		}
+	}
+	fmt.Fprintf(w, "[serve] file list: %d file(s) only on the remote, %d only local\n",
+		remoteOnly, localOnly)
 }
 
 // buildWatchFilter returns serve's file filter: keep only real theme-tree
