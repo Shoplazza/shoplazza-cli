@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.13 - 2026-09-11
+
+### Added
+- `themes serve --skip-push` — watch against the theme as it already is on the server, without the startup full upload. That upload rebuilds the remote file tree from the zip, so it removes anything the server holds that the local directory does not (files excluded by `.themeignore` included) and overwrites whatever the online Theme Editor wrote, `config/settings_data.json` among it; `--skip-push` leaves all of that in place and sends only the files changed while serve runs. Because nothing reconciles the two trees, serve reports how many files exist on only one side. The flag is refused where it cannot be honored: alongside `--task-id` (the task it waits for is itself a full upload), and in development mode before a development theme exists for the store (creating one is a full upload).
+
+### Changed
+- `themes serve` (first run, development mode) and `themes share` print the upload as separate steps — `packaging theme files`, `uploading <zip> (<bytes>)`, `upload task <id>`, `waiting for the server to process the theme` — instead of one `creating development theme` / `uploading and processing theme` line. The task id is now visible while waiting, so an interrupted first run can be resumed with `--task-id`, the same as `push`.
+
 ## 2.0.12 - 2026-09-10
 
 ### Added

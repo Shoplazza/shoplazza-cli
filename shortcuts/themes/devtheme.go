@@ -24,24 +24,23 @@ func devThemeName(localName string) string {
 	return "Development - " + localName
 }
 
-// createDevTheme packs cwd and uploads it with an EMPTY theme_id query, which
-// makes the upload endpoint allocate a brand-new theme, and returns its id.
-// The upload doubles as serve's initial full push, so the caller can skip
-// pushShortcut afterward.
-func createDevTheme(ctx context.Context, c *client.Client, cwd, devName, version string) (string, error) {
+// createDevTheme packs cwd and uploads it with an empty theme_id so the server
+// allocates a new theme, then returns that id. Doubles as serve's initial push.
+func createDevTheme(ctx context.Context, c *client.Client, prog *output.Progress, cwd, devName, version string) (string, error) {
+	pkgStep := prog.Begin("[serve] packaging theme files")
 	zipPath, err := pack.Pack(cwd, themeZipName(devName, version), pack.PackOptions{})
 	if err != nil {
+		pkgStep.Fail()
 		return "", theme.ErrLocalIO("pack zip", err)
 	}
 	defer os.Remove(zipPath)
+	pkgStep.Done()
 
-	id, err := uploadZipResolveThemeID(ctx, c, PlanShareUpload("", devName, version), zipPath, "")
+	id, err := uploadZipResolveThemeID(ctx, c, prog, "[serve]", PlanShareUpload("", devName, version), zipPath, "")
 	if err != nil {
 		return "", err
 	}
 	if id == "" {
-		// Without an id there is nothing to watch against — treat as a server
-		// contract violation.
 		return "", theme.ErrValidation(
 			"server did not return a theme id for the development-theme upload; " +
 				"re-run with --theme-id <id> to serve an existing theme")
@@ -49,30 +48,25 @@ func createDevTheme(ctx context.Context, c *client.Client, cwd, devName, version
 	return id, nil
 }
 
-// uploadZipResolveThemeID performs the multipart /themes/upload POST and
-// resolves the resulting theme id. The endpoint may echo theme_id
-// synchronously or return only a task_id for an async job; in the async case
-// the upload task is polled and the id read from its info payload.
-//
-// fallbackID is returned when the server neither echoes an id nor runs an
-// async task; pass "" when a missing id must be surfaced to the caller.
-// Shared by `themes share` and serve's development-theme creation so the
-// transport, task-polling, and id-extraction semantics stay identical.
+// uploadZipResolveThemeID uploads zipPath via the multipart /themes/upload POST
+// and resolves the resulting theme id, waiting on the upload task when the
+// server only returns a task_id. Progress steps are printed under prefix.
+// fallbackID is returned when neither an id nor a task comes back.
 func uploadZipResolveThemeID(
 	ctx context.Context,
 	c *client.Client,
+	prog *output.Progress,
+	prefix string,
 	uploadPlan common.PlannedRequest,
 	zipPath, fallbackID string,
 ) (string, error) {
-	// Multipart goes through client.DoRaw (not common.Send) because
-	// PlannedRequest has no Headers field and multipart transport requires
-	// a per-request Content-Type with the runtime boundary.
+	uplStep := prog.Begin(fmt.Sprintf("%s uploading %s%s", prefix, filepath.Base(zipPath), zipSizeLabel(zipPath)))
 	body, ct, err := multipartx.FileFormBody("file", zipPath, "application/zip", nil)
 	if err != nil {
+		uplStep.Fail()
 		return "", theme.ErrLocalIO("build multipart", err)
 	}
-	// NoTimeout: theme zips can exceed the client-wide 30s timeout on slow
-	// uplinks; ctx (signal-cancelable) still aborts on Ctrl-C.
+	// NoTimeout: large zips can exceed the client-wide timeout; ctx still cancels.
 	resp, err := c.DoRaw(ctx, client.RawRequest{
 		Method:    uploadPlan.Method,
 		Path:      uploadPlan.Path,
@@ -82,16 +76,22 @@ func uploadZipResolveThemeID(
 		NoTimeout: true,
 	})
 	if err != nil {
+		uplStep.Fail()
 		return "", classifyHTTPErr(err, fallbackID)
 	}
+	uplStep.Done()
 
 	returnedThemeID := extractStringField(asMap(resp.Body), "theme_id")
 	if returnedThemeID == "" {
 		if taskID := extractTaskID(resp.Body); taskID != "" {
+			fmt.Fprintf(os.Stderr, "%s upload task %s\n", prefix, taskID)
+			waitStep := prog.Begin(prefix + " waiting for the server to process the theme")
 			payload, perr := waitUploadTask(ctx, c, taskID)
 			if perr != nil {
+				waitStep.Fail()
 				return "", perr
 			}
+			waitStep.Done()
 			returnedThemeID = themeIDFromTask(payload)
 		}
 	}

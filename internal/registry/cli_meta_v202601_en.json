@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-09-03T09:27:39Z",
+  "generated_at": "2026-09-11T06:12:21Z",
   "modules": [
     {
       "name": "billing",
@@ -21841,6 +21841,13 @@
           "format": "int32",
           "minimum": 0,
           "maximum": 2
+        },
+        {
+          "name": "custom_fields",
+          "type": "object",
+          "items": {
+            "type": "string"
+          }
         }
       ]
     },
@@ -23545,6 +23552,13 @@
         {
           "name": "browser_ip",
           "type": "string"
+        },
+        {
+          "name": "custom_fields",
+          "type": "object",
+          "items": {
+            "type": "string"
+          }
         }
       ]
     },
@@ -24326,6 +24340,20 @@
           "format": "int32",
           "minimum": 0,
           "maximum": 2
+        },
+        {
+          "name": "custom_fields",
+          "type": "object",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "delete_custom_fields",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       ]
     },

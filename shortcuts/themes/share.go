@@ -98,27 +98,18 @@ var shareShortcut = common.Shortcut{
 		defer os.Remove(zipPath)
 		pkgStep.Done()
 
-		// Step 3: multipart upload (v1 path) + theme_id resolution via the
-		// shared uploadZipResolveThemeID helper (devtheme.go), which polls the
-		// task when the endpoint returns only a task_id. No fallback id: share
+		// Step 3: multipart upload (v1 path) + theme_id resolution; the helper
+		// prints the upload, task id, and wait steps. No fallback id: share
 		// always creates a fresh theme, so an unresolved id is a hard error.
-		upStep := prog.Begin("[share] uploading and processing theme")
-		returnedThemeID, err := uploadZipResolveThemeID(ctx, in.Client, uploadPlan, zipPath, "")
+		returnedThemeID, err := uploadZipResolveThemeID(ctx, in.Client, prog, "[share]", uploadPlan, zipPath, "")
 		if err != nil {
-			upStep.Fail()
 			return common.ExecResult{}, err
 		}
 		if returnedThemeID == "" {
-			// Server neither echoed a theme_id nor ran an async task: without an
-			// id the preview URL is broken ("?preview_theme_id="). Mirror
-			// createDevTheme's contract-violation error instead of reporting a
-			// hollow success.
-			upStep.Fail()
 			return common.ExecResult{}, theme.ErrValidation(
 				"server did not return a theme id for the share upload; " +
 					"cannot build a preview URL — retry")
 		}
-		upStep.Done()
 
 		previewURL := fmt.Sprintf("https://%s/?preview_theme_id=%s", storeDomain, returnedThemeID)
 		return common.ExecResult{Body: map[string]any{

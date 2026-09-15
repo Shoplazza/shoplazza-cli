@@ -8,7 +8,9 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/asynctask"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 
@@ -313,5 +315,45 @@ func TestThemeIDFromTask_FromInfoJSON(t *testing.T) {
 func TestThemeIDFromTask_Empty(t *testing.T) {
 	if got := themeIDFromTask(map[string]any{}); got != "" {
 		t.Errorf("expected empty for missing theme_id, got %q", got)
+	}
+}
+
+// share prints the same upload/task/wait steps under its own prefix.
+func TestShare_PrintsUploadSteps(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+	withPushPollOpts(t, asynctask.PollOptions{Interval: time.Millisecond, MaxDuration: 5 * time.Second})
+
+	srv := httptest.NewServer(asyncCreateHandler("share9"))
+	t.Cleanup(srv.Close)
+
+	var res common.ExecResult
+	var err error
+	captured := captureStderr(t, func() {
+		res, err = shareShortcut.Execute(context.Background(), common.ExecInput{
+			Client: client.New(srv.URL),
+			Flags:  shareFlags(),
+		})
+	})
+	if err != nil {
+		t.Fatalf("share err: %v", err)
+	}
+	if got := res.Body["theme_id"]; got != "share9" {
+		t.Errorf("theme_id = %v, want share9", got)
+	}
+	for _, want := range []string{
+		"[share] packaging theme files",
+		"[share] uploading X-1.0.zip (",
+		"[share] upload task task-1",
+		"[share] waiting for the server to process the theme",
+	} {
+		if !strings.Contains(captured, want) {
+			t.Errorf("stderr missing %q; captured:\n%s", want, captured)
+		}
+	}
+	if strings.Contains(captured, "uploading and processing theme") {
+		t.Errorf("old combined spinner should be gone; captured:\n%s", captured)
 	}
 }
