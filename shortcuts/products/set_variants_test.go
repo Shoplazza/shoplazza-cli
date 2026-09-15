@@ -288,41 +288,10 @@ func TestApplyMatrixAction(t *testing.T) {
 	})
 }
 
-// ── validation gates ──────────────────────────────────────────────────────────
-
-func TestSetVariants_RequiresID(t *testing.T) {
-	in := newSetVariantsInput(t, []string{"Color:Red"}, map[string]string{"action": "add"}, false)
-	_, err := setVariantsShortcut.Execute(context.Background(), in)
-	if err == nil || !strings.Contains(err.Error(), "--id") {
-		t.Errorf("want id-required error, got %v", err)
-	}
-}
-
-func TestSetVariants_ActionValidation(t *testing.T) {
-	in := newSetVariantsInput(t, []string{"Color:Red"}, map[string]string{"id": "p-1"}, false)
-	_, err := setVariantsShortcut.Execute(context.Background(), in)
-	if err == nil || !strings.Contains(err.Error(), "--action") {
-		t.Errorf("want action error, got %v", err)
-	}
-
-	in = newSetVariantsInput(t, []string{"Color:Red"}, map[string]string{"id": "p-1", "action": "merge"}, false)
-	_, err = setVariantsShortcut.Execute(context.Background(), in)
-	if err == nil || !strings.Contains(err.Error(), "unknown --action") {
-		t.Errorf("want unknown-action error, got %v", err)
-	}
-}
-
-func TestSetVariants_BadPrice(t *testing.T) {
-	in := newSetVariantsInput(t, []string{"Color:Red"}, map[string]string{"id": "p-1", "action": "add", "price": "abc"}, false)
-	if _, err := setVariantsShortcut.Execute(context.Background(), in); err == nil {
-		t.Error("want price parse error")
-	}
-}
-
-// ── update mode ───────────────────────────────────────────────────────────────
+// ── product fixtures ──────────────────────────────────────────────────────────
 
 // existingColorProduct returns a GET body: options [Color(Red,Blue)], two
-// variants with ids/skus/stock.
+// variants with ids/skus/prices/stock.
 func existingColorProduct() map[string]any {
 	return map[string]any{
 		"id": "p-1",
@@ -330,21 +299,99 @@ func existingColorProduct() map[string]any {
 			map[string]any{"name": "Color", "values": []any{"Red", "Blue"}, "position": float64(1)},
 		},
 		"variants": []any{
-			map[string]any{"id": "v-red", "option1": "Red", "sku": "SKU-RED", "inventory_quantity": float64(7)},
-			map[string]any{"id": "v-blue", "option1": "Blue", "sku": "SKU-BLUE", "inventory_quantity": float64(9)},
+			map[string]any{"id": "v-red", "option1": "Red", "sku": "SKU-RED", "price": "88.00", "inventory_quantity": float64(7)},
+			map[string]any{"id": "v-blue", "option1": "Blue", "sku": "SKU-BLUE", "price": "77.00", "inventory_quantity": float64(9)},
 		},
 	}
 }
 
-func TestSetVariants_AddValue(t *testing.T) {
+// colorSizeProduct returns a GET body: Color(Red,Blue) × Size(S,M), each colour
+// at its own price, every variant with its own sku.
+func colorSizeProduct() map[string]any {
+	variants := []any{}
+	for _, c := range []struct{ name, price string }{{"Red", "88.00"}, {"Blue", "77.00"}} {
+		for _, size := range []string{"S", "M"} {
+			variants = append(variants, map[string]any{
+				"id": "v-" + c.name + "-" + size, "option1": c.name, "option2": size,
+				"sku": "TS-" + c.name + "-" + size, "price": c.price, "inventory_quantity": float64(5),
+			})
+		}
+	}
+	return map[string]any{
+		"id": "p-1",
+		"options": []any{
+			map[string]any{"name": "Color", "values": []any{"Red", "Blue"}, "position": float64(1)},
+			map[string]any{"name": "Size", "values": []any{"S", "M"}, "position": float64(2)},
+		},
+		"variants": variants,
+	}
+}
+
+// redOnlyProduct wraps one variant in a Color(Red) product.
+func redOnlyProduct(variant map[string]any) map[string]any {
+	return map[string]any{
+		"id": "p-1",
+		"options": []any{
+			map[string]any{"name": "Color", "values": []any{"Red"}, "position": float64(1)},
+		},
+		"variants": []any{variant},
+	}
+}
+
+// ── runner ────────────────────────────────────────────────────────────────────
+
+// runSetVariants runs the shortcut against a stub serving product; the second
+// return is the captured write body, nil when no write was sent.
+func runSetVariants(t *testing.T, product map[string]any, options []string, values map[string]string) (common.ExecResult, map[string]any, error) {
+	t.Helper()
+	return execSetVariants(t, product, options, values, false)
+}
+
+func dryRunSetVariants(t *testing.T, product map[string]any, options []string, values map[string]string) (common.ExecResult, map[string]any, error) {
+	t.Helper()
+	return execSetVariants(t, product, options, values, true)
+}
+
+func execSetVariants(t *testing.T, product map[string]any, options []string, values map[string]string, dryRun bool) (common.ExecResult, map[string]any, error) {
+	t.Helper()
 	var captured map[string]any
-	srv := matrixServer(t, existingColorProduct(), &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Color:White"}, map[string]string{"id": "p-1", "action": "add", "price": "10"}, false)
+	srv := matrixServer(t, product, &captured, nil)
+	t.Cleanup(srv.Close)
+	in := newSetVariantsInput(t, options, values, dryRun)
 	in.Client = client.New(srv.URL)
-
 	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	return res, captured, err
+}
+
+// ── flag gates (refused before the product is read) ───────────────────────────
+
+func TestSetVariants_FlagGates(t *testing.T) {
+	cases := []struct {
+		name   string
+		values map[string]string
+		want   string
+	}{
+		{"missing id", map[string]string{"action": "add"}, "--id"},
+		{"missing action", map[string]string{"id": "p-1"}, "--action"},
+		{"unknown action", map[string]string{"id": "p-1", "action": "merge"}, "unknown --action"},
+		{"unparsable price", map[string]string{"id": "p-1", "action": "add", "price": "abc"}, "--price"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := newSetVariantsInput(t, []string{"Color:Red"}, tc.values, false)
+			_, err := setVariantsShortcut.Execute(context.Background(), in)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("want error containing %q, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+// ── matching while the dimension names hold ───────────────────────────────────
+
+func TestSetVariants_AddValue(t *testing.T) {
+	res, captured, err := runSetVariants(t, existingColorProduct(),
+		[]string{"Color:White"}, map[string]string{"id": "p-1", "action": "add", "price": "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,14 +424,8 @@ func TestSetVariants_AddValue(t *testing.T) {
 }
 
 func TestSetVariants_RemoveValueReportsDeleted(t *testing.T) {
-	var captured map[string]any
-	srv := matrixServer(t, existingColorProduct(), &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Color:Blue"}, map[string]string{"id": "p-1", "action": "remove"}, false)
-	in.Client = client.New(srv.URL)
-
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	res, _, err := runSetVariants(t, existingColorProduct(),
+		[]string{"Color:Blue"}, map[string]string{"id": "p-1", "action": "remove"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,80 +433,16 @@ func TestSetVariants_RemoveValueReportsDeleted(t *testing.T) {
 		t.Fatalf("summary: want deleted=1 inherited=1, got %+v", res.Body)
 	}
 	detail := res.Body["deleted_detail"].([]map[string]any)
-	if detail[0]["id"] != "v-blue" || detail[0]["sku"] != "SKU-BLUE" || detail[0]["inventory_quantity"] != 9 {
-		t.Errorf("deleted_detail must carry the old variant's id/sku/stock: %+v", detail[0])
-	}
-}
-
-// Removing something already absent converges without a write.
-func TestSetVariants_RemoveMissingIsNoOpWithoutWrite(t *testing.T) {
-	var captured map[string]any
-	srv := matrixServer(t, existingColorProduct(), &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Color:Green"}, map[string]string{"id": "p-1", "action": "remove"}, false)
-	in.Client = client.New(srv.URL)
-
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if captured != nil {
-		t.Error("a no-change delta must not send the PUT")
-	}
-	if res.Body["no_change"] != true || res.Body["inherited"] != 2 {
-		t.Errorf("summary wrong: %+v", res.Body)
-	}
-}
-
-// Adding an already-present value converges too (retry safety).
-func TestSetVariants_AddExistingValueConverges(t *testing.T) {
-	var captured map[string]any
-	srv := matrixServer(t, existingColorProduct(), &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Color:Red"}, map[string]string{"id": "p-1", "action": "add", "price": "10"}, false)
-	in.Client = client.New(srv.URL)
-
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if captured != nil {
-		t.Error("adding an existing value must not send the PUT")
-	}
-	if res.Body["no_change"] != true {
-		t.Errorf("summary wrong: %+v", res.Body)
-	}
-}
-
-func TestSetVariants_NewCombosWithoutPriceErrors(t *testing.T) {
-	var captured map[string]any
-	srv := matrixServer(t, existingColorProduct(), &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Color:White"}, map[string]string{"id": "p-1", "action": "add"}, false)
-	in.Client = client.New(srv.URL)
-
-	_, err := setVariantsShortcut.Execute(context.Background(), in)
-	if err == nil || !strings.Contains(err.Error(), "--price") {
-		t.Errorf("want price-required error naming a combo, got %v", err)
-	}
-	if captured != nil {
-		t.Error("the PUT must not be sent when validation fails")
+	if detail[0]["id"] != "v-blue" || detail[0]["sku"] != "SKU-BLUE" ||
+		detail[0]["price"] != "77.00" || detail[0]["inventory_quantity"] != 9 {
+		t.Errorf("deleted_detail must carry the old variant's id/sku/price/stock: %+v", detail[0])
 	}
 }
 
 // Value matching is trim/case-insensitive, but the written value is the caller's.
 func TestSetVariants_UpdateNormalizedValueMatch(t *testing.T) {
-	var captured map[string]any
-	srv := matrixServer(t, existingColorProduct(), &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Color: RED , blue "}, map[string]string{"id": "p-1", "action": "update"}, false)
-	in.Client = client.New(srv.URL)
-
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	res, captured, err := runSetVariants(t, existingColorProduct(),
+		[]string{"Color: RED , blue "}, map[string]string{"id": "p-1", "action": "update"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -484,48 +461,13 @@ func TestSetVariants_UpdateNormalizedValueMatch(t *testing.T) {
 
 // A value rename is delete+create.
 func TestSetVariants_UpdateRenameIsDeletePlusCreate(t *testing.T) {
-	var captured map[string]any
-	srv := matrixServer(t, existingColorProduct(), &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Color:Crimson,Blue"}, map[string]string{"id": "p-1", "action": "update", "price": "10"}, false)
-	in.Client = client.New(srv.URL)
-
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	res, _, err := runSetVariants(t, existingColorProduct(),
+		[]string{"Color:Crimson,Blue"}, map[string]string{"id": "p-1", "action": "update", "price": "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if res.Body["created"] != 1 || res.Body["inherited"] != 1 || res.Body["deleted"] != 1 {
 		t.Errorf("rename must be delete+create: %+v", res.Body)
-	}
-}
-
-// A dimension whose values cannot be determined must refuse the update: the
-// cartesian product would collapse to zero combos and the PUT would carry an
-// empty variants array, deleting every variant.
-func TestSetVariants_EmptyValueDimensionRefusesWipe(t *testing.T) {
-	product := map[string]any{
-		"id": "p-1",
-		"options": []any{
-			map[string]any{"name": "Color", "position": float64(1)}, // no values
-		},
-		"variants": []any{
-			map[string]any{"id": "v-1", "sku": "K", "inventory_quantity": float64(3)}, // empty option1
-		},
-	}
-	var captured map[string]any
-	srv := matrixServer(t, product, &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Size:S,M"}, map[string]string{"id": "p-1", "action": "add", "price": "5"}, false)
-	in.Client = client.New(srv.URL)
-
-	_, err := setVariantsShortcut.Execute(context.Background(), in)
-	if err == nil || !strings.Contains(err.Error(), `"Color"`) {
-		t.Fatalf("want refusal naming the empty dimension, got %v", err)
-	}
-	if captured != nil {
-		t.Error("the PUT must not be sent when a dimension has no values")
 	}
 }
 
@@ -542,38 +484,51 @@ func TestSetVariants_NonContiguousPositionsStillMatch(t *testing.T) {
 			map[string]any{"id": "v-1", "option1": "Red", "option3": "Slim", "sku": "K", "inventory_quantity": float64(3)},
 		},
 	}
-	var captured map[string]any
-	srv := matrixServer(t, product, &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Color:Green"}, map[string]string{"id": "p-1", "action": "add", "price": "7"}, false)
-	in.Client = client.New(srv.URL)
-
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	res, captured, err := runSetVariants(t, product,
+		[]string{"Color:Green"}, map[string]string{"id": "p-1", "action": "add", "price": "7"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if res.Body["inherited"] != 1 || res.Body["created"] != 1 || res.Body["deleted"] != 0 {
 		t.Errorf("old variant in slots 1/3 must match: %+v", res.Body)
 	}
-	variants := capturedVariants(t, captured)
-	red := variantByOptions(t, variants, "Red", "Slim", "")
+	red := variantByOptions(t, capturedVariants(t, captured), "Red", "Slim", "")
 	if red["id"] != "v-1" {
 		t.Errorf("Red/Slim must carry the old id, got %v", red["id"])
+	}
+}
+
+// A delta that is already satisfied converges without a write (retry safety).
+func TestSetVariants_ConvergesWithoutWrite(t *testing.T) {
+	cases := []struct {
+		name   string
+		option string
+		values map[string]string
+	}{
+		{"remove a value that is already gone", "Color:Green", map[string]string{"id": "p-1", "action": "remove"}},
+		{"add a value that already exists", "Color:Red", map[string]string{"id": "p-1", "action": "add", "price": "10"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, captured, err := runSetVariants(t, existingColorProduct(), []string{tc.option}, tc.values)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if captured != nil {
+				t.Error("a no-change delta must not send the PUT")
+			}
+			if res.Body["no_change"] != true || res.Body["inherited"] != 2 {
+				t.Errorf("summary wrong: %+v", res.Body)
+			}
+		})
 	}
 }
 
 // ── dimension change → rebuild ────────────────────────────────────────────────
 
 func TestSetVariants_AddDimensionRebuilds(t *testing.T) {
-	var captured map[string]any
-	srv := matrixServer(t, existingColorProduct(), &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Size:S,M"}, map[string]string{"id": "p-1", "action": "add", "price": "12"}, false)
-	in.Client = client.New(srv.URL)
-
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	res, captured, err := runSetVariants(t, existingColorProduct(),
+		[]string{"Size:S,M"}, map[string]string{"id": "p-1", "action": "add", "price": "12"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -586,102 +541,182 @@ func TestSetVariants_AddDimensionRebuilds(t *testing.T) {
 		if _, hasID := v["id"]; hasID {
 			t.Errorf("rebuild must not carry any old id, got %+v", v)
 		}
-		if v["price"] != float64(12) {
-			t.Errorf("every rebuilt variant needs --price, got %v", v["price"])
+	}
+	// Each colour's price rides across the rebuild; --price stays unused.
+	for _, tc := range []struct{ color, size, price string }{
+		{"Red", "S", "88.00"}, {"Red", "M", "88.00"},
+		{"Blue", "S", "77.00"}, {"Blue", "M", "77.00"},
+	} {
+		v := variantByOptions(t, variants, tc.color, tc.size, "")
+		if v["price"] != tc.price {
+			t.Errorf("%s/%s must inherit %s, got %v", tc.color, tc.size, tc.price, v["price"])
+		}
+		// One sku cannot serve two sizes, so it is dropped rather than duplicated.
+		if _, hasSKU := v["sku"]; hasSKU {
+			t.Errorf("%s/%s must not inherit a duplicated sku, got %v", tc.color, tc.size, v["sku"])
 		}
 	}
-	// Existing dimension stays in position 1 (Fatal inside if missing).
-	variantByOptions(t, variants, "Red", "S", "")
 
-	if res.Body["dimension_change"] != true || res.Body["created"] != 4 || res.Body["inherited"] != 0 || res.Body["deleted"] != 2 {
+	if res.Body["dimension_change"] != true || res.Body["carried_over"] != 4 || res.Body["created"] != 0 ||
+		res.Body["inherited"] != 0 || res.Body["deleted"] != 2 {
 		t.Errorf("summary wrong: %+v", res.Body)
 	}
 	detail := res.Body["deleted_detail"].([]map[string]any)
-	if len(detail) != 2 || detail[0]["sku"] != "SKU-RED" {
-		t.Errorf("rebuild must list every deleted variant with sku/stock: %+v", detail)
+	if len(detail) != 2 || detail[0]["sku"] != "SKU-RED" || detail[0]["price"] != "88.00" {
+		t.Errorf("rebuild must list every deleted variant with sku/stock/price: %+v", detail)
+	}
+}
+
+// Adding a single-value dimension is a 1:1 remap, so the skus come along too.
+func TestSetVariants_AddSingleValueDimensionKeepsSKU(t *testing.T) {
+	res, captured, err := runSetVariants(t, existingColorProduct(),
+		[]string{"Size:S"}, map[string]string{"id": "p-1", "action": "add"})
+	if err != nil {
+		t.Fatalf("a 1:1 rebuild inherits every price, so --price must not be required: %v", err)
+	}
+	red := variantByOptions(t, capturedVariants(t, captured), "Red", "S", "")
+	if red["sku"] != "SKU-RED" || red["price"] != "88.00" {
+		t.Errorf("Red/S must keep sku and price, got %+v", red)
+	}
+	if res.Body["carried_over"] != 2 || res.Body["created"] != 0 {
+		t.Errorf("summary wrong: %+v", res.Body)
 	}
 }
 
 func TestSetVariants_RemoveWholeDimensionRebuilds(t *testing.T) {
-	product := map[string]any{
-		"id": "p-1",
-		"options": []any{
-			map[string]any{"name": "Color", "values": []any{"Red"}, "position": float64(1)},
-			map[string]any{"name": "Size", "values": []any{"S", "M"}, "position": float64(2)},
-		},
-		"variants": []any{
-			map[string]any{"id": "v-1", "option1": "Red", "option2": "S", "sku": "K1", "inventory_quantity": float64(3)},
-			map[string]any{"id": "v-2", "option1": "Red", "option2": "M", "sku": "K2", "inventory_quantity": float64(4)},
-		},
-	}
-	var captured map[string]any
-	srv := matrixServer(t, product, &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Size"}, map[string]string{"id": "p-1", "action": "remove", "price": "9"}, false)
-	in.Client = client.New(srv.URL)
-
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	res, captured, err := runSetVariants(t, colorSizeProduct(),
+		[]string{"Size"}, map[string]string{"id": "p-1", "action": "remove"})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("a pure delete creates no variant, so --price must not be required: %v", err)
 	}
 	variants := capturedVariants(t, captured)
-	if len(variants) != 1 {
-		t.Fatalf("want 1 variant (Red), got %d", len(variants))
+	if len(variants) != 2 {
+		t.Fatalf("want 2 variants (Red, Blue), got %d", len(variants))
 	}
-	if res.Body["dimension_change"] != true || res.Body["deleted"] != 2 || res.Body["created"] != 1 {
+	// Survivors keep their own price instead of collapsing onto one number.
+	if v := variantByOptions(t, variants, "Red", "", ""); v["price"] != "88.00" || v["sku"] != "TS-Red-S" {
+		t.Errorf("Red must inherit its own price/sku, got %+v", v)
+	}
+	if v := variantByOptions(t, variants, "Blue", "", ""); v["price"] != "77.00" || v["sku"] != "TS-Blue-S" {
+		t.Errorf("Blue must inherit its own price/sku, got %+v", v)
+	}
+	if res.Body["dimension_change"] != true || res.Body["deleted"] != 4 ||
+		res.Body["carried_over"] != 2 || res.Body["created"] != 0 {
 		t.Errorf("summary wrong: %+v", res.Body)
 	}
 }
 
-func TestSetVariants_UpdateMissingDimensionErrors(t *testing.T) {
-	var captured map[string]any
-	srv := matrixServer(t, existingColorProduct(), &captured, nil)
-	defer srv.Close()
+// ── refusals: the product is read, but nothing is written ─────────────────────
 
-	in := newSetVariantsInput(t, []string{"Fit:Slim"}, map[string]string{"id": "p-1", "action": "update", "price": "9"}, false)
-	in.Client = client.New(srv.URL)
-
-	_, err := setVariantsShortcut.Execute(context.Background(), in)
-	if err == nil || !strings.Contains(err.Error(), "--action add") {
-		t.Errorf("want existence-assertion error, got %v", err)
+func TestSetVariants_RefusesWithoutWriting(t *testing.T) {
+	// A dimension with no determinable values collapses the matrix to zero combos.
+	valuelessDimension := map[string]any{
+		"id":       "p-1",
+		"options":  []any{map[string]any{"name": "Color", "position": float64(1)}},
+		"variants": []any{map[string]any{"id": "v-1", "sku": "K", "inventory_quantity": float64(3)}},
 	}
-	if captured != nil {
-		t.Error("the PUT must not be sent when validation fails")
+	cases := []struct {
+		name    string
+		product map[string]any
+		options []string
+		values  map[string]string
+		want    string
+	}{
+		{
+			"brand-new value needs a price",
+			existingColorProduct(), []string{"Color:White"},
+			map[string]string{"id": "p-1", "action": "add"}, "--price",
+		},
+		{
+			// The projection must not match Green onto the old Red variant.
+			"brand-new value needs a price even mid-rebuild",
+			redOnlyProduct(map[string]any{"id": "v-red", "option1": "Red", "price": "88.00"}),
+			[]string{"Color:Green", "Size:S"},
+			map[string]string{"id": "p-1", "action": "add"}, "--price",
+		},
+		{
+			"rebuilt combo with no price to inherit needs one",
+			redOnlyProduct(map[string]any{"id": "v-red", "option1": "Red", "sku": "SKU-RED"}),
+			[]string{"Size:S"},
+			map[string]string{"id": "p-1", "action": "add"}, "--price",
+		},
+		{
+			"update asserts the dimension exists",
+			existingColorProduct(), []string{"Fit:Slim"},
+			map[string]string{"id": "p-1", "action": "update", "price": "9"}, "--action add",
+		},
+		{
+			"a dimension with no values would wipe every variant",
+			valuelessDimension, []string{"Size:S,M"},
+			map[string]string{"id": "p-1", "action": "add", "price": "5"}, `"Color"`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, captured, err := runSetVariants(t, tc.product, tc.options, tc.values)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("want error containing %q, got %v", tc.want, err)
+			}
+			if captured != nil {
+				t.Error("the PUT must not be sent when validation fails")
+			}
+		})
 	}
 }
 
-// The sku template may reference dimensions NOT named in --option (they exist
-// on the product); validation must run against the merged matrix.
+// ── sku template ──────────────────────────────────────────────────────────────
+
+// A template may reference dimensions not named in --option, so validation
+// runs against the merged matrix.
 func TestSetVariants_SkuTemplateValidatedAgainstMergedDims(t *testing.T) {
-	var captured map[string]any
-	srv := matrixServer(t, existingColorProduct(), &captured, nil)
-	defer srv.Close()
-
-	in := newSetVariantsInput(t, []string{"Size:S"}, map[string]string{
+	_, captured, err := runSetVariants(t, existingColorProduct(), []string{"Size:S"}, map[string]string{
 		"id": "p-1", "action": "add", "price": "9", "sku-template": "X-{Color}-{Size}",
-	}, false)
-	in.Client = client.New(srv.URL)
-
-	if _, err := setVariantsShortcut.Execute(context.Background(), in); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("template referencing an existing dim must validate: %v", err)
 	}
-	variants := capturedVariants(t, captured)
-	if variants[0]["sku"] != "X-Red-S" {
-		t.Errorf("template must render merged dims, got %v", variants[0]["sku"])
+	if v := capturedVariants(t, captured)[0]; v["sku"] != "X-Red-S" {
+		t.Errorf("template must render merged dims, got %v", v["sku"])
 	}
 }
 
 // ── dry-run ───────────────────────────────────────────────────────────────────
 
-func TestSetVariants_DryRunUpdate(t *testing.T) {
-	in := newSetVariantsInput(t, []string{"Color:White"}, map[string]string{"id": "p-1", "action": "add", "price": "9"}, true)
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
+// Dry-run reads the product and previews the real body.
+func TestSetVariants_DryRunPreviewsTheRealBody(t *testing.T) {
+	res, captured, err := dryRunSetVariants(t, existingColorProduct(),
+		[]string{"Color:White"}, map[string]string{"id": "p-1", "action": "add", "price": "9"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	if captured != nil {
+		t.Fatal("dry-run must not send the PUT")
+	}
 	if len(res.Plans) != 2 || res.Plans[0].Method != "GET" || res.Plans[1].Method != "PUT" {
 		t.Fatalf("want [GET, PUT] plans, got %+v", res.Plans)
+	}
+	body, _ := res.Plans[1].Body.(map[string]any)
+	prod, _ := body["product"].(map[string]any)
+	if variants, _ := prod["variants"].([]any); len(variants) != 3 {
+		t.Fatalf("preview body must carry the real variants array, got %+v", prod["variants"])
+	}
+	if res.Summary["created"] != 1 || res.Summary["inherited"] != 2 {
+		t.Errorf("dry-run must report the same summary as the live run: %+v", res.Summary)
+	}
+}
+
+// Nothing to do: the preview shows the read and no write at all.
+func TestSetVariants_DryRunNoChangeHasNoWrite(t *testing.T) {
+	res, _, err := dryRunSetVariants(t, existingColorProduct(),
+		[]string{"Color:Red"}, map[string]string{"id": "p-1", "action": "add", "price": "9"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Plans) != 1 || res.Plans[0].Method != "GET" {
+		t.Fatalf("want the read alone, got %+v", res.Plans)
+	}
+	if res.Summary["no_change"] != true {
+		t.Errorf("summary must say nothing changes: %+v", res.Summary)
 	}
 }
 
@@ -699,15 +734,9 @@ func TestSetVariants_DetailCap(t *testing.T) {
 		"options":  []any{map[string]any{"name": "Color", "position": float64(1)}},
 		"variants": oldVars,
 	}
-	var captured map[string]any
-	srv := matrixServer(t, product, &captured, nil)
-	defer srv.Close()
 
 	// Adding a dimension rebuilds and deletes all detailCap+20 old variants.
-	in := newSetVariantsInput(t, []string{"Size:y"}, map[string]string{"id": "p-1", "action": "add", "price": "1"}, false)
-	in.Client = client.New(srv.URL)
-
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	res, _, err := runSetVariants(t, product, []string{"Size:y"}, map[string]string{"id": "p-1", "action": "add", "price": "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
