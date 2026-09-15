@@ -6,12 +6,24 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
 )
+
+// waitForConns blocks until the server has registered n broadcast-eligible
+// conns, which happens after it has written each client's hello frame.
+func waitForConns(t *testing.T, srv *LiveReloadServer, n int) {
+	t.Helper()
+	waitUntil(t, eventWait(), strconv.Itoa(n)+" registered conn(s)", func() bool {
+		srv.mu.Lock()
+		defer srv.mu.Unlock()
+		return len(srv.conns) >= n
+	})
+}
 
 func TestLiveReloadServer_ServesLiveReloadJS(t *testing.T) {
 	srv := NewLiveReloadServer(0)
@@ -74,8 +86,7 @@ func TestLiveReloadServer_WSHandshakeAndReloadBroadcast(t *testing.T) {
 		t.Fatalf("expected hello frame, got %v", helloFrame)
 	}
 
-	// Give the server a beat to register the conn in its broadcast set.
-	time.Sleep(50 * time.Millisecond)
+	waitForConns(t, srv, 1)
 
 	if err := srv.Refresh("layout/theme.liquid"); err != nil {
 		t.Fatalf("Refresh err: %v", err)
@@ -148,7 +159,7 @@ func TestLiveReloadServer_RefreshSurvivesDeadConn(t *testing.T) {
 	dead := dial()
 	healthy := dial()
 	defer healthy.Close(websocket.StatusNormalClosure, "")
-	time.Sleep(50 * time.Millisecond) // let both register in the broadcast set
+	waitForConns(t, srv, 2)
 
 	// Abrupt client death (no close frame).
 	dead.CloseNow()

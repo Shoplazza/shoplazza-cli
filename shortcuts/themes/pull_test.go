@@ -17,15 +17,11 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
-
-	"github.com/spf13/cobra"
 )
 
-// pullFlags builds a FlagSet over a cobra command with --theme-id.
-func pullFlags(themeID string) common.FlagSet {
-	cmd := &cobra.Command{Use: "pull"}
-	cmd.Flags().String("theme-id", themeID, "")
-	return common.NewCobraFlagSet(cmd)
+// pullFlags builds a pull FlagSet carrying --theme-id.
+func pullFlags(t *testing.T, themeID string) common.FlagSet {
+	return shortcutFlags(t, pullShortcut, map[string]any{"theme-id": themeID})
 }
 
 // buildTestZip writes a zip archive in-memory from a name→content map.
@@ -65,7 +61,7 @@ func chdirT(t *testing.T, dir string) {
 }
 
 func TestPull_MissingThemeIDExitsValidation(t *testing.T) {
-	in := common.ExecInput{Flags: pullFlags("")}
+	in := common.ExecInput{Flags: pullFlags(t, "")}
 	_, err := pullShortcut.Execute(context.Background(), in)
 	if err == nil {
 		t.Fatalf("expected validation error for missing --theme-id")
@@ -91,7 +87,7 @@ func TestPull_MissingThemeIDExitsValidation(t *testing.T) {
 }
 
 func TestPull_DryRunOutputs2PlannedRequests(t *testing.T) {
-	in := common.ExecInput{DryRun: true, Flags: pullFlags("abc123")}
+	in := common.ExecInput{DryRun: true, Flags: pullFlags(t, "abc123")}
 	res, err := pullShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("dry-run err: %v", err)
@@ -122,7 +118,7 @@ func TestPull_DryRunOutputs2PlannedRequests(t *testing.T) {
 func TestPull_DryRunDoesNotWriteFiles(t *testing.T) {
 	tmp := t.TempDir()
 	chdirT(t, tmp)
-	in := common.ExecInput{DryRun: true, Flags: pullFlags("abc123")}
+	in := common.ExecInput{DryRun: true, Flags: pullFlags(t, "abc123")}
 	if _, err := pullShortcut.Execute(context.Background(), in); err != nil {
 		t.Fatalf("dry-run err: %v", err)
 	}
@@ -164,7 +160,7 @@ func TestPull_DownloadStreamingAndUnpack(t *testing.T) {
 	chdirT(t, tmp)
 
 	c := client.New(srv.URL)
-	in := common.ExecInput{Client: c, Flags: pullFlags("abc123")}
+	in := common.ExecInput{Client: c, Flags: pullFlags(t, "abc123")}
 	res, err := pullShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Execute err: %v", err)
@@ -216,7 +212,7 @@ func TestPull_HTTPErrorRetainsTmpZip(t *testing.T) {
 	chdirT(t, tmp)
 
 	c := client.New(srv.URL)
-	in := common.ExecInput{Client: c, Flags: pullFlags("missing-id")}
+	in := common.ExecInput{Client: c, Flags: pullFlags(t, "missing-id")}
 	_, err := pullShortcut.Execute(context.Background(), in)
 	if err == nil {
 		t.Fatalf("expected error for 404 download")
@@ -296,7 +292,7 @@ func TestPull_CorruptZipClassifiesInternal(t *testing.T) {
 	chdirT(t, tmp)
 
 	_, err := pullShortcut.Execute(context.Background(),
-		common.ExecInput{Client: client.New(srv.URL), Flags: pullFlags("corrupt1")})
+		common.ExecInput{Client: client.New(srv.URL), Flags: pullFlags(t, "corrupt1")})
 	if err == nil {
 		t.Fatal("expected error for corrupt zip")
 	}
@@ -336,7 +332,7 @@ func TestPull_UnsafeArchiveNamesOffendingEntry(t *testing.T) {
 	chdirT(t, tmp)
 
 	_, err := pullShortcut.Execute(context.Background(),
-		common.ExecInput{Client: client.New(srv.URL), Flags: pullFlags("unsafe1")})
+		common.ExecInput{Client: client.New(srv.URL), Flags: pullFlags(t, "unsafe1")})
 	if err == nil {
 		t.Fatal("expected error for unsafe archive entry")
 	}
@@ -407,6 +403,26 @@ func TestClassifyPullDownloadErr_NoTmpPathMention(t *testing.T) {
 	} {
 		if strings.Contains(err.Error(), "tmp") || strings.Contains(err.Error(), ".zip") {
 			t.Errorf("pre-create error must not mention a tmp zip path: %v", err)
+		}
+	}
+}
+
+// TestSnapshot_PullDryRun locks pull's 2-plan dry-run shape (PlanDetail v2 +
+// PlanDownload v1).
+func TestSnapshot_PullDryRun(t *testing.T) {
+	in := common.ExecInput{DryRun: true, Flags: pullFlags(t, "abc")}
+	res, err := pullShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Execute err: %v", err)
+	}
+	snapshot(t, "pull_dry_run", plansToMap(res.Plans))
+}
+
+func TestHelp_Pull(t *testing.T) {
+	out := helpFor(t, "themes", "pull")
+	for _, want := range []string{"pull", "--theme-id", "-t", "themes list"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("pull help missing %q:\n%s", want, out)
 		}
 	}
 }

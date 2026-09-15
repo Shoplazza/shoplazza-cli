@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,40 +13,12 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/pack"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
-
-	"github.com/spf13/cobra"
 )
 
-// flagsWithName builds a FlagSet over a freshly-constructed cobra command so
-// that GetString("name") returns the supplied value. Empty name means the flag
-// is registered but defaulted to "" (mirrors the missing-flag case).
-func flagsWithName(name string) common.FlagSet {
-	cmd := &cobra.Command{Use: "init"}
-	cmd.Flags().String("name", name, "")
-	return common.NewCobraFlagSet(cmd)
-}
-
-// captureStderr swaps os.Stderr for a pipe while fn runs, returns everything
-// written. Restores os.Stderr on exit so other tests are unaffected.
-func captureStderr(t *testing.T, fn func()) string {
-	t.Helper()
-	old := os.Stderr
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe: %v", err)
-	}
-	os.Stderr = w
-	done := make(chan string, 1)
-	go func() {
-		b, _ := io.ReadAll(r)
-		done <- string(b)
-	}()
-	defer func() {
-		os.Stderr = old
-	}()
-	fn()
-	_ = w.Close()
-	return <-done
+// flagsWithName builds an init FlagSet whose GetString("name") returns the
+// supplied value; an empty name mirrors the missing-flag case.
+func flagsWithName(t *testing.T, name string) common.FlagSet {
+	return shortcutFlags(t, initShortcut, map[string]any{"name": name})
 }
 
 func TestInit_DryRunPrintsCdHintToStderr(t *testing.T) {
@@ -56,7 +27,7 @@ func TestInit_DryRunPrintsCdHintToStderr(t *testing.T) {
 	stderr := captureStderr(t, func() {
 		in := common.ExecInput{
 			Args:   nil,
-			Flags:  flagsWithName("my-shop"),
+			Flags:  flagsWithName(t, "my-shop"),
 			Tool:   "init",
 			DryRun: true,
 		}
@@ -94,7 +65,7 @@ func TestInit_NameRequired(t *testing.T) {
 	var execErr error
 	_ = captureStderr(t, func() {
 		in := common.ExecInput{
-			Flags:  flagsWithName(""),
+			Flags:  flagsWithName(t, ""),
 			Tool:   "init",
 			DryRun: true,
 		}
@@ -115,7 +86,7 @@ func TestInit_RejectsUnsafeNames(t *testing.T) {
 		var execErr error
 		_ = captureStderr(t, func() {
 			_, execErr = initShortcut.Execute(context.Background(), common.ExecInput{
-				Flags: flagsWithName(name),
+				Flags: flagsWithName(t, name),
 				Tool:  "init",
 			})
 		})
@@ -151,7 +122,7 @@ func TestInit_NonEmptyTargetDirIsValidationError(t *testing.T) {
 	var execErr error
 	_ = captureStderr(t, func() {
 		_, execErr = initShortcut.Execute(context.Background(), common.ExecInput{
-			Flags: flagsWithName("my-shop"),
+			Flags: flagsWithName(t, "my-shop"),
 			Tool:  "init",
 		})
 	})
@@ -237,7 +208,7 @@ func TestInit_LiveModeClonesAndPrintsCdHint(t *testing.T) {
 	var execErr error
 	stderr := captureStderr(t, func() {
 		in := common.ExecInput{
-			Flags:  flagsWithName("my-shop"),
+			Flags:  flagsWithName(t, "my-shop"),
 			Tool:   "init",
 			DryRun: false,
 		}
@@ -266,5 +237,32 @@ func TestInit_LiveModeClonesAndPrintsCdHint(t *testing.T) {
 	}
 	if res.Body["status"] != "initialized" {
 		t.Errorf("Body.status = %v, want initialized", res.Body["status"])
+	}
+}
+
+// TestSnapshot_InitDryRun locks the init dry-run Body shape. Stderr is
+// captured to swallow the cd hint; only the structured Body is snapshotted.
+func TestSnapshot_InitDryRun(t *testing.T) {
+	in := common.ExecInput{
+		DryRun: true,
+		Flags:  flagsWithName(t, "my-shop"),
+	}
+	var res common.ExecResult
+	var execErr error
+	captureStderr(t, func() {
+		res, execErr = initShortcut.Execute(context.Background(), in)
+	})
+	if execErr != nil {
+		t.Fatalf("Execute err: %v", execErr)
+	}
+	snapshot(t, "init_dry_run", res.Body)
+}
+
+func TestHelp_Init(t *testing.T) {
+	out := helpFor(t, "themes", "init")
+	for _, want := range []string{"init", "--name", "Nova-2023"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("init help missing %q in:\n%s", want, out)
+		}
 	}
 }

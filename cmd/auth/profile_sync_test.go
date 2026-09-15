@@ -10,55 +10,17 @@ import (
 	"time"
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdtest"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
-
-var allScopes = []string{"read_product", "write_product"}
 
 // authDir is the v2 auth metadata directory for a test factory.
 func authDir(f *cmdutil.Factory) string { return internalauth.AuthDir(f.ConfigPath) }
 
 // future returns a timestamp well past any near-expiry margin.
 func future() time.Time { return time.Now().Add(time.Hour) }
-
-// seedLoggedInWithProfiles builds an isolated Factory with account email
-// already logged in (uat seeded in keychain) and one profile per storeName,
-// each bound to "<name>.myshoplazza.com" with the full allScopes set.
-func seedLoggedInWithProfiles(t *testing.T, email string, storeNames ...string) *cmdutil.Factory {
-	t.Helper()
-	dir := testenv.IsolateConfigDir(t)
-	configPath := filepath.Join(dir, "config.json")
-
-	cfg := core.CliConfig{
-		Accounts: []core.AccountConfig{{Name: strings.ToLower(email), GrantedScopes: allScopes}},
-	}
-	for _, name := range storeNames {
-		cfg.Profiles = append(cfg.Profiles, core.ProfileConfig{
-			Name:        name,
-			Account:     strings.ToLower(email),
-			StoreDomain: name + ".myshoplazza.com",
-			Scopes:      append([]string{}, allScopes...),
-		})
-	}
-	if len(cfg.Profiles) > 0 {
-		cfg.CurrentProfile = cfg.Profiles[0].Name
-	}
-	if err := core.SaveConfig(configPath, cfg); err != nil {
-		t.Fatalf("seed config: %v", err)
-	}
-	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey(email), "uat-seed"); err != nil {
-		t.Fatalf("seed account uat: %v", err)
-	}
-
-	return &cmdutil.Factory{
-		IOStreams:  cmdutil.IOStreams{In: strings.NewReader(""), Out: io.Discard, ErrOut: io.Discard},
-		ConfigPath: configPath,
-		Config:     cfg,
-	}
-}
 
 // loginResultFor builds a minimal LoginResult carrying just what
 // SyncAfterLogin reads: Status.Account and Status.GrantedScopes.
@@ -92,7 +54,7 @@ func seedExtraProfile(t *testing.T, f *cmdutil.Factory, name, storeDomain string
 		Name:        name,
 		Account:     cfg.Account().Name,
 		StoreDomain: storeDomain,
-		Scopes:      allScopes,
+		Scopes:      cmdtest.FixtureScopes,
 	})
 	if err := core.SaveConfig(f.ConfigPath, cfg); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -102,9 +64,9 @@ func seedExtraProfile(t *testing.T, f *cmdutil.Factory, name, storeDomain string
 // RLG-01/02/03: same-account re-login keeps profiles but clears their cached
 // store tokens (the Gate re-mints lazily on next use).
 func TestSync_ReLogin_KeepsProfilesClearsTokens(t *testing.T) {
-	f := seedLoggedInWithProfiles(t, "alice@co.com", "us", "cn")
+	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com", "us", "cn")
 	seedProfileToken(t, authDir(f), "us", "at-us", future())
-	_, err := SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes), "", nil, io.Discard)
+	_, err := SyncAfterLogin(f, loginResultFor("alice@co.com", cmdtest.FixtureScopes), "", nil, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +82,7 @@ func TestSync_ReLogin_KeepsProfilesClearsTokens(t *testing.T) {
 // Re-login with a narrower granted set trims each profile's scopes to the
 // intersection, with exactly one stderr warning per trimmed profile.
 func TestSync_ScopeNarrowing_TrimsWithOneWarning(t *testing.T) {
-	f := seedLoggedInWithProfiles(t, "alice@co.com", "us") // us.Scopes = allScopes
+	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com", "us") // us.Scopes = cmdtest.FixtureScopes
 	var buf bytes.Buffer
 	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", []string{"read_product"}), "", nil, &buf)
 	cfg, _ := core.LoadConfig(f.ConfigPath)
@@ -135,14 +97,14 @@ func TestSync_ScopeNarrowing_TrimsWithOneWarning(t *testing.T) {
 // Logging in as a different account cascade-wipes the old account: its
 // profiles and credentials are gone, the new account is installed alone.
 func TestSync_AccountSwitch_CascadeWipes(t *testing.T) {
-	f := seedLoggedInWithProfiles(t, "alice@co.com", "us")
+	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com", "us")
 	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountPartnerKey("alice@co.com"), "partner-seed"); err != nil {
 		t.Fatalf("seed alice partner token: %v", err)
 	}
 	if err := internalauth.SaveAccountMeta(authDir(f), "alice@co.com", internalauth.AccountMeta{UserID: "u1"}); err != nil {
 		t.Fatalf("seed alice account meta: %v", err)
 	}
-	_, _ = SyncAfterLogin(f, loginResultFor("bob@co.com", allScopes), "", nil, io.Discard)
+	_, _ = SyncAfterLogin(f, loginResultFor("bob@co.com", cmdtest.FixtureScopes), "", nil, io.Discard)
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if len(cfg.Profiles) != 0 || cfg.Account().Name != "bob@co.com" {
 		t.Fatalf("old account must be wiped: %+v", cfg)
@@ -162,8 +124,8 @@ func TestSync_AccountSwitch_CascadeWipes(t *testing.T) {
 // CRT-01/03: login with --store-domain derives the profile name from the
 // domain, and a name collision falls back to a "-2" suffix.
 func TestSync_NewStore_DerivedNameAndConflictSuffix(t *testing.T) {
-	f := seedLoggedInWithProfiles(t, "alice@co.com") // no profile yet
-	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes), "us.myshoplazza.com", nil, io.Discard)
+	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com") // no profile yet
+	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", cmdtest.FixtureScopes), "us.myshoplazza.com", nil, io.Discard)
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if cfg.CurrentProfile != "us" {
 		t.Fatalf("derived name: %+v", cfg)
@@ -171,7 +133,7 @@ func TestSync_NewStore_DerivedNameAndConflictSuffix(t *testing.T) {
 	// Manufacture a derived-name collision: a profile already named "cn" bound
 	// to a different store.
 	seedExtraProfile(t, f, "cn", "other.myshoplazza.com")
-	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes), "cn.myshoplazza.com", nil, io.Discard)
+	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", cmdtest.FixtureScopes), "cn.myshoplazza.com", nil, io.Discard)
 	cfg, _ = core.LoadConfig(f.ConfigPath)
 	if cfg.FindProfile("cn-2") == nil || cfg.CurrentProfile != "cn-2" {
 		t.Fatalf("conflict suffix: %+v", cfg)
@@ -183,8 +145,8 @@ func TestSync_NewStore_DerivedNameAndConflictSuffix(t *testing.T) {
 // lazily, on demand. Requesting a scope subset for a brand-new store profile
 // must not leave anything in the profile's keychain slot.
 func TestSync_ScopeSubset_IgnoresPrewarmToken(t *testing.T) {
-	f := seedLoggedInWithProfiles(t, "alice@co.com")
-	res := loginResultFor("alice@co.com", allScopes)
+	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com")
+	res := loginResultFor("alice@co.com", cmdtest.FixtureScopes)
 	_, _ = SyncAfterLogin(f, res, "us.myshoplazza.com", []string{"read_product"}, io.Discard)
 	if v, err := keychain.Get(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey("us")); err != nil || v != "" {
 		t.Fatalf("SyncAfterLogin must never write a profile store token, got v=%q err=%v", v, err)
@@ -204,9 +166,9 @@ func TestEqualFoldSlice_OrderAndCaseInsensitive(t *testing.T) {
 // CRT-05: re-selecting an existing store profile with a different scope
 // subset updates it silently (no stderr output) and clears its cached AT.
 func TestSync_DuplicateCreate_SilentScopeUpdate(t *testing.T) {
-	f := seedLoggedInWithProfiles(t, "alice@co.com", "us") // us exists, full scopes
+	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com", "us") // us exists, full scopes
 	var buf bytes.Buffer
-	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", allScopes),
+	_, _ = SyncAfterLogin(f, loginResultFor("alice@co.com", cmdtest.FixtureScopes),
 		"us.myshoplazza.com", []string{"read_product"}, &buf)
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if got := cfg.FindProfile("us").Scopes; len(got) != 1 {

@@ -126,10 +126,3 @@ func TestPlanShareUpload_WithThemeID(t *testing.T) {
 		t.Errorf("theme_id: %v", p.Query["theme_id"])
 	}
 }
-
-func TestNoPlanShare_ExistsByName(t *testing.T) {
-	// share has NO dedicated endpoint; verify no PlanShare factory was added.
-	// (Implementation check; this is asserted via build — symbol must not exist.)
-	// If author tries to add PlanShare, this test will fail because the symbol
-	// won't compile. (Reviewer-enforced via PR.)
-}
