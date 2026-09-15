@@ -464,13 +464,12 @@ Editor are not written back to local files; fetch them with
 	},
 }
 
-// errSkipPushNoDevTheme rejects --skip-push when no development theme exists
-// yet: creating one is itself a full upload.
+// errSkipPushNoDevTheme rejects --skip-push when there is no development theme
+// to serve: creating one is itself a full upload.
 func errSkipPushNoDevTheme() error {
 	return theme.ErrValidation(
-		"--skip-push needs a theme that already exists: this directory has no development theme for " +
-			"this store yet, and creating one requires a full upload. Re-run without --skip-push, " +
-			"or pass --theme-id <id>.")
+		"--skip-push needs an existing development theme on this store; creating one requires " +
+			"a full upload. Re-run without --skip-push, or pass --theme-id <id>.")
 }
 
 // printDriftSummary counts files present on only one side. Set difference
