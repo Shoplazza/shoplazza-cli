@@ -15,13 +15,11 @@ import (
 // (dimension name + values); `--action` is the verb; unstated dimensions and
 // values are preserved.
 //
-// While dimension names are unchanged, existing variants are matched to new
-// combos by option values and keep their id (the API then preserves fields
-// absent from the body: sku, inventory, image). When the dimension set
-// changes, no id survives: every variant is rebuilt, and each combo inherits
-// price (and, while the mapping is 1:1, sku) from the old variants sharing its
-// values on the dimensions that stayed. Each deleted variant is listed in the
-// output. The output is a bounded summary, never the full product.
+// While dimension names are unchanged, variants are matched to new combos by
+// option values and keep their id (the API then preserves sku, inventory and
+// image). A changed dimension set rebuilds every variant; each combo inherits
+// price — and sku while the remap is 1:1 — from the old variants sharing its
+// values on the retained dimensions. The output is a bounded summary.
 var setVariantsShortcut = common.Shortcut{
 	Service: "products",
 	Command: "+set-variants",
@@ -299,9 +297,7 @@ func setComboOptions(variant map[string]any, combo []string) {
 func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action string, specs []optionDim,
 	price float64, hasPrice bool, skuTemplate string, hasStock bool, stock int) (common.ExecResult, error) {
 
-	// The read runs in dry-run too: the write is a full replace, so only the
-	// current matrix says which variants it would delete and what each new one
-	// inherits. Nothing is written either way.
+	// Read in dry-run too — the full-replace body depends on the current matrix.
 	getPlan := PlanGet(id)
 	getResp, err := common.Send(ctx, in.Client, getPlan)
 	if err != nil {
@@ -332,10 +328,8 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 		return common.ExecResult{Body: summary}, nil
 	}
 
-	// Dimensions are matched by option NAME (normalized). Names present on both
-	// sides carry identity across the edit: an unchanged set lets a variant keep
-	// its id, and a changed set still leaves the retained names to project old
-	// values onto the new combos.
+	// Dimensions are matched by option NAME (normalized); the retained names
+	// project old values onto the new combos.
 	oldPosByName := map[string]int{} // normalized name → 1-based old option slot
 	for i, cd := range currentDims {
 		oldPosByName[normKey(cd.Name)] = cd.slot(i + 1)
@@ -351,11 +345,8 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 	}
 	sameDims := len(retained) == len(dims) && len(dims) == len(currentDims)
 
-	// Old variants grouped by their values on the retained dimensions. With the
-	// dimension set unchanged the projection is the full tuple, so a group holds
-	// one variant and its id is reusable. On a rebuild several old variants can
-	// collapse into one group (a dimension was dropped) or one group can feed
-	// several combos (a dimension was added).
+	// Old variants grouped by their retained-dimension values; an unchanged
+	// dimension set makes that the full tuple.
 	oldByKey := map[string][]oldVariant{}
 	if len(retained) > 0 {
 		for _, ov := range oldVariants {
@@ -381,8 +372,7 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 		sources[i] = pickSource(oldByKey[project(combo)])
 	}
 
-	// --price is only needed by combos that inherit nothing: one with no old
-	// counterpart, or a rebuilt one whose counterpart carries no price.
+	// --price is only needed by combos that inherit nothing.
 	if !hasPrice {
 		for i, combo := range combos {
 			switch src := sources[i]; {
@@ -406,16 +396,13 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 		setComboOptions(v, combo)
 		switch src := sources[i]; {
 		case src != nil && sameDims && !matched[src.ID]:
-			// The id pins the row and the API merges onto it, so price, sku,
-			// stock and image survive without being sent.
+			// The id pins the row; the API merges onto it, so unsent fields survive.
 			matched[src.ID] = true
 			v["id"] = src.ID
 			inherited++
 		case src != nil:
-			// A dimension change retires every id, so whatever should survive
-			// has to be written back. The sku rides along only while the mapping
-			// stays 1:1; copying one sku onto several new variants is the
-			// mis-pick hazard the rebuild rules exist to avoid.
+			// No id survives, so anything worth keeping is written back; sku only
+			// while the remap is 1:1, never duplicated across variants.
 			gotPrice, gotSKU := src.Price != nil, fanOut == 1 && src.SKU != ""
 			if gotPrice {
 				v["price"] = src.Price
@@ -485,8 +472,8 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 	return common.ExecResult{Body: summary}, nil
 }
 
-// pickSource returns the old variant a combo descends from: the first in its
-// group carrying a price, so price and sku are inherited from the same row.
+// pickSource returns the old variant a combo inherits from: the first in the
+// group carrying a price.
 func pickSource(group []oldVariant) *oldVariant {
 	for i := range group {
 		if group[i].Price != nil {
@@ -596,8 +583,7 @@ type oldVariant struct {
 	ID      string
 	Options [3]string // option1..option3, "" when absent
 	SKU     string
-	// Price is the raw JSON value (the API answers with a string); it is written
-	// back verbatim so a rebuild cannot round-trip it into a different number.
+	// Price is the raw JSON value, written back verbatim.
 	Price     any
 	Inventory *int
 }

@@ -327,8 +327,7 @@ func colorSizeProduct() map[string]any {
 	}
 }
 
-// redOnlyProduct wraps one variant in a Color(Red) product, for the cases that
-// turn on a single field being absent.
+// redOnlyProduct wraps one variant in a Color(Red) product.
 func redOnlyProduct(variant map[string]any) map[string]any {
 	return map[string]any{
 		"id": "p-1",
@@ -341,8 +340,8 @@ func redOnlyProduct(variant map[string]any) map[string]any {
 
 // ── runner ────────────────────────────────────────────────────────────────────
 
-// runSetVariants executes the shortcut against a stub serving product. The
-// second return is the body the stub captured — nil when no write was sent.
+// runSetVariants runs the shortcut against a stub serving product; the second
+// return is the captured write body, nil when no write was sent.
 func runSetVariants(t *testing.T, product map[string]any, options []string, values map[string]string) (common.ExecResult, map[string]any, error) {
 	t.Helper()
 	return execSetVariants(t, product, options, values, false)
@@ -610,8 +609,7 @@ func TestSetVariants_RemoveWholeDimensionRebuilds(t *testing.T) {
 // ── refusals: the product is read, but nothing is written ─────────────────────
 
 func TestSetVariants_RefusesWithoutWriting(t *testing.T) {
-	// A dimension whose values cannot be determined would collapse the cartesian
-	// product to zero combos, so the PUT would carry an empty variants array.
+	// A dimension with no determinable values collapses the matrix to zero combos.
 	valuelessDimension := map[string]any{
 		"id":       "p-1",
 		"options":  []any{map[string]any{"name": "Color", "position": float64(1)}},
@@ -668,8 +666,8 @@ func TestSetVariants_RefusesWithoutWriting(t *testing.T) {
 
 // ── sku template ──────────────────────────────────────────────────────────────
 
-// The template may reference dimensions NOT named in --option (they exist on
-// the product); validation must run against the merged matrix.
+// A template may reference dimensions not named in --option, so validation
+// runs against the merged matrix.
 func TestSetVariants_SkuTemplateValidatedAgainstMergedDims(t *testing.T) {
 	_, captured, err := runSetVariants(t, existingColorProduct(), []string{"Size:S"}, map[string]string{
 		"id": "p-1", "action": "add", "price": "9", "sku-template": "X-{Color}-{Size}",
@@ -684,8 +682,7 @@ func TestSetVariants_SkuTemplateValidatedAgainstMergedDims(t *testing.T) {
 
 // ── dry-run ───────────────────────────────────────────────────────────────────
 
-// A full-replace PUT is only reviewable next to the matrix it replaces, so
-// dry-run reads the product and previews the real body.
+// Dry-run reads the product and previews the real body.
 func TestSetVariants_DryRunPreviewsTheRealBody(t *testing.T) {
 	res, captured, err := dryRunSetVariants(t, existingColorProduct(),
 		[]string{"Color:White"}, map[string]string{"id": "p-1", "action": "add", "price": "9"})
