@@ -100,9 +100,32 @@ prefer the narrowest: a dedicated **exact-match** param (often an array, e.g. `c
 over a full page. Exact params say what they match; keyword search may match a field you did
 not intend.
 
+**Which tier — read the user's verb.** The phrasing tells you whether they mean a whole value
+or a fragment, and that decides exact vs keyword:
+
+| User's signal | Meaning | Tier |
+|---|---|---|
+| 「是 / 为 / 等于 / =」, 「编号 / 号码 / 值 is X」, or a self-identifying whole string (a full email, a full SKU like `ABC-001`, a full phone) | whole value | exact-match array param |
+| 「包含 / 含 / 像 / 类似 / 以…开头 / 前缀 / 片段 / 部分」, `X*`, contains / starts-with / like | fragment | keyword search |
+
+「是 / equals」is the authoritative exact signal even when it sits right next to a field name —
+match the whole value, do not fuzzy-search it.
+
 **Report the basis, not just the number.** When you answer from a list read, say which filter
 was applied and what the completeness basis is ("3 of 3, unfiltered total 18"). It makes a
 dropped filter visible to the user instead of invisible.
+
+**Locate before you act.** A write targets a record by its id, but users name it by something
+else (an order number, a code, an email, a title). Resolve the target with a read first, then
+branch on the count:
+
+- **0 matches** → stop and say so; do not fall back to a broader write or invent an id.
+- **exactly 1** → proceed (still `--dry-run` + restate for a destructive / money op).
+- **2+ matches** → list the candidates and ask which one. Never guess, and never act on "the
+  first" silently.
+
+A number is not an id (e.g. an order number vs the internal order_id) — feeding one where the
+other is expected hits the wrong record or errors. Resolve it through the read, don't assume.
 
 ## Schema introspection
 
