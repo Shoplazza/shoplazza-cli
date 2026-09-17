@@ -57,10 +57,11 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 	}
 	cmd.Flags().Bool("dry-run", false, "Print the request that would be sent without executing it")
 	cmd.Flags().StringP("jq", "q", "", "jq expression to filter JSON output (e.g. '.data.products[].id')")
+	// Required flags are NOT marked at the cobra level: the engine resolves them
+	// in RunE (fillRequired) so an interactive terminal can prompt for a missing
+	// one, while non-interactive runs still fail fast. Cobra's own required-flag
+	// check would reject before RunE and leave no room to prompt.
 	for _, f := range s.Flags {
-		if f.Required {
-			_ = cmd.MarkFlagRequired(f.Name)
-		}
 		if len(f.Completions) > 0 {
 			values := append([]string(nil), f.Completions...)
 			_ = cmd.RegisterFlagCompletionFunc(f.Name, func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
@@ -75,6 +76,11 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 	local := s.Local
 
 	cmd.RunE = func(c *cobra.Command, args []string) error {
+		// Resolve required flags first: prompt in an interactive terminal, or
+		// fail fast (never block) with a naming error otherwise.
+		if err := fillRequired(c, s.Flags, factory); err != nil {
+			return err
+		}
 		dryRun := cmdutil.IsDryRun(c)
 		format := cmdutil.GetFormat(c)
 		jq := cmdutil.GetJQ(c)
