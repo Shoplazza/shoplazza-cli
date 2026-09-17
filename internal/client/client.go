@@ -36,6 +36,7 @@ type HTTPError struct {
 	Body       string
 	Method     string
 	Path       string
+	RequestID  string // server Request-Id header, "" if absent
 }
 
 func (e *HTTPError) Error() string {

@@ -390,7 +390,7 @@ func Publish(ctx context.Context, c *client.Client, path, extensionID, versionID
 func apiOrInternalTE(err error) *output.ExitError {
 	var he *client.HTTPError
 	if errors.As(err, &he) {
-		return output.ErrAPI(he.StatusCode, he.Body, "").WithEndpoint(he.Method, he.Path)
+		return output.ErrAPI(he.StatusCode, he.Body, he.RequestID).WithEndpoint(he.Method, he.Path)
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {

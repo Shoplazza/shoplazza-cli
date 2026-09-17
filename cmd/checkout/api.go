@@ -59,7 +59,7 @@ func doAPI(ctx context.Context, f *cmdutil.Factory, req client.RawRequest) (clie
 		if errors.As(err, &netErr) {
 			return resp, output.ErrNetwork("%v", err)
 		}
-		return resp, output.ErrInternal("%v", err)
+		return resp, output.ErrInternal("%v", err).WithRequestID(resp.RequestID())
 	}
 	return resp, nil
 }
@@ -82,7 +82,9 @@ func fireAndPrint(cmd *cobra.Command, f *cmdutil.Factory, req client.RawRequest)
 	// Checkout endpoints reject with HTTP 200 + {message, status != 0}; surface
 	// that instead of printing {"ok":true,...} for a rejected request.
 	if msg := checkoutFailureMessage(resp.Body); msg != "" {
-		return output.Errorf(output.ExitAPI, output.TypeAPI, "server rejected the request: %s", msg)
+		return output.Errorf(output.ExitAPI, output.TypeAPI, "%s", msg).
+			WithRequestID(resp.RequestID()).
+			WithEndpoint(req.Method, req.Path)
 	}
 	return output.PrintAPISuccess(cmd.OutOrStdout(), resp.Body, format, jq)
 }
@@ -102,11 +104,11 @@ func resolveCheckoutVersionID(ctx context.Context, f *cmdutil.Factory, extID, ve
 		return "", exitErr
 	}
 	if msg := checkoutFailureMessage(resp.Body); msg != "" {
-		return "", output.Errorf(output.ExitAPI, output.TypeAPI, "server rejected the request: %s", msg)
+		return "", output.Errorf(output.ExitAPI, output.TypeAPI, "%s", msg).WithRequestID(resp.RequestID())
 	}
 	arr, ok := mapField(payload(resp.Body), "extensions").([]any)
 	if !ok {
-		return "", output.ErrInternal("version list for extension %q had no versions array", extID)
+		return "", output.ErrInternal("version list for extension %q had no versions array", extID).WithRequestID(resp.RequestID())
 	}
 	for _, it := range arr {
 		m, ok := it.(map[string]any)
@@ -116,14 +118,15 @@ func resolveCheckoutVersionID(ctx context.Context, f *cmdutil.Factory, extID, ve
 		if asString(m["version"]) == version {
 			id := asString(m["id"])
 			if id == "" {
-				return "", output.ErrInternal("version %s found but the server returned no version id", version)
+				return "", output.ErrInternal("version %s found but the server returned no version id", version).WithRequestID(resp.RequestID())
 			}
 			return id, nil
 		}
 	}
 	return "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,
 		"version "+version+" not found for extension "+extID,
-		"run 'shoplazza checkout versions --extension-id "+extID+"' to list available versions")
+		"run 'shoplazza checkout versions --extension-id "+extID+"' to list available versions").
+		WithRequestID(resp.RequestID())
 }
 
 // --- map/value navigation over a checkout API response body ---

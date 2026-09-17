@@ -24,11 +24,11 @@ func buildPreviewURL(ctx context.Context, f *cmdutil.Factory, store, extID, vers
 	// Checkout endpoints reject with HTTP 200 + {message, status != 0}; surface
 	// the server's message instead of an internal "missing checkout_url".
 	if msg := checkoutFailureMessage(resp.Body); msg != "" {
-		return "", output.Errorf(output.ExitAPI, output.TypeAPI, "server rejected the request: %s", msg)
+		return "", output.Errorf(output.ExitAPI, output.TypeAPI, "%s", msg).WithRequestID(resp.RequestID())
 	}
 	checkoutURL := asString(mapField(payload(resp.Body), "checkout_url"))
 	if checkoutURL == "" {
-		return "", output.ErrInternal("preview response missing checkout_url")
+		return "", output.ErrInternal("preview response missing checkout_url").WithRequestID(resp.RequestID())
 	}
 	base, baseErr := url.Parse("https://" + store)
 	if baseErr != nil || base == nil {
@@ -36,7 +36,7 @@ func buildPreviewURL(ctx context.Context, f *cmdutil.Factory, store, extID, vers
 	}
 	u, err := url.Parse(checkoutURL)
 	if err != nil {
-		return "", output.ErrInternal("invalid checkout_url '%s': %s", checkoutURL, err.Error())
+		return "", output.ErrInternal("invalid checkout_url '%s': %s", checkoutURL, err.Error()).WithRequestID(resp.RequestID())
 	}
 	if !u.IsAbs() {
 		u = base.ResolveReference(u) // resolve relative checkout_url against the store

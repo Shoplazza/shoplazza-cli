@@ -256,7 +256,7 @@ func pushAPIError(err error, configName string) *output.ExitError {
 	}
 	switch he.StatusCode {
 	case 401:
-		return output.ErrAPIAuthHint(he.StatusCode, he.Body, "run 'shoplazza auth login' to re-authenticate").WithEndpoint(he.Method, he.Path)
+		return output.ErrAPIAuthHint(he.StatusCode, he.Body, he.RequestID, "run 'shoplazza auth login' to re-authenticate").WithEndpoint(he.Method, he.Path)
 	case 404:
 		return apiError(err).WithHint("check client_id in " + configName + " and that the app belongs to the logged-in account ('shoplazza auth status')")
 	}

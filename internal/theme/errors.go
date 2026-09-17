@@ -14,7 +14,7 @@ import (
 
 // ErrAuthExpired flags an OAuth / 401 / keychain-miss path and suggests
 // `shoplazza auth login`.
-func ErrAuthExpired(cause error) error {
+func ErrAuthExpired(cause error) *output.ExitError {
 	return output.ErrWithHint(
 		output.ExitAuth, output.TypeAuth,
 		fmt.Sprintf("authentication required: %v", cause),
@@ -23,7 +23,7 @@ func ErrAuthExpired(cause error) error {
 }
 
 // ErrValidation is a thin theme-package wrapper over output.ErrValidation.
-func ErrValidation(format string, args ...any) error {
+func ErrValidation(format string, args ...any) *output.ExitError {
 	return output.ErrValidation(format, args...)
 }
 
@@ -42,7 +42,7 @@ func ErrNotThemeDir() error {
 // ErrTaskBusinessFailure transports a server-side task=failure into an
 // api-class envelope, passing the whole task payload through under the
 // "task" extra. Uses the task's "message" field verbatim when present.
-func ErrTaskBusinessFailure(task map[string]any) error {
+func ErrTaskBusinessFailure(task map[string]any) *output.ExitError {
 	msg, _ := task["message"].(string)
 	if msg == "" {
 		msg = "theme task ended with failure"
@@ -51,9 +51,13 @@ func ErrTaskBusinessFailure(task map[string]any) error {
 		WithField("task", task)
 }
 
-// ErrTaskTimeout is the task-polling cap error; it carries the task id and
-// last payload so the wait can be resumed with --task-id.
-func ErrTaskTimeout(elapsed, cap time.Duration, taskID string, task map[string]any) error {
+// ErrTaskTimeout is the task-polling cap. Network-class because the cap
+// protects against an unresponsive remote, not a server rejection. elapsed is
+// the real time spent waiting (rounded to one decimal so test assertions are
+// stable); cap is the configured PollOptions.MaxDuration, interpolated into the
+// message so non-default callers report the truth. taskID + the last-observed
+// task payload are passed through so triage and --task-id resume have them.
+func ErrTaskTimeout(elapsed, cap time.Duration, taskID string, task map[string]any) *output.ExitError {
 	elapsedSec := math.Round(elapsed.Seconds()*10) / 10
 	return output.Errorf(output.ExitNetwork, output.TypeNetwork,
 		"theme upload task did not finish within %s", cap).

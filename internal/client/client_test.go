@@ -424,6 +424,52 @@ func TestHTTPError_CarriesEndpoint_AllPaths(t *testing.T) {
 	assertEndpoint(t, err, "GET", "/themes/x/download")
 }
 
+// TestHTTPError_CarriesRequestID_AllPaths verifies every HTTPError construction
+// path (doJSON via GetJSON, DoRaw, SendStream) stamps the Request-Id header.
+func TestHTTPError_CarriesRequestID_AllPaths(t *testing.T) {
+	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Request-Id", "req-500-1")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"code":"ServerError"}`))
+	})
+	assertRequestID := func(t *testing.T, err error) {
+		t.Helper()
+		var he *client.HTTPError
+		if !errors.As(err, &he) {
+			t.Fatalf("expected *HTTPError, got %T (%v)", err, err)
+		}
+		if he.RequestID != "req-500-1" {
+			t.Errorf("RequestID = %q, want req-500-1", he.RequestID)
+		}
+	}
+	var out map[string]any
+	assertRequestID(t, c.GetJSON(context.Background(), "/x", &out))
+	_, err := c.DoRaw(context.Background(), client.RawRequest{Method: "GET", Path: "/x"})
+	assertRequestID(t, err)
+	_, err = c.SendStream(context.Background(), client.RawRequest{Method: "GET", Path: "/x"})
+	assertRequestID(t, err)
+}
+
+// TestDoRaw_ParseFailureKeepsHeaders: a 2xx with an unparseable JSON body must
+// still return the response headers so the caller can surface the request id.
+func TestDoRaw_ParseFailureKeepsHeaders(t *testing.T) {
+	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Request-Id", "req-parse-1")
+		w.Write([]byte(`{truncated`))
+	})
+	resp, err := c.DoRaw(context.Background(), client.RawRequest{Method: "GET", Path: "/"})
+	if err == nil {
+		t.Fatal("expected a parse error, got nil")
+	}
+	if got := resp.RequestID(); got != "req-parse-1" {
+		t.Errorf("RequestID() = %q, want req-parse-1", got)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("StatusCode = %d, want 200", resp.StatusCode)
+	}
+}
+
 func TestDoRaw_PlainTextBody(t *testing.T) {
 	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")

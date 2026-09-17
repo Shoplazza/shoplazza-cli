@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
@@ -58,6 +57,7 @@ func TestDeploy_BusinessFailureEnvelopeErrors(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Request-Id", "req-biz-1")
 		_ = json.NewEncoder(w).Encode(map[string]any{"message": "INVALID_VERSION", "status": 3})
 	}))
 	defer srv.Close()
@@ -70,8 +70,11 @@ func TestDeploy_BusinessFailureEnvelopeErrors(t *testing.T) {
 	if ee.Code != output.ExitAPI || ee.Detail.Type != output.TypeAPI {
 		t.Fatalf("want exit %d type %s, got exit %d type %s", output.ExitAPI, output.TypeAPI, ee.Code, ee.Detail.Type)
 	}
-	if !strings.Contains(ee.Detail.Message, "INVALID_VERSION") {
-		t.Errorf("error must carry the server message, got %q", ee.Detail.Message)
+	if ee.Detail.Message != "INVALID_VERSION" {
+		t.Errorf("message must be the server message verbatim (no CLI prefix), got %q", ee.Detail.Message)
+	}
+	if ee.Detail.Detail == nil || ee.Detail.Detail.RequestID != "req-biz-1" {
+		t.Errorf("business-failure envelope must carry request_id, got %+v", ee.Detail.Detail)
 	}
 }
 

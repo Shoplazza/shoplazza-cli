@@ -94,9 +94,3 @@ func skillLine() string {
 		return "skills not installed"
 	}
 }
-
-// stderrIsTTY reports whether stderr is an interactive terminal.
-func stderrIsTTY() bool {
-	fi, err := os.Stderr.Stat()
-	return err == nil && fi.Mode()&os.ModeCharDevice != 0
-}
