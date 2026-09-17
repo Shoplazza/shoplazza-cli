@@ -55,6 +55,26 @@ func (e *ExitError) WithHint(hint string) *ExitError {
 	return e
 }
 
+// WithSubtype sets the stable machine-branchable subtype, returning the
+// receiver for chaining.
+func (e *ExitError) WithSubtype(subtype string) *ExitError {
+	if e.Detail == nil {
+		e.Detail = &ErrDetail{}
+	}
+	e.Detail.Subtype = subtype
+	return e
+}
+
+// WithParam names the offending flag/parameter, returning the receiver for
+// chaining.
+func (e *ExitError) WithParam(param string) *ExitError {
+	if e.Detail == nil {
+		e.Detail = &ErrDetail{}
+	}
+	e.Detail.Param = param
+	return e
+}
+
 // WithEndpoint attaches the failing request's method + path to the error's
 // detail block. A no-op when both are empty; returns the receiver for chaining.
 func (e *ExitError) WithEndpoint(method, path string) *ExitError {
@@ -83,6 +103,12 @@ func (e *ExitError) Envelope() map[string]any {
 			out[k] = v
 		}
 		out["type"] = e.Detail.Type
+		if e.Detail.Subtype != "" {
+			out["subtype"] = e.Detail.Subtype
+		}
+		if e.Detail.Param != "" {
+			out["param"] = e.Detail.Param
+		}
 		if e.Detail.Message != "" {
 			out["message"] = e.Detail.Message
 		}

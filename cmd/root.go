@@ -116,6 +116,9 @@ func Execute() (exitCode int) {
 		// deliberate — no command pays latency for a cache it isn't using.
 		go updatecheck.RefreshCache(build.Version)
 		go metasync.Refresh(ctx, build.Version)
+		// Surface staleness to agents inside the json success envelope's
+		// "_notice" block (opt out with SHOPLAZZA_CLI_NO_NOTICE=1).
+		output.SetNotice(buildNotice(pendingUpdate))
 	}
 
 	// The template is a plain string built up front, so the skills line is
@@ -140,12 +143,13 @@ func Execute() (exitCode int) {
 			return exitErr.Code
 		}
 
-		if failing, _, ferr := rootCmd.Find(os.Args[1:]); ferr == nil && failing != nil {
-			_ = failing.Usage()
-		}
-		fmt.Fprintln(os.Stderr, "Error:", execErr.Error())
-
-		return output.ExitValidation
+		// A non-ExitError here is a cobra/pflag usage error (unknown command,
+		// unknown flag, missing required flag, bad argument). Emit it through the
+		// JSON error envelope with a stable subtype so agents parse stderr as JSON
+		// even for the commonest usage mistakes — never leak plain "Error: ..." text.
+		usageErr := output.ClassifyUsageError(execErr)
+		output.WriteErrorEnvelope(os.Stderr, usageErr)
+		return usageErr.Code
 	}
 
 	return output.ExitOK

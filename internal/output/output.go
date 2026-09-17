@@ -63,13 +63,20 @@ func PrintAPISuccess(w io.Writer, body any, format, jq string) error {
 	if jq != "" && format != FormatJSON {
 		return ErrValidation("--jq requires --format json")
 	}
-	if format == FormatPretty || format == FormatTable {
+	// pretty/table/ndjson render the raw body without the {ok,data} envelope:
+	// they are human- or stream-oriented, not the machine envelope contract.
+	if format == FormatPretty || format == FormatTable || format == FormatNDJSON {
 		return PrintBody(w, body, format, "")
 	}
 	if body == nil {
 		body = map[string]any{}
 	}
 	envelope := map[string]any{"ok": true, "data": body}
+	// Agents parse "_notice" to learn the CLI or its skills are stale, without
+	// it ever touching stdout data or the pretty/table/ndjson paths above.
+	if len(pendingNotice) > 0 {
+		envelope["_notice"] = pendingNotice
+	}
 	if jq != "" {
 		return applyJQ(w, envelope, jq)
 	}

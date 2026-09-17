@@ -6,7 +6,41 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/skillsync"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/updatecheck"
 )
+
+// EnvNoNotice disables the agent-facing _notice envelope block when set to "1".
+const EnvNoNotice = "SHOPLAZZA_CLI_NO_NOTICE"
+
+// buildNotice assembles the "_notice" block for json success envelopes: an
+// "update" entry when a newer CLI is available (from the already-computed
+// cache, so it costs nothing), and a "skills" entry when the Agent Skills are
+// not installed. Returns nil when there is nothing to say or the user opted out.
+func buildNotice(update *updatecheck.Info) map[string]any {
+	if os.Getenv(EnvNoNotice) == "1" {
+		return nil
+	}
+	n := map[string]any{}
+	if update != nil {
+		n["update"] = map[string]any{
+			"current": update.Current,
+			"latest":  update.Latest,
+			"message": update.Message(),
+		}
+	}
+	// A missing skills dir reads as (false, nil); an unreadable one errors — in
+	// either error case we simply say nothing rather than guess.
+	if installed, err := skillsync.Installed(); err == nil && !installed {
+		n["skills"] = map[string]any{
+			"installed": false,
+			"message":   "Agent Skills not installed — run 'npx skills add Shoplazza/shoplazza-cli -g' for CLI-aware guidance.",
+		}
+	}
+	if len(n) == 0 {
+		return nil
+	}
+	return n
+}
 
 // updateCheckSkippedCommands lists TOP-LEVEL commands that suppress the update
 // notice and background metadata refresh (to avoid nagging mid-update and
