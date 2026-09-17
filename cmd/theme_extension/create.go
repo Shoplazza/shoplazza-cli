@@ -23,8 +23,13 @@ var projectNameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$`)
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var name, teType string
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Scaffold a standalone theme-extension project (basic|embed)",
+		Use:     "create",
+		Short:   "Scaffold a standalone theme-extension project (basic|embed)",
+		Long: `Scaffold a standalone theme-extension project directory (template basic or
+embed) in the current folder, with its config written for you. Everything is
+local — no network call. Next, cd into the project, run 'shoplazza te connect'
+to link it to an app, then 'shoplazza te serve' to start developing.`,
+		Example: "  shoplazza theme-extension create --name my-te --type embed",
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if name == "" {
 				return output.ErrValidation("--name is required")

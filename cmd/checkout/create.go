@@ -15,8 +15,13 @@ import (
 func newCmdInit(f *cmdutil.Factory) *cobra.Command {
 	var name, ext string
 	cmd := &cobra.Command{
-		Use:   "init",
-		Short: "Scaffold a new checkout extension project (local, no network)",
+		Use:     "init",
+		Short:   "Scaffold a new checkout extension project (local, no network)",
+		Long: `Scaffold a new checkout extension project directory in the current folder,
+with its first extension under ./extensions. Everything is local — no network
+call. Next, cd into the project and run 'shoplazza checkout dev' to start the
+dev server.`,
+		Example: "  shoplazza checkout-extension init --name my-checkout-ext --extension banner",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if name == "" || ext == "" {
 				return output.ErrValidation("--name <project> and --extension <first-extension> are required")

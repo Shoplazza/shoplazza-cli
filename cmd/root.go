@@ -51,6 +51,12 @@ Common workflows:
   shoplazza schema <module>.<command>      inspect parameters / body / response
   shoplazza api rest <METHOD> <PATH>       raw HTTP call (escape hatch)
 
+Building on Shoplazza (each family's --help shows its numbered dev loop):
+  shoplazza app                            an app: shell + extensions (needs a partner account)
+  shoplazza checkout-extension             a checkout UI extension
+  shoplazza theme-extension                a theme app extension (embeds into merchant themes)
+  shoplazza themes                         a storefront theme (Nova template — init / serve / push)
+
 Run any command with --dry-run to print the request without sending it.`, spec.Version),
 		Version:       build.DisplayVersion(),
 		SilenceErrors: true,

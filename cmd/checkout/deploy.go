@@ -15,6 +15,7 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 		Short: "Activate a previously pushed extension version",
 		Long: `Activate (deploy) a specific extension version that was created via
 'shoplazza checkout push'. Requires --extension-id and --version.`,
+		Example: "  shoplazza checkout-extension deploy --extension-id <id> --version 1.0",
 		PreRunE: authPreRun(f),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if extID == "" || version == "" {
