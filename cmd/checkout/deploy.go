@@ -18,10 +18,13 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 		Example: "  shoplazza checkout-extension deploy --extension-id <id> --version 1.0",
 		PreRunE: authPreRun(f),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if extID == "" || version == "" {
-				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					"--extension-id and --version are required (deploy is version-level)",
-					"run 'shoplazza checkout versions --extension-id <id>' to list versions")
+			// A human picks the extension then its version (both from the server);
+			// non-interactive callers must pass --extension-id and --version.
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "extension-id", Title: "Extension", Picker: extensionOptions},
+				cmdutil.PromptField{Flag: "version", Title: "Version to activate", Picker: versionOptions},
+			); err != nil {
+				return err
 			}
 			// --dry-run stays network-free: show the deploy request with the version
 			// (resolved to its server id via /version/list at real run time).

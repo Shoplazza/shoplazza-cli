@@ -23,10 +23,11 @@ call. Next, cd into the project and run 'shoplazza checkout dev' to start the
 dev server.`,
 		Example: "  shoplazza checkout-extension init --name my-checkout-ext --extension banner",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if name == "" || ext == "" {
-				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					"--name <project> and --extension <first-extension> are required",
-					"e.g. shoplazza checkout-extension init --name my-checkout-ext --extension banner")
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "name", Title: "Project name (directory created in cwd)"},
+				cmdutil.PromptField{Flag: "extension", Title: "First extension name"},
+			); err != nil {
+				return err
 			}
 			if vErr := validPlainName("--name", name); vErr != nil {
 				return vErr

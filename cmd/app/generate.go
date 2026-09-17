@@ -132,6 +132,17 @@ func newCmdExtensionCreate(f *cmdutil.Factory) *cobra.Command {
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// A human picks the type/subtype and names the extension; non-
+			// interactive callers must pass the flags. --theme-type applies only
+			// to theme extensions.
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "type", Title: "Extension type", Choices: []string{"theme", "checkout", "function"}},
+				cmdutil.PromptField{Flag: "theme-type", Title: "Theme subtype", Choices: []string{"basic", "embed"},
+					When: func(c *cobra.Command) bool { t, _ := c.Flags().GetString("type"); return t == "theme" }},
+				cmdutil.PromptField{Flag: "name", Title: "Extension name (directory under extensions/)"},
+			); err != nil {
+				return err
+			}
 			p, err := openProject(path)
 			if err != nil {
 				return err
@@ -147,8 +158,6 @@ func newCmdExtensionCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Extension name / target directory (required)")
 	cmd.Flags().StringVar(&themeType, "theme-type", "", "Theme subtype: basic or embed (required when --type theme)")
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
-	_ = cmd.MarkFlagRequired("type")
-	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 

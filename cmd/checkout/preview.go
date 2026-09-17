@@ -60,10 +60,13 @@ func newCmdPreview(f *cmdutil.Factory) *cobra.Command {
   shoplazza checkout-extension preview --extension-id ext_123 --version 1.0`,
 		PreRunE: authPreRun(f),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if extID == "" || version == "" {
-				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					"--extension-id and --version are required",
-					"run 'shoplazza checkout list' then 'shoplazza checkout versions --extension-id <id>'")
+			// A human picks the extension then its version (both from the server);
+			// non-interactive callers must pass --extension-id and --version.
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "extension-id", Title: "Extension", Picker: extensionOptions},
+				cmdutil.PromptField{Flag: "version", Title: "Version to preview", Picker: versionOptions},
+			); err != nil {
+				return err
 			}
 			// preview always targets the current store (no --store-domain override).
 			store, exitErr := resolveStore(f)

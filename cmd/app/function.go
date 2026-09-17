@@ -83,12 +83,17 @@ func newCmdFunctionCompile(f *cmdutil.Factory) *cobra.Command {
   shoplazza app function compile --name my-function`,
 		Args: cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			return nil // local-only: no auth gate; --name resolved in RunE
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "name", Title: "Function extension name (directory under extensions/)"},
+			); err != nil {
+				return err
+			}
 			if err := requireExtensionName(name); err != nil {
 				return err
 			}
-			return nil // local-only: no auth gate
-		},
-		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			p, err := openProject(path)
 			if err != nil {
@@ -139,12 +144,17 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
   shoplazza app function release --name my-function`,
 		Args: cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			return requireLogin(cmd.Context(), f) // --name resolved in RunE
+		},
+		RunE: func(cmd *cobra.Command, _ []string) (err error) {
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "name", Title: "Function extension name (directory under extensions/)"},
+			); err != nil {
+				return err
+			}
 			if err := requireExtensionName(name); err != nil {
 				return err
 			}
-			return requireLogin(cmd.Context(), f)
-		},
-		RunE: func(cmd *cobra.Command, _ []string) (err error) {
 			ctx := cmd.Context()
 			// Live elapsed timer per phase on a TTY (output.Progress) — release does
 			// several blocking network calls plus a WASM compile. The deferred Fail

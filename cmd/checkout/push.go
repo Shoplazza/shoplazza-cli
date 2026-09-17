@@ -36,8 +36,10 @@ a new version on the server. The version is NOT activated — use
 'shoplazza checkout deploy' to activate it afterward.`,
 		PreRunE: authPreRun(f),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if localID == "" {
-				return output.ErrValidation("--name <extension name> is required (the directory under ./extensions)")
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "name", Title: "Extension name (directory under ./extensions)"},
+			); err != nil {
+				return err
 			}
 			if vErr := validPlainName("--name", localID); vErr != nil {
 				return vErr

@@ -5,7 +5,6 @@ import (
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func newCmdUndeploy(f *cmdutil.Factory) *cobra.Command {
@@ -21,9 +20,12 @@ func newCmdUndeploy(f *cmdutil.Factory) *cobra.Command {
   shoplazza checkout-extension undeploy --extension-id ext_123`,
 		PreRunE: authPreRun(f),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if extID == "" {
-				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					"--extension-id is required", "run 'shoplazza checkout list' to find the extension id")
+			// A human picks the extension from the server; non-interactive callers
+			// must pass --extension-id.
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "extension-id", Title: "Extension to undeploy", Picker: extensionOptions},
+			); err != nil {
+				return err
 			}
 			// Human-only confirmation; agents/pipes/CI proceed unchanged and
 			// --dry-run (handled inside fireAndPrint) never reaches here.
