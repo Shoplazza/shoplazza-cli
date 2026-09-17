@@ -301,7 +301,16 @@ func activeAppConfigNamed(p *project.Project) (string, project.Config, *output.E
 	}
 	cfg, err := p.ReadConfig(name)
 	if err != nil {
-		return "", project.Config{}, output.ErrValidation("cannot read active config: %v", err)
+		// A missing config = run outside an app project; a present-but-undecodable
+		// one = a malformed toml. Distinguish so the hint is actionable.
+		if errors.Is(err, os.ErrNotExist) {
+			return "", project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+				fmt.Sprintf("no app config (%s) in this directory", name),
+				"run 'shoplazza app init' to create an app project, or cd into one (pass --path to point elsewhere)")
+		}
+		return "", project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			fmt.Sprintf("cannot read active config %s: %v", name, err),
+			fmt.Sprintf("check the TOML syntax of %s", name))
 	}
 	if cfg.ClientID == "" {
 		return "", project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,

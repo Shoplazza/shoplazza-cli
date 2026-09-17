@@ -2,7 +2,9 @@ package appcmd
 
 import (
 	"context"
+	"errors"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -24,6 +26,13 @@ func runInfo(ctx context.Context, d *app.Dashboard, p *project.Project, clientID
 	if clientID == "" {
 		cfg, cfgErr := p.ActiveConfig()
 		if cfgErr != nil {
+			// A missing config = run outside an app project; anything else is a
+			// malformed toml. Point the user at 'app init' either way.
+			if errors.Is(cfgErr, os.ErrNotExist) {
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"no app config in this directory",
+					"run 'shoplazza app init' to create an app project, or cd into one (pass --path to point elsewhere)")
+			}
 			return output.ErrValidation("cannot read active config: %v", cfgErr)
 		}
 		if cfg.ClientID == "" {

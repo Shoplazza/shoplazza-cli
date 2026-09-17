@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -70,10 +71,19 @@ func newCmdConfigUse(f *cmdutil.Factory) *cobra.Command {
 func runConfigUse(ctx context.Context, d *app.Dashboard, p *project.Project, configName string, w io.Writer, format, jq string) error {
 	cfg, err := p.ReadConfig(configName)
 	if err != nil {
-		return output.ErrValidation("cannot read %s: %v", configName, err)
+		if errors.Is(err, os.ErrNotExist) {
+			return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+				fmt.Sprintf("config %s not found in this project", configName),
+				"run 'shoplazza app config link' to create it, or 'shoplazza app config use' without --config for the base config")
+		}
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			fmt.Sprintf("cannot read %s: %v", configName, err),
+			fmt.Sprintf("check the TOML syntax of %s", configName))
 	}
 	if cfg.ClientID == "" {
-		return output.ErrValidation("%s has no client_id", configName)
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			fmt.Sprintf("%s has no client_id", configName),
+			"run 'shoplazza app config link --client-id <id>' to populate it")
 	}
 	if _, err := d.GetCompleteInfo(ctx, cfg.ClientID); err != nil {
 		return apiError(err).WithHint("check the client_id in " + configName + " and ensure you have access")
@@ -231,7 +241,9 @@ var safeStatuses = map[string]bool{"draft": true, "rejected": true}
 func validateDashboardURL(key, raw string) *output.ExitError {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return output.ErrValidation("dashboard.%s is not a valid http(s) URL: %q", key, raw)
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			fmt.Sprintf("dashboard.%s is not a valid http(s) URL: %q", key, raw),
+			fmt.Sprintf("set dashboard.%s to an absolute http(s) URL (e.g. https://example.com) in the active config", key))
 	}
 	return nil
 }

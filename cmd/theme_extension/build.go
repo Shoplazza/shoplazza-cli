@@ -2,7 +2,6 @@ package theme_extension
 
 import (
 	"errors"
-	"io/fs"
 	"net/http"
 	"os"
 	"time"
@@ -40,12 +39,7 @@ func newCmdBuild(f *cmdutil.Factory) *cobra.Command {
 			root := path
 			cfg, err := te.ReadConfig(root)
 			if err != nil {
-				if errors.Is(err, fs.ErrNotExist) {
-					return output.ErrValidation("not a te project (missing extension.config.json in %s)", root)
-				}
-				// Present but undecodable: do NOT suggest re-registering — the
-				// corrupt file still holds the extension_id.
-				return output.ErrValidation("%v", err)
+				return te.ConfigReadError(root, err)
 			}
 			store, _, cErr := storeClient(ctx, f, storeDomain)
 			if cErr != nil {

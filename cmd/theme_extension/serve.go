@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
 	"path"
@@ -47,12 +46,7 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 			root := projectRoot
 			cfg, err := te.ReadConfig(root)
 			if err != nil {
-				if errors.Is(err, fs.ErrNotExist) {
-					return output.ErrValidation("not a te project (missing extension.config.json in %s)", root)
-				}
-				// Present but undecodable: do NOT suggest re-registering — the
-				// corrupt file still holds the extension_id.
-				return output.ErrValidation("%v", err)
+				return te.ConfigReadError(root, err)
 			}
 			// serve always targets the current store (no --store-domain flag);
 			// storeClient("") falls back to the current profile's store.

@@ -1,6 +1,7 @@
 package appcmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -93,7 +94,9 @@ func newCmdFunctionCompile(f *cmdutil.Factory) *cobra.Command {
 			}
 			entry := filepath.Join(p.Root, project.ExtensionsDir, name, "src", "index.js")
 			if _, statErr := os.Stat(entry); statErr != nil {
-				return output.ErrValidation("function entry not found: %s", entry)
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"function entry not found: "+entry,
+					"check --name matches a directory under extensions/, or scaffold it with 'shoplazza app extension create --type function --name "+name+"'")
 			}
 			// Per-step progress on stderr (javy toolchain fetch + WASM compile
 			// both block) so the result JSON on stdout stays pipe-clean.
@@ -197,7 +200,9 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 				}
 			}
 			if target == nil || target.Type != "function" {
-				return output.ErrValidation("no function extension %q under extensions/", name)
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					fmt.Sprintf("no function extension %q under extensions/", name),
+					"run 'shoplazza app function list' to see function extensions, or 'shoplazza app extension create --type function --name "+name+"' to scaffold one")
 			}
 
 			step = prog.Begin("[release] resolving app config")

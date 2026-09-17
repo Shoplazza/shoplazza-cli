@@ -130,3 +130,20 @@ func errNoExtensionID() *output.ExitError {
 		"no extension_id for this te project",
 		"register first with 'te build' / 'te serve', or recover the id with 'te list'")
 }
+
+// ConfigReadError maps a ReadConfig failure to the right envelope: a missing
+// file = run outside a te project (hint: create one); a present-but-malformed
+// file = a JSON syntax problem (hint: check the file). Shared by the commands
+// that call ReadConfig directly (serve/build).
+func ConfigReadError(root string, err error) *output.ExitError {
+	if errors.Is(err, fs.ErrNotExist) {
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			fmt.Sprintf("not a te project (missing %s in %s)", configFile, root),
+			"run 'shoplazza te create --name <name> --type <basic|embed>' first, or cd into a te project")
+	}
+	// Present but undecodable: do NOT suggest re-registering — the corrupt file
+	// still holds the extension_id. Point at the JSON syntax instead.
+	return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+		err.Error(),
+		fmt.Sprintf("check the JSON syntax of %s", configFile))
+}

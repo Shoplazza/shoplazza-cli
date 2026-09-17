@@ -2,7 +2,9 @@ package appcmd
 
 import (
 	"context"
+	"errors"
 	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -53,6 +55,11 @@ func newCmdVersions(f *cmdutil.Factory) *cobra.Command {
 			}
 			if cid == "" || pid == "" {
 				if cfgErr != nil {
+					if errors.Is(cfgErr, os.ErrNotExist) {
+						return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+							"no app config in this directory (pass --client-id and --partner, or run inside an app project)",
+							"run 'shoplazza app init' to create an app project, or cd into one (pass --path to point elsewhere)")
+					}
 					return output.ErrValidation("cannot read active config: %v", cfgErr)
 				}
 				if cid == "" {

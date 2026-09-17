@@ -104,11 +104,15 @@ func runPush(ctx context.Context, cmd *cobra.Command, f *cmdutil.Factory, extDir
 	cfgPath := filepath.Join(extDir, "extension.json")
 	raw, readErr := os.ReadFile(cfgPath)
 	if readErr != nil {
-		return output.ErrValidation("cannot read %s: %s", cfgPath, readErr.Error())
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"cannot read "+cfgPath+": "+readErr.Error(),
+			"every extension needs an extension.json; recreate it with 'shoplazza checkout create --name <name>'")
 	}
 	var cfg map[string]any
 	if jErr := json.Unmarshal(raw, &cfg); jErr != nil {
-		return output.ErrValidation("invalid extension.json: %s", jErr.Error())
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"invalid extension.json: "+jErr.Error(),
+			"check the JSON syntax of "+cfgPath)
 	}
 	existingID := asString(cfg["extensionId"])
 	isFirst := existingID == ""
