@@ -53,6 +53,16 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 			}, format, jq)
 		}
 
+		// Human-only confirmation for irreversible writes (DELETE / cancel / …);
+		// non-interactive callers (agents, pipes, CI) are gated out and proceed
+		// unchanged. --dry-run already returned above, so it never reaches here.
+		if isDestructive(c) {
+			if err := cmdutil.ConfirmDestructive(factory,
+				"Run '"+cmd.CommandPath()+"'? This is a destructive, irreversible write."); err != nil {
+				return err
+			}
+		}
+
 		ctx := context.Background()
 		resp, err := factory.Client.DoRaw(ctx, req)
 		if err != nil {
