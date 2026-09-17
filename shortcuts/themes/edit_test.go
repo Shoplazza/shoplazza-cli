@@ -300,14 +300,19 @@ func TestPreviewPageName(t *testing.T) {
 }
 
 // TestResolvePreviewPath_LocalOnly covers the paths that never touch the
-// network: static pages, article, and unknown templates (nil client proves it).
+// network: static pages and unknown templates (nil client proves it).
 func TestResolvePreviewPath_LocalOnly(t *testing.T) {
 	cases := []struct{ template, want string }{
 		{"index", ""},
 		{"cart", "cart"},
 		{"search", "search"},
 		{"404", "404"},
-		{"article", ""}, // needs a two-hop handle, unsupported → homepage
+		{"order_verify", "account/order-lookup"}, // only lookup has a fixed address
+		{"password", "password"},
+		{"customers/order", "account/order"},
+		{"customers/addresses", "account/addresses"},
+		{"customers/login", "account/login"},
+		{"customers/reset_password", "account/resetpw"},
 		{"whatever", ""},
 	}
 	for _, c := range cases {

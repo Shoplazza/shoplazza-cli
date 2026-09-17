@@ -354,11 +354,11 @@ func TestBlockEdit_SectionNameNamesTheContainer(t *testing.T) {
 			}
 			ops := bs.operations(t)
 			last := ops[len(ops)-1]
-			if last["op"] != "replace_props" || last["target"] != "111" {
-				t.Errorf("renaming an existing container is a props merge on the section: %v", ops)
+			if last["op"] != "update_slot" || last["target"] != "111" {
+				t.Errorf("the rename is an update_slot on the section: %v", ops)
 			}
-			if mapField(last, "props")["title"] != "商品推荐" {
-				t.Errorf("the name goes to settings.title: %v", last)
+			if cn := mapField(mapField(last, "props"), "cname"); cn["zh-CN"] != "商品推荐" || cn["en-US"] != "商品推荐" {
+				t.Errorf("the name goes to cname, both locales: %v", last)
 			}
 			if mapField(body, "instance")["section_name"] != "商品推荐" {
 				t.Errorf("instance: %v", body["instance"])
@@ -367,13 +367,13 @@ func TestBlockEdit_SectionNameNamesTheContainer(t *testing.T) {
 	}
 }
 
-// TestBlockEdit_RefusedSectionNameKeepsThePlacement: a container whose schema
-// has no title field refuses the rename. The block still landed, so the call
-// must succeed — with the name dropped from the echo and the reason kept in
-// applied — instead of sending the caller into placement recovery.
+// TestBlockEdit_RefusedSectionNameKeepsThePlacement: a container that refuses
+// the cname rename. The block still landed, so the call must succeed — with
+// the name dropped from the echo and the reason kept in applied — instead of
+// sending the caller into placement recovery.
 func TestBlockEdit_RefusedSectionNameKeepsThePlacement(t *testing.T) {
 	bs := newBlockServer(t)
-	bs.failResults = map[int]string{1: "invalid_field:title"}
+	bs.failResults = map[int]string{1: "invalid_field:cname"}
 	body, err := blockEditExec(t, bs, map[string]any{
 		"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index",
 		"target": "111.blocks", "section-name": "商品推荐",
@@ -389,7 +389,7 @@ func TestBlockEdit_RefusedSectionNameKeepsThePlacement(t *testing.T) {
 		t.Errorf("the placement stands: %v", inst)
 	}
 	applied, _ := body["applied"].([]map[string]any)
-	if len(applied) != 2 || applied[1]["result"] != "invalid_field:title" {
+	if len(applied) != 2 || applied[1]["result"] != "invalid_field:cname" {
 		t.Errorf("applied must carry why the rename failed: %v", applied)
 	}
 }
@@ -414,10 +414,10 @@ func TestBlockEdit_SectionNameStaysOutOfTheAddedSection(t *testing.T) {
 	if s := mapField(mapField(ops[0], "value"), "settings"); len(s) != 0 {
 		t.Errorf("the added section must stay an empty shell: %v", s)
 	}
-	if ops[2]["op"] != "replace_props" || ops[2]["target"] != sid {
+	if ops[2]["op"] != "update_slot" || ops[2]["target"] != sid {
 		t.Errorf("the rename must address the section just added: %v", ops[2])
 	}
-	if mapField(ops[2], "props")["title"] != "商品推荐" {
+	if cn := mapField(mapField(ops[2], "props"), "cname"); cn["zh-CN"] != "商品推荐" {
 		t.Errorf("props: %v", ops[2])
 	}
 	inst := mapField(body, "instance")
@@ -994,5 +994,33 @@ func TestHelp_BlockCommands(t *testing.T) {
 				t.Errorf("help must not expose %s:\n%s", c.absent, flags)
 			}
 		})
+	}
+}
+
+// TestContainerCName covers the two shapes --section-name accepts and the one
+// it must refuse.
+func TestContainerCName(t *testing.T) {
+	got, err := containerCName("品牌历程")
+	if err != nil {
+		t.Fatalf("bare name: %v", err)
+	}
+	if cn := mapField(got, "cname"); cn["zh-CN"] != "品牌历程" || cn["en-US"] != "品牌历程" {
+		t.Errorf("a bare name fills both locales: %v", got)
+	}
+
+	got, err = containerCName(`{"zh-CN":"品牌历程","en-US":"Brand story"}`)
+	if err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if cn := mapField(got, "cname"); cn["zh-CN"] != "品牌历程" || cn["en-US"] != "Brand story" {
+		t.Errorf("a JSON object sets the locales apart: %v", got)
+	}
+
+	if _, err = containerCName(`{"zh-CN":"品牌历程"`); err == nil {
+		t.Error("malformed JSON must be refused, not used as the name")
+	}
+
+	if got, err = containerCName(""); err != nil || got != nil {
+		t.Errorf("no name, no op: %v %v", got, err)
 	}
 }
