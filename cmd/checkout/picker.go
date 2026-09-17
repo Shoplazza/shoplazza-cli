@@ -23,7 +23,15 @@ func extensionOptions(ctx context.Context, _ *cobra.Command, f *cmdutil.Factory)
 	if exitErr != nil {
 		return nil, exitErr
 	}
-	arr, _ := mapField(payload(resp.Body), "extensions").([]any)
+	return extractExtensionOptions(resp.Body), nil
+}
+
+// extractExtensionOptions maps a checkout list response body ({data:{extensions:
+// [{name,extension_id,publish_status}]}}) to picker options: label = name (plus
+// publish status), value = extension_id. Rows without an id are skipped; an
+// empty name falls back to the id. Pure, so the field mapping is unit-tested.
+func extractExtensionOptions(body any) []interact.Option {
+	arr, _ := mapField(payload(body), "extensions").([]any)
 	opts := make([]interact.Option, 0, len(arr))
 	for _, it := range arr {
 		m, ok := it.(map[string]any)
@@ -43,7 +51,7 @@ func extensionOptions(ctx context.Context, _ *cobra.Command, f *cmdutil.Factory)
 		}
 		opts = append(opts, interact.Option{Label: label, Value: id})
 	}
-	return opts, nil
+	return opts
 }
 
 // versionOptions lists one extension's versions for a fuzzy picker. It reads the
@@ -63,7 +71,15 @@ func versionOptions(ctx context.Context, cmd *cobra.Command, f *cmdutil.Factory)
 	if exitErr != nil {
 		return nil, exitErr
 	}
-	arr, _ := mapField(payload(resp.Body), "extensions").([]any)
+	return extractVersionOptions(resp.Body), nil
+}
+
+// extractVersionOptions maps a checkout version-list response body (the array is
+// nested under the key literally named "extensions", each entry {version,id}) to
+// picker options: label and value are the version string (deploy/preview resolve
+// it to a server id downstream). Pure, so the field mapping is unit-tested.
+func extractVersionOptions(body any) []interact.Option {
+	arr, _ := mapField(payload(body), "extensions").([]any)
 	opts := make([]interact.Option, 0, len(arr))
 	for _, it := range arr {
 		m, ok := it.(map[string]any)
@@ -76,5 +92,5 @@ func versionOptions(ctx context.Context, cmd *cobra.Command, f *cmdutil.Factory)
 		}
 		opts = append(opts, interact.Option{Label: v, Value: v})
 	}
-	return opts, nil
+	return opts
 }
