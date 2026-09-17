@@ -52,3 +52,23 @@ func TestResolvePreviewPath_BoundCustomTemplate(t *testing.T) {
 		}
 	}
 }
+
+// TestResolvePreviewPath_ArticleTemplate: an article previews under the
+// singular /blog/<handle>, not the plural blog listing.
+func TestResolvePreviewPath_ArticleTemplate(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/openapi/2026-01/articles" {
+			t.Errorf("unexpected request %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"articles": []any{
+			map[string]any{"id": "a1", "title": "Spring drop", "handle": "spring-drop"},
+		}})
+	}))
+	defer srv.Close()
+
+	if got := resolvePreviewPath(context.Background(), client.New(srv.URL), "t1", "article", ""); got != "blog/spring-drop" {
+		t.Errorf("resolvePreviewPath(article) = %q, want blog/spring-drop", got)
+	}
+}

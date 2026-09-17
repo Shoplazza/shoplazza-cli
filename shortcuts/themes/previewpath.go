@@ -22,6 +22,25 @@ var previewStaticPaths = map[string]string{
 	"cart":   "cart",
 	"search": "search",
 	"404":    "404",
+	// order_verify renders both lookup and verification; only lookup has a
+	// fixed address (verification is /order/<id>/verify).
+	"order_verify": "account/order-lookup",
+	// Renders in preview mode even with password protection off.
+	"password": "password",
+	// Account paths come from the storefront route table, not the page-type
+	// metadata — the two disagree on spelling. Most need a logged-in customer,
+	// so the preview opens on the login page.
+	"customers/account":        "account/index",
+	"customers/order":          "account/order",
+	"customers/addresses":      "account/addresses",
+	"customers/coupon":         "account/coupon",
+	"customers/points":         "account/points",
+	"customers/point_detail":   "account/points/history",
+	"customers/track":          "account/track",
+	"customers/login":          "account/login",
+	"customers/register":       "account/register",
+	"customers/reset_password": "account/resetpw",
+	"customers/reset_success":  "account/resetrs",
 }
 
 // previewResourcePages maps resource templates to their storefront prefix and
@@ -31,6 +50,8 @@ var previewResourcePages = map[string]struct{ prefix, queryPath, sizeParam strin
 	"collection": {"collections", common.APIPrefix + "/collections", "page_size"},
 	"page":       {"pages", common.APIPrefix + "/pages", "page_size"},
 	"blog":       {"blogs", common.APIPrefix + "/blogs", "page_size"},
+	// Singular /blog/<handle>; the plural is the blog listing, another page.
+	"article": {"blog", common.APIPrefix + "/articles", "page_size"},
 }
 
 const previewPathTimeout = 5 * time.Second
@@ -157,7 +178,7 @@ func firstPathIn(resp map[string]any, prefix string) string {
 			root = d
 		}
 	}
-	for _, key := range []string{"products", "collections", "pages", "blogs", "list", "items"} {
+	for _, key := range []string{"products", "collections", "pages", "blogs", "articles", "list", "items"} {
 		if p := headPath(root[key], prefix); p != "" {
 			return p
 		}

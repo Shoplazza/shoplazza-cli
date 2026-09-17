@@ -25,13 +25,33 @@ const (
 
 // standardPageTitles maps standard template names to their display titles for
 // `+page --list` (custom templates carry their own title from the API).
+// Titles follow the page menu in the theme editor.
 var standardPageTitles = map[string]string{
 	"index":      "首页",
 	"product":    "商品详情",
-	"collection": "商品分类",
+	"collection": "专辑详情",
 	"cart":       "购物车",
-	"page":       "自定义页面",
+	"page":       "自定义页",
 	"search":     "搜索",
+	"blog":       "博客专辑",
+	"article":    "博客详情",
+	"404":        "404",
+	"password":   "密码",
+	// Two menu entries share this template.
+	"order_verify":             "订单查询 / 订单校验",
+	"order":                    "订单详情",
+	"customers/order":          "我的订单",
+	"customers/addresses":      "地址簿",
+	"customers/login":          "登录",
+	"customers/register":       "注册",
+	"customers/reset_password": "重置密码",
+	"customers/coupon":         "我的优惠券",
+	// Not in the editor menu; titles from the platform page-type table.
+	"customers/account":       "个人中心",
+	"customers/points":        "我的积分页",
+	"customers/point_detail":  "我的积分明细页",
+	"customers/track":         "个人中心物流页",
+	"customers/reset_success": "重置密码成功",
 }
 
 var pageShortcut = common.Shortcut{
