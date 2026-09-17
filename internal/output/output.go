@@ -63,9 +63,9 @@ func PrintAPISuccess(w io.Writer, body any, format, jq string) error {
 	if jq != "" && format != FormatJSON {
 		return ErrValidation("--jq requires --format json")
 	}
-	// pretty/table/ndjson render the raw body without the {ok,data} envelope:
-	// they are human- or stream-oriented, not the machine envelope contract.
-	if format == FormatPretty || format == FormatTable || format == FormatNDJSON {
+	// pretty/table/ndjson/csv render the raw body without the {ok,data} envelope:
+	// they are human-, stream-, or export-oriented, not the machine envelope.
+	if format == FormatPretty || format == FormatTable || format == FormatNDJSON || format == FormatCSV {
 		return PrintBody(w, body, format, "")
 	}
 	if body == nil {

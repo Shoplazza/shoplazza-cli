@@ -7,6 +7,6 @@ import "github.com/spf13/pflag"
 // --dry-run and --jq live on the trees that honor them, not here, so they
 // don't surface as inert global flags under commands that ignore them.
 func RegisterGlobalFlags(flags *pflag.FlagSet) {
-	flags.String("format", "json", `Output format: json (default), pretty, table, ndjson`)
+	flags.String("format", "json", `Output format: json (default), pretty, table, ndjson, csv`)
 	flags.String("profile", "", "Profile to use for this invocation")
 }

@@ -1,6 +1,7 @@
 package output
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,10 +16,11 @@ const (
 	FormatPretty = "pretty"
 	FormatTable  = "table"
 	FormatNDJSON = "ndjson"
+	FormatCSV    = "csv"
 )
 
 // PrintFormatted writes v to w using the specified format.
-// Supported formats: FormatJSON (default), FormatPretty, FormatTable, FormatNDJSON.
+// Supported formats: FormatJSON (default), FormatPretty, FormatTable, FormatNDJSON, FormatCSV.
 func PrintFormatted(w io.Writer, v any, format string) error {
 	switch format {
 	case FormatPretty:
@@ -27,6 +29,8 @@ func PrintFormatted(w io.Writer, v any, format string) error {
 		return printTable(w, v)
 	case FormatNDJSON:
 		return printNDJSON(w, v)
+	case FormatCSV:
+		return printCSV(w, v)
 	default:
 		return PrintJSON(w, v)
 	}
@@ -66,6 +70,81 @@ func writeNDJSONLine(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	return enc.Encode(v)
+}
+
+// printCSV renders v as CSV (header row + one row per record) for spreadsheet
+// export. A list-shaped payload (an []any, or a map whose sole list value is the
+// records, e.g. {"products":[...]}) streams one record per row; any other map is
+// treated as a single record; a scalar prints as-is. Columns follow the same
+// per-domain allow-list as --format table, so exports stay to the useful fields.
+func printCSV(w io.Writer, v any) error {
+	switch typed := v.(type) {
+	case []any:
+		return writeCSV(w, "", typed)
+	case map[string]any:
+		if list, key := extractListKey(typed); list != nil {
+			return writeCSV(w, key, list)
+		}
+		return writeCSV(w, "", []any{typed})
+	default:
+		_, err := fmt.Fprintln(w, formatScalar(v, 0))
+		return err
+	}
+}
+
+func writeCSV(w io.Writer, listKey string, items []any) error {
+	cw := csv.NewWriter(w)
+	if len(items) == 0 {
+		cw.Flush()
+		return cw.Error()
+	}
+	headers := selectColumns(listKey, items)
+	if len(headers) == 0 {
+		headers = listColumnHeaders(items)
+	}
+	// Items that aren't maps (e.g. a list of strings): one value per row, no header.
+	if len(headers) == 0 {
+		for _, it := range items {
+			if err := cw.Write([]string{formatScalar(it, 0)}); err != nil {
+				return err
+			}
+		}
+		cw.Flush()
+		return cw.Error()
+	}
+	if err := cw.Write(headers); err != nil {
+		return err
+	}
+	for _, it := range items {
+		m, ok := it.(map[string]any)
+		if !ok {
+			if err := cw.Write([]string{formatScalar(it, 0)}); err != nil {
+				return err
+			}
+			continue
+		}
+		row := make([]string, len(headers))
+		for i, h := range headers {
+			row[i] = csvCell(m[h])
+		}
+		if err := cw.Write(row); err != nil {
+			return err
+		}
+	}
+	cw.Flush()
+	return cw.Error()
+}
+
+// csvCell renders one CSV cell. Nested objects/arrays are kept as compact JSON
+// (not truncated) so an export loses no data; encoding/csv handles quoting.
+func csvCell(v any) string {
+	switch v.(type) {
+	case map[string]any, []any:
+		b, _ := json.Marshal(v)
+		return string(b)
+	default:
+		return formatScalar(v, 0)
+	}
 }
 
 func printPretty(w io.Writer, v any) error {
