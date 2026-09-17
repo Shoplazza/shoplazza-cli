@@ -48,7 +48,7 @@ func NewDefaultFactory() *Factory {
 		authBaseURL = build.DefaultAuthBaseURL
 	}
 
-	return &Factory{
+	f := &Factory{
 		IOStreams: IOStreams{
 			In:     os.Stdin,
 			Out:    os.Stdout,
@@ -59,4 +59,9 @@ func NewDefaultFactory() *Factory {
 		Client:     client.New(""),
 		AuthClient: client.New(authBaseURL),
 	}
+	// In an authsidecar build this installs the credential-isolation interceptor
+	// when the proxy env is set; in a standard build it fails closed if the proxy
+	// env is set (so a misbuilt binary can't leak real credentials).
+	applySidecar(f)
+	return f
 }
