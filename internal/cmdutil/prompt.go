@@ -86,20 +86,32 @@ func resolveFlagsWith(cmd *cobra.Command, fields []PromptField, interactive bool
 // back to text if the lookup is empty or errors), a Select over its enum, else
 // a non-empty text Input.
 func resolveField(ctx context.Context, cmd *cobra.Command, f *Factory, fld PromptField) (string, error) {
+	return resolveFieldWith(ctx, cmd, f, fld, interact.SelectFiltered, interact.Select, interact.Input)
+}
+
+// resolveFieldWith is resolveField with the three leaf prompters injected, so
+// the dispatch (picker → enum Select → text Input) and the picker fall-through
+// are testable without a real terminal.
+func resolveFieldWith(
+	ctx context.Context, cmd *cobra.Command, f *Factory, fld PromptField,
+	selectFiltered func(title string, options []interact.Option) (string, error),
+	selectEnum func(title string, options []string) (string, error),
+	input func(title string, validate func(string) error) (string, error),
+) (string, error) {
 	title := fld.Title
 	if title == "" {
 		title = "--" + fld.Flag
 	}
 	if fld.Picker != nil {
 		if opts, err := fld.Picker(ctx, cmd, f); err == nil && len(opts) > 0 {
-			return interact.SelectFiltered(title, opts)
+			return selectFiltered(title, opts)
 		}
 		// empty page or lookup failure → fall through to manual entry
 	}
 	if len(fld.Choices) > 0 {
-		return interact.Select(title, fld.Choices)
+		return selectEnum(title, fld.Choices)
 	}
-	return interact.Input(title, func(s string) error {
+	return input(title, func(s string) error {
 		if strings.TrimSpace(s) == "" {
 			return fmt.Errorf("--%s is required", fld.Flag)
 		}

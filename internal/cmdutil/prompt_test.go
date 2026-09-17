@@ -1,12 +1,14 @@
 package cmdutil
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
@@ -104,5 +106,69 @@ func TestResolveFlags_Interactive_CancelPropagates(t *testing.T) {
 	fields := []PromptField{{Flag: "name"}}
 	if err := resolveFlagsWith(c, fields, true, resolve); err == nil {
 		t.Error("a canceled prompt must propagate, not silently proceed")
+	}
+}
+
+// resolveFieldWith dispatch: picker → enum Select → text Input, with the picker
+// falling through when it yields nothing.
+
+type fieldLeaves struct{ filtered, enum, input string }
+
+func leaves(t *testing.T, tr *fieldLeaves) (
+	func(string, []interact.Option) (string, error),
+	func(string, []string) (string, error),
+	func(string, func(string) error) (string, error),
+) {
+	t.Helper()
+	return func(_ string, o []interact.Option) (string, error) { tr.filtered = "hit"; return o[0].Value, nil },
+		func(_ string, o []string) (string, error) { tr.enum = "hit"; return o[0], nil },
+		func(string, func(string) error) (string, error) { tr.input = "hit"; return "typed", nil }
+}
+
+func picker(opts []interact.Option, err error) func(context.Context, *cobra.Command, *Factory) ([]interact.Option, error) {
+	return func(context.Context, *cobra.Command, *Factory) ([]interact.Option, error) { return opts, err }
+}
+
+func TestResolveField_PickerWithOptions_UsesFilteredSelect(t *testing.T) {
+	var tr fieldLeaves
+	sf, se, in := leaves(t, &tr)
+	fld := PromptField{Flag: "id", Picker: picker([]interact.Option{{Label: "A", Value: "a"}}, nil), Choices: []string{"x"}}
+	got, err := resolveFieldWith(context.Background(), promptCmd("id"), nil, fld, sf, se, in)
+	if err != nil || got != "a" {
+		t.Fatalf("got (%q,%v), want (a,nil)", got, err)
+	}
+	if tr.filtered != "hit" || tr.enum != "" || tr.input != "" {
+		t.Errorf("picker with options must use the fuzzy select only, leaves=%+v", tr)
+	}
+}
+
+func TestResolveField_PickerEmpty_FallsToEnum(t *testing.T) {
+	var tr fieldLeaves
+	sf, se, in := leaves(t, &tr)
+	fld := PromptField{Flag: "type", Picker: picker(nil, nil), Choices: []string{"theme", "checkout"}}
+	got, _ := resolveFieldWith(context.Background(), promptCmd("type"), nil, fld, sf, se, in)
+	if got != "theme" || tr.filtered != "" || tr.enum != "hit" {
+		t.Errorf("empty picker must fall through to the enum select, got %q leaves=%+v", got, tr)
+	}
+}
+
+func TestResolveField_PickerError_FallsThrough(t *testing.T) {
+	var tr fieldLeaves
+	sf, se, in := leaves(t, &tr)
+	fld := PromptField{Flag: "name", Picker: picker(nil, errors.New("lookup down"))}
+	if _, err := resolveFieldWith(context.Background(), promptCmd("name"), nil, fld, sf, se, in); err != nil {
+		t.Fatal(err)
+	}
+	if tr.input != "hit" || tr.filtered != "" {
+		t.Errorf("a failed lookup must degrade to text input, leaves=%+v", tr)
+	}
+}
+
+func TestResolveField_NoPickerNoChoices_UsesInput(t *testing.T) {
+	var tr fieldLeaves
+	sf, se, in := leaves(t, &tr)
+	got, _ := resolveFieldWith(context.Background(), promptCmd("name"), nil, PromptField{Flag: "name"}, sf, se, in)
+	if got != "typed" || tr.input != "hit" || tr.enum != "" {
+		t.Errorf("a plain field must use text input, got %q leaves=%+v", got, tr)
 	}
 }
