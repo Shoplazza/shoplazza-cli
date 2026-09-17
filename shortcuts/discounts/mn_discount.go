@@ -13,6 +13,12 @@ var mnDiscountShortcut = common.Shortcut{
 		`[--products <ids> | --collections <ids> | --variants <ids>] [--exclude] ` +
 		`[--price-sort desc|asc] [--combines order,product,shipping] [--customer-segments <ids>]`,
 	Short: `Create a quantity-tiered "buy N, Nth-item percent off" discount (e.g. buy 3, 3rd item 50% off)`,
+	Long:  "Create an automatic quantity-tiered Nth-item-off discount from tier pairs; run --dry-run first to preview the request.",
+	Example: `  # Preview: buy 2 → 2nd item 30% off, buy 3 → 3rd item 50% off
+  shoplazza discounts +mn-discount --tiers 2:30,3:50 --dry-run
+
+  # Apply only to specific products
+  shoplazza discounts +mn-discount --tiers 3:50 --products p-1,p-2`,
 	Flags: []common.Flag{
 		{Name: "tiers", Type: common.FlagString, Required: true, Description: `Comma-separated "<nth>:<percent>" pairs, e.g. "2:30,3:50" (buy 2 items → 2nd is 30% off; buy 3 → 3rd is 50% off). Required.`},
 		{Name: "scope", Type: common.FlagString, Default: "highest",

@@ -168,6 +168,11 @@ func newCmdInit(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Create or link an app project (creates a sub-dir named after the app)",
+		Example: `  # Create a new app
+  shoplazza app init --name "My App"
+
+  # Link an existing app by client_id
+  shoplazza app init --client-id abc123`,
 		Long: `Scaffold an app project into a new sub-directory of the current directory.
 
 Two mutually-exclusive modes:

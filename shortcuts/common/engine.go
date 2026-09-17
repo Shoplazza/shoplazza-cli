@@ -33,10 +33,11 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 		args = noPositionalArgs
 	}
 	cmd := &cobra.Command{
-		Use:   s.Use,
-		Short: s.Short,
-		Long:  s.Long,
-		Args:  args,
+		Use:     s.Use,
+		Short:   s.Short,
+		Long:    s.Long,
+		Example: s.Example,
+		Args:    args,
 	}
 	annotations := map[string]string{}
 	if s.AuthFree {

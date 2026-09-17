@@ -7,6 +7,12 @@ var unpublishShortcutValue = common.Shortcut{
 	Command: "+unpublish",
 	Use:     "+unpublish --id <product-id>",
 	Short:   "Quickly unpublish a product",
+	Long:    "Hide a product from the storefront; run --dry-run first to preview the request.",
+	Example: `  # Preview unpublishing a product
+  shoplazza products +unpublish --id 12345 --dry-run
+
+  # Unpublish it
+  shoplazza products +unpublish --id 12345`,
 	Flags: []common.Flag{
 		common.IDFlag("Product ID (required)."),
 	},

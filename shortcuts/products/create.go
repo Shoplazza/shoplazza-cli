@@ -15,6 +15,12 @@ var createShortcut = common.Shortcut{
 	Command: "+create",
 	Use:     "+create --title <name> --price <n> --image <url>",
 	Short:   "Quickly create a single-variant product",
+	Long:    "Create a single-variant product with a title, price, and image; run --dry-run first to preview the request.",
+	Example: `  # Preview a draft product
+  shoplazza products +create --title 'Cotton Tee' --price 29.99 --image https://cdn.example.com/tee.jpg --dry-run
+
+  # Create and publish with stock and tags
+  shoplazza products +create --title 'Cotton Tee' --price 29.99 --image https://cdn.example.com/tee.jpg --stock 100 --tags summer,cotton --published`,
 	Flags: []common.Flag{
 		{Name: "title", Type: common.FlagString, Required: true, Description: "Product title (required)."},
 		{Name: "price", Type: common.FlagString, Required: true, Description: "Selling price (required, e.g., '29.99')."},

@@ -16,6 +16,7 @@ type Shortcut struct {
 	Use     string
 	Short   string
 	Long    string // optional extended help (`cmd --help` body); falls back to Short when empty
+	Example string // optional worked invocations shown under "Examples:" in --help
 	Args    cobra.PositionalArgs
 	Flags   []Flag
 	Plan    func(in PlanInput) (PlannedRequest, error)

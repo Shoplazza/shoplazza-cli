@@ -16,6 +16,9 @@ func newCmdExtensionCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new extension in an existing project (local, no network)",
+		Long:  "Scaffold a new checkout extension under ./extensions in the current project; run inside a project created by 'checkout init'.",
+		Example: `  # Add a new extension to the current project
+  shoplazza checkout-extension create --name my-banner`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if name == "" {
 				return output.ErrValidation("--name <extension> is required")

@@ -18,8 +18,14 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 		debug bool
 	)
 	cmd := &cobra.Command{
-		Use:     "deploy",
-		Short:   "Build and deploy extensions",
+		Use:   "deploy",
+		Short: "Build and deploy extensions",
+		Long:  "Build the project's extensions and deploy them to the app on your current store.",
+		Example: `  # Build and deploy from the project root
+  shoplazza app deploy
+
+  # Deploy a project at a path, building extensions in debug mode
+  shoplazza app deploy --path ./my-app --debug`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {

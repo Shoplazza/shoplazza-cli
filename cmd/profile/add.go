@@ -25,7 +25,13 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a new profile (mints and persists its store access token)",
-		Args:  cobra.NoArgs,
+		Long:  "Add a named profile bound to a store, minting and caching its store token; requires an account login first.",
+		Example: `  # Add a profile for a store
+  shoplazza profile add --name prod --store-domain my-store.myshoplazza.com
+
+  # Add a scoped profile and switch to it
+  shoplazza profile add --name staging --store-domain staging.myshoplazza.com --scope read_product --use`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 

@@ -16,6 +16,12 @@ var bxgyCodeShortcut = common.Shortcut{
 		"[--limit-max N] [--limit-user N] " +
 		"(--get-percent <1-99> | --get-off <amount> | --get-free) [--limit-order N] [--code <CODE>] [--combines order,product,shipping] [--customer-segments <ids>]",
 	Short: "Create a buy-X-get-Y discount code",
+	Long:  "Create a buy-X-get-Y discount code: buy qualifying items, then get others at a percent/amount off or free; run --dry-run first to preview.",
+	Example: `  # Preview: buy 2 of p-1, get 1 of p-2 free
+  shoplazza discounts +bxgy-code --products p-1 --buy-quantity 2 --get-products p-2 --get-quantity 1 --get-free --dry-run
+
+  # Buy 3, get 1 at 50% off
+  shoplazza discounts +bxgy-code --products p-1 --buy-quantity 3 --get-products p-2 --get-quantity 1 --get-percent 50`,
 	Flags: []common.Flag{
 		// Buy-side scope — mutex; exactly one required.
 		{Name: "products", Type: common.FlagString, Description: "Buy-side product IDs comma-separated (mutex with --variants / --collections)."},

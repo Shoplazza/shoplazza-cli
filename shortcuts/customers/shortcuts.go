@@ -6,6 +6,7 @@ import "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 func Shortcuts() []common.Shortcut {
 	return []common.Shortcut{
 		searchShortcut,
+		countShortcut,
 		createShortcut,
 	}
 }

@@ -14,6 +14,12 @@ var refundShortcut = common.Shortcut{
 	Command: "+refund",
 	Use:     "+refund --order-id <id> --amount <n> [--payment-line-id <id>]",
 	Short:   "Refund an order",
+	Long:    "Refund an amount against an order's payment line; run --dry-run first to preview the request.",
+	Example: `  # Preview a partial refund
+  shoplazza orders +refund --order-id 12345 --amount 29.99 --dry-run
+
+  # Refund and return inventory with a note
+  shoplazza orders +refund --order-id 12345 --amount 29.99 --return-items --note 'damaged in transit'`,
 	Flags: []common.Flag{
 		{Name: "order-id", Type: common.FlagString, Required: true, Description: "Order ID."},
 		{Name: "amount", Type: common.FlagString, Required: true, Description: "Refund amount (e.g., '29.99')."},

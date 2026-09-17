@@ -78,6 +78,11 @@ var pushShortcut = common.Shortcut{
 	Command: "push",
 	Use:     "push --theme-id <id> [--task-id <id>]",
 	Short:   "Package cwd, upload to remote theme, and poll the upload task",
+	Example: `  # Preview the upload plan without sending
+  shoplazza themes push --theme-id 123456 --dry-run
+
+  # Package the current directory and upload it to a theme
+  shoplazza themes push --theme-id 123456`,
 	Flags: []common.Flag{
 		{
 			Name:        "theme-id",

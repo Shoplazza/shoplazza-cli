@@ -27,6 +27,8 @@ var initShortcut = common.Shortcut{
 	Command: "init",
 	Use:     "init --name <dir>",
 	Short:   "Initialize a new theme by cloning the Nova-2023 template",
+	Example: `  # Scaffold a new theme directory from the template
+  shoplazza themes init --name my-theme`,
 	// Purely local (GitHub fetch + extraction): runs without login and reports
 	// a local artifact rather than an API response (no {ok,data} envelope).
 	// Writes the local filesystem, so blind scans skip it.

@@ -33,6 +33,11 @@ var pullShortcut = common.Shortcut{
 	Command: "pull",
 	Use:     "pull --theme-id <id>",
 	Short:   "Download and unpack a remote theme into the current directory",
+	Example: `  # Preview the download plan without writing files
+  shoplazza themes pull --theme-id 123456 --dry-run
+
+  # Download a theme and unpack it into the current directory
+  shoplazza themes pull --theme-id 123456`,
 	Flags: []common.Flag{
 		{
 			Name:        "theme-id",

@@ -46,6 +46,12 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dev",
 		Short: "Run the checkout extension dev server (rebuild + HMR on :8888)",
+		Long:  "Run the local checkout extension dev server with rebuild and hot reload; select extensions by name or develop them all with --all.",
+		Example: `  # Develop specific extensions
+  shoplazza checkout-extension dev --extension-name my-banner
+
+  # Develop every extension under ./extensions
+  shoplazza checkout-extension dev --all`,
 		// Long-running local dev server.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {

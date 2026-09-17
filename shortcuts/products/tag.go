@@ -18,6 +18,12 @@ var tagShortcut = common.Shortcut{
 	Command: "+tag",
 	Use:     "+tag --id <product-id> (--add a,b | --remove c,d | --set x,y,z)",
 	Short:   "Add or remove product tags without clobbering the existing ones",
+	Long:    "Add, remove, or replace a product's tags while preserving the rest; run --dry-run first to preview the request.",
+	Example: `  # Preview adding tags (existing tags kept)
+  shoplazza products +tag --id 12345 --add summer,sale --dry-run
+
+  # Replace all tags with exactly this list
+  shoplazza products +tag --id 12345 --set clearance`,
 	Flags: []common.Flag{
 		common.IDFlag("Product ID (required)."),
 		{Name: "add", Type: common.FlagStringSlice, Description: "Tags to add (comma-separated); existing tags are kept."},

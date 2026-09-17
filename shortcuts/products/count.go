@@ -10,6 +10,12 @@ var countShortcut = common.Shortcut{
 	Command: "+count",
 	Use:     "+count",
 	Short:   "Quickly count products",
+	Long:    "Return the total number of products, optionally filtered by published status.",
+	Example: `  # Total products in the catalog
+  shoplazza products +count
+
+  # How many are published
+  shoplazza products +count --published published`,
 	Flags: []common.Flag{
 		{Name: "published", Type: common.FlagString, Description: "Filter by published status: published, unpublished, any (true/false also accepted).", Completions: []string{"published", "unpublished", "any"}},
 	},

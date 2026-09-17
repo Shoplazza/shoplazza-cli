@@ -64,6 +64,11 @@ var serveShortcut = common.Shortcut{
 	Command: "serve",
 	Use:     "serve [--theme-id <id>] [--task-id <id>] [--skip-push]",
 	Short:   "Upload to a development theme (or --theme-id), watch the current theme, and live-reload browsers",
+	Example: `  # Serve against a per-directory development theme
+  shoplazza themes serve
+
+  # Serve and overwrite a specific theme, on a custom livereload port
+  shoplazza themes serve --theme-id 123456 --port 35729`,
 	Long: `Start a local theme development loop: upload the current directory's theme
 files to a remote theme, then watch the directory and push every change,
 live-reloading connected browsers.

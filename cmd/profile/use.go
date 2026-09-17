@@ -18,7 +18,13 @@ func newCmdUse(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "use",
 		Short: "Switch the current profile",
-		Args:  cobra.NoArgs,
+		Long:  "Switch the current profile to a named one, or back to the previously-current profile with --previous.",
+		Example: `  # Switch to a named profile
+  shoplazza profile use --name prod
+
+  # Switch back to the previous profile
+  shoplazza profile use --previous`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if name == "" && !previous {
 				return output.ErrValidation("--name or --previous is required")

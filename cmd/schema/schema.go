@@ -58,16 +58,23 @@ Examples:
 			if !ok {
 				return output.ErrValidation("unknown schema: %s", path)
 			}
+			format := cmdutil.GetFormat(cmd)
+			// --jq filters the schema JSON like every other command (it enforces
+			// --format json itself); e.g. `schema orders.get --jq '.parameters'`.
+			if jq := cmdutil.GetJQ(cmd); jq != "" {
+				return output.PrintBody(w, payload, format, jq)
+			}
 			// JSON keeps the curated key ordering via orderedFields; pretty/table sort keys themselves, so pass the raw map.
-			switch cmdutil.GetFormat(cmd) {
+			switch format {
 			case "pretty", "table":
-				return output.PrintFormatted(w, payload, cmdutil.GetFormat(cmd))
+				return output.PrintFormatted(w, payload, format)
 			default:
 				return output.PrintJSON(w, reorderSchemaPayload(payload))
 			}
 		},
 	}
 	cmd.Flags().StringVar(&view, "view", registry.ViewAll, "Schema view selector (all|request|response). Filters parameters/body/response on leaf commands; ignored on module list and overview.")
+	cmd.Flags().StringP("jq", "q", "", "jq expression to filter JSON output (e.g. '.parameters')")
 	return cmd
 }
 

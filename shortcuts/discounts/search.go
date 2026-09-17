@@ -12,6 +12,12 @@ var searchShortcut = common.Shortcut{
 	Command: "+search",
 	Use:     "+search",
 	Short:   "Search discounts by keyword or code",
+	Long:    "Search discounts by name, code, type, target, or progress. Returns one page — set --page-limit and follow has_more/cursor for the rest.",
+	Example: `  # Find a discount by code
+  shoplazza discounts +search --discount-code SAVE20
+
+  # Ongoing percent-off code discounts, 50 per page
+  shoplazza discounts +search --progress ongoing --discount-type code_percent --page-limit 50`,
 	Flags: []common.Flag{
 		{Name: "query", Type: common.FlagString, Description: "Filter by discount name (fuzzy)."},
 		{Name: "discount-code", Type: common.FlagString, Description: "Filter by discount code."},

@@ -34,7 +34,13 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "use",
 		Short: "Request a store token and set its profile as current",
-		Args:  cobra.NoArgs,
+		Long:  "Mint a store token for --store-domain, create or reuse that store's profile, and make it the current context.",
+		Example: `  # Switch to a store (finds or creates its profile)
+  shoplazza auth store use --store-domain my-store.myshoplazza.com
+
+  # Switch and narrow the profile's scopes
+  shoplazza auth store use --store-domain my-store.myshoplazza.com --scope read_product,read_order`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if storeDomain == "" {
 				return output.ErrValidation("--store-domain is required")

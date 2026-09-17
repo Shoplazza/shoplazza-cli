@@ -26,6 +26,11 @@ func newCmdPush(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "push",
 		Short: "Build and upload a new extension version (does NOT activate it)",
+		Example: `  # Build and upload a new version of an extension
+  shoplazza checkout-extension push --name my-banner
+
+  # Push a specific version number
+  shoplazza checkout-extension push --name my-banner --version 1.2.0`,
 		Long: `Build the extension locally, upload the artifact, and create or commit
 a new version on the server. The version is NOT activated — use
 'shoplazza checkout deploy' to activate it afterward.`,

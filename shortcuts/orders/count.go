@@ -10,6 +10,12 @@ var countShortcut = common.Shortcut{
 	Command: "+count",
 	Use:     "+count",
 	Short:   "Quickly count orders",
+	Long:    "Return the total number of orders matching the filters, without fetching the rows.",
+	Example: `  # How many paid orders since a date
+  shoplazza orders +count --financial-status paid --since 2026-09-01
+
+  # Count unfulfilled orders for one customer
+  shoplazza orders +count --email a@b.com --fulfillment-status waiting`,
 	Flags: []common.Flag{
 		{Name: "keyword", Type: common.FlagString, Description: "Fuzzy match on order number, customer name or email. Prefer --email for a known address."},
 		{Name: "email", Type: common.FlagString, Description: "Filter by customer email (exact match)."},

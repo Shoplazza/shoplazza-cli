@@ -30,7 +30,9 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 
 		resolvedPath, remainingQuery, err := rawapi.ResolveTemplatedPath(c.HTTP.Path, params)
 		if err != nil {
-			return output.ErrValidation("%v", err)
+			schemaPath := strings.Join(strings.Fields(cmd.CommandPath())[1:], ".")
+			return output.ErrValidation("%v", err).
+				WithHint("run 'shoplazza schema " + schemaPath + "' to see required parameters")
 		}
 
 		req := client.RawRequest{

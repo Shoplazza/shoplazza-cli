@@ -46,7 +46,13 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Log in to your Shoplazza account",
-		Args:  cobra.NoArgs,
+		Long:  "Log in to your Shoplazza account via the browser OAuth flow; optionally select a store with --store-domain and request scopes with --scope or --domain.",
+		Example: `  # Account-only login (no store, no scopes)
+  shoplazza auth login
+
+  # Log in and select a store, granting the scopes two domains need
+  shoplazza auth login --store-domain my-store.myshoplazza.com --domain products,orders`,
+		Args: cobra.NoArgs,
 		// Interactive: waits on the browser OAuth callback.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -242,7 +248,7 @@ func expandLoginDomains(domains []string) ([]string, error) {
 func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout",
-		Short: "Log out from the current store",
+		Short: "Log out and clear all profiles and stored credentials",
 		// Mutates the local keychain.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -264,8 +270,14 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:         "status",
-		Short:       "Show current authentication status",
+		Use:   "status",
+		Short: "Show current authentication status",
+		Long:  "Show whether you are logged in, the active account and store, granted scopes, and every configured profile.",
+		Example: `  # Show authentication status
+  shoplazza auth status
+
+  # Extract just the account with --jq
+  shoplazza auth status --jq '.account'`,
 		Annotations: map[string]string{cmdutil.AnnotationAuthFree: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
