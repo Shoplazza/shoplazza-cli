@@ -116,6 +116,18 @@ func phraseFlagValue(c *cobra.Command, s Shortcut) string {
 // what they are answering. fetch/choose are injected so both the picker path
 // and the fallback are testable without a live server or a real terminal.
 func promptFlag(ctx context.Context, f Flag, fetch fetchFunc, choose selectFunc) (string, error) {
+	return promptFlagWith(ctx, f, fetch, choose, interact.Select, interact.Input)
+}
+
+// promptFlagWith is promptFlag with the enum-Select and text-Input leaves
+// injected too (the picker's choose is already injected), so the full dispatch —
+// picker → Completions Select → text Input, and the picker's empty/error
+// fall-through — is testable without a real terminal.
+func promptFlagWith(
+	ctx context.Context, f Flag, fetch fetchFunc, choose selectFunc,
+	selectEnum func(title string, options []string) (string, error),
+	input func(title string, validate func(string) error) (string, error),
+) (string, error) {
 	title := "--" + f.Name
 	if f.Description != "" {
 		title += " — " + f.Description
@@ -131,9 +143,9 @@ func promptFlag(ctx context.Context, f Flag, fetch fetchFunc, choose selectFunc)
 		// empty page or lookup failed → fall through to manual entry
 	}
 	if len(f.Completions) > 0 {
-		return interact.Select(title, f.Completions)
+		return selectEnum(title, f.Completions)
 	}
-	return interact.Input(title, func(s string) error {
+	return input(title, func(s string) error {
 		if strings.TrimSpace(s) == "" {
 			return fmt.Errorf("--%s is required", f.Name)
 		}

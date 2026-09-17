@@ -63,8 +63,12 @@ echo "── I4 --dry-run → 预览（确认/网络前返回） ──"
 check "dynamic dry-run: webhook delete"      "dry_run"                  -- webhook delete --params '{"id":"1"}' --dry-run
 check "cmd dry-run: checkout deploy"         "dry_run"                  -- checkout-extension deploy --extension-id E1 --version 1.0 --dry-run
 
+echo "── I4 --dry-run：verb 分支破坏性动态命令（cancel，非 DELETE） ──"
+check "dynamic dry-run: orders cancel"       "dry_run"                  -- orders cancel --params '{"order_id":"1"}' --dry-run
+
 echo "── I1 破坏性非交互 → 不弹确认、直接放行（快速失败于鉴权/参数，不挂起） ──"
-check "dynamic destructive: webhook delete"  "error"                    -- webhook delete --params '{"id":"1"}'
+check "dynamic DELETE: webhook delete"       "error"                    -- webhook delete --params '{"id":"1"}'
+check "dynamic verb: orders cancel"          "error"                    -- orders cancel --params '{"order_id":"1"}'
 check "shortcut destructive: +unpublish"     "error"                    -- products +unpublish --id 1
 check "cmd destructive: profile remove"      "error"                    -- profile remove --name __selftest_nonexistent__
 # 排除 auth logout：非交互下它会真的清空本机凭据/配置（有副作用），故不入自动脚本；

@@ -53,6 +53,7 @@ func TestInteraction_NonInteractiveContract(t *testing.T) {
 		{"cmd fill: checkout init", "--name", []string{"checkout-extension", "init"}},
 		{"cmd fill: checkout extension add", "--name", []string{"checkout-extension", "create"}},
 		{"dynamic dry-run: webhook delete", "dry_run", []string{"webhook", "delete", "--params", `{"id":"1"}`, "--dry-run"}},
+		{"dynamic dry-run: orders cancel", "dry_run", []string{"orders", "cancel", "--params", `{"order_id":"1"}`, "--dry-run"}},
 		{"cmd dry-run: checkout deploy", "dry_run", []string{"checkout-extension", "deploy", "--extension-id", "E1", "--version", "1.0", "--dry-run"}},
 		{"json fill: products +create", "validation", []string{"products", "+create", "--format", "json"}},
 	}
@@ -91,7 +92,8 @@ func TestInteraction_NonInteractiveContract(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"dynamic: webhook delete", []string{"webhook", "delete", "--params", `{"id":"1"}`}},
+		{"dynamic DELETE: webhook delete", []string{"webhook", "delete", "--params", `{"id":"1"}`}},
+		{"dynamic verb: orders cancel", []string{"orders", "cancel", "--params", `{"order_id":"1"}`}},
 		{"shortcut: products +unpublish", []string{"products", "+unpublish", "--id", "1"}},
 		{"cmd: profile remove", []string{"profile", "remove", "--name", "__selftest_absent__"}},
 	}
