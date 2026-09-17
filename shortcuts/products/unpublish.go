@@ -17,7 +17,7 @@ var unpublishShortcutValue = common.Shortcut{
   # Unpublish it
   shoplazza products +unpublish --id 12345`,
 	Flags: []common.Flag{
-		common.IDFlag("Product ID (required)."),
+		common.IDFlag("Product ID (required).").WithPicker(productPicker),
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
 		body := map[string]any{"product": map[string]any{"published": false}}

@@ -35,6 +35,30 @@ func Select(title string, options []string) (string, error) {
 	return v, err
 }
 
+// Option pairs a human-readable label with the value returned when it is
+// chosen. The label is what the user sees and fuzzy-filters against; the value
+// is written back (e.g. a resource id).
+type Option struct {
+	Label string
+	Value string
+}
+
+// SelectFiltered prompts the user to choose one option from a filterable list:
+// typing narrows the choices (fuzzy match on the label). It returns the chosen
+// option's Value. Use it for resource pickers where the label is descriptive
+// (e.g. "#1001 · $29.99 · paid") but the flag needs the id behind it. Canceling
+// surfaces output.ErrCanceled via Run.
+func SelectFiltered(title string, options []Option) (string, error) {
+	var v string
+	opts := make([]huh.Option[string], len(options))
+	for i, o := range options {
+		opts[i] = huh.NewOption(o.Label, o.Value)
+	}
+	field := huh.NewSelect[string]().Title(title).Options(opts...).Filtering(true).Value(&v)
+	err := Run(func() *huh.Form { return NewForm(huh.NewGroup(field)) })
+	return v, err
+}
+
 // Confirm asks a yes/no question on the terminal, defaulting to No. It returns
 // false when the user declines. Canceling (esc/ctrl+c) surfaces
 // output.ErrCanceled via Run. Use for ordinary destructive confirmations.

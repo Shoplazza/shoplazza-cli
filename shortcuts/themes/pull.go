@@ -45,6 +45,7 @@ var pullShortcut = common.Shortcut{
 			Type:        common.FlagString,
 			Required:    true,
 			Description: "Theme ID (required). Run `shoplazza themes list` to discover.",
+			Picker:      themePicker,
 		},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {

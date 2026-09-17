@@ -14,7 +14,7 @@ var publishShortcutValue = common.Shortcut{
   # Publish it
   shoplazza products +publish --id 12345`,
 	Flags: []common.Flag{
-		common.IDFlag("Product ID (required)."),
+		common.IDFlag("Product ID (required).").WithPicker(productPicker),
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
 		body := map[string]any{"product": map[string]any{"published": true}}

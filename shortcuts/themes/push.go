@@ -93,6 +93,7 @@ var pushShortcut = common.Shortcut{
 			Type:        common.FlagString,
 			Required:    true,
 			Description: "Theme ID (required). Run `shoplazza themes list` to discover.",
+			Picker:      themePicker,
 		},
 		{
 			Name:        "task-id",

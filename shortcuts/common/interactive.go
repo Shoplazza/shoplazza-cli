@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -22,7 +23,10 @@ import (
 // path, so piped and automated runs stay byte-for-byte unchanged. This is the
 // single engine-level hook that lets every shortcut fill its own required flags.
 func fillRequired(c *cobra.Command, flags []Flag, factory *cmdutil.Factory) error {
-	return fillRequiredWith(c, flags, cmdutil.Interactive(factory), promptFlag)
+	prompt := func(f Flag) (string, error) {
+		return promptFlag(context.Background(), f, clientFetch(factory), interact.SelectFiltered)
+	}
+	return fillRequiredWith(c, flags, cmdutil.Interactive(factory), prompt)
 }
 
 // fillRequiredWith is fillRequired with the gate decision and the prompter
@@ -105,13 +109,26 @@ func phraseFlagValue(c *cobra.Command, s Shortcut) string {
 	return v
 }
 
-// promptFlag asks for one flag's value: a Select over its enum when it has
-// Completions, otherwise a non-empty text Input. The title leads with the flag
-// name so the user knows what they are answering.
-func promptFlag(f Flag) (string, error) {
+// promptFlag asks for one flag's value. In order of preference: a fuzzy
+// resource picker when the flag declares one (fall back to text if the lookup
+// is empty or fails), a Select over its enum when it has Completions, otherwise
+// a non-empty text Input. The title leads with the flag name so the user knows
+// what they are answering. fetch/choose are injected so both the picker path
+// and the fallback are testable without a live server or a real terminal.
+func promptFlag(ctx context.Context, f Flag, fetch fetchFunc, choose selectFunc) (string, error) {
 	title := "--" + f.Name
 	if f.Description != "" {
 		title += " — " + f.Description
+	}
+	if f.Picker != nil {
+		v, ok, err := resolvePicker(ctx, f.Picker, title, fetch, choose)
+		if err != nil {
+			return "", err
+		}
+		if ok {
+			return v, nil
+		}
+		// empty page or lookup failed → fall through to manual entry
 	}
 	if len(f.Completions) > 0 {
 		return interact.Select(title, f.Completions)

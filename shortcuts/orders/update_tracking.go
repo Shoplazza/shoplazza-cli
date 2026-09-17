@@ -17,7 +17,7 @@ var updateTrackingShortcut = common.Shortcut{
   # Update tracking, set carrier, and notify the customer
   shoplazza orders +update-tracking --order-id 12345 --fulfillment-id ff-1 --tracking SF999 --company SF --notify`,
 	Flags: []common.Flag{
-		{Name: "order-id", Type: common.FlagString, Required: true, Description: "Order ID."},
+		{Name: "order-id", Type: common.FlagString, Required: true, Description: "Order ID.", Picker: orderPicker},
 		{Name: "fulfillment-id", Type: common.FlagString, Required: true, Description: "Fulfillment ID."},
 		{Name: "tracking", Type: common.FlagString, Required: true, Description: "New tracking number."},
 		{Name: "company", Type: common.FlagString, Description: "Carrier company name."},
