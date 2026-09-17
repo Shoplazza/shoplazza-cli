@@ -11,8 +11,11 @@ import (
 func newCmdList(f *cmdutil.Factory) *cobra.Command {
 	var storeDomain string
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List the store's theme extensions",
+		Use:   "list",
+		Short: "List the store's theme extensions",
+		Long:  "List the theme extensions registered on a store; defaults to the current store, override with --store-domain.",
+		Example: `  # List the current store's theme extensions
+  shoplazza theme-extension list`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()

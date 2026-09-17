@@ -39,6 +39,12 @@ var shareShortcut = common.Shortcut{
 	Command: "share",
 	Use:     "share",
 	Short:   "Upload the current theme as a new temporary preview and print a shareable link",
+	Long:    "Package the current theme and upload it as a NEW unpublished preview theme, then print a shareable preview URL; never overwrites an existing theme (use 'themes push' for that).",
+	Example: `  # Preview the shop + upload requests without sending
+  shoplazza themes share --dry-run
+
+  # Upload the current theme as a temporary preview and print the link
+  shoplazza themes share`,
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		cwd, err := os.Getwd()
 		if err != nil {

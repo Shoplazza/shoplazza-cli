@@ -29,6 +29,35 @@ func moduleShort(name string) string {
 	return titleCase(name)
 }
 
+// moduleLongs gives a module a richer multi-line Long (a workflow map) shown at
+// the top of `shoplazza <module> --help`; accessTierLong is still appended.
+// Unlisted modules fall back to their Short.
+var moduleLongs = map[string]string{
+	"themes": `Develop and manage Shoplazza storefront themes.
+
+Prerequisite:
+  shoplazza auth login                      authenticate your account
+
+Local theme development:
+  shoplazza themes init                     1. scaffold a new theme (Nova-2023 template)
+  shoplazza themes pull --theme-id <id>     .  or download an existing theme into the cwd
+  shoplazza themes serve                    2. run a dev theme, watch files, live-reload the browser
+  shoplazza themes push                     3. package the current dir and upload to the theme
+  shoplazza themes package                  .  zip the current theme locally (no upload)
+  shoplazza themes share                    .  get a shareable preview link
+
+Manage in the store:  list · get · publish · delete · file.`,
+}
+
+// moduleLong returns a module's full Long: its workflow map (or Short) plus the
+// shared access-tier explanation.
+func moduleLong(name string) string {
+	if l, ok := moduleLongs[name]; ok {
+		return l + "\n" + accessTierLong
+	}
+	return moduleShort(name) + "\n" + accessTierLong
+}
+
 // accessTierLong is appended to every module's Long to explain the three command tiers.
 const accessTierLong = `
 Access tiers:
@@ -44,7 +73,7 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 	moduleCmd := &cobra.Command{
 		Use:   mod.Name,
 		Short: moduleShort(mod.Name),
-		Long:  moduleShort(mod.Name) + "\n" + accessTierLong,
+		Long:  moduleLong(mod.Name),
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// Discovery nodes (bare group invocation) skip the auth gate.
 			if cmd.Annotations[annotationDiscovery] == "true" {

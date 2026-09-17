@@ -50,8 +50,14 @@ func buildPreviewURL(ctx context.Context, f *cmdutil.Factory, store, extID, vers
 func newCmdPreview(f *cmdutil.Factory) *cobra.Command {
 	var extID, version string
 	cmd := &cobra.Command{
-		Use:     "preview",
-		Short:   "Generate a preview URL for an extension version",
+		Use:   "preview",
+		Short: "Generate a preview URL for an extension version",
+		Long:  "Generate a storefront preview URL for a specific extension version on the current store; requires --extension-id and --version.",
+		Example: `  # Preview the plan without calling the API
+  shoplazza checkout-extension preview --extension-id ext_123 --version 1.0 --dry-run
+
+  # Generate a preview URL for a version
+  shoplazza checkout-extension preview --extension-id ext_123 --version 1.0`,
 		PreRunE: authPreRun(f),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if extID == "" || version == "" {

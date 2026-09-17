@@ -30,6 +30,12 @@ var packageShortcut = common.Shortcut{
 	Command: "package",
 	Use:     "package",
 	Short:   "Package the current theme directory into a zip",
+	Long:    "Package the current theme directory into a '<name>-<version>.zip' artifact locally (name/version read from config/settings_schema.json); honors .themeignore unless --no-ignore is set.",
+	Example: `  # Preview which files would be packaged, without writing the zip
+  shoplazza themes package --dry-run
+
+  # Package the current theme directory into a zip
+  shoplazza themes package`,
 	// Purely local (reads cwd, writes a zip): runs without login and reports a
 	// local artifact rather than an API response (no {ok,data} envelope).
 	// Writes the local filesystem, so blind scans skip it.

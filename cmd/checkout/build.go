@@ -55,6 +55,12 @@ func newCmdBuild(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build a checkout extension with the bundled Vite toolchain",
+		Long:  "Build a checkout extension locally with the bundled Vite toolchain; --name selects the extension directory under ./extensions (optional when run inside one).",
+		Example: `  # Build the extension in the current directory
+  shoplazza checkout-extension build
+
+  # Build a specific extension with verbose logs
+  shoplazza checkout-extension build --name my-checkout --debug`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cwd, err := os.Getwd()
 			if err != nil {

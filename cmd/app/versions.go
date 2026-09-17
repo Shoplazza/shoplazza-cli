@@ -15,8 +15,14 @@ func newCmdVersions(f *cmdutil.Factory) *cobra.Command {
 	var clientID, partner, path string
 	var offset, limit int
 	cmd := &cobra.Command{
-		Use:     "versions",
-		Short:   "List deployed app versions (paginated)",
+		Use:   "versions",
+		Short: "List deployed app versions (paginated)",
+		Long:  "List an app's deployed versions, paginated with --offset/--limit; --client-id and --partner default to the active config independently.",
+		Example: `  # List the active app's versions
+  shoplazza app versions
+
+  # Page through another app's versions
+  shoplazza app versions --client-id abc123 --offset 20 --limit 20`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {

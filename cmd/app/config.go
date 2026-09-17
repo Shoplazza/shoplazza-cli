@@ -18,7 +18,14 @@ import (
 )
 
 func newCmdConfig(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "config", Short: "Manage app config files and the active config"}
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "Manage app config files and the active config",
+		Long: `Manage the project's app config files (shoplazza.app.*.toml): switch the active
+config, link/create an app, and push dashboard settings.
+
+Run a subcommand with --help for its options and examples.`,
+	}
 	cmd.AddCommand(newCmdConfigUse(f))
 	cmd.AddCommand(newCmdConfigLink(f))
 	cmd.AddCommand(newCmdConfigPush(f))
@@ -28,8 +35,14 @@ func newCmdConfig(f *cmdutil.Factory) *cobra.Command {
 func newCmdConfigUse(f *cmdutil.Factory) *cobra.Command {
 	var configName, path string
 	cmd := &cobra.Command{
-		Use:     "use",
-		Short:   "Switch the active app config (validated online)",
+		Use:   "use",
+		Short: "Switch the active app config (validated online)",
+		Long:  "Switch the project's active app config to another shoplazza.app.<name>.toml, validating its client_id online before activating; omit --config for the base shoplazza.app.toml.",
+		Example: `  # Switch to the base config
+  shoplazza app config use
+
+  # Switch to a named config (shoplazza.app.prod.toml)
+  shoplazza app config use --config prod`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -180,6 +193,11 @@ Two mutually-exclusive modes:
 Link mode pulls the app's client_id / partner / scopes from the Dashboard. Create
 mode first creates a new app in the backend, then writes its config. Afterwards run
 'shoplazza app config use' to make this config the active one.`,
+		Example: `  # Link an existing app by client_id
+  shoplazza app config link --client-id abc123
+
+  # Create a new app and write its config
+  shoplazza app config link --create --name "My App"`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -314,6 +332,11 @@ also refreshes the app's review checks.
 
 The output is the app as stored by the backend after the write — check it
 rather than the local file.`,
+		Example: `  # Push the active config's [dashboard] settings
+  shoplazza app config push
+
+  # Push for an app in review/published (requires confirmation)
+  shoplazza app config push --yes`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {

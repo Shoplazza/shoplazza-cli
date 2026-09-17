@@ -119,8 +119,14 @@ func runGenerateExtension(ctx context.Context, d *app.Dashboard, projectRoot, ex
 func newCmdExtensionCreate(f *cmdutil.Factory) *cobra.Command {
 	var extType, name, themeType, path string
 	cmd := &cobra.Command{
-		Use:     "create",
-		Short:   "Scaffold a new extension (theme / checkout / function)",
+		Use:   "create",
+		Short: "Scaffold a new extension (theme / checkout / function)",
+		Long:  "Scaffold a new extension under the current app project's extensions/ directory; --type selects theme, checkout, or function (theme also needs --theme-type).",
+		Example: `  # Scaffold a checkout extension
+  shoplazza app extension create --type checkout --name my-checkout
+
+  # Scaffold a theme extension
+  shoplazza app extension create --type theme --theme-type basic --name my-theme`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -148,6 +154,9 @@ func newCmdExtension(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "extension",
 		Short: "Create and manage app extensions",
+		Long: `Create and manage the current app's extensions (theme, checkout, function).
+
+Run a subcommand with --help for its options and examples.`,
 	}
 	cmd.AddCommand(newCmdExtensionCreate(f))
 	return cmd

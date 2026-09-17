@@ -18,6 +18,12 @@ func newCmdRelease(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "release",
 		Short: "Publish a version in the BOUND APP (partner-openapi, app-token)",
+		Long:  "Publish a theme-extension version in the app it is bound to (run 'te connect' first); defaults to the version recorded by 'te build', override with --version.",
+		Example: `  # Release the version recorded by 'te build'
+  shoplazza theme-extension release
+
+  # Release a specific version
+  shoplazza theme-extension release --version 1.0.0`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			c, exErr := te.RequireExtensionID(path)
 			if exErr != nil {

@@ -75,7 +75,10 @@ func newCmdFunctionCompile(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "compile",
 		Short: "Compile a single function extension's src/index.js to WASM (javy)",
-		Args:  cobra.NoArgs,
+		Long:  "Compile one function extension's src/index.js to WASM with javy, writing the artifact under app-deploy/; local-only, no publish.",
+		Example: `  # Compile a function extension to WASM
+  shoplazza app function compile --name my-function`,
+		Args: cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if err := requireExtensionName(name); err != nil {
 				return err
@@ -127,7 +130,9 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 		Use:   "release",
 		Short: "Compile + create/commit a single function extension (does not touch theme/checkout)",
 		Long:  "Publishes ONE function extension. For a whole-app publish use `shoplazza app deploy`.",
-		Args:  cobra.NoArgs,
+		Example: `  # Release one function extension to the active app
+  shoplazza app function release --name my-function`,
+		Args: cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if err := requireExtensionName(name); err != nil {
 				return err
@@ -306,8 +311,11 @@ func digToArray(v any) []any {
 func newCmdFunctionList(f *cmdutil.Factory) *cobra.Command {
 	var path string
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List the current app's function extensions",
+		Use:   "list",
+		Short: "List the current app's function extensions",
+		Long:  "List the current app's function extensions (single page, capped at 1000); source_code is stripped from the output.",
+		Example: `  # List the active app's function extensions
+  shoplazza app function list`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {

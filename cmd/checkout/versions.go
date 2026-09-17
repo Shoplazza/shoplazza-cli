@@ -11,8 +11,11 @@ import (
 func newCmdVersions(f *cmdutil.Factory) *cobra.Command {
 	var extID string
 	cmd := &cobra.Command{
-		Use:     "versions",
-		Short:   "List versions of a checkout extension (for --version-id)",
+		Use:   "versions",
+		Short: "List versions of a checkout extension (for --version-id)",
+		Long:  "List the versions of one checkout extension on the current store; requires --extension-id (find it via 'checkout-extension list').",
+		Example: `  # List an extension's versions
+  shoplazza checkout-extension versions --extension-id ext_123`,
 		PreRunE: authPreRun(f),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if extID == "" {

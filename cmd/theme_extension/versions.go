@@ -11,8 +11,11 @@ import (
 func newCmdVersions(f *cmdutil.Factory) *cobra.Command {
 	var path string
 	cmd := &cobra.Command{
-		Use:     "versions",
-		Short:   "List a theme extension's versions",
+		Use:   "versions",
+		Short: "List a theme extension's versions",
+		Long:  "List the versions of the theme extension in the current project (extension_id read from extension.config.json) on the current store.",
+		Example: `  # List this extension's versions
+  shoplazza theme-extension versions`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()

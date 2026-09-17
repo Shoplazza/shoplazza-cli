@@ -10,8 +10,14 @@ import (
 func newCmdList(f *cmdutil.Factory) *cobra.Command {
 	var all bool
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List checkout extensions",
+		Use:   "list",
+		Short: "List checkout extensions",
+		Long:  "List the current store's checkout extensions; by default only published ones, add --all to include every status.",
+		Example: `  # List published checkout extensions
+  shoplazza checkout-extension list
+
+  # List all checkout extensions
+  shoplazza checkout-extension list --all`,
 		PreRunE: authPreRun(f),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			params := map[string]any{}

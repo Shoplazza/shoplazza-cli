@@ -15,6 +15,9 @@ func newCmdConnect(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connect",
 		Short: "Link this theme extension to an app (partner-openapi, app-token)",
+		Long:  "Bind this theme extension to an app by --client-id (partner derived automatically) and persist the binding, so 'te release' knows which app to publish in.",
+		Example: `  # Link the extension to an app
+  shoplazza theme-extension connect --client-id abc123`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if clientID == "" {
 				return output.ErrValidation("--client-id is required")

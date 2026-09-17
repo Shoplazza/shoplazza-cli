@@ -31,6 +31,9 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Register + push a dev build, then sync each saved file incrementally (create/update/delete via dev-doc)",
+		Long:  "Push a dev build of the theme extension and watch theme-app/, syncing each saved file to the current store; --theme-id is required and prints the preview URLs. Long-running until interrupted.",
+		Example: `  # Serve the extension against a theme for live preview
+  shoplazza theme-extension serve --theme-id 123456`,
 		// Long-running watch process.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		PreRunE: func(cmd *cobra.Command, _ []string) error {

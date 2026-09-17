@@ -83,8 +83,14 @@ func runInfo(ctx context.Context, d *app.Dashboard, p *project.Project, clientID
 func newCmdInfo(f *cmdutil.Factory) *cobra.Command {
 	var path, clientID string
 	cmd := &cobra.Command{
-		Use:     "info",
-		Short:   "Print app and extension info",
+		Use:   "info",
+		Short: "Print app and extension info",
+		Long:  "Print the active app's details plus its local extensions; pass --client-id to inspect another app directly (skips the local project, so extensions are not listed).",
+		Example: `  # Show the active app and its extensions
+  shoplazza app info
+
+  # Inspect a specific app by client_id
+  shoplazza app info --client-id abc123`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {

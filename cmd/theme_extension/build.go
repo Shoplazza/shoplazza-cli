@@ -20,6 +20,9 @@ func newCmdBuild(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build a new theme-extension version (zip → OSS → version task)",
+		Long:  "Zip theme-app/, upload it, and create a new theme-extension version; --version must be a semver strictly greater than the latest and --description is required.",
+		Example: `  # Build a new version 1.0.0
+  shoplazza theme-extension build --version 1.0.0 --description "initial release"`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if version == "" {
 				return output.ErrValidation("--version is required (semver greater than the latest)")
