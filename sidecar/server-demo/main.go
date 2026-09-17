@@ -28,8 +28,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/sidecar"
-	srv "github.com/Shoplazza/shoplazza-cli/v2/internal/sidecar/server"
+	"github.com/Shoplazza/shoplazza-cli/v2/sidecar"
 )
 
 func main() {
@@ -42,8 +41,8 @@ func main() {
 	flag.Parse()
 
 	// The proxy env is a sandbox-only variable; on the trusted host it must be unset.
-	if os.Getenv("SHOPLAZZA_CLI_AUTH_PROXY") != "" {
-		fatal("SHOPLAZZA_CLI_AUTH_PROXY must not be set on the sidecar host (it is a sandbox-only variable)")
+	if os.Getenv(sidecar.EnvAuthProxy) != "" {
+		fatal("%s must not be set on the sidecar host (it is a sandbox-only variable)", sidecar.EnvAuthProxy)
 	}
 
 	configPath, err := core.DefaultConfigPath()
@@ -89,7 +88,7 @@ func buildSingleTenant(cfg core.CliConfig, configPath, authBaseURL, keyFile, pro
 	if profile == nil || profile.StoreDomain == "" {
 		fatal("no usable profile; run 'shoplazza auth login' on this host first (or pass --profile)")
 	}
-	resolver := srv.NewAuthResolver(cfg, configPath, client.New(authBaseURL), *profile)
+	resolver := NewAuthResolver(cfg, configPath, client.New(authBaseURL), *profile)
 
 	fmt.Printf("shoplazza credential-isolation sidecar (single-tenant) on http://%s\n", listen)
 	fmt.Printf("serving store: %s\n", profile.StoreDomain)
@@ -100,15 +99,15 @@ func buildSingleTenant(cfg core.CliConfig, configPath, authBaseURL, keyFile, pro
 	fmt.Printf("  export SHOPLAZZA_ACCESS_TOKEN=%q\n", sidecar.SentinelStore)
 	fmt.Printf("  export SHOPLAZZA_CLI_API_BASE_URL=%q\n\n", "https://"+profile.StoreDomain)
 
-	return srv.New(key, []string{profile.StoreDomain}, resolver, logger, nil)
+	return New(key, []string{profile.StoreDomain}, resolver, logger, nil)
 }
 
 func buildMultiTenant(cfg core.CliConfig, configPath, authBaseURL, keysDir string, logger *log.Logger, listen string) http.Handler {
-	keys, err := srv.LoadClientKeys(keysDir)
+	keys, err := LoadClientKeys(keysDir)
 	if err != nil {
 		fatal("keys-dir: %v", err)
 	}
-	resolver := srv.NewMultiResolver(cfg, configPath, client.New(authBaseURL))
+	resolver := NewMultiResolver(cfg, configPath, client.New(authBaseURL))
 
 	fmt.Printf("shoplazza credential-isolation sidecar (multi-tenant) on http://%s\n", listen)
 	fmt.Printf("client keys: %s/<profile>.key  (each client acts as its own CLI profile)\n\n", keysDir)
@@ -122,7 +121,7 @@ func buildMultiTenant(cfg core.CliConfig, configPath, authBaseURL, keysDir strin
 	fmt.Printf("  export SHOPLAZZA_ACCESS_TOKEN=%q\n", sidecar.SentinelStore)
 	fmt.Println("  export SHOPLAZZA_CLI_API_BASE_URL=\"https://<that client's store>\"")
 
-	return srv.NewMultiTenant(srv.NewMultiAuth(keys), resolver, logger, nil)
+	return NewMultiTenant(NewMultiAuth(keys), resolver, logger, nil)
 }
 
 func newLogger(logFile string) *log.Logger {

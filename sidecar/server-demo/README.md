@@ -6,9 +6,24 @@ platform and adapt it — do not deploy it as-is. Your platform owns the parts t
 generic: where real credentials live, how clients are provisioned/authorized, and how the
 service is deployed, scaled, and monitored.
 
-The reusable, stable pieces are the **wire protocol and HMAC** in `internal/sidecar`
+The reusable, stable pieces are the **wire protocol and HMAC** in the `sidecar` package
 (`protocol.go`, `hmac.go`) and the client-side interceptor — those are meant to be used as-is.
 This server is the adaptable part.
+
+**The shipped CLI is unchanged** — sidecar mode is not wired into it. A hosting platform opts in
+by adding one build-tagged file to its own CLI build:
+
+```go
+//go:build authsidecar
+package main
+
+import "github.com/Shoplazza/shoplazza-cli/v2/sidecar"
+
+func init() { _ = sidecar.InstallFromEnv() } // installs the interceptor when SHOPLAZZA_CLI_AUTH_PROXY is set
+```
+
+Optionally, in the standard (non-authsidecar) build, fail closed so a misbuilt binary can't
+bypass isolation: `if sidecar.ProxyConfigured() { /* refuse to run */ }`.
 
 ## What it demonstrates
 

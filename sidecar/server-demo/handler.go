@@ -8,7 +8,7 @@
 // request into a client identity ("" for single-tenant, a client name for
 // multi-tenant), and a TenantResolver maps that client to its allowed target
 // host and the real token to inject.
-package server
+package main
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/sidecar"
+	"github.com/Shoplazza/shoplazza-cli/v2/sidecar"
 )
 
 // Authenticator verifies a request's signature and returns the client it belongs

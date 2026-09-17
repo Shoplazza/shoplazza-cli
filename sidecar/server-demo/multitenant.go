@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/sidecar"
+	"github.com/Shoplazza/shoplazza-cli/v2/sidecar"
 )
 
 // ClientKeys holds per-client HMAC keys loaded from a directory of <client>.key

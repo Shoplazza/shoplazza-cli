@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/sidecar"
+	"github.com/Shoplazza/shoplazza-cli/v2/sidecar"
 )
 
 // AuthResolver is the single-tenant TokenResolver: it resolves the real token

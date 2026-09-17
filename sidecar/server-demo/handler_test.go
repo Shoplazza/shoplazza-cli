@@ -1,4 +1,4 @@
-package server
+package main
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/sidecar"
+	"github.com/Shoplazza/shoplazza-cli/v2/sidecar"
 )
 
 func key32() []byte {
