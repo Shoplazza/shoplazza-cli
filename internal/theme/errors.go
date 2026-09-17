@@ -27,6 +27,18 @@ func ErrValidation(format string, args ...any) error {
 	return output.ErrValidation(format, args...)
 }
 
+// ErrNotThemeDir flags a theme command run outside a theme project (no
+// config/settings_schema.json) — a very common first-time mistake — and tells
+// the user how to get into or obtain a theme project.
+func ErrNotThemeDir() error {
+	return output.ErrWithHint(
+		output.ExitValidation, output.TypeValidation,
+		"this directory does not look like a Shoplazza theme (config/settings_schema.json missing)",
+		"run this from your theme project root (the folder containing config/settings_schema.json). "+
+			"To start one, download a theme: 'shoplazza themes pull --theme-id <id>' (list ids with 'shoplazza themes list').",
+	)
+}
+
 // ErrTaskBusinessFailure transports a server-side task=failure into an
 // api-class envelope, passing the whole task payload through under the
 // "task" extra. Uses the task's "message" field verbatim when present.

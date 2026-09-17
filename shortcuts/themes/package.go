@@ -135,8 +135,7 @@ func readThemeInfo(cwd string) (name, version string, err error) {
 	p := filepath.Join(cwd, "config", "settings_schema.json")
 	data, rerr := os.ReadFile(p)
 	if errors.Is(rerr, fs.ErrNotExist) {
-		return "", "", theme.ErrValidation(
-			"this directory does not look like a Shoplazza theme (config/settings_schema.json missing)")
+		return "", "", theme.ErrNotThemeDir()
 	}
 	if rerr != nil {
 		return "", "", theme.ErrLocalIO("read settings_schema.json", rerr)
