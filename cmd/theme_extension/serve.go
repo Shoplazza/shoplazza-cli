@@ -37,7 +37,9 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if themeID == "" {
-				return output.ErrValidation("--theme-id/-t is required (run `shop themes list` to find a theme id)")
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"--theme-id/-t is required",
+					"run 'shoplazza themes list' to find a theme id")
 			}
 			return requireLogin(cmd.Context(), f)
 		},

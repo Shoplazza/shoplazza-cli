@@ -20,7 +20,9 @@ func newCmdConnect(f *cmdutil.Factory) *cobra.Command {
   shoplazza theme-extension connect --client-id abc123`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if clientID == "" {
-				return output.ErrValidation("--client-id is required")
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"--client-id is required",
+					"the bound app's client id — list your apps with 'shoplazza app list'")
 			}
 			c, exErr := te.RequireExtensionID(path)
 			if exErr != nil {

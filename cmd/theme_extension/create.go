@@ -32,7 +32,9 @@ to link it to an app, then 'shoplazza te serve' to start developing.`,
 		Example: "  shoplazza theme-extension create --name my-te --type embed",
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if name == "" {
-				return output.ErrValidation("--name is required")
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"--name is required",
+					"e.g. shoplazza theme-extension create --name my-te --type embed")
 			}
 			if !projectNameRe.MatchString(name) {
 				return output.ErrValidation(

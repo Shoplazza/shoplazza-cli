@@ -21,7 +21,9 @@ func newCmdExtensionCreate(f *cmdutil.Factory) *cobra.Command {
   shoplazza checkout-extension create --name my-banner`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if name == "" {
-				return output.ErrValidation("--name <extension> is required")
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"--name <extension> is required",
+					"e.g. shoplazza checkout-extension create --name my-banner (adds an extension to the current project)")
 			}
 			if vErr := validPlainName("--name", name); vErr != nil {
 				return vErr

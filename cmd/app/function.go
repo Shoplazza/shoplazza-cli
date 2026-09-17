@@ -44,7 +44,9 @@ extensions/<name>/ directory and use the current app's token.
 // would escape the project tree.
 func requireExtensionName(name string) error {
 	if name == "" {
-		return output.ErrValidation("--name is required")
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"--name is required",
+			"the function extension's directory name under extensions/ (see 'shoplazza app info')")
 	}
 	if filepath.Base(name) != name {
 		return output.ErrValidation("invalid --name %q: must be a bare directory name under extensions/, without path separators", name)

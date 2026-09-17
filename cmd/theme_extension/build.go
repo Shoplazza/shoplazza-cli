@@ -24,7 +24,9 @@ func newCmdBuild(f *cmdutil.Factory) *cobra.Command {
   shoplazza theme-extension build --version 1.0.0 --description "initial release"`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if version == "" {
-				return output.ErrValidation("--version is required (semver greater than the latest)")
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"--version is required",
+					"a semver higher than the current version, e.g. --version 1.0.0")
 			}
 			if !te.ValidVersionFormat(version) {
 				return output.ErrValidation("--version must follow X.Y.Z (e.g. 1.0.0)")

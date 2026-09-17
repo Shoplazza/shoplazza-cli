@@ -45,7 +45,9 @@ var extensionNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 // and testable with a local template repo.
 func runGenerateExtension(ctx context.Context, d *app.Dashboard, projectRoot, extType, name, themeType string, w, errW io.Writer, format, jq string) (err error) {
 	if name == "" {
-		return output.ErrValidation("--name is required")
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"--name is required",
+			"the extension's directory name under extensions/ (e.g. --name my-extension)")
 	}
 	if !extensionNamePattern.MatchString(name) {
 		return output.ErrValidation("invalid --name %q: use lowercase letters, digits, '-' or '_', starting with a letter or digit", name)

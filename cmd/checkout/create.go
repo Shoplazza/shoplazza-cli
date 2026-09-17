@@ -24,7 +24,9 @@ dev server.`,
 		Example: "  shoplazza checkout-extension init --name my-checkout-ext --extension banner",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if name == "" || ext == "" {
-				return output.ErrValidation("--name <project> and --extension <first-extension> are required")
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"--name <project> and --extension <first-extension> are required",
+					"e.g. shoplazza checkout-extension init --name my-checkout-ext --extension banner")
 			}
 			if vErr := validPlainName("--name", name); vErr != nil {
 				return vErr
