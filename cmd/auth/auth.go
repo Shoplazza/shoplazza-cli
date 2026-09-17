@@ -273,6 +273,11 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 		// Mutates the local keychain.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Human-only confirmation; agents/pipes/CI proceed unchanged.
+			if err := cmdutil.ConfirmDestructive(f,
+				"Log out? This clears all profiles and stored credentials on this machine."); err != nil {
+				return err
+			}
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
 			_, err := manager.Logout()
 			if err != nil {

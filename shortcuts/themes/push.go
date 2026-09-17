@@ -78,6 +78,9 @@ var pushShortcut = common.Shortcut{
 	Command: "push",
 	Use:     "push --theme-id <id> [--task-id <id>]",
 	Short:   "Package cwd, upload to remote theme, and poll the upload task",
+
+	Destructive:   true,
+	ConfirmPrompt: "Push this package to the remote theme? It overwrites the theme's files on the server.",
 	Example: `  # Preview the upload plan without sending
   shoplazza themes push --theme-id 123456 --dry-run
 

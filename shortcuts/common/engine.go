@@ -82,6 +82,13 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 			return err
 		}
 		dryRun := cmdutil.IsDryRun(c)
+		// Human-only confirmation for irreversible writes; skipped in --dry-run
+		// (preview) and for non-interactive callers (agents/pipes proceed).
+		if s.Destructive && !dryRun {
+			if err := confirmDestructive(c, s, factory); err != nil {
+				return err
+			}
+		}
 		format := cmdutil.GetFormat(c)
 		jq := cmdutil.GetJQ(c)
 		flags := NewCobraFlagSet(c)

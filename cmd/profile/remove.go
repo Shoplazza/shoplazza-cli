@@ -22,6 +22,11 @@ func newCmdRemove(f *cmdutil.Factory) *cobra.Command {
 		Short: "Remove a profile",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Human-only confirmation; agents/pipes/CI proceed unchanged.
+			if err := cmdutil.ConfirmDestructive(f,
+				"Remove profile "+name+"? Its cached store token and config record are deleted."); err != nil {
+				return err
+			}
 			err := core.UpdateConfig(f.ConfigPath, core.ConfigLockTimeout, func(c *core.CliConfig) error {
 				p := c.FindProfile(name)
 				if p == nil {

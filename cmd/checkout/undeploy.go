@@ -25,6 +25,14 @@ func newCmdUndeploy(f *cmdutil.Factory) *cobra.Command {
 				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
 					"--extension-id is required", "run 'shoplazza checkout list' to find the extension id")
 			}
+			// Human-only confirmation; agents/pipes/CI proceed unchanged and
+			// --dry-run (handled inside fireAndPrint) never reaches here.
+			if !cmdutil.IsDryRun(cmd) {
+				if err := cmdutil.ConfirmDestructive(f,
+					"Undeploy extension "+extID+"? It stops serving on the current store immediately."); err != nil {
+					return err
+				}
+			}
 			return fireAndPrint(cmd, f, client.RawRequest{
 				Method: "POST",
 				Path:   "/openapi/checkout_extensions/undeploy",
