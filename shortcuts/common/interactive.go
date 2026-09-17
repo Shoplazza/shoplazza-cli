@@ -53,6 +53,58 @@ func fillRequiredWith(c *cobra.Command, flags []Flag, interactive bool, prompt f
 	return nil
 }
 
+// confirmDestructive gates a Destructive command behind a confirmation in an
+// interactive terminal. Non-interactive runs (agents, pipes, CI) return nil
+// immediately — this is a human-only safety net and never blocks automation.
+// Callers skip it in --dry-run (a preview does not execute).
+func confirmDestructive(c *cobra.Command, s Shortcut, factory *cmdutil.Factory) error {
+	return confirmDestructiveWith(c, s, cmdutil.Interactive(factory), interact.Confirm, interact.ConfirmTyped)
+}
+
+// confirmDestructiveWith is confirmDestructive with the gate and the confirm
+// prompters injected, so every branch is testable without a real terminal. A
+// type-the-value gate is used when the command names a ConfirmPhraseFlag and it
+// is set (high-risk money ops); otherwise a plain y/N.
+func confirmDestructiveWith(
+	c *cobra.Command, s Shortcut, interactive bool,
+	confirm func(title string) (bool, error),
+	confirmTyped func(title, phrase string) (bool, error),
+) error {
+	if !interactive {
+		return nil // human-only gate: agents/pipes/CI proceed unchanged
+	}
+	title := s.ConfirmPrompt
+	if title == "" {
+		title = "Run '" + s.Command + "'? This cannot be undone."
+	}
+	var (
+		ok  bool
+		err error
+	)
+	if phrase := phraseFlagValue(c, s); phrase != "" {
+		ok, err = confirmTyped(title, phrase)
+	} else {
+		ok, err = confirm(title)
+	}
+	if err != nil {
+		return err // output.ErrCanceled on esc/ctrl+c
+	}
+	if !ok {
+		return output.ErrCanceled()
+	}
+	return nil
+}
+
+// phraseFlagValue returns the value the user must type to confirm, or "" when
+// the command uses a plain y/N.
+func phraseFlagValue(c *cobra.Command, s Shortcut) string {
+	if s.ConfirmPhraseFlag == "" {
+		return ""
+	}
+	v, _ := c.Flags().GetString(s.ConfirmPhraseFlag)
+	return v
+}
+
 // promptFlag asks for one flag's value: a Select over its enum when it has
 // Completions, otherwise a non-empty text Input. The title leads with the flag
 // name so the user knows what they are answering.

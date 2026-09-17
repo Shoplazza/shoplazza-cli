@@ -14,6 +14,10 @@ var refundShortcut = common.Shortcut{
 	Command: "+refund",
 	Use:     "+refund --order-id <id> --amount <n> [--payment-line-id <id>]",
 	Short:   "Refund an order",
+
+	Destructive:       true,
+	ConfirmPrompt:     "Refund this order? Money is returned to the buyer and cannot be undone.",
+	ConfirmPhraseFlag: "order-id",
 	Long:    "Refund an amount against an order's payment line; run --dry-run first to preview the request.",
 	Example: `  # Preview a partial refund
   shoplazza orders +refund --order-id 12345 --amount 29.99 --dry-run

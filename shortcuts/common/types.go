@@ -36,4 +36,19 @@ type Shortcut struct {
 	// paths, counts), not an API response. The engine prints it via
 	// output.PrintBody (raw body) instead of the {ok,data} success envelope.
 	Local bool
+
+	// Destructive marks an irreversible write (refund / cancel / delete /
+	// unpublish). A human running it in an interactive terminal is asked to
+	// confirm before it executes; agents and piped/CI runs are UNAFFECTED — they
+	// proceed exactly as before, relying on --dry-run + skill discipline.
+	// --dry-run always skips the prompt (it previews, it does not execute).
+	Destructive bool
+
+	// ConfirmPrompt overrides the y/N question shown for a Destructive command.
+	ConfirmPrompt string
+
+	// ConfirmPhraseFlag, when set, upgrades the confirmation to "type this flag's
+	// value to confirm" — the stronger gate for high-risk money ops (e.g. +refund
+	// asks the user to type the order id). Falls back to y/N if the flag is empty.
+	ConfirmPhraseFlag string
 }

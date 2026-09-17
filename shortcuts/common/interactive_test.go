@@ -122,3 +122,62 @@ func TestFillRequired_Interactive_CancelPropagates(t *testing.T) {
 		t.Error("a canceled prompt must propagate, not silently proceed")
 	}
 }
+
+// Destructive confirmation (human-only; prompters injected).
+
+func TestConfirmDestructive_NonInteractive_Proceeds(t *testing.T) {
+	c := cmdWithFlags("id")
+	called := false
+	confirm := func(string) (bool, error) { called = true; return false, nil }
+	s := Shortcut{Command: "+refund", Destructive: true}
+	if err := confirmDestructiveWith(c, s, false, confirm, nil); err != nil {
+		t.Errorf("non-interactive must proceed unchanged, got %v", err)
+	}
+	if called {
+		t.Error("non-interactive must never prompt (agents must not block)")
+	}
+}
+
+func TestConfirmDestructive_Interactive_YesProceeds_NoCancels(t *testing.T) {
+	c := cmdWithFlags("id")
+	s := Shortcut{Command: "+unpublish", Destructive: true}
+	if err := confirmDestructiveWith(c, s, true, func(string) (bool, error) { return true, nil }, nil); err != nil {
+		t.Errorf("confirmed → proceed, got %v", err)
+	}
+	if err := confirmDestructiveWith(c, s, true, func(string) (bool, error) { return false, nil }, nil); err == nil {
+		t.Error("declining must cancel, not proceed")
+	}
+}
+
+func TestConfirmDestructive_TypedGate_RequiresPhraseFlagValue(t *testing.T) {
+	c := cmdWithFlags("order-id")
+	_ = c.Flags().Set("order-id", "O123")
+	var gotPhrase string
+	confirmTyped := func(_, phrase string) (bool, error) { gotPhrase = phrase; return true, nil }
+	ynCalled := false
+	confirm := func(string) (bool, error) { ynCalled = true; return true, nil }
+	s := Shortcut{Command: "+refund", Destructive: true, ConfirmPrompt: "Refund?", ConfirmPhraseFlag: "order-id"}
+	if err := confirmDestructiveWith(c, s, true, confirm, confirmTyped); err != nil {
+		t.Fatal(err)
+	}
+	if ynCalled {
+		t.Error("with a phrase flag set, use the type-to-confirm gate, not y/N")
+	}
+	if gotPhrase != "O123" {
+		t.Errorf("high-risk gate must require typing the order id, phrase = %q", gotPhrase)
+	}
+}
+
+func TestConfirmDestructive_TypedGate_EmptyPhraseFallsBackToYN(t *testing.T) {
+	c := cmdWithFlags("order-id") // left unset → empty
+	ynCalled, typedCalled := false, false
+	confirm := func(string) (bool, error) { ynCalled = true; return true, nil }
+	confirmTyped := func(_, _ string) (bool, error) { typedCalled = true; return true, nil }
+	s := Shortcut{Command: "+refund", Destructive: true, ConfirmPhraseFlag: "order-id"}
+	if err := confirmDestructiveWith(c, s, true, confirm, confirmTyped); err != nil {
+		t.Fatal(err)
+	}
+	if typedCalled || !ynCalled {
+		t.Error("an empty phrase flag must fall back to y/N")
+	}
+}
