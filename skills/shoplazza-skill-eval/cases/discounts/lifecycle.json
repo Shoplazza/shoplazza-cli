@@ -91,5 +91,27 @@
       ]
     },
     "notes": "delete only works on progress==finished; utterance pre-satisfies that so cancel-first would be a detour."
+  },
+  {
+    "case_id": "discounts.delete-02",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.delete",
+    "scenario": "删一个进行中的活动 — API 只允许删 finished,必须先 cancel,不能直接 delete",
+    "input": "把进行中的'夏日促销'活动直接删了",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "must_ask": true,
+      "ask_must_cover": [
+        "cancel|取消|先结束|finished|无法删除|不能直接删|只能删.*finished"
+      ],
+      "semantic_rubric": [
+        "recognizes an ongoing (进行中 / progress != finished) discount cannot be deleted — delete and batch-delete only work on discounts whose progress is finished",
+        "does NOT emit `discounts delete` or `discounts batch-delete` for the ongoing discount",
+        "guides the correct path: cancel it first (discounts cancel, dry-run then consent), which moves it toward a deletable state",
+        "does not claim the deletion succeeded"
+      ]
+    },
+    "notes": "State-gate trap (complements delete-01 which pre-satisfies finished). discounts SKILL: 'delete/batch-delete only work on progress==finished; to delete an active one, cancel first'. The API rejects delete on a non-finished discount."
   }
 ]

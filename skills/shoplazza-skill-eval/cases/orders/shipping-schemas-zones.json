@@ -1,0 +1,145 @@
+[
+  {
+    "case_id": "orders.shipping-schemas.create-zone-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.shipping-schemas.create-zone",
+    "scenario": "新建一个覆盖德国的运费区域,带一条标准运费方案 — create-zone 嵌套 body(shipping.name + plans + areas)",
+    "input": "给德国新建一个运费区域,加一条标准运费方案,固定收 8 块钱",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders shipping-schemas create-zone",
+      "flags_must_contain": ["--data", "--dry-run"],
+      "flags_must_not_contain": ["update-zone", "save-general"],
+      "params_must_contain": ["\"shipping\"", "\"name\"", "\"plans\"", "\"areas\"", "\"country_code\"", "\"DE\"", "8"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "builds the create-zone body as {\"shipping\":{ name, plans:[…], areas:[…] }} — a new zone, not an edit of an existing one",
+        "the covered region maps to areas[] with country_name Germany + country_code DE (per-area country_name and country_code are required)",
+        "the '标准运费方案' becomes one entry in plans[] with its own name; the 8 元 fixed charge is carried as the rate amount (e.g. rate_amount \"8\"), not invented as some other number",
+        "obtains the required schema_id from get-general rather than fabricating it (or asks/looks it up) — schema_id is a required create-zone field the user did not give",
+        "write op: --dry-run first + restate the zone name, country, and rate before creating"
+      ]
+    },
+    "notes": "Grounded: `orders shipping-schemas create-zone --help` (flags --data/--dry-run/--params) and `schema orders.shipping-schemas.create-zone --view request` — body is {\"shipping\":{schema_id*,name*,support_cod,plans[]{name*,desc,rule_type,rate_type,rate_amount,…},areas[]{country_name*,country_code*,province_codes[]}}}. Real array is plans[] (reference md loosely calls them lines). schema_id required → read from get-general."
+  },
+  {
+    "case_id": "orders.shipping-schemas.update-zone-02",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.shipping-schemas.update-zone",
+    "scenario": "给已有区域新增一条运费方案(加法) — update-zone 重发整个 zone,再多带一条 plan,不是 create-zone",
+    "input": "在现有的欧盟区域里再加一个'加急运费'方案,收 20 块,别动原来的方案",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders shipping-schemas update-zone",
+      "flags_must_contain": ["--params", "--data", "--dry-run"],
+      "flags_must_not_contain": ["create-zone", "delete-zone"],
+      "params_must_contain": ["\"id\"", "\"shipping\"", "\"plans\"", "20"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "adding a shipping method to an EXISTING zone is update-zone (re-send the zone with an extra entry in plans[]), not create-zone — create-zone would spin up a whole new zone",
+        "targets the zone by its id via --params '{\"id\":\"<zone-id>\"}' (update-zone path takes the zone id)",
+        "preserves the zone's existing plans and appends the new '加急运费' plan carrying the 20 元 rate — '别动原来的方案' means the other plans stay",
+        "the 20 comes from the user, not fabricated; new plan gets its own name",
+        "write op: --dry-run first + restate that a method is being added while the rest are kept"
+      ]
+    },
+    "notes": "Grounded: `orders shipping-schemas update-zone --help` (flags --params/--data/--dry-run) and `schema orders.shipping-schemas.update-zone --view request` — PUT /shipping-zone/{id}; params.id required; body {\"shipping\":{name*,plans[]{id?,name*,…},areas[]}}. Complements seed update-zone-01 (which REMOVES a plan); this one ADDS one."
+  },
+  {
+    "case_id": "orders.shipping-schemas.delete-zone-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.shipping-schemas.delete-zone",
+    "scenario": "删掉整个运费区域(连同它所有方案) — delete-zone,不是 update-zone 删一条 line",
+    "input": "把那个东南亚运费区域整个删掉,不要了",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders shipping-schemas delete-zone",
+      "flags_must_contain": ["--params", "--dry-run"],
+      "flags_must_not_contain": ["--data", "update-zone", "create-zone"],
+      "params_must_contain": ["\"id\""],
+      "must_ask": false,
+      "semantic_rubric": [
+        "'整个删掉' targets the whole zone → delete-zone, which drops the zone and every plan inside it; this is the opposite of the seed case where one method is removed via update-zone",
+        "identifies the zone by its id via --params '{\"id\":\"<zone-id>\"}'; delete-zone takes no --data body (DELETE by id only)",
+        "does NOT reach for update-zone (that would edit a zone, not remove it) nor create-zone",
+        "destructive write: --dry-run first + restate which entire zone (and that all its rates) will be deleted before executing"
+      ]
+    },
+    "notes": "Grounded: `orders shipping-schemas delete-zone --help` (flags --params/--dry-run only, no --data) and `schema orders.shipping-schemas.delete-zone --view request` — DELETE /shipping-zone/{id}; params.id required, no body. Zone-vs-line granularity contrast with seed update-zone-01."
+  },
+  {
+    "case_id": "orders.shipping-schemas.get-general-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.shipping-schemas.get-general",
+    "scenario": "读取店铺的通用运费方案(配置前先看现状) — get-general 纯读,不 --dry-run 不发问",
+    "input": "看下我店铺现在的通用运费方案是怎么配的",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders shipping-schemas get-general",
+      "flags_must_not_contain": ["--dry-run", "--data", "save-general"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "a read of the general shipping schema → get-general (GET), no request body and no --params needed",
+        "read-only: does NOT use --dry-run (that is for writes) and does NOT ask a clarifying question — nothing required is missing",
+        "reads the result from .data.shipping_schemas; does not confuse this with save-general, which would write"
+      ]
+    },
+    "notes": "Grounded: `orders shipping-schemas get-general --help` and `schema orders.shipping-schemas.get-general` — GET /shipping-schemas/general, no parameters, no body. Read → must_ask false, no --dry-run."
+  },
+  {
+    "case_id": "orders.shipping-schemas.save-general-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.shipping-schemas.save-general",
+    "scenario": "改通用运费方案的名称 — 先 get-general 拿 id,再 save-general 带 id 修改(不是新建)",
+    "input": "把通用运费方案的名字改成'2026 全球默认运费'",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders shipping-schemas save-general",
+      "flags_must_contain": ["--data", "--dry-run"],
+      "flags_must_not_contain": ["create-zone", "get-available-lines"],
+      "params_must_contain": ["\"shipping_schemas\"", "\"name\"", "2026"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "configuring the general schema → save-general with body {\"shipping_schemas\":{ … }}; name is required and set to the user's exact new label '2026 全球默认运费'",
+        "this is a MODIFY, not a create: reads the existing schema via get-general first to carry its id back in the body (include id to modify), instead of dropping a brand-new schema",
+        "does not fabricate the new name — it is the user's own string",
+        "write op: --dry-run first + restate the name change before saving"
+      ]
+    },
+    "notes": "Grounded: `orders shipping-schemas save-general --help` (flags --data/--dry-run) and `schema orders.shipping-schemas.save-general --view request` — POST /shipping-schemas/general; body {\"shipping_schemas\":{id?,name*,shippings[]}}; name required, include id to modify. Pairs with get-general-01 (read then configure)."
+  },
+  {
+    "case_id": "orders.shipping-schemas.get-available-lines-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.shipping-schemas.get-available-lines",
+    "scenario": "查某订单发到英国某地址能用哪些运费方案 — get-available-lines 读,GB 需要具体 province/zip",
+    "input": "订单 O20260915001 要发到英国伦敦,看看有哪些可选的运费方案",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders shipping-schemas get-available-lines",
+      "flags_must_contain": ["--data"],
+      "flags_must_not_contain": ["--dry-run", "create-zone"],
+      "params_must_contain": ["\"order_id\"", "O20260915001", "\"country_code\"", "GB"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "which shipping options fit an order+address → get-available-lines (read), body requires order_id and country_code",
+        "order_id is the user's O20260915001; country_code is GB for United Kingdom",
+        "GB special case: an empty province_code matches no zone — London resolves to England, so it passes a specific province_code (e.g. GB-ENG), or ALL, or a zip; it does not leave the GB province blank",
+        "read-only: no --dry-run; reads .data.shipping_lines[] from the result"
+      ]
+    },
+    "notes": "Grounded: `orders shipping-schemas get-available-lines --help` (flags --data) and `schema orders.shipping-schemas.get-available-lines --view request` — POST /shipping-lines/available-lines; body requires order_id + country_code; province_code/zip optional but GB needs a specific code/ALL/zip (empty matches nothing). Read → must_ask false, no --dry-run."
+  }
+]

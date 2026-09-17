@@ -1,0 +1,25 @@
+[
+  {
+    "case_id": "shop.languages-add-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.languages.add",
+    "scenario": "开通语言 — 用 IETF code(ja-JP)不是'日语';不支持的码会被静默丢弃,先查 supported",
+    "input": "给店铺开通日语",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop languages add",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["\"codes\"", "ja-JP"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "日语 is sent as its IETF language code ja-JP inside codes[], not the word 日语 / Japanese",
+        "codes is an array — add takes one or more codes",
+        "aware that unsupported codes are SILENTLY dropped by the API: validates the code against shop languages supported first rather than trusting a guess",
+        "does not fabricate a code it has not confirmed is supported"
+      ]
+    },
+    "notes": "schema shop.languages.add: codes[] required (IETF, e.g. zh-CN, ja-JP); unsupported codes silently dropped. shop languages supported lists valid codes — validate first. Silent-drop trap, mirrors shoplazza-common's silently-dropped-filters theme."
+  }
+]

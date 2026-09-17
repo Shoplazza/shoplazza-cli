@@ -83,5 +83,28 @@
       ]
     },
     "notes": "GET /orders/number/{number} vs GET /orders/{order_id} — classic id-vs-number trap."
+  },
+  {
+    "case_id": "orders.search-03",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.search",
+    "scenario": "已付款 + 时间窗 — 成交类问题用 placed 时间(--since/--until),不用 created(含弃单)",
+    "input": "最近 7 天已付款的订单都有哪些",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "shortcut",
+      "command_prefix": "orders +search",
+      "flags_must_contain": ["--financial-status paid", "--since"],
+      "flags_must_not_contain": ["--keyword"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "已付款 → --financial-status paid (valid enum from schema orders.list), from the user's own wording",
+        "the 7-day window is set with +search --since (about 7 days before today); --until may stay open",
+        "treats this as a sales/paid question: +search --since/--until bound the PLACED time (placed_at) — the sales clock — not the created time, which would fold in abandoned/unpaid carts",
+        "does not invent a customer or other filters the user did not mention"
+      ]
+    },
+    "notes": "Reinforces the created_at≠placed_at rule (shoplazza-orders 'Time window — which field'): +search --since/--until map to placed_at_min/max. A paid/sales question must use the placed clock, not created_at."
   }
 ]
