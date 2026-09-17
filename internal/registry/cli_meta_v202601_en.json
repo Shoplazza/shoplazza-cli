@@ -23950,6 +23950,13 @@
           "format": "int32",
           "minimum": 0,
           "maximum": 2
+        },
+        {
+          "name": "custom_fields",
+          "type": "object",
+          "items": {
+            "type": "string"
+          }
         }
       ]
     },
@@ -25971,6 +25978,13 @@
         {
           "name": "browser_ip",
           "type": "string"
+        },
+        {
+          "name": "custom_fields",
+          "type": "object",
+          "items": {
+            "type": "string"
+          }
         }
       ]
     },
@@ -27205,6 +27219,13 @@
           "format": "int32",
           "minimum": 0,
           "maximum": 2
+        },
+        {
+          "name": "custom_fields",
+          "type": "object",
+          "items": {
+            "type": "string"
+          }
         }
       ]
     },

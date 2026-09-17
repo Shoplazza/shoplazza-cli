@@ -940,85 +940,97 @@ func TestSendSync_StopsWhenContextCanceled(t *testing.T) {
 	}
 }
 
-// TestHandleSync_BinaryContentSkipped: invalid UTF-8 (binary assets) must
-// NEVER ride the JSON doc patch — every non-UTF-8 byte would be mangled to
-// U+FFFD on the wire. handleSync skips the file, makes NO doc API call, and
-// logs a one-line [skip] warning pointing at `themes push`.
-func TestHandleSync_BinaryContentSkipped(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "assets"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+// TestHandleSync_SkipsWithoutTouchingTheAPI: the local states handleSync must
+// refuse to push. A binary asset would be mangled to U+FFFD by the JSON doc
+// patch; a file that vanished between the event and the sync previously
+// truncated the remote copy with its empty read; a directory event slipping
+// past the watcher would create a phantom remote doc. None may reach the doc
+// API, and none may enter the snapshot.
+func TestHandleSync_SkipsWithoutTouchingTheAPI(t *testing.T) {
 	binary := []byte{0x89, 0x50, 0x4e, 0x47, 0xff, 0xfe, 0x00, 0x80} // PNG-ish, invalid UTF-8
-	if err := os.WriteFile(filepath.Join(dir, "assets", "logo.png"), binary, 0o644); err != nil {
-		t.Fatal(err)
+
+	cases := []struct {
+		name     string
+		setup    func(t *testing.T, dir string)
+		seedSnap func(snap *doc.FileSnapshot)
+		kinds    []string
+		rel      string
+		typ, loc string
+		wantLog  []string
+	}{
+		{
+			name: "binary asset",
+			setup: func(t *testing.T, dir string) {
+				if err := os.MkdirAll(filepath.Join(dir, "assets"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "assets", "logo.png"), binary, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			kinds:   []string{"create", "update"},
+			rel:     "assets/logo.png",
+			typ:     "assets",
+			loc:     "logo.png",
+			wantLog: []string{"[skip]", "binary", "themes push"},
+		},
+		{
+			name:     "file vanished before the sync",
+			seedSnap: func(snap *doc.FileSnapshot) { snap.Add("assets", "gone.css") },
+			kinds:    []string{"update"},
+			rel:      "assets/gone.css",
+			typ:      "assets",
+			loc:      "gone.css",
+			wantLog:  []string{"[skip]"},
+		},
+		{
+			name: "directory event",
+			setup: func(t *testing.T, dir string) {
+				if err := os.MkdirAll(filepath.Join(dir, "assets", "icons"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			},
+			kinds: []string{"create"},
+			rel:   "assets/icons",
+			typ:   "assets",
+			loc:   "icons",
+		},
 	}
-	t.Chdir(dir)
 
-	srv, methods := recordDocMethods(t)
-	snap := doc.FileSnapshot{}
-	var log strings.Builder
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if tc.setup != nil {
+				tc.setup(t, dir)
+			}
+			t.Chdir(dir)
 
-	for _, kind := range []string{"create", "update"} {
-		handleSync(context.Background(), client.New(srv.URL), "tid", kind,
-			"assets/logo.png", &snap, doc.NewDeduper(), newPendingFailures(), watch.NewLiveReloadServer(0), &log)
-	}
+			srv, methods := recordDocMethods(t)
+			snap := doc.FileSnapshot{}
+			if tc.seedSnap != nil {
+				tc.seedSnap(&snap)
+			}
+			var log strings.Builder
 
-	if len(*methods) != 0 {
-		t.Errorf("binary file must not hit the doc API; methods=%v", *methods)
-	}
-	if !strings.Contains(log.String(), "[skip]") || !strings.Contains(log.String(), "binary") {
-		t.Errorf("expected a [skip] ... binary warning, got: %q", log.String())
-	}
-	if !strings.Contains(log.String(), "themes push") {
-		t.Errorf("warning should point at `themes push`, got: %q", log.String())
-	}
-}
+			for _, kind := range tc.kinds {
+				handleSync(context.Background(), client.New(srv.URL), "tid", kind,
+					tc.rel, &snap, doc.NewDeduper(), newPendingFailures(),
+					watch.NewLiveReloadServer(0), &log)
+			}
 
-// TestHandleSync_VanishedFileSkipped: when the file disappears between the
-// fsnotify event and handleSync, nothing must be pushed (previously the empty
-// content of the failed read truncated the remote file) and a note is logged.
-func TestHandleSync_VanishedFileSkipped(t *testing.T) {
-	dir := t.TempDir()
-	t.Chdir(dir)
-
-	srv, methods := recordDocMethods(t)
-	snap := doc.FileSnapshot{}
-	snap.Add("assets", "gone.css")
-	var log strings.Builder
-
-	handleSync(context.Background(), client.New(srv.URL), "tid", "update",
-		"assets/gone.css", &snap, doc.NewDeduper(), newPendingFailures(), watch.NewLiveReloadServer(0), &log)
-
-	if len(*methods) != 0 {
-		t.Errorf("vanished file must not hit the doc API; methods=%v", *methods)
-	}
-	if !strings.Contains(log.String(), "[skip]") {
-		t.Errorf("expected a [skip] note for the vanished file, got: %q", log.String())
-	}
-}
-
-// TestHandleSync_DirectorySkipped: belt-and-braces — even if a directory
-// event slips past the watcher's suppression, handleSync must not create a
-// phantom remote doc named after the directory.
-func TestHandleSync_DirectorySkipped(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, "assets", "icons"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(dir)
-
-	srv, methods := recordDocMethods(t)
-	snap := doc.FileSnapshot{}
-
-	handleSync(context.Background(), client.New(srv.URL), "tid", "create",
-		"assets/icons", &snap, doc.NewDeduper(), newPendingFailures(), watch.NewLiveReloadServer(0), io.Discard)
-
-	if len(*methods) != 0 {
-		t.Errorf("directory must not hit the doc API; methods=%v", *methods)
-	}
-	if snap.Has("assets", "icons") {
-		t.Error("directory must not be added to the snapshot")
+			if len(*methods) != 0 {
+				t.Errorf("must not hit the doc API; methods=%v", *methods)
+			}
+			for _, want := range tc.wantLog {
+				if !strings.Contains(log.String(), want) {
+					t.Errorf("log missing %q, got: %q", want, log.String())
+				}
+			}
+			// Seeded entries are expected to stay; anything else must not appear.
+			if tc.seedSnap == nil && snap.Has(tc.typ, tc.loc) {
+				t.Errorf("%s/%s must not enter the snapshot", tc.typ, tc.loc)
+			}
+		})
 	}
 }
 
@@ -1063,45 +1075,39 @@ func TestBuildWatchFilter_HonorsThemeignore(t *testing.T) {
 	}
 }
 
-// TestServe_InvalidLiveReloadPortIsValidationError: out-of-range ports must
-// fail fast as validation (exit 2) — previously 99999 surfaced as a
+// TestServe_FlagValidation: malformed flag values fail fast as validation
+// (exit 2). --theme-id is spliced into URL paths, so junk like "../x" must be
+// rejected up front; an out-of-range port previously surfaced as a
 // network-class bind failure hinting "another instance may be running".
-func TestServe_InvalidLiveReloadPortIsValidationError(t *testing.T) {
-	for _, port := range []int{-1, 65536, 99999} {
-		_, err := serveShortcut.Execute(context.Background(), common.ExecInput{
-			Flags: serveFlags(t, "abc", port),
-		})
-		if err == nil {
-			t.Fatalf("port %d: expected validation error", port)
-		}
-		type envelopeCarrier interface{ Envelope() map[string]any }
-		var ec envelopeCarrier
-		if !errors.As(err, &ec) {
-			t.Fatalf("port %d: error does not implement Envelope(); got %T", port, err)
-		}
-		env := ec.Envelope()
-		if env["type"] != output.TypeValidation {
-			t.Errorf("port %d: type = %v, want validation", port, env["type"])
-		}
+func TestServe_FlagValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		themeID string
+		port    int
+	}{
+		{"negative port", "abc", -1},
+		{"port just past the range", "abc", 65536},
+		{"port far past the range", "abc", 99999},
+		{"theme id with path traversal", "../x", 0},
 	}
-}
 
-// TestServe_InvalidThemeIDIsValidationError: --theme-id is spliced into URL
-// paths; junk like "../x" must be rejected up front.
-func TestServe_InvalidThemeIDIsValidationError(t *testing.T) {
-	_, err := serveShortcut.Execute(context.Background(), common.ExecInput{
-		Flags: serveFlags(t, "../x", 0),
-	})
-	if err == nil {
-		t.Fatal("expected validation error for malformed theme id")
-	}
-	type envelopeCarrier interface{ Envelope() map[string]any }
-	var ec envelopeCarrier
-	if !errors.As(err, &ec) {
-		t.Fatalf("error does not implement Envelope(); got %T", err)
-	}
-	if env := ec.Envelope(); env["type"] != output.TypeValidation {
-		t.Errorf("type = %v, want validation", env["type"])
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := serveShortcut.Execute(context.Background(), common.ExecInput{
+				Flags: serveFlags(t, tc.themeID, tc.port),
+			})
+			if err == nil {
+				t.Fatal("expected a validation error")
+			}
+			type envelopeCarrier interface{ Envelope() map[string]any }
+			var ec envelopeCarrier
+			if !errors.As(err, &ec) {
+				t.Fatalf("error does not implement Envelope(); got %T", err)
+			}
+			if env := ec.Envelope(); env["type"] != output.TypeValidation {
+				t.Errorf("type = %v, want validation", env["type"])
+			}
+		})
 	}
 }
 
@@ -1295,5 +1301,269 @@ func TestServe_DryRun_TaskID(t *testing.T) {
 		if strings.Contains(p.Path, "/upload") {
 			t.Errorf("--task-id dry-run must not plan an upload: %+v", p)
 		}
+	}
+}
+
+// asyncCreateHandler mimics an upload that only returns a task id, with the
+// task later reporting the new theme id.
+func asyncCreateHandler(themeID string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(r.URL.Path, "/themes/upload"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"task": map[string]any{"task": map[string]any{"id": "task-1", "status": "0"}},
+			})
+		case strings.Contains(r.URL.Path, "/themes/task/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"ok": true,
+				"data": map[string]any{"task": map[string]any{
+					"status":  1,
+					"message": "success",
+					"info":    `{"name":"X","theme_id":"` + themeID + `"}`,
+				}},
+			})
+		case strings.Contains(r.URL.Path, "/shop"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"ok":   true,
+				"data": map[string]any{"shop": map[string]any{"domain": "demo.test"}},
+			})
+		default:
+			mockServeOK(w, r)
+		}
+	}
+}
+
+// First-time serve prints the create upload as separate steps, including the
+// task id needed for --task-id.
+func TestServe_CreateDevTheme_PrintsUploadSteps(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+	withPushPollOpts(t, asynctask.PollOptions{Interval: time.Millisecond, MaxDuration: 5 * time.Second})
+
+	rec := &recordingHandler{next: asyncCreateHandler("dev9")}
+	srv := httptest.NewServer(rec)
+	t.Cleanup(srv.Close)
+
+	var err error
+	captured := captureStderr(t, func() {
+		err = runServeBriefly(t, client.New(srv.URL), serveFlags(t, "", 0), rec)
+	})
+	if err != nil {
+		t.Fatalf("serve err: %v", err)
+	}
+	for _, want := range []string{
+		"[serve] packaging theme files",
+		"[serve] uploading Development - X-1.0.zip (",
+		"[serve] upload task task-1",
+		"[serve] waiting for the server to process the theme",
+		"[serve] development theme dev9 created",
+	} {
+		if !strings.Contains(captured, want) {
+			t.Errorf("stderr missing %q; captured:\n%s", want, captured)
+		}
+	}
+	if strings.Contains(captured, "creating development theme") {
+		t.Errorf("single-line create spinner should be gone; captured:\n%s", captured)
+	}
+}
+
+// ─────────── --skip-push (skips only the startup full upload) ───────────
+
+// serveFlagsSkipPush mirrors serveFlags with --skip-push set; taskID != ""
+// also defines --task-id, the combination serve must refuse.
+func serveFlagsSkipPush(themeID, taskID string, port int) common.FlagSet {
+	cmd := &cobra.Command{Use: "serve"}
+	cmd.Flags().StringP("theme-id", "t", themeID, "")
+	cmd.Flags().Int("port", port, "")
+	cmd.Flags().Bool("skip-push", true, "")
+	if taskID != "" {
+		cmd.Flags().String("task-id", taskID, "")
+	}
+	return common.NewCobraFlagSet(cmd)
+}
+
+// assertNoUpload fails on any request to the upload or task-poll endpoints —
+// the two wire signatures of a full upload.
+func assertNoUpload(t *testing.T, lines []string) {
+	t.Helper()
+	for _, line := range lines {
+		if strings.Contains(line, "/themes/upload") || strings.Contains(line, "/themes/task/") {
+			t.Errorf("--skip-push must not upload; saw %q in:\n%s", line, strings.Join(lines, "\n"))
+		}
+	}
+}
+
+// TestServe_SkipPush_SkipsUploadInBothModes: whichever way the theme is
+// resolved, --skip-push drops the startup upload and keeps everything
+// downstream — the detail lookup that validates the id and the doctree fetch
+// handleSync needs to choose PATCH vs POST+PATCH.
+func TestServe_SkipPush_SkipsUploadInBothModes(t *testing.T) {
+	t.Run("explicit theme-id", func(t *testing.T) {
+		dir := t.TempDir()
+		makeThemeAt(t, dir)
+		writeSettings(t, dir, "X", "1.0")
+		t.Chdir(dir)
+
+		rec := &recordingHandler{next: mockServeOK}
+		srv := httptest.NewServer(rec)
+		t.Cleanup(srv.Close)
+
+		if err := runServeBriefly(t, client.New(srv.URL), serveFlagsSkipPush("abc", "", 0), rec); err != nil {
+			t.Fatalf("serve err: %v", err)
+		}
+		lines := rec.requests()
+		assertNoUpload(t, lines)
+
+		var sawDetail, sawDocTree bool
+		for _, line := range lines {
+			if strings.Contains(line, "/doctree") {
+				sawDocTree = true
+			} else if strings.Contains(line, "/themes/abc") {
+				sawDetail = true
+			}
+		}
+		if !sawDetail || !sawDocTree {
+			t.Errorf("detail=%v doctree=%v, both required; requests:\n%s",
+				sawDetail, sawDocTree, strings.Join(lines, "\n"))
+		}
+	})
+
+	t.Run("development theme reused from state", func(t *testing.T) {
+		dir := t.TempDir()
+		makeThemeAt(t, dir)
+		writeSettings(t, dir, "X", "1.0")
+		t.Chdir(dir)
+
+		rec := &recordingHandler{next: mockServeOK}
+		srv := httptest.NewServer(rec)
+		t.Cleanup(srv.Close)
+
+		if err := devstate.Save(dir, devstate.StoreKey(srv.URL), "dev1"); err != nil {
+			t.Fatalf("seed state: %v", err)
+		}
+		if err := runServeBriefly(t, client.New(srv.URL), serveFlagsSkipPush("", "", 0), rec); err != nil {
+			t.Fatalf("serve err: %v", err)
+		}
+		assertNoUpload(t, rec.requests())
+		if id, _ := devstate.Load(dir, devstate.StoreKey(srv.URL)); id != "dev1" {
+			t.Errorf("state must keep dev1, got %q", id)
+		}
+	})
+}
+
+// TestServe_SkipPush_RefusedCombinations: the two requests --skip-push cannot
+// honor must fail validation without reaching the network — silently uploading
+// anyway would make the flag a lie.
+func TestServe_SkipPush_RefusedCombinations(t *testing.T) {
+	// --task-id waits for a task that is itself a full upload.
+	t.Run("with --task-id", func(t *testing.T) {
+		rec := &recordingHandler{next: mockServeOK}
+		srv := httptest.NewServer(rec)
+		t.Cleanup(srv.Close)
+
+		_, err := serveShortcut.Execute(context.Background(), common.ExecInput{
+			Client: client.New(srv.URL),
+			Flags:  serveFlagsSkipPush("abc", "t1", 0),
+		})
+		if err == nil || !strings.Contains(err.Error(), "--task-id") {
+			t.Fatalf("want an error naming --task-id, got: %v", err)
+		}
+		if n := len(rec.requests()); n != 0 {
+			t.Errorf("must be caught before any request; got %d:\n%s", n, strings.Join(rec.requests(), "\n"))
+		}
+	})
+
+	// Creating a development theme is itself a full upload.
+	t.Run("development mode with no theme yet", func(t *testing.T) {
+		dir := t.TempDir()
+		makeThemeAt(t, dir)
+		writeSettings(t, dir, "X", "1.0")
+		t.Chdir(dir)
+
+		rec := &recordingHandler{next: mockServeOK}
+		srv := httptest.NewServer(rec)
+		t.Cleanup(srv.Close)
+
+		_, err := serveShortcut.Execute(context.Background(), common.ExecInput{
+			Client: client.New(srv.URL),
+			Flags:  serveFlagsSkipPush("", "", 0),
+		})
+		if err == nil || !strings.Contains(err.Error(), "--skip-push") {
+			t.Fatalf("want an error naming --skip-push, got: %v", err)
+		}
+		assertNoUpload(t, rec.requests())
+		if id, ok := devstate.Load(dir, devstate.StoreKey(srv.URL)); ok {
+			t.Errorf("must not record a dev theme, got %q", id)
+		}
+	})
+}
+
+// TestServe_SkipPush_DryRunPlans: the preview must match what serve actually
+// does — upload and task-poll gone in both modes, and the dev-mode refusal
+// surfaced rather than a create previewed.
+func TestServe_SkipPush_DryRunPlans(t *testing.T) {
+	dir := t.TempDir()
+	makeThemeAt(t, dir)
+	writeSettings(t, dir, "X", "1.0")
+	t.Chdir(dir)
+
+	detailThenDocTree := func(t *testing.T, label, themeID string, res common.ExecResult) {
+		t.Helper()
+		got := make([]string, 0, len(res.Plans))
+		for _, p := range res.Plans {
+			got = append(got, p.Method+" "+p.Path)
+		}
+		if len(got) != 2 ||
+			!strings.HasSuffix(got[0], "/themes/"+themeID) || !strings.HasSuffix(got[1], "/doctree") {
+			t.Errorf("%s: want detail+doctree, got %v", label, got)
+		}
+	}
+
+	res, err := serveShortcut.Execute(context.Background(), common.ExecInput{
+		DryRun: true, Flags: serveFlagsSkipPush("abc", "", 21647),
+	})
+	if err != nil {
+		t.Fatalf("explicit dry-run err: %v", err)
+	}
+	detailThenDocTree(t, "explicit", "abc", res)
+
+	if _, err := serveShortcut.Execute(context.Background(), common.ExecInput{
+		DryRun: true, Flags: serveFlagsSkipPush("", "", 21647),
+	}); err == nil {
+		t.Error("dev-mode dry-run without state must refuse under --skip-push")
+	}
+
+	if err := devstate.Save(dir, "default", "dev1"); err != nil {
+		t.Fatalf("seed state: %v", err)
+	}
+	res, err = serveShortcut.Execute(context.Background(), common.ExecInput{
+		DryRun: true, Flags: serveFlagsSkipPush("", "", 21647),
+	})
+	if err != nil {
+		t.Fatalf("dev dry-run err: %v", err)
+	}
+	detailThenDocTree(t, "dev", "dev1", res)
+}
+
+// TestPrintDriftSummary_ReportsSetDifference: counts files on one side only.
+// Contents are never compared, so a file on both sides matches whatever it holds.
+func TestPrintDriftSummary_ReportsSetDifference(t *testing.T) {
+	snap := doc.FileSnapshot{}
+	snap.Add("layout", "theme.liquid")    // both sides
+	snap.Add("snippets", "remote.liquid") // remote only
+	local := map[string]struct{}{
+		"layout/theme.liquid":   {},
+		"snippets/local.liquid": {}, // local only
+	}
+
+	var buf bytes.Buffer
+	printDriftSummary(&buf, snap, local)
+
+	if got := buf.String(); !strings.Contains(got, "file list: 1 file(s) only on the remote") ||
+		!strings.Contains(got, "1 only local") {
+		t.Errorf("want 1 remote-only and 1 local-only, got: %s", got)
 	}
 }
