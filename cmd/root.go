@@ -17,6 +17,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/dynamic"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/profile"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/schema"
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd/skill"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/theme_extension"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/update"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
@@ -71,6 +72,7 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 	rootCmd.AddCommand(api.NewCmdAPI(factory))
 	rootCmd.AddCommand(profile.NewCmdProfile(factory))
 	rootCmd.AddCommand(schema.NewCmdSchema(spec))
+	rootCmd.AddCommand(skill.NewCmdSkill())
 	rootCmd.AddCommand(doctor.NewCmdDoctor(factory))
 	rootCmd.AddCommand(completion.NewCmdCompletion(factory))
 	rootCmd.AddCommand(update.NewCmdUpdate(factory))

@@ -42,6 +42,15 @@ Fill every `{{placeholder}}`, then **delete the OPTIONAL section blocks you don'
 (each is fenced by `<!-- OPTIONAL … -->` … `<!-- /OPTIONAL … -->`). The mandatory backbone
 must stay.
 
+**Then register the skill for embedding.** The CLI serves skill content straight from the
+binary — `shoplazza skills list` / `shoplazza skills read <domain>` — so it always matches the
+running version with zero drift. A new domain is only served once it is added to the
+`//go:embed` directive in [`skills_embed.go`](../../skills_embed.go) (append
+`skills/shoplazza-<domain>` to that space-separated list). `TestEveryDomainSkillIsEmbedded`
+(in `internal/skillcontent/`) fails CI if any `skills/*/` that has a `SKILL.md` is missing from
+the list — forgetting this is caught, not silent. Tooling dirs with **no** `SKILL.md`
+(`_template`, `shoplazza-skill-eval`) are intentionally not embedded; do not add them.
+
 ## 2. Mandatory backbone (never omit)
 
 Every skill has, in order:
