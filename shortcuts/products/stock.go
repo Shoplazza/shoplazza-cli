@@ -243,7 +243,6 @@ func execStockSetOrDecrease(ctx context.Context, in common.ExecInput, variantID,
 	return common.ExecResult{Body: wrapLevelRow(afterRow)}, nil
 }
 
-
 // resolveInventoryItemID runs the variant→inventory-item lookup plan and extracts the id.
 func resolveInventoryItemID(ctx context.Context, c *client.Client, plan common.PlannedRequest) (string, error) {
 	resp, err := common.Send(ctx, c, plan)

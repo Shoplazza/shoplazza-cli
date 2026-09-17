@@ -216,13 +216,7 @@ Editor are not written back to local files; fetch them with
 			if skipPush {
 				return common.ExecResult{}, errSkipPushNoDevTheme()
 			}
-			name, version, _ := readThemeInfo(cwd)
-			if name == "" {
-				name = "<theme>"
-			}
-			if version == "" {
-				version = "<version>"
-			}
+			name, version := themeInfoForDryRun(cwd)
 			return common.ExecResult{Plans: []common.PlannedRequest{
 				PlanShareUpload("", devThemeName(name), version),
 				PlanTaskDetail("<task_id-from-upload>"),

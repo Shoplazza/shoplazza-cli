@@ -1,0 +1,23 @@
+<div {{ block.shoplaza_attributes }}>
+  <h3>{{ block.settings.title }}</h3>
+  {% for b in block.blocks %}<span>{{ b.settings.text }}</span>{% endfor %}
+</div>
+
+{% schema %}
+{
+  "name": "cli_parent_card",
+  "settings": [
+    { "type": "text", "id": "title", "label": { "en-US": "Title" }, "default": "Parent" }
+  ],
+  "blocks": [
+    { "type": "child_item", "name": { "en-US": "Child item" },
+      "settings": [ { "type": "text", "id": "text", "label": { "en-US": "Text" }, "default": "child default" } ] }
+  ],
+  "presets": [
+    { "name": "cli_parent_card", "cname": { "en-US": "Parent card" }, "display": true,
+      "settings": { "title": "Parent" },
+      "blocks": [ { "type": "child_item", "settings": { "text": "first child" } },
+                  { "type": "child_item", "settings": { "text": "second child" } } ] }
+  ]
+}
+{% endschema %}

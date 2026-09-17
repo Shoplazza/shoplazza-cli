@@ -740,4 +740,3 @@ func respVariantCount(resp map[string]any, planned int) int {
 	}
 	return planned
 }
-

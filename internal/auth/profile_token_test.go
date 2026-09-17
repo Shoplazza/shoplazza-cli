@@ -26,20 +26,6 @@ func seedSingleAccountConfig(cfg *core.CliConfig, email string) {
 	cfg.Accounts = []core.AccountConfig{{Name: email}}
 }
 
-// newExchangeStub returns an httptest server that stubs the store-AT exchange
-// endpoint, always returning accessToken with a fixed store/scope/expiry.
-func newExchangeStub(t *testing.T, accessToken string) *httptest.Server {
-	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success", "data": map[string]any{
-			"access_token": accessToken, "store_id": "1",
-			"store_domain": "cn.myshoplazza.com", "granted_scopes": []string{"read_product"},
-			"at_expires_at": "2099-01-01T00:00:00Z",
-		}})
-	}))
-}
-
 func TestExchangeForProfile_SendsScopesAndPersists(t *testing.T) {
 	testenv.IsolateConfigDir(t)
 
@@ -79,7 +65,7 @@ func TestExchangeForProfile_SendsScopesAndPersists(t *testing.T) {
 func TestExchangeEphemeral_NoPersistence(t *testing.T) {
 	testenv.IsolateConfigDir(t)
 
-	srv := newExchangeStub(t, "at-tmp")
+	srv := testenv.NewStoreATExchangeStub(t, "at-tmp")
 	defer srv.Close()
 
 	m := &Manager{Client: client.New(srv.URL)}

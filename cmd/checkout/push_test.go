@@ -16,22 +16,8 @@ import (
 	checkout "github.com/Shoplazza/shoplazza-cli/v2/cmd/checkout"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
-
-// skipIfDirWritable skips the test when a write into dir still succeeds despite a
-// prior chmod 0o555 — i.e. chmod-based denial isn't enforced here (running as
-// root, or a temp dir on a filesystem that ignores directory permissions). The
-// test exercises a write-failure path that can't be induced in that case, so
-// skipping is correct; asserting failure would be a false negative.
-func skipIfDirWritable(t *testing.T, dir string) {
-	t.Helper()
-	probe := filepath.Join(dir, ".write-probe")
-	if f, err := os.Create(probe); err == nil {
-		_ = f.Close()
-		_ = os.Remove(probe)
-		t.Skipf("%s is writable despite chmod 0o555 (root or a permissive filesystem); cannot exercise the write-failure path", dir)
-	}
-}
 
 // makeExtProject creates extensions/<id>/extension.json (extensionId = extensionID arg,
 // empty = first push) plus a built artifact, and returns the project root + extension dir.
@@ -373,7 +359,7 @@ func TestRunPush_WritebackFailureCarriesIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(extDir, 0o755) })
-	skipIfDirWritable(t, extDir)
+	testenv.SkipIfDirWritable(t, extDir)
 
 	f := newPushFactory(t, srv.URL)
 	cmd := checkout.NewCmdCheckout(f)
