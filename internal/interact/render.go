@@ -65,5 +65,5 @@ func FieldList(label string, items []string, width int) string {
 
 // Summary prints the closing card. Human-facing, so it draws on errOut.
 func Summary(errOut io.Writer, rows ...string) {
-	fmt.Fprintln(errOut, "\n"+cardStyle().Render(strings.Join(rows, "\n")))
+	_, _ = fmt.Fprintln(errOut, "\n"+cardStyle().Render(strings.Join(rows, "\n")))
 }

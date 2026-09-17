@@ -119,9 +119,7 @@ func pump(form **huh.Form, msg tea.Msg) {
 		queue = queue[1:]
 		mod, cmd := (*form).Update(m)
 		*form = mod.(*huh.Form)
-		for _, next := range collect(cmd) {
-			queue = append(queue, next)
-		}
+		queue = append(queue, collect(cmd)...)
 	}
 }
 

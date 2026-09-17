@@ -141,18 +141,18 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			if wizardRan {
 				interact.Summary(f.IOStreams.ErrOut, loginSummaryRows(normalizedStore, domain, scope)...)
 			} else {
-				fmt.Fprintf(f.IOStreams.ErrOut, "Summary:\n")
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Summary:\n")
 				if normalizedStore != "" {
-					fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      %s\n", normalizedStore)
+					_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      %s\n", normalizedStore)
 				} else {
-					fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      (account only)\n")
+					_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "  Store:      (account only)\n")
 				}
-				fmt.Fprintf(f.IOStreams.ErrOut, "  Scopes (%d): %s\n", len(effectiveScopes), strings.Join(effectiveScopes, ", "))
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "  Scopes (%d): %s\n", len(effectiveScopes), strings.Join(effectiveScopes, ", "))
 			}
 			if keptFromGrant > 0 {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  (--merge-scopes kept %d previously granted scope(s))\n", keptFromGrant)
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "  (--merge-scopes kept %d previously granted scope(s))\n", keptFromGrant)
 			}
-			fmt.Fprintf(f.IOStreams.ErrOut, "\n")
+			_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "\n")
 
 			result, err := manager.Login(
 				context.Background(),
@@ -162,8 +162,8 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 				time.Duration(timeoutSec)*time.Second,
 				time.Duration(pollIntervalSec)*time.Second,
 				func(authorizeURL string) {
-					fmt.Fprintf(f.IOStreams.ErrOut, "Open this URL to authorize in your browser:\n\n  %s\n\n", authorizeURL)
-					fmt.Fprintf(f.IOStreams.ErrOut, "Waiting for authorization...\n")
+					_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Open this URL to authorize in your browser:\n\n  %s\n\n", authorizeURL)
+					_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Waiting for authorization...\n")
 				},
 			)
 			if err != nil {
@@ -173,17 +173,17 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 					"Run 'shoplazza auth login' to retry")
 			}
 
-			fmt.Fprintf(f.IOStreams.ErrOut, "\nOK: Login successful!\n")
+			_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "\nOK: Login successful!\n")
 			if result.StoreWarning != "" {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  warning: %s\n", result.StoreWarning)
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "  warning: %s\n", result.StoreWarning)
 			}
 			if result.Status.CurrentStore != "" {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  Current store: %s\n", result.Status.CurrentStore)
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "  Current store: %s\n", result.Status.CurrentStore)
 			}
 			if len(result.Status.GrantedScopes) > 0 {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  Granted scopes: %s\n", strings.Join(result.Status.GrantedScopes, " "))
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "  Granted scopes: %s\n", strings.Join(result.Status.GrantedScopes, " "))
 			}
-			fmt.Fprintf(f.IOStreams.ErrOut, "  UAT: %s\n", result.UAT)
+			_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "  UAT: %s\n", result.UAT)
 
 			// If the requested --store-domain failed live validation, don't create
 			// or activate a profile for it (result.Status.CurrentStore is already "").
@@ -215,7 +215,7 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			// Best-effort: a failed write self-heals via the Gate's lazy mint.
 			if profileName != "" && result.StoreToken != nil {
 				if perr := internalauth.PersistProfileToken(internalauth.AuthDir(f.ConfigPath), profileName, result.StoreToken); perr != nil {
-					fmt.Fprintf(f.IOStreams.ErrOut, "warning: store token not cached (will re-mint on next use): %v\n", perr)
+					_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "warning: store token not cached (will re-mint on next use): %v\n", perr)
 				}
 			}
 

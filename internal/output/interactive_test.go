@@ -19,7 +19,7 @@ func charDevice(t *testing.T) *os.File {
 	if err != nil {
 		t.Fatalf("open %s: %v", os.DevNull, err)
 	}
-	t.Cleanup(func() { f.Close() })
+	t.Cleanup(func() { _ = f.Close() })
 	return f
 }
 
@@ -30,7 +30,7 @@ func pipeFile(t *testing.T) *os.File {
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
 	}
-	t.Cleanup(func() { r.Close(); w.Close() })
+	t.Cleanup(func() { _ = r.Close(); _ = w.Close() })
 	return r
 }
 

@@ -401,7 +401,7 @@ func TestDoRaw_HTTPError(t *testing.T) {
 func TestHTTPError_CarriesEndpoint_AllPaths(t *testing.T) {
 	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"code":"ServerError"}`))
+		_, _ = w.Write([]byte(`{"code":"ServerError"}`))
 	})
 	assertEndpoint := func(t *testing.T, err error, wantMethod, wantPath string) {
 		t.Helper()
@@ -430,7 +430,7 @@ func TestHTTPError_CarriesRequestID_AllPaths(t *testing.T) {
 	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Request-Id", "req-500-1")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"code":"ServerError"}`))
+		_, _ = w.Write([]byte(`{"code":"ServerError"}`))
 	})
 	assertRequestID := func(t *testing.T, err error) {
 		t.Helper()
@@ -456,7 +456,7 @@ func TestDoRaw_ParseFailureKeepsHeaders(t *testing.T) {
 	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Request-Id", "req-parse-1")
-		w.Write([]byte(`{truncated`))
+		_, _ = w.Write([]byte(`{truncated`))
 	})
 	resp, err := c.DoRaw(context.Background(), client.RawRequest{Method: "GET", Path: "/"})
 	if err == nil {
