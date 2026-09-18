@@ -47,6 +47,7 @@ var pullShortcut = common.Shortcut{
 			Description: "Theme ID (required). Run `shoplazza themes list` to discover.",
 			Picker:      themePicker,
 		},
+		environmentFlag,
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		themeID, err := theme.RequireThemeID(in.Flags.GetString("theme-id"))

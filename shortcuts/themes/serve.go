@@ -120,6 +120,7 @@ Editor are not written back to local files; fetch them with
 			Type:        common.FlagString,
 			Description: "Resume waiting for an earlier upload task instead of uploading again (task_id from a timeout error).",
 		},
+		environmentFlag,
 		{
 			Name: "skip-push",
 			Type: common.FlagBool,

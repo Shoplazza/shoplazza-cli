@@ -100,6 +100,7 @@ var pushShortcut = common.Shortcut{
 			Type:        common.FlagString,
 			Description: "Resume waiting for an earlier upload task instead of uploading again (task_id from a timeout error).",
 		},
+		environmentFlag,
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		themeID, err := theme.RequireThemeID(in.Flags.GetString("theme-id"))
