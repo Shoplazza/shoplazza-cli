@@ -45,17 +45,6 @@ Prerequisite:
   shoplazza auth login                      authenticate your account`,
 }
 
-// moduleGroups lists the help-display groups a module opts into. A module here
-// splits its subcommands in `--help` into a shortcut/dev tier and an OpenAPI
-// store tier (see internal/cmdutil.Group*). Order = render order. Unlisted
-// modules render a single flat "Available Commands" list as before.
-var moduleGroups = map[string][]*cobra.Group{
-	"themes": {
-		{ID: cmdutil.GroupShortcut, Title: "Theme development (local files <-> a theme on your store):"},
-		{ID: cmdutil.GroupAPI, Title: "Store theme operations (OpenAPI - manage themes in the store):"},
-	},
-}
-
 // moduleLong returns a module's full Long: its workflow map (or Short) plus the
 // shared access-tier explanation.
 func moduleLong(name string) string {
@@ -105,7 +94,7 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 	// Opt into help grouping: generated commands are the OpenAPI/store tier;
 	// shortcuts mounted later (RegisterShortcuts) land in the shortcut tier.
 	grouped := false
-	if grps, ok := moduleGroups[mod.Name]; ok {
+	if grps, ok := cmdutil.ModuleGroups[mod.Name]; ok {
 		moduleCmd.AddGroup(grps...)
 		grouped = true
 	}
