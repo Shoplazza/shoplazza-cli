@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -112,6 +113,33 @@ func TestFind_WalksUpAndReportsNotFound(t *testing.T) {
 	// Not found under a fresh, file-less tree.
 	if _, err := Find(t.TempDir()); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Find on a bare dir = %v, want ErrNotFound", err)
+	}
+}
+
+func TestSave_RoundTripOmitsEmptyFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, FileName)
+	in := File{Environments: map[string]Environment{
+		"staging": {Store: "s.myshoplaza.com", Theme: "123", Profile: "staging"},
+		"prod":    {Store: "p.myshoplaza.com", Live: true},
+	}}
+	if err := Save(path, in); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	out, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if s, _ := out.Environment("staging"); s.Store != "s.myshoplaza.com" || s.Theme != "123" || s.Profile != "staging" || s.Path != "" || s.Live {
+		t.Errorf("staging round-trip = %+v", s)
+	}
+	if p, _ := out.Environment("prod"); p.Store != "p.myshoplaza.com" || !p.Live || p.Theme != "" {
+		t.Errorf("prod round-trip = %+v", p)
+	}
+	// Empty fields must not be written (clean blocks).
+	raw, _ := os.ReadFile(path)
+	if strings.Contains(string(raw), "path =") || strings.Contains(string(raw), "config =") {
+		t.Errorf("empty fields leaked into the file:\n%s", raw)
 	}
 }
 

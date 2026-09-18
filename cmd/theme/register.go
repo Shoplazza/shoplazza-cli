@@ -15,7 +15,11 @@ func RegisterCommands(root *cobra.Command, f *cmdutil.Factory) {
 	if themes == nil {
 		return
 	}
-	for _, c := range []*cobra.Command{newCmdPush(f), newCmdPull(f), newCmdServe(f), newCmdShare(f)} {
+	for _, c := range []*cobra.Command{
+		newCmdInit(f), newCmdPackage(f),
+		newCmdPush(f), newCmdPull(f), newCmdServe(f), newCmdShare(f),
+		newCmdEnv(f),
+	} {
 		// Tag as the dev/shortcut tier when the module groups its help, matching
 		// how the shortcut engine tags mounted shortcuts.
 		if themes.ContainsGroup(cmdutil.GroupShortcut) {

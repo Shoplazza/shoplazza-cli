@@ -1,0 +1,389 @@
+package themecmd
+
+import (
+	"errors"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/themeenv"
+)
+
+// newCmdEnv is the `themes env` subtree: read + edit the project's
+// shoplazza.theme.toml environments. Every subcommand is local (no store client,
+// no auth) — the AuthFree annotation makes the shared `themes` module auth gate
+// skip them.
+func newCmdEnv(f *cmdutil.Factory) *cobra.Command {
+	env := &cobra.Command{
+		Use:   "env",
+		Short: "Inspect and edit theme environments (" + themeenv.FileName + ")",
+		Long:  "Read and edit the project's " + themeenv.FileName + " environments. Hand-editing the file stays fully supported; add/set/remove are helpers that rewrite it without comments.",
+	}
+	env.AddCommand(
+		newCmdEnvList(f),
+		newCmdEnvShow(f),
+		newCmdEnvCheck(f),
+		newCmdEnvAdd(f),
+		newCmdEnvSet(f),
+		newCmdEnvRemove(f),
+	)
+	return env
+}
+
+// authFree marks a local command so the `themes` module auth gate skips it.
+// authFreeWrite additionally marks it NotScannable — it writes the filesystem,
+// so blind CLI scans must skip it.
+var (
+	authFree      = map[string]string{cmdutil.AnnotationAuthFree: "true"}
+	authFreeWrite = map[string]string{cmdutil.AnnotationAuthFree: "true", cmdutil.AnnotationNotScannable: "true"}
+)
+
+func newCmdEnvList(f *cmdutil.Factory) *cobra.Command {
+	var path string
+	cmd := &cobra.Command{
+		Use:         "list [--path <dir>]",
+		Short:       "List the theme environments defined in " + themeenv.FileName,
+		Long:        "List the environments in the project's " + themeenv.FileName + " (found by searching up from --path). Read-only and offline.",
+		Example:     "  shoplazza themes env list",
+		Args:        cobra.NoArgs,
+		Annotations: authFree,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			file, p, err := loadThemeEnvFile(path)
+			if err != nil {
+				return err
+			}
+			envs := make([]map[string]any, 0, len(file.Environments))
+			for _, name := range file.Names() {
+				e, _ := file.Environment(name)
+				envs = append(envs, envToMap(name, e))
+			}
+			return output.PrintBody(cmd.OutOrStdout(), map[string]any{"file": p, "environments": envs}, cmdutil.GetFormat(cmd), "")
+		},
+	}
+	cmd.Flags().StringVar(&path, "path", ".", "Directory to search upward for "+themeenv.FileName)
+	return cmd
+}
+
+func newCmdEnvShow(f *cmdutil.Factory) *cobra.Command {
+	var path string
+	cmd := &cobra.Command{
+		Use:         "show [name] [--path <dir>]",
+		Short:       "Show one theme environment's settings",
+		Long:        "Show a single environment from " + themeenv.FileName + "; omit the name for the 'default' environment. Read-only and offline.",
+		Example:     "  shoplazza themes env show staging",
+		Args:        cobra.MaximumNArgs(1),
+		Annotations: authFree,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := ""
+			if len(args) > 0 {
+				name = args[0]
+			}
+			file, _, err := loadThemeEnvFile(path)
+			if err != nil {
+				return err
+			}
+			e, ok := file.Environment(name)
+			if !ok {
+				return envNotFound(file, name)
+			}
+			resolved := name
+			if resolved == "" {
+				resolved = themeenv.DefaultEnvironment
+			}
+			return output.PrintBody(cmd.OutOrStdout(), envToMap(resolved, e), cmdutil.GetFormat(cmd), "")
+		},
+	}
+	cmd.Flags().StringVar(&path, "path", ".", "Directory to search upward for "+themeenv.FileName)
+	return cmd
+}
+
+func newCmdEnvCheck(f *cmdutil.Factory) *cobra.Command {
+	var path string
+	cmd := &cobra.Command{
+		Use:         "check [name] [--path <dir>]",
+		Short:       "Validate theme environments offline (each resolves to a configured profile/store)",
+		Long:        "Offline-validate the environments in " + themeenv.FileName + ": referenced profiles exist and store-only environments have an authenticated profile. Omit the name to check them all. Exits non-zero if any fail.",
+		Example:     "  shoplazza themes env check",
+		Args:        cobra.MaximumNArgs(1),
+		Annotations: authFree,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			file, p, err := loadThemeEnvFile(path)
+			if err != nil {
+				return err
+			}
+			names := file.Names()
+			if len(args) > 0 {
+				if _, ok := file.Environment(args[0]); !ok {
+					return envNotFound(file, args[0])
+				}
+				names = []string{args[0]}
+			}
+			cfg := loadProfileConfig()
+			results := make([]map[string]any, 0, len(names))
+			var failures []string
+			for _, name := range names {
+				e, _ := file.Environment(name)
+				issues := checkEnvironment(&cfg, e)
+				r := map[string]any{"name": name, "ok": len(issues) == 0}
+				if len(issues) > 0 {
+					r["issues"] = issues
+					for _, msg := range issues {
+						failures = append(failures, name+": "+msg)
+					}
+				}
+				results = append(results, r)
+			}
+			if len(failures) > 0 {
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					strconv.Itoa(len(failures))+" environment issue(s) in "+themeenv.FileName, strings.Join(failures, "; "))
+			}
+			return output.PrintBody(cmd.OutOrStdout(), map[string]any{"file": p, "ok": true, "environments": results}, cmdutil.GetFormat(cmd), "")
+		},
+	}
+	cmd.Flags().StringVar(&path, "path", ".", "Directory to search upward for "+themeenv.FileName)
+	return cmd
+}
+
+func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
+	var path, store, themeID, profile string
+	var live bool
+	cmd := &cobra.Command{
+		Use:         "add <name> --store <domain> [--theme <id>] [--profile <name>] [--live]",
+		Short:       "Add a new environment to " + themeenv.FileName,
+		Long:        "Add a new [environments.<name>] block to " + themeenv.FileName + " (created if absent). Errors if the environment exists — use 'themes env set'. Advanced keys (path/ignore) are hand-edited; this rewrites the file without comments.",
+		Example:     "  shoplazza themes env add staging --store staging.myshoplaza.com --theme 123456 --profile staging",
+		Args:        cobra.ExactArgs(1),
+		Annotations: authFreeWrite,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			file, p, existed, err := loadOrNewThemeEnvFile(path)
+			if err != nil {
+				return err
+			}
+			if _, ok := file.Environment(name); ok {
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"environment "+name+" already exists in "+themeenv.FileName,
+					"use 'shoplazza themes env set "+name+"' to change it")
+			}
+			e := themeenv.Environment{Store: store, Theme: themeID, Profile: profile, Live: live}
+			if file.Environments == nil {
+				file.Environments = map[string]themeenv.Environment{}
+			}
+			file.Environments[name] = e
+			if serr := themeenv.Save(p, file); serr != nil {
+				return theme.ErrLocalIO("write "+themeenv.FileName, serr)
+			}
+			body := envToMap(name, e)
+			body["file"] = p
+			body["created_file"] = !existed
+			return output.PrintBody(cmd.OutOrStdout(), body, cmdutil.GetFormat(cmd), "")
+		},
+	}
+	bindEnvWriteFlags(cmd, &path, &store, &themeID, &profile, &live)
+	return cmd
+}
+
+func newCmdEnvSet(f *cmdutil.Factory) *cobra.Command {
+	var path, store, themeID, profile string
+	var live bool
+	cmd := &cobra.Command{
+		Use:         "set <name> [--store <domain>] [--theme <id>] [--profile <name>] [--live]",
+		Short:       "Change fields of an existing environment in " + themeenv.FileName,
+		Long:        "Update an existing [environments.<name>] block; only the flags you pass are changed. Errors if the environment does not exist — use 'themes env add'. Rewrites the file without comments.",
+		Example:     "  shoplazza themes env set staging --theme 654321",
+		Args:        cobra.ExactArgs(1),
+		Annotations: authFreeWrite,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			file, p, err := loadThemeEnvFile(path)
+			if err != nil {
+				return err
+			}
+			e, ok := file.Environment(name)
+			if !ok {
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"environment "+name+" not found in "+themeenv.FileName,
+					"use 'shoplazza themes env add "+name+"' to create it")
+			}
+			if cmd.Flags().Changed("store") {
+				e.Store = store
+			}
+			if cmd.Flags().Changed("theme") {
+				e.Theme = themeID
+			}
+			if cmd.Flags().Changed("profile") {
+				e.Profile = profile
+			}
+			if cmd.Flags().Changed("live") {
+				e.Live = live
+			}
+			file.Environments[name] = e
+			if serr := themeenv.Save(p, file); serr != nil {
+				return theme.ErrLocalIO("write "+themeenv.FileName, serr)
+			}
+			body := envToMap(name, e)
+			body["file"] = p
+			return output.PrintBody(cmd.OutOrStdout(), body, cmdutil.GetFormat(cmd), "")
+		},
+	}
+	bindEnvWriteFlags(cmd, &path, &store, &themeID, &profile, &live)
+	return cmd
+}
+
+func newCmdEnvRemove(f *cmdutil.Factory) *cobra.Command {
+	var path string
+	cmd := &cobra.Command{
+		Use:         "remove <name>",
+		Short:       "Remove an environment from " + themeenv.FileName,
+		Long:        "Delete the [environments.<name>] block from " + themeenv.FileName + ". Rewrites the file without comments.",
+		Example:     "  shoplazza themes env remove staging",
+		Args:        cobra.ExactArgs(1),
+		Annotations: authFreeWrite,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			file, p, err := loadThemeEnvFile(path)
+			if err != nil {
+				return err
+			}
+			if _, ok := file.Environment(name); !ok {
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"environment "+name+" not found in "+themeenv.FileName,
+					"run 'shoplazza themes env list' to see the defined environments")
+			}
+			delete(file.Environments, name)
+			if serr := themeenv.Save(p, file); serr != nil {
+				return theme.ErrLocalIO("write "+themeenv.FileName, serr)
+			}
+			return output.PrintBody(cmd.OutOrStdout(), map[string]any{"file": p, "removed": name}, cmdutil.GetFormat(cmd), "")
+		},
+	}
+	cmd.Flags().StringVar(&path, "path", ".", "Directory to search upward for "+themeenv.FileName)
+	return cmd
+}
+
+// bindEnvWriteFlags binds the shared add/set flags (--path plus the env fields).
+func bindEnvWriteFlags(cmd *cobra.Command, path, store, themeID, profile *string, live *bool) {
+	cmd.Flags().StringVar(path, "path", ".", "Directory to search upward for "+themeenv.FileName)
+	cmd.Flags().StringVar(store, "store", "", "Store domain (e.g. staging.myshoplaza.com)")
+	cmd.Flags().StringVar(themeID, "theme", "", "Theme id the environment targets")
+	cmd.Flags().StringVar(profile, "profile", "", "Keychain profile to authenticate with (else matched by store)")
+	cmd.Flags().BoolVar(live, "live", false, "Target the store's published (live) theme")
+}
+
+// envNotFound builds the structured "environment not found" error listing the
+// defined names.
+func envNotFound(file themeenv.File, name string) error {
+	shown := name
+	if shown == "" {
+		shown = themeenv.DefaultEnvironment
+	}
+	hint := "no environments are defined"
+	if names := file.Names(); len(names) > 0 {
+		hint = "defined environments: " + strings.Join(names, ", ")
+	}
+	return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+		"environment "+shown+" not found in "+themeenv.FileName, hint)
+}
+
+// loadThemeEnvFile finds shoplazza.theme.toml upward from startPath and parses
+// it. A missing file is a structured, hinted error; a parse error is a
+// validation error naming the file.
+func loadThemeEnvFile(startPath string) (themeenv.File, string, error) {
+	if startPath == "" {
+		startPath = "."
+	}
+	p, err := themeenv.Find(startPath)
+	if err != nil {
+		if errors.Is(err, themeenv.ErrNotFound) {
+			return themeenv.File{}, "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+				"no "+themeenv.FileName+" found in this directory or any parent",
+				"create one with an [environments.<name>] block, e.g. 'shoplazza themes env add <name> --store <domain>'")
+		}
+		return themeenv.File{}, "", theme.ErrLocalIO("find "+themeenv.FileName, err)
+	}
+	file, err := themeenv.Load(p)
+	if err != nil {
+		return themeenv.File{}, "", theme.ErrValidation("%v", err)
+	}
+	return file, p, nil
+}
+
+// loadOrNewThemeEnvFile is loadThemeEnvFile, but a missing file is not an error:
+// it returns an empty File and the path where a new one should be written
+// (startPath/FileName), with existed=false.
+func loadOrNewThemeEnvFile(startPath string) (themeenv.File, string, bool, error) {
+	if startPath == "" {
+		startPath = "."
+	}
+	p, err := themeenv.Find(startPath)
+	if err == nil {
+		file, lerr := themeenv.Load(p)
+		if lerr != nil {
+			return themeenv.File{}, "", false, theme.ErrValidation("%v", lerr)
+		}
+		return file, p, true, nil
+	}
+	if !errors.Is(err, themeenv.ErrNotFound) {
+		return themeenv.File{}, "", false, theme.ErrLocalIO("find "+themeenv.FileName, err)
+	}
+	return themeenv.File{}, filepath.Join(startPath, themeenv.FileName), false, nil
+}
+
+// checkEnvironment returns the offline problems with one environment.
+func checkEnvironment(cfg *core.CliConfig, e themeenv.Environment) []string {
+	var issues []string
+	if e.Profile != "" && cfg.FindProfile(e.Profile) == nil {
+		issues = append(issues, "profile "+e.Profile+" is not configured (run 'shoplazza profile list')")
+	}
+	if e.Profile == "" && e.Store != "" {
+		domain := cmdutil.NormalizeStoreDomain(e.Store)
+		if cfg.FindProfileByStore(domain) == nil {
+			issues = append(issues, "no profile is authenticated for store "+domain+" (run 'shoplazza auth login -s "+domain+"')")
+		}
+	}
+	if e.Store == "" && e.Profile == "" && e.Theme == "" && e.Path == "" && len(e.Ignore) == 0 {
+		issues = append(issues, "environment is empty (sets nothing)")
+	}
+	return issues
+}
+
+// loadProfileConfig reads the CLI config (profile library) from disk — env check
+// validates against it without needing a factory.
+func loadProfileConfig() core.CliConfig {
+	p, _ := core.DefaultConfigPath()
+	cfg, _ := core.LoadConfig(p)
+	return cfg
+}
+
+// envToMap renders one environment for output, omitting zero-value fields.
+func envToMap(name string, e themeenv.Environment) map[string]any {
+	m := map[string]any{"name": name}
+	if e.Store != "" {
+		m["store"] = e.Store
+	}
+	if e.Theme != "" {
+		m["theme"] = e.Theme
+	}
+	if e.Path != "" {
+		m["path"] = e.Path
+	}
+	if len(e.Ignore) > 0 {
+		m["ignore"] = e.Ignore
+	}
+	if e.Profile != "" {
+		m["profile"] = e.Profile
+	}
+	if e.Live {
+		m["live"] = true
+	}
+	if e.Config != "" {
+		m["config"] = e.Config
+	}
+	return m
+}

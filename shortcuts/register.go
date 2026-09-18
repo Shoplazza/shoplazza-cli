@@ -11,18 +11,20 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/orders"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/products"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/shop"
-	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/themes"
 
 	"github.com/spf13/cobra"
 )
 
+// Theme workflow commands (init/package/push/pull/serve/share + env) are NOT
+// shortcuts: they are plain-cobra commands in cmd/theme (mounted via
+// themecmd.RegisterCommands) because they are project-scoped dev tooling that
+// owns its own store client, not account-level single-request store ops.
 var allShortcuts = concat(
 	products.Shortcuts(),
 	discounts.Shortcuts(),
 	orders.Shortcuts(),
 	customers.Shortcuts(),
 	shop.Shortcuts(),
-	themes.Shortcuts(),
 )
 
 func concat(slices ...[]common.Shortcut) []common.Shortcut {
