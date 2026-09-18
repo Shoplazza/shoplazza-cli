@@ -13,16 +13,18 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/checkoutext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/completion"
+	configcmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/config"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/doctor"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/dynamic"
-	themecmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/theme"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/profile"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/schema"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/skill"
+	themecmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/theme"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/themeext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/update"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/metasync"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
@@ -56,7 +58,7 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
-	RegisterGlobalFlags(rootCmd.PersistentFlags())
+	RegisterGlobalFlags(rootCmd.PersistentFlags(), defaultOutputFormat(factory.Config))
 	// --profile completes from configured profile names (best-effort: a
 	// registration failure here would only affect shell completion, never
 	// command execution).
@@ -67,6 +69,7 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 	rootCmd.AddCommand(themeext.NewCmdThemeExtension(factory))
 	rootCmd.AddCommand(api.NewCmdAPI(factory))
 	rootCmd.AddCommand(profile.NewCmdProfile(factory))
+	rootCmd.AddCommand(configcmd.NewCmdConfig(factory))
 	rootCmd.AddCommand(schema.NewCmdSchema(spec))
 	rootCmd.AddCommand(skill.NewCmdSkill())
 	rootCmd.AddCommand(doctor.NewCmdDoctor(factory))
@@ -82,6 +85,19 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 	applyRootGroups(rootCmd)
 
 	return rootCmd
+}
+
+// defaultOutputFormat resolves the --format flag's default: SHOPLAZZA_CLI_FORMAT
+// (CI/agent override) > the config `format` preference > "json". An invalid value
+// at any tier is ignored. An explicit --format on a command still wins over this.
+func defaultOutputFormat(cfg core.CliConfig) string {
+	if v := os.Getenv("SHOPLAZZA_CLI_FORMAT"); output.ValidFormat(v) {
+		return v
+	}
+	if output.ValidFormat(cfg.Format) {
+		return cfg.Format
+	}
+	return output.FormatJSON
 }
 
 // Execute runs the root command and returns the process exit code.

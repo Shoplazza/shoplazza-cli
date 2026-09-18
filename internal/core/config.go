@@ -19,6 +19,11 @@ type CliConfig struct {
 	PreviousProfile string          `json:"previousProfile,omitempty"`
 	Accounts        []AccountConfig `json:"accounts,omitempty"`
 	Profiles        []ProfileConfig `json:"profiles,omitempty"`
+	// Format is the user's preferred default output format (json/pretty/table/
+	// ndjson/csv). Empty means json. It seeds the --format default so a human can
+	// opt into readable output once; agents/CI keep json (no config, or an
+	// explicit --format / SHOPLAZZA_CLI_FORMAT).
+	Format string `json:"format,omitempty"`
 }
 
 // AccountConfig stores a saved auth account.
