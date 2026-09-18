@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/themeenv"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
@@ -88,6 +89,44 @@ func TestEnvShow_MissingIsStructuredValidationError(t *testing.T) {
 	}
 	if ee.Detail == nil || ee.Detail.Hint == "" {
 		t.Errorf("missing-environment error should carry a hint listing the defined names: %+v", ee.Detail)
+	}
+}
+
+func TestCheckEnvironment(t *testing.T) {
+	cfg := &core.CliConfig{ConfigVersion: 2, Profiles: []core.ProfileConfig{
+		{Name: "staging", StoreDomain: "staging.myshoplaza.com"},
+	}}
+	for _, tc := range []struct {
+		name    string
+		env     themeenv.Environment
+		wantOK  bool
+	}{
+		{"configured profile", themeenv.Environment{Profile: "staging"}, true},
+		{"store with authenticated profile", themeenv.Environment{Store: "staging.myshoplaza.com"}, true},
+		{"theme-only rides current store", themeenv.Environment{Theme: "123"}, true},
+		{"unconfigured profile", themeenv.Environment{Profile: "ghost"}, false},
+		{"store with no profile", themeenv.Environment{Store: "nobody.myshoplaza.com"}, false},
+		{"empty block", themeenv.Environment{}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			issues := checkEnvironment(cfg, tc.env)
+			if (len(issues) == 0) != tc.wantOK {
+				t.Errorf("ok=%v, want %v (issues: %v)", len(issues) == 0, tc.wantOK, issues)
+			}
+		})
+	}
+}
+
+func TestEnvCheck_FailsWhenAnyEnvironmentIsInvalid(t *testing.T) {
+	dir := t.TempDir()
+	body := "[environments.ok]\ntheme = \"123\"\n[environments.bad]\nprofile = \"ghost\"\n"
+	if err := os.WriteFile(filepath.Join(dir, themeenv.FileName), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := envCheckShortcut.Execute(context.Background(), common.ExecInput{Flags: envFlags(dir)})
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
+		t.Fatalf("want a validation ExitError naming the bad env, got %v", err)
 	}
 }
 
