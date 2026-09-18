@@ -28,6 +28,13 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 			return err
 		}
 
+		// A human is prompted for any {param} the --params JSON left unset (e.g.
+		// theme_id); non-interactive callers are untouched, so a missing param
+		// stays the structured error below (agents/CI keep fail-fast).
+		if err := fillMissingPathParams(cmd, factory, c.HTTP.Path, params); err != nil {
+			return err
+		}
+
 		resolvedPath, remainingQuery, err := rawapi.ResolveTemplatedPath(c.HTTP.Path, params)
 		if err != nil {
 			schemaPath := strings.Join(strings.Fields(cmd.CommandPath())[1:], ".")
