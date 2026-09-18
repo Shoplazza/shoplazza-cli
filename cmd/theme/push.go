@@ -3,6 +3,7 @@ package themecmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -73,43 +74,11 @@ func newCmdPush(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			cwd, err := os.Getwd()
-			if err != nil {
-				return theme.ErrLocalIO("getwd", err)
-			}
-
-			// Step 0: theme metadata (only a fresh upload needs it).
-			var name, version string
-			if taskID == "" {
-				if name, version, err = theme.ReadInfo(cwd); err != nil {
-					return err
-				}
-			}
-
-			// Step 1: detail GET confirms the theme exists — no point packaging a
-			// zip the user can't deliver.
-			if _, derr := rs.Client.DoRaw(ctx, client.RawRequest{Method: "GET", Path: themeBaseV202601 + "/" + resolvedID}); derr != nil {
-				return classifyHTTPErr(derr, resolvedID)
-			}
-
 			prog := output.NewProgress(cmd.ErrOrStderr())
-			if taskID == "" {
-				if taskID, err = packAndUpload(ctx, rs.Client, prog, cwd, resolvedID, name, version); err != nil {
-					return err
-				}
-				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "[push] upload task %s\n", taskID)
-			} else {
-				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "[push] resuming upload task %s\n", taskID)
-			}
-
-			waitStep := prog.Begin("[push] waiting for the server to process the theme")
-			payload, err := waitUploadTask(ctx, rs.Client, taskID)
+			payload, err := pushTheme(ctx, prog, cmd.ErrOrStderr(), rs.Client, resolvedID, taskID)
 			if err != nil {
-				waitStep.Fail()
 				return err
 			}
-			waitStep.Done()
-			decodeTaskJSONFields(payload)
 			return output.PrintAPISuccess(cmd.OutOrStdout(),
 				map[string]any{"theme_id": resolvedID, "task": payload}, cmdutil.GetFormat(cmd), "")
 		},
@@ -118,6 +87,43 @@ func newCmdPush(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&taskID, "task-id", "", "Resume waiting for an earlier upload task instead of uploading again (task_id from a timeout error)")
 	cmd.Flags().StringVarP(&environment, "environment", "e", "", "Environment from shoplazza.theme.toml (store/profile/theme); see 'themes env list'")
 	return cmd
+}
+
+// pushTheme runs the detail → pack → upload → poll pipeline against themeID and
+// returns the finished task payload. Shared by `themes push` and serve's initial
+// push so both behave identically. taskID != "" resumes an earlier upload task
+// instead of re-uploading.
+func pushTheme(ctx context.Context, prog *output.Progress, errW io.Writer, c *client.Client, themeID, taskID string) (map[string]any, error) {
+	// detail GET confirms the theme exists — no point packaging a zip that can't
+	// be delivered.
+	if _, derr := c.DoRaw(ctx, client.RawRequest{Method: "GET", Path: themeBaseV202601 + "/" + themeID}); derr != nil {
+		return nil, classifyHTTPErr(derr, themeID)
+	}
+	if taskID == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, theme.ErrLocalIO("getwd", err)
+		}
+		name, version, rerr := theme.ReadInfo(cwd)
+		if rerr != nil {
+			return nil, rerr
+		}
+		if taskID, err = packAndUpload(ctx, c, prog, cwd, themeID, name, version); err != nil {
+			return nil, err
+		}
+		_, _ = fmt.Fprintf(errW, "[push] upload task %s\n", taskID)
+	} else {
+		_, _ = fmt.Fprintf(errW, "[push] resuming upload task %s\n", taskID)
+	}
+	waitStep := prog.Begin("[push] waiting for the server to process the theme")
+	payload, err := waitUploadTask(ctx, c, taskID)
+	if err != nil {
+		waitStep.Fail()
+		return nil, err
+	}
+	waitStep.Done()
+	decodeTaskJSONFields(payload)
+	return payload, nil
 }
 
 // resolveThemeID fills the theme id: an explicit flag wins; else the selected

@@ -51,21 +51,8 @@ func TestHelp_Package(t *testing.T) {
 	}
 }
 
-func TestHelp_Pull(t *testing.T) {
-	out := helpFor(t, "themes", "pull")
-	for _, want := range []string{"pull", "--theme-id", "-t", "themes list"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("pull help missing %q:\n%s", want, out)
-		}
-	}
-}
-
-func TestHelp_Push(t *testing.T) {
-	out := helpFor(t, "themes", "push")
-	if !strings.Contains(out, "--theme-id") {
-		t.Errorf("push help missing --theme-id:\n%s", out)
-	}
-}
+// push / pull / serve help moved to cmd/theme (they migrated to plain-cobra
+// commands); their help assertions live in cmd/theme/help_test.go now.
 
 // TestHelp_Share_HasNoThemeID: share is a non-destructive snapshot — it always
 // uploads a fresh temporary theme and never takes a --theme-id. Overwriting an
@@ -80,44 +67,3 @@ func TestHelp_Share_HasNoThemeID(t *testing.T) {
 	}
 }
 
-func TestHelp_Serve_HasLivereloadPort(t *testing.T) {
-	out := helpFor(t, "themes", "serve")
-	if !strings.Contains(out, "--port") {
-		t.Errorf("serve help missing --port:\n%s", out)
-	}
-	if strings.Contains(out, "--no-livereload") {
-		t.Errorf("serve help must NOT expose --no-livereload:\n%s", out)
-	}
-}
-
-// TestHelp_Serve_ExplainsDualMode: serve's long help must explain the two
-// modes (default development theme vs explicit --theme-id), where the dev
-// theme id is persisted, the overwrite semantics of the explicit mode, the
-// theme-directory requirement, and the one-way (local → remote) sync.
-func TestHelp_Serve_ExplainsDualMode(t *testing.T) {
-	out := helpFor(t, "themes", "serve")
-	for _, want := range []string{
-		"development theme",           // default mode named
-		".shoplazza/theme-state.json", // where the id is written back
-		"overwrites",                  // explicit mode is destructive
-		"config/settings_schema.json", // theme-directory requirement
-		"themes pull",                 // editor changes are not synced back
-		"serve [--theme-id <id>]",     // usage shows the flag as optional
-	} {
-		if !strings.Contains(strings.ToLower(out), strings.ToLower(want)) {
-			t.Errorf("serve help missing %q in:\n%s", want, out)
-		}
-	}
-}
-
-// TestHelp_Serve_ThemeIDFlagIsOptional: the --theme-id flag description must
-// flag itself as optional and point at the development-theme default.
-func TestHelp_Serve_ThemeIDFlagIsOptional(t *testing.T) {
-	out := helpFor(t, "themes", "serve")
-	if strings.Contains(out, "Theme ID (required)") {
-		t.Errorf("serve --theme-id must no longer be documented as required:\n%s", out)
-	}
-	if !strings.Contains(strings.ToLower(out), "omit") {
-		t.Errorf("serve --theme-id description should explain what omitting it does:\n%s", out)
-	}
-}

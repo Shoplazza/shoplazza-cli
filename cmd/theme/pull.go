@@ -68,7 +68,7 @@ func newCmdPull(f *cmdutil.Factory) *cobra.Command {
 				dlStep.Fail()
 				return classifyPullDownloadErr(err, resolvedID)
 			}
-			defer reader.Close()
+			defer func() { _ = reader.Close() }()
 			outFile, err := createTempZip(resolvedID)
 			if err != nil {
 				dlStep.Fail()
