@@ -117,18 +117,6 @@ func TestEnvAdd_RequiresStoreNonInteractively(t *testing.T) {
 	}
 }
 
-// TestConfirmEnvIfUnverified_NonInteractiveNoop: the soft-validation is a
-// human-only guard — an agent (non-interactive) is never warned or blocked, even
-// when the store matches no authenticated profile.
-func TestConfirmEnvIfUnverified_NonInteractiveNoop(t *testing.T) {
-	f := &cmdutil.Factory{} // non-interactive
-	cmd := newCmdEnvAdd(f)
-	bogus := env.Environment{Store: "typo-nobody.myshoplaza.com"}
-	if err := confirmEnvIfUnverified(cmd, f, bogus); err != nil {
-		t.Fatalf("non-interactive must be a no-op, got %v", err)
-	}
-}
-
 // TestResolveEnvName covers name resolution for set/remove: an explicit arg wins;
 // non-interactively an omitted name errors (agents must name it); an empty file
 // errors regardless.

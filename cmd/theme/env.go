@@ -188,9 +188,6 @@ func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
 					"use 'shoplazza themes env set "+name+"' to change it")
 			}
 			e := env.Environment{Store: store, Theme: themeID, Profile: profile, Live: live}
-			if verr := confirmEnvIfUnverified(cmd, f, e); verr != nil {
-				return verr
-			}
 			if file.Environments == nil {
 				file.Environments = map[string]env.Environment{}
 			}
@@ -299,33 +296,6 @@ func bindEnvWriteFlags(cmd *cobra.Command, path, store, themeID, profile *string
 	cmd.Flags().StringVar(themeID, "theme", "", "Theme id the environment targets")
 	cmd.Flags().StringVar(profile, "profile", "", "Keychain profile to authenticate with (else matched by store)")
 	cmd.Flags().BoolVar(live, "live", false, "Target the store's published (live) theme")
-}
-
-// confirmEnvIfUnverified soft-validates a new environment against the profile
-// library and, for a human, warns then asks to proceed when nothing
-// authenticates it (a likely-typo store, or an unknown profile name). It is a
-// human-only guard: it never logs in, never blocks agents (non-interactive
-// returns nil), and reads only local config. Declining surfaces ErrCanceled.
-func confirmEnvIfUnverified(cmd *cobra.Command, f *cmdutil.Factory, e env.Environment) error {
-	if !cmdutil.Interactive(f) {
-		return nil
-	}
-	cfg := loadProfileConfig()
-	issues := checkEnvironment(&cfg, e)
-	if len(issues) == 0 {
-		return nil
-	}
-	for _, msg := range issues {
-		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "⚠ %s\n", msg)
-	}
-	ok, err := interact.Confirm("Add this environment anyway?")
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return output.ErrCanceled()
-	}
-	return nil
 }
 
 // resolveNewEnvName resolves the name for a new environment (env add): the
