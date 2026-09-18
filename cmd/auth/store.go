@@ -3,11 +3,13 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/spf13/cobra"
@@ -42,8 +44,19 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
   shoplazza auth store use --store-domain my-store.myshoplazza.com --scope read_product,read_order`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// In a terminal, let a human pick which configured store to switch to
+			// instead of erroring; agents/pipes still need --store-domain.
+			if storeDomain == "" && cmdutil.Interactive(f) {
+				picked, err := pickStoreDomain(f)
+				if err != nil {
+					return err
+				}
+				storeDomain = picked
+			}
 			if storeDomain == "" {
-				return output.ErrValidation("--store-domain is required")
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"--store-domain is required",
+					"pass --store-domain <store>, or run 'shoplazza auth login -s <store>' to add one")
 			}
 			normalized := cmdutil.NormalizeStoreDomain(storeDomain)
 			if normalized == "" {
@@ -153,4 +166,42 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVarP(&storeDomain, "store-domain", "s", "", "Store hostname to switch to (e.g. my-store.myshoplazza.com). Required.")
 	cmd.Flags().StringSliceVar(&scope, "scope", nil, "Scopes to request for this store's profile (must be a subset of the account's granted scopes); empty keeps/grants the full set")
 	return cmd
+}
+
+// pickStoreDomain lets a human choose which store to switch to when
+// --store-domain is omitted in a terminal: a fuzzy list of the stores that
+// already have a profile (the current one marked), or a plain domain input when
+// none are configured yet. Non-interactive callers never reach it.
+func pickStoreDomain(f *cmdutil.Factory) (string, error) {
+	if opts := configuredStoreOptions(f.Config); len(opts) > 0 {
+		return interact.SelectFiltered("Which store? (type to filter)", opts)
+	}
+	return interact.Input("Store domain (e.g. my-store.myshoplaza.com)", func(s string) error {
+		if strings.TrimSpace(s) == "" {
+			return fmt.Errorf("store domain is required")
+		}
+		return nil
+	})
+}
+
+// configuredStoreOptions builds the store picker's choices from the configured
+// profiles: one option per distinct store domain, the current one marked. Pure,
+// so it is unit-tested without a terminal.
+func configuredStoreOptions(cfg core.CliConfig) []interact.Option {
+	current := cfg.CurrentStoreDomain()
+	seen := map[string]bool{}
+	var opts []interact.Option
+	for i := range cfg.Profiles {
+		d := cfg.Profiles[i].StoreDomain
+		if d == "" || seen[d] {
+			continue
+		}
+		seen[d] = true
+		label := d
+		if strings.EqualFold(d, current) {
+			label = d + " (current)"
+		}
+		opts = append(opts, interact.Option{Label: label, Value: d})
+	}
+	return opts
 }
