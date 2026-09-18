@@ -34,33 +34,37 @@ func moduleShort(name string) string {
 // Unlisted modules fall back to their Short.
 var moduleLongs = map[string]string{
 	"themes": `Develop Shoplazza themes locally, and operate the store's themes over the API.
-
-Two kinds of commands (grouped below) — pick by what you're doing:
-  • Theme development — work inside a theme directory; sync local files to/from a
-    theme on your store. Typical loop: init -> serve -> push.
-  • Store theme operations — act on themes that already exist in the store
-    (list/get/publish/delete/...); scriptable and agent-friendly, no local dir needed.
+Development loop: init -> serve -> push.
 
 Prerequisite:
   shoplazza auth login                      authenticate your account`,
 }
 
-// moduleLong returns a module's full Long: its workflow map (or Short) plus the
-// shared access-tier explanation.
+// moduleLong returns a module's full Long: its workflow map (or Short), the
+// schema hint, and — for a flat (non-grouped) module — the access-tier block. A
+// grouped module (see cmdutil.ModuleGroups) already conveys its tiers through
+// the help groups, so it skips that block (which also wouldn't fit modules whose
+// shortcuts are bare-named, like themes).
 func moduleLong(name string) string {
+	base := moduleShort(name)
 	if l, ok := moduleLongs[name]; ok {
-		return l + "\n" + accessTierLong
+		base = l
 	}
-	return moduleShort(name) + "\n" + accessTierLong
+	if _, grouped := cmdutil.ModuleGroups[name]; grouped {
+		return base + "\n" + schemaHint
+	}
+	return base + "\n" + accessTierBlock + "\n" + schemaHint
 }
 
-// accessTierLong is appended to every module's Long to explain the three command tiers.
-const accessTierLong = `
+// accessTierBlock explains the three command tiers; appended to non-grouped modules.
+const accessTierBlock = `
 Access tiers:
   +<shortcut>   Human and AI-friendly. Named flags, smart defaults, structured errors.
   <command>     Auto-generated from OpenAPI spec. Full parameter control for scripting.
-  api rest      Raw HTTP fallback covering the full platform surface.
+  api rest      Raw HTTP fallback covering the full platform surface.`
 
+// schemaHint points at schema introspection; appended to every module's Long.
+const schemaHint = `
 Run 'shoplazza schema <module>' to list all commands, or 'shoplazza schema <module>.<command>' to view parameters.`
 
 // buildModuleCommand walks mod.Commands and registers each via path[].
