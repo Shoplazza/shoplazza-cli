@@ -1,6 +1,7 @@
 package themecmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -47,16 +48,15 @@ var (
 )
 
 func newCmdEnvList(f *cmdutil.Factory) *cobra.Command {
-	var path string
-	cmd := &cobra.Command{
-		Use:         "list [--path <dir>]",
+	return &cobra.Command{
+		Use:         "list",
 		Short:       "List the theme environments defined in " + env.FileName,
-		Long:        "List the environments in the project's " + env.FileName + " (found by searching up from --path). Read-only and offline.",
+		Long:        "List the environments in the project's " + env.FileName + " (found by searching up from the current directory). Read-only and offline.",
 		Example:     "  shoplazza themes env list",
 		Args:        cobra.NoArgs,
 		Annotations: authFree,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			file, p, err := loadThemeEnvFile(path)
+			file, p, err := loadThemeEnvFile(".")
 			if err != nil {
 				return err
 			}
@@ -68,14 +68,11 @@ func newCmdEnvList(f *cmdutil.Factory) *cobra.Command {
 			return output.PrintBody(cmd.OutOrStdout(), map[string]any{"file": p, "environments": envs}, cmdutil.GetFormat(cmd), "")
 		},
 	}
-	cmd.Flags().StringVar(&path, "path", ".", "Directory to search upward for "+env.FileName)
-	return cmd
 }
 
 func newCmdEnvShow(f *cmdutil.Factory) *cobra.Command {
-	var path string
-	cmd := &cobra.Command{
-		Use:         "show [name] [--path <dir>]",
+	return &cobra.Command{
+		Use:         "show [name]",
 		Short:       "Show one theme environment's settings",
 		Long:        "Show a single environment from " + env.FileName + "; omit the name for the 'default' environment. Read-only and offline.",
 		Example:     "  shoplazza themes env show staging",
@@ -86,7 +83,7 @@ func newCmdEnvShow(f *cmdutil.Factory) *cobra.Command {
 			if len(args) > 0 {
 				name = args[0]
 			}
-			file, _, err := loadThemeEnvFile(path)
+			file, _, err := loadThemeEnvFile(".")
 			if err != nil {
 				return err
 			}
@@ -101,21 +98,18 @@ func newCmdEnvShow(f *cmdutil.Factory) *cobra.Command {
 			return output.PrintBody(cmd.OutOrStdout(), envToMap(resolved, e), cmdutil.GetFormat(cmd), "")
 		},
 	}
-	cmd.Flags().StringVar(&path, "path", ".", "Directory to search upward for "+env.FileName)
-	return cmd
 }
 
 func newCmdEnvCheck(f *cmdutil.Factory) *cobra.Command {
-	var path string
-	cmd := &cobra.Command{
-		Use:         "check [name] [--path <dir>]",
+	return &cobra.Command{
+		Use:         "check [name]",
 		Short:       "Validate theme environments offline (each resolves to a configured profile/store)",
 		Long:        "Offline-validate the environments in " + env.FileName + ": referenced profiles exist and store-only environments have an authenticated profile. Omit the name to check them all. Exits non-zero if any fail.",
 		Example:     "  shoplazza themes env check",
 		Args:        cobra.MaximumNArgs(1),
 		Annotations: authFree,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			file, p, err := loadThemeEnvFile(path)
+			file, p, err := loadThemeEnvFile(".")
 			if err != nil {
 				return err
 			}
@@ -148,12 +142,10 @@ func newCmdEnvCheck(f *cmdutil.Factory) *cobra.Command {
 			return output.PrintBody(cmd.OutOrStdout(), map[string]any{"file": p, "ok": true, "environments": results}, cmdutil.GetFormat(cmd), "")
 		},
 	}
-	cmd.Flags().StringVar(&path, "path", ".", "Directory to search upward for "+env.FileName)
-	return cmd
 }
 
 func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
-	var path, store, themeID, profile string
+	var store, themeID, profile string
 	var live bool
 	cmd := &cobra.Command{
 		Use:         "add [name] --store <domain> [--theme <id>] [--profile <name>] [--live]",
@@ -174,11 +166,11 @@ func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
 			if err := cmdutil.ResolveFlags(cmd, f,
 				cmdutil.PromptField{Flag: "store", Title: "Store domain (e.g. my-dev.myshoplaza.com)"},
 				cmdutil.PromptField{Flag: "theme", Title: "Theme id (optional)", Optional: true},
-				cmdutil.PromptField{Flag: "profile", Title: "Profile to authenticate with (optional; else matched by store)", Optional: true},
+				cmdutil.PromptField{Flag: "profile", Title: "Profile to authenticate with (optional; else matched by store)", Optional: true, Picker: profilePickerChoices},
 			); err != nil {
 				return err
 			}
-			file, p, existed, err := loadOrNewThemeEnvFile(path)
+			file, p, existed, err := loadOrNewThemeEnvFile(".")
 			if err != nil {
 				return err
 			}
@@ -201,12 +193,12 @@ func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
 			return output.PrintBody(cmd.OutOrStdout(), body, cmdutil.GetFormat(cmd), "")
 		},
 	}
-	bindEnvWriteFlags(cmd, &path, &store, &themeID, &profile, &live)
+	bindEnvWriteFlags(cmd, &store, &themeID, &profile, &live)
 	return cmd
 }
 
 func newCmdEnvSet(f *cmdutil.Factory) *cobra.Command {
-	var path, store, themeID, profile string
+	var store, themeID, profile string
 	var live bool
 	cmd := &cobra.Command{
 		Use:         "set [name] [--store <domain>] [--theme <id>] [--profile <name>] [--live]",
@@ -216,7 +208,7 @@ func newCmdEnvSet(f *cmdutil.Factory) *cobra.Command {
 		Args:        cobra.MaximumNArgs(1),
 		Annotations: authFreeWrite,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			file, p, err := loadThemeEnvFile(path)
+			file, p, err := loadThemeEnvFile(".")
 			if err != nil {
 				return err
 			}
@@ -251,13 +243,12 @@ func newCmdEnvSet(f *cmdutil.Factory) *cobra.Command {
 			return output.PrintBody(cmd.OutOrStdout(), body, cmdutil.GetFormat(cmd), "")
 		},
 	}
-	bindEnvWriteFlags(cmd, &path, &store, &themeID, &profile, &live)
+	bindEnvWriteFlags(cmd, &store, &themeID, &profile, &live)
 	return cmd
 }
 
 func newCmdEnvRemove(f *cmdutil.Factory) *cobra.Command {
-	var path string
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:         "remove [name]",
 		Short:       "Remove an environment from " + env.FileName,
 		Long:        "Delete the [environments.<name>] block from " + env.FileName + ". Omit the name to pick one interactively. Rewrites the file without comments.",
@@ -265,7 +256,7 @@ func newCmdEnvRemove(f *cmdutil.Factory) *cobra.Command {
 		Args:        cobra.MaximumNArgs(1),
 		Annotations: authFreeWrite,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			file, p, err := loadThemeEnvFile(path)
+			file, p, err := loadThemeEnvFile(".")
 			if err != nil {
 				return err
 			}
@@ -285,17 +276,36 @@ func newCmdEnvRemove(f *cmdutil.Factory) *cobra.Command {
 			return output.PrintBody(cmd.OutOrStdout(), map[string]any{"file": p, "removed": name}, cmdutil.GetFormat(cmd), "")
 		},
 	}
-	cmd.Flags().StringVar(&path, "path", ".", "Directory to search upward for "+env.FileName)
-	return cmd
 }
 
-// bindEnvWriteFlags binds the shared add/set flags (--path plus the env fields).
-func bindEnvWriteFlags(cmd *cobra.Command, path, store, themeID, profile *string, live *bool) {
-	cmd.Flags().StringVar(path, "path", ".", "Directory to search upward for "+env.FileName)
+// bindEnvWriteFlags binds the shared add/set env-field flags.
+func bindEnvWriteFlags(cmd *cobra.Command, store, themeID, profile *string, live *bool) {
 	cmd.Flags().StringVar(store, "store", "", "Store domain (e.g. staging.myshoplaza.com)")
 	cmd.Flags().StringVar(themeID, "theme", "", "Theme id the environment targets")
 	cmd.Flags().StringVar(profile, "profile", "", "Keychain profile to authenticate with (else matched by store)")
 	cmd.Flags().BoolVar(live, "live", false, "Target the store's published (live) theme")
+}
+
+// profilePickerChoices lists the configured keychain profiles for env add's
+// --profile prompt, so a human picks a real profile instead of typing a name
+// they'd have to look up. A leading "(skip)" option (value "") leaves --profile
+// unset (the store matches a profile at run time). No profiles configured ->
+// nil, letting ResolveFlags fall through to a (skippable) text input.
+func profilePickerChoices(_ context.Context, _ *cobra.Command, f *cmdutil.Factory) ([]interact.Option, error) {
+	if f == nil || len(f.Config.Profiles) == 0 {
+		return nil, nil
+	}
+	opts := make([]interact.Option, 0, len(f.Config.Profiles)+1)
+	opts = append(opts, interact.Option{Label: "(skip — match by store at run time)", Value: ""})
+	for i := range f.Config.Profiles {
+		p := f.Config.Profiles[i]
+		label := p.Name
+		if p.StoreDomain != "" {
+			label += " — " + p.StoreDomain
+		}
+		opts = append(opts, interact.Option{Label: label, Value: p.Name})
+	}
+	return opts, nil
 }
 
 // resolveNewEnvName resolves the name for a new environment (env add): the

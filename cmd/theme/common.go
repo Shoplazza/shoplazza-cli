@@ -57,14 +57,14 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 	var selEnv env.Environment
 	envName := environmentName(cmd)
 	if envName != "" {
-		e, err := loadSelectedEnvironment(cmd, envName)
+		e, err := loadSelectedEnvironment(envName)
 		if err != nil {
 			return resolvedStore{}, err
 		}
 		selEnv = e
 	} else {
 		// No -e / env var: auto-apply a committed default environment if present.
-		e, ok, err := autoDefaultEnvironment(cmd)
+		e, ok, err := defaultEnvironmentAt(".")
 		if err != nil {
 			return resolvedStore{}, err
 		}
@@ -122,22 +122,10 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 	return resolvedStore{Client: c, Domain: profile.StoreDomain, Env: selEnv, Profile: profile.Name}, nil
 }
 
-// autoDefaultEnvironment returns the committed [environments.default] block when
-// a shoplazza.theme.toml exists at/above the command's --path (else cwd) and
-// declares one. ok=false means "no toml, or no default block" → the caller keeps
-// today's no-environment behavior. A malformed toml is surfaced, not swallowed.
-func autoDefaultEnvironment(cmd *cobra.Command) (env.Environment, bool, error) {
-	start := "."
-	if cmd.Flags().Lookup("path") != nil {
-		if v, _ := cmd.Flags().GetString("path"); v != "" {
-			start = v
-		}
-	}
-	return defaultEnvironmentAt(start)
-}
-
-// defaultEnvironmentAt is autoDefaultEnvironment's terminal-free core: find-up
-// from startPath, load, and return the "default" environment if defined.
+// defaultEnvironmentAt returns the committed [environments.default] block when a
+// shoplazza.theme.toml exists at/above startPath and declares one. ok=false means
+// "no toml, or no default block" → the caller keeps today's no-environment
+// behavior. A malformed toml is surfaced, not swallowed.
 func defaultEnvironmentAt(startPath string) (env.Environment, bool, error) {
 	if startPath == "" {
 		startPath = "."
@@ -200,17 +188,11 @@ func environmentName(cmd *cobra.Command) string {
 	return os.Getenv(env.EnvironmentVar)
 }
 
-// loadSelectedEnvironment finds shoplazza.theme.toml upward from --path (else
-// cwd), parses it, and returns the named environment. A missing file or unknown
-// environment is a structured, hinted error.
-func loadSelectedEnvironment(cmd *cobra.Command, name string) (env.Environment, error) {
-	start := "."
-	if cmd.Flags().Lookup("path") != nil {
-		if v, _ := cmd.Flags().GetString("path"); v != "" {
-			start = v
-		}
-	}
-	path, err := env.Find(start)
+// loadSelectedEnvironment finds shoplazza.theme.toml upward from the current
+// directory, parses it, and returns the named environment. A missing file or
+// unknown environment is a structured, hinted error.
+func loadSelectedEnvironment(name string) (env.Environment, error) {
+	path, err := env.Find(".")
 	if err != nil {
 		if errors.Is(err, env.ErrNotFound) {
 			return env.Environment{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
