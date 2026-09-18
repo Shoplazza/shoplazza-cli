@@ -11,6 +11,7 @@ package themecmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 
@@ -36,14 +37,22 @@ type resolvedStore struct {
 	Client *client.Client
 	Domain string
 	Env    env.Environment
+	// Profile is the keychain profile name the client authenticated with, or
+	// "" when a token came from the CI env var (no profile). Used by pull to
+	// record a default environment in shoplazza.theme.toml.
+	Profile string
 }
 
 // resolveStore decides the target store+profile for a theme command and builds a
 // client for it. With -e/SHOPLAZZA_CLI_ENVIRONMENT it uses the environment's
-// profile= (by name) or store= (matched to an authenticated profile); otherwise
-// it falls back to the ordinary profile chain (cmdutil.ResolveProfile:
-// --profile > SHOPLAZZA_CLI_PROFILE > current). All multi-environment logic
-// lives here — the generic resolver is only consulted for the no-env case.
+// profile= (by name) or store= (matched to an authenticated profile). With
+// neither, it auto-applies the project's committed [environments.default] when a
+// shoplazza.theme.toml declares one (a visible, version-controlled default — not
+// hidden mutable state); absent that, it falls back to the ordinary profile chain
+// (cmdutil.ResolveProfile: --profile > SHOPLAZZA_CLI_PROFILE > current). Either
+// way the resolved store is echoed to stderr so the target is never silent. All
+// multi-environment logic lives here — the generic resolver is only consulted for
+// the no-env case.
 func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (resolvedStore, error) {
 	var selEnv env.Environment
 	envName := environmentName(cmd)
@@ -53,6 +62,16 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 			return resolvedStore{}, err
 		}
 		selEnv = e
+	} else {
+		// No -e / env var: auto-apply a committed default environment if present.
+		e, ok, err := autoDefaultEnvironment(cmd)
+		if err != nil {
+			return resolvedStore{}, err
+		}
+		if ok {
+			envName = env.DefaultEnvironment
+			selEnv = e
+		}
 	}
 
 	// CI/env-token bypass FIRST — it needs no profile. The store target comes
@@ -72,6 +91,7 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 		}
 		c := client.New(base)
 		c.SetBearerToken(tok)
+		echoTarget(cmd, domain, envName)
 		return resolvedStore{Client: c, Domain: domain, Env: selEnv}, nil
 	}
 
@@ -98,7 +118,57 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 	}
 	c := client.New("https://" + profile.StoreDomain)
 	c.SetBearerToken(tok)
-	return resolvedStore{Client: c, Domain: profile.StoreDomain, Env: selEnv}, nil
+	echoTarget(cmd, profile.StoreDomain, envName)
+	return resolvedStore{Client: c, Domain: profile.StoreDomain, Env: selEnv, Profile: profile.Name}, nil
+}
+
+// autoDefaultEnvironment returns the committed [environments.default] block when
+// a shoplazza.theme.toml exists at/above the command's --path (else cwd) and
+// declares one. ok=false means "no toml, or no default block" → the caller keeps
+// today's no-environment behavior. A malformed toml is surfaced, not swallowed.
+func autoDefaultEnvironment(cmd *cobra.Command) (env.Environment, bool, error) {
+	start := "."
+	if cmd.Flags().Lookup("path") != nil {
+		if v, _ := cmd.Flags().GetString("path"); v != "" {
+			start = v
+		}
+	}
+	return defaultEnvironmentAt(start)
+}
+
+// defaultEnvironmentAt is autoDefaultEnvironment's terminal-free core: find-up
+// from startPath, load, and return the "default" environment if defined.
+func defaultEnvironmentAt(startPath string) (env.Environment, bool, error) {
+	if startPath == "" {
+		startPath = "."
+	}
+	path, err := env.Find(startPath)
+	if err != nil {
+		if errors.Is(err, env.ErrNotFound) {
+			return env.Environment{}, false, nil
+		}
+		return env.Environment{}, false, output.ErrInternal("find %s: %v", env.FileName, err)
+	}
+	file, err := env.Load(path)
+	if err != nil {
+		return env.Environment{}, false, output.ErrValidation("%v", err)
+	}
+	e, ok := file.Environment(env.DefaultEnvironment)
+	return e, ok, nil
+}
+
+// echoTarget prints the resolved store (and environment, when one applies) to
+// stderr, so no theme command ever acts on a store the user can't see. Empty
+// domain (rare env-token-with-no-target path) prints nothing.
+func echoTarget(cmd *cobra.Command, domain, envName string) {
+	if domain == "" {
+		return
+	}
+	msg := "→ store: " + domain
+	if envName != "" {
+		msg += " (environment: " + envName + ")"
+	}
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), msg)
 }
 
 // envDomain derives the store domain for the env-token path: a selected
