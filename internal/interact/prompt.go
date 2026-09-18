@@ -59,14 +59,26 @@ func SelectFiltered(title string, options []Option) (string, error) {
 	return v, err
 }
 
-// Confirm asks a yes/no question on the terminal, defaulting to No. It returns
-// false when the user declines. Canceling (esc/ctrl+c) surfaces
+// Confirm asks a yes/no question on the terminal. It uses a plain text field —
+// the user types y / yes — rather than a Yes/No button toggle, which reads
+// cleaner and matches the type-to-confirm gate. Empty input, or anything other
+// than y/yes, counts as No (safe default); canceling (esc/ctrl+c) surfaces
 // output.ErrCanceled via Run. Use for ordinary destructive confirmations.
 func Confirm(title string) (bool, error) {
-	var ok bool
-	field := huh.NewConfirm().Title(title).Affirmative("Yes").Negative("No").Value(&ok)
-	err := Run(func() *huh.Form { return NewForm(huh.NewGroup(field)) })
-	return ok, err
+	var v string
+	field := huh.NewInput().
+		Title(title).
+		Description("Type y to confirm (Enter or anything else cancels).").
+		Value(&v)
+	if err := Run(func() *huh.Form { return NewForm(huh.NewGroup(field)) }); err != nil {
+		return false, err
+	}
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "y", "yes":
+		return true, nil
+	default:
+		return false, nil
+	}
 }
 
 // ConfirmTyped requires the user to type phrase exactly before proceeding — the
