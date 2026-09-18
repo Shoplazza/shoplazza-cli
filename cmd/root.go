@@ -15,6 +15,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/completion"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/doctor"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/dynamic"
+	themecmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/theme"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/profile"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/schema"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/skill"
@@ -73,6 +74,10 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 	rootCmd.AddCommand(update.NewCmdUpdate(factory))
 	dynamic.RegisterCommands(rootCmd, spec, factory)
 	shortcuts.RegisterShortcuts(rootCmd, factory)
+	// Plain-cobra theme workflow commands (push/…) mount under `themes` after it
+	// and its help groups exist. They own their store client, which is what lets
+	// -e select the store/profile locally (see cmd/theme).
+	themecmd.RegisterCommands(rootCmd, factory)
 
 	applyRootGroups(rootCmd)
 

@@ -73,6 +73,10 @@ func isGatewayNotFound(e *client.HTTPError) bool {
 //	1 → success          (terminate, return OK)
 //	2 → failure          (terminate, ErrTaskBusinessFailure)
 //	other → treated as terminal-non-success (ErrTaskBusinessFailure)
+// Deprecated: push has migrated to a plain-cobra command in cmd/theme (mounted
+// via themecmd.RegisterCommands) so it can own its -e-aware store client. This
+// value is no longer registered (see Shortcuts()); it and the task-poll helpers
+// below stay only until `serve` migrates too, since serve currently shares them.
 var pushShortcut = common.Shortcut{
 	Service: "themes",
 	Command: "push",
