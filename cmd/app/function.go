@@ -87,7 +87,7 @@ func newCmdFunctionCompile(f *cmdutil.Factory) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := cmdutil.ResolveFlags(cmd, f,
-				cmdutil.PromptField{Flag: "name", Title: "Function extension name (directory under extensions/)"},
+				cmdutil.PromptField{Flag: "name", Title: "Function extension (directory under extensions/)", Picker: localFunctionOptions},
 			); err != nil {
 				return err
 			}
@@ -148,7 +148,7 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 		// prompted for it) rather than being forced through the login gate first.
 		RunE: func(cmd *cobra.Command, _ []string) (err error) {
 			if err := cmdutil.ResolveFlags(cmd, f,
-				cmdutil.PromptField{Flag: "name", Title: "Function extension name (directory under extensions/)"},
+				cmdutil.PromptField{Flag: "name", Title: "Function extension (directory under extensions/)", Picker: localFunctionOptions},
 			); err != nil {
 				return err
 			}
