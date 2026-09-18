@@ -320,6 +320,46 @@ func TestColorEnabled_BufferIsPlain(t *testing.T) {
 	}
 }
 
+func TestDominantObjectList(t *testing.T) {
+	// A clean envelope: one object-list + scalar meta.
+	if _, key, ok := dominantObjectList(map[string]any{
+		"orders": []any{map[string]any{"id": "1"}}, "total": float64(1),
+	}); !ok || key != "orders" {
+		t.Errorf("clean envelope should be dominant (key=%q ok=%v)", key, ok)
+	}
+	// A rich record: object-list PLUS a nested-object sibling → not an envelope.
+	if _, _, ok := dominantObjectList(map[string]any{
+		"variants": []any{map[string]any{"id": "v"}}, "image": map[string]any{"src": "x"},
+	}); ok {
+		t.Error("object with a nested-object sibling must not be treated as an envelope")
+	}
+	// Two object-lists → ambiguous, not a single envelope.
+	if _, _, ok := dominantObjectList(map[string]any{
+		"variants": []any{map[string]any{"id": "v"}}, "options": []any{map[string]any{"name": "Size"}},
+	}); ok {
+		t.Error("two object-lists must not resolve to a single dominant list")
+	}
+}
+
+func TestPretty_RichObjectNotHijackedByList(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{
+		"id": "1", "title": "Tee",
+		"image":    map[string]any{"src": "x"},
+		"variants": []any{map[string]any{"id": "v1"}},
+	}
+	if err := PrintFormatted(&buf, m, FormatPretty); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "title:") || !strings.Contains(out, "variants:") {
+		t.Errorf("rich object should render as an object with nested variants: %s", out)
+	}
+	if strings.HasPrefix(strings.TrimSpace(out), "[1]") {
+		t.Errorf("rich object must not be hijacked into a bare variants list: %s", out)
+	}
+}
+
 func TestListColumnHeaders_NonMap(t *testing.T) {
 	items := []any{"not a map"}
 	if got := listColumnHeaders(items); got != nil {

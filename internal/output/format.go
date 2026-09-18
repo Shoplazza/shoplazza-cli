@@ -218,9 +218,10 @@ func prettyMap(w io.Writer, m map[string]any, color bool) error {
 			}
 		}
 	}
-	// A map dominated by one list OF OBJECTS → render the list, then the
-	// remaining meta. A scalar array (e.g. tags) is left as an inline field.
-	if list, key := extractListKey(m); isObjectList(list) {
+	// A clean list ENVELOPE ({records:[…]} + scalar meta) → render the list, then
+	// the meta. A rich detail object that merely contains a sub-collection (a
+	// product with variants[]) is NOT an envelope and renders as an object below.
+	if list, key, ok := dominantObjectList(m); ok {
 		if err := prettyList(w, list, selectColumns(key, list), 0, color); err != nil {
 			return err
 		}
@@ -370,7 +371,7 @@ func formatScalar(v any, truncateAt int) string {
 func printTable(w io.Writer, v any, color bool) error {
 	switch typed := v.(type) {
 	case map[string]any:
-		if list, key := extractListKey(typed); isObjectList(list) {
+		if list, key, ok := dominantObjectList(typed); ok {
 			return listTable(w, list, typed, key, color)
 		}
 		if len(typed) == 1 {
@@ -651,6 +652,36 @@ func isObjectList(items []any) bool {
 	}
 	_, ok := items[0].(map[string]any)
 	return ok
+}
+
+// dominantObjectList decides whether m is a clean list envelope — exactly one
+// object-list whose siblings are all scalars or scalar arrays (pagination/meta).
+// It returns that list and key. A sibling that is itself an object, or a second
+// object-list, means m is a rich record (e.g. a product with variants[] and an
+// image{}); those render as an object, not as the sole list.
+func dominantObjectList(m map[string]any) ([]any, string, bool) {
+	var list []any
+	var key string
+	objLists := 0
+	for _, k := range orderedKeys(m) {
+		v := m[k]
+		if s, ok := toAnySlice(v); ok {
+			if isObjectList(s) {
+				objLists++
+				if list == nil {
+					list, key = s, k
+				}
+			}
+			continue // scalar array sibling is allowed as meta
+		}
+		if _, ok := v.(map[string]any); ok {
+			return nil, "", false // a nested object sibling → not an envelope
+		}
+	}
+	if objLists == 1 {
+		return list, key, true
+	}
+	return nil, "", false
 }
 
 func listColumnHeaders(items []any) []string {
