@@ -112,7 +112,9 @@ func resolveFieldWith(
 		return selectEnum(title, fld.Choices)
 	}
 	return input(title, func(s string) error {
-		if strings.TrimSpace(s) == "" {
+		// Optional fields may be left blank (leaving the flag unset); only a
+		// required field rejects an empty answer.
+		if !fld.Optional && strings.TrimSpace(s) == "" {
 			return fmt.Errorf("--%s is required", fld.Flag)
 		}
 		return nil
