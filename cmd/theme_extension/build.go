@@ -23,16 +23,17 @@ func newCmdBuild(f *cmdutil.Factory) *cobra.Command {
 		Example: `  # Build a new version 1.0.0
   shoplazza theme-extension build --version 1.0.0 --description "initial release"`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			if version == "" {
-				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					"--version is required",
-					"a semver higher than the current version, e.g. --version 1.0.0")
+			// Interactive fill for the two required values (local text — no server
+			// lookup); non-interactively an unset one stays the structured
+			// missing-flag error. Auth is unrelated to these and checked last.
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "version", Title: "New version (semver, e.g. 1.0.0)"},
+				cmdutil.PromptField{Flag: "description", Title: "Version description"},
+			); err != nil {
+				return err
 			}
 			if !te.ValidVersionFormat(version) {
 				return output.ErrValidation("--version must follow X.Y.Z (e.g. 1.0.0)")
-			}
-			if description == "" {
-				return output.ErrValidation("--description is required")
 			}
 			return requireLogin(cmd.Context(), f)
 		},

@@ -31,10 +31,15 @@ local — no network call. Next, cd into the project, run 'shoplazza te connect'
 to link it to an app, then 'shoplazza te serve' to start developing.`,
 		Example: "  shoplazza theme-extension create --name my-te --type embed",
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			if name == "" {
-				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					"--name is required",
-					"e.g. shoplazza theme-extension create --name my-te --type embed")
+			// Interactive fill: a human with no flags is prompted for the name and
+			// a basic|embed type; non-interactively an unset flag stays the
+			// structured "required flag(s) not set" error so agents/CI keep their
+			// fail-fast contract. Local-only — no network, so no auth is needed.
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "name", Title: "Project name"},
+				cmdutil.PromptField{Flag: "type", Title: "Template type", Choices: []string{"basic", "embed"}},
+			); err != nil {
+				return err
 			}
 			if !projectNameRe.MatchString(name) {
 				return output.ErrValidation(
@@ -43,7 +48,7 @@ to link it to an app, then 'shoplazza te serve' to start developing.`,
 			if teType != "basic" && teType != "embed" {
 				return output.ErrValidation("--type is required and must be basic or embed")
 			}
-			return nil // local-only, non-interactive
+			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// name passed projectNameRe, so dest is always a direct child of the
