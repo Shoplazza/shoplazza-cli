@@ -28,6 +28,14 @@ const FileName = "shoplazza.theme.toml"
 // command line (optional; absent → today's behavior is unchanged).
 const DefaultEnvironment = "default"
 
+// EnvironmentFlag / EnvironmentVar name the -e selector the theme commands
+// expose and its CI env-var equivalent. They live here (not in cmdutil) so the
+// multi-environment concept stays entirely in theme-owned packages.
+const (
+	EnvironmentFlag = "environment"
+	EnvironmentVar  = "SHOPLAZZA_CLI_ENVIRONMENT"
+)
+
 // File is a parsed shoplazza.theme.toml. Unknown top-level keys are ignored so
 // the format can grow without breaking older CLIs.
 type File struct {

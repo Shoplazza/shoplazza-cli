@@ -121,13 +121,13 @@ func envDomain(f *cmdutil.Factory, env themeenv.Environment) string {
 // environmentName is the selected environment: --environment else
 // SHOPLAZZA_CLI_ENVIRONMENT. Empty when the command defines no such flag.
 func environmentName(cmd *cobra.Command) string {
-	if cmd.Flags().Lookup(cmdutil.EnvironmentFlag) == nil {
+	if cmd.Flags().Lookup(themeenv.EnvironmentFlag) == nil {
 		return ""
 	}
-	if v, _ := cmd.Flags().GetString(cmdutil.EnvironmentFlag); v != "" {
+	if v, _ := cmd.Flags().GetString(themeenv.EnvironmentFlag); v != "" {
 		return v
 	}
-	return os.Getenv(cmdutil.EnvironmentVar)
+	return os.Getenv(themeenv.EnvironmentVar)
 }
 
 // loadSelectedEnvironment finds shoplazza.theme.toml upward from --path (else

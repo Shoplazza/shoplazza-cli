@@ -76,10 +76,6 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 	local := s.Local
 
 	cmd.RunE = func(c *cobra.Command, args []string) error {
-		// Seed unset flags from a selected theme environment (-e) before the fill,
-		// so an environment's theme/path/ignore counts as "provided". Gated on the
-		// --environment flag → inert for every non-theme command.
-		cmdutil.ApplyThemeEnvironment(c)
 		// Resolve required flags first: prompt in an interactive terminal, or
 		// fail fast (never block) with a naming error otherwise.
 		if err := fillRequired(c, s.Flags, factory); err != nil {
