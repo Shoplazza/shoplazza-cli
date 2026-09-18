@@ -16,18 +16,6 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
-// environmentFlag is the -e/--environment selector shared by the store-side
-// theme commands (push / pull / serve). Its presence is what lets
-// cmdutil.ResolveProfile consult shoplazza.theme.toml for this command; the env
-// then supplies the store/profile (see profileFromThemeEnv). An unset flag keeps
-// today's behavior byte-for-byte.
-var environmentFlag = common.Flag{
-	Name:        themeenv.EnvironmentFlag,
-	Short:       "e",
-	Type:        common.FlagString,
-	Description: "Environment from " + themeenv.FileName + " (store/profile); see 'themes env list' (or set " + themeenv.EnvironmentVar + ")",
-}
-
 // envPathFlag is shared by the read-only env commands: where to start the
 // upward search for shoplazza.theme.toml (defaults to the working directory).
 var envPathFlag = common.Flag{

@@ -215,15 +215,8 @@ func TestInit_DeclaresAuthFreeAndLocal(t *testing.T) {
 	if !packageShortcut.Local {
 		t.Error("themes package must be Local (no API success envelope)")
 	}
-	// All other themes shortcuts stay gated and envelope-wrapped.
-	for _, s := range []common.Shortcut{pullShortcut, pushShortcut, shareShortcut, serveShortcut} {
-		if s.AuthFree {
-			t.Errorf("themes %s must remain auth-gated", s.Command)
-		}
-		if s.Local {
-			t.Errorf("themes %s must keep the API success envelope", s.Command)
-		}
-	}
+	// push/pull/serve/share migrated to plain-cobra commands in cmd/theme; only
+	// the local init/package scaffolds and read-only env commands remain shortcuts.
 }
 
 func TestInit_LiveModeClonesAndPrintsCdHint(t *testing.T) {

@@ -308,13 +308,18 @@ func extractStoreDomainBest(ctx context.Context, c *client.Client) string {
 	return "<unknown-shop>"
 }
 
-// extractStoreDomain digs the shop "domain" out of the response envelope shapes.
+// extractStoreDomain digs the shop domain out of the response envelope shapes
+// (root, root.shop, root.data, root.data.shop), preferring "domain" then the v1
+// "store_domain" alias. Shared by serve (v2 /shop) and share (v1 /shop).
 func extractStoreDomain(resp map[string]any) string {
 	for _, m := range []map[string]any{resp, mapChild(resp, "shop"), mapChild(resp, "data"), mapChild(mapChild(resp, "data"), "shop")} {
 		if m == nil {
 			continue
 		}
 		if d, ok := m["domain"].(string); ok && d != "" {
+			return d
+		}
+		if d, ok := m["store_domain"].(string); ok && d != "" {
 			return d
 		}
 	}

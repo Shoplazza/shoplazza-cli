@@ -36,6 +36,18 @@ func TestHelp_Push(t *testing.T) {
 	}
 }
 
+// TestHelp_Share: share always uploads a fresh temporary preview and must not
+// expose --theme-id (overwriting an existing theme is push's job).
+func TestHelp_Share(t *testing.T) {
+	out := helpFor(t, newCmdShare)
+	if strings.Contains(out, "--theme-id") {
+		t.Errorf("share must NOT expose --theme-id (overwrite is push's job):\n%s", out)
+	}
+	if !strings.Contains(strings.ToLower(out), "temporary") {
+		t.Errorf("share help should describe the upload as a temporary preview:\n%s", out)
+	}
+}
+
 func TestHelp_Pull(t *testing.T) {
 	out := helpFor(t, newCmdPull)
 	for _, want := range []string{"--theme-id", "-t", "themes list", "-e"} {

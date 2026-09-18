@@ -51,19 +51,6 @@ func TestHelp_Package(t *testing.T) {
 	}
 }
 
-// push / pull / serve help moved to cmd/theme (they migrated to plain-cobra
-// commands); their help assertions live in cmd/theme/help_test.go now.
-
-// TestHelp_Share_HasNoThemeID: share is a non-destructive snapshot — it always
-// uploads a fresh temporary theme and never takes a --theme-id. Overwriting an
-// existing theme is `themes push`'s job; share must not expose a -t footgun.
-func TestHelp_Share_HasNoThemeID(t *testing.T) {
-	out := helpFor(t, "themes", "share")
-	if strings.Contains(out, "--theme-id") {
-		t.Errorf("share must NOT expose --theme-id (overwrite is push's job):\n%s", out)
-	}
-	if !strings.Contains(strings.ToLower(out), "temporary") {
-		t.Errorf("share help should describe the upload as a temporary preview:\n%s", out)
-	}
-}
+// push / pull / serve / share help moved to cmd/theme (they migrated to
+// plain-cobra commands); their help assertions live in cmd/theme/help_test.go.
 

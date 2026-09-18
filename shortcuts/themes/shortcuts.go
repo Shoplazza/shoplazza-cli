@@ -25,10 +25,10 @@ func Shortcuts() []common.Shortcut {
 	return []common.Shortcut{
 		initShortcut,
 		packageShortcut,
-		// push, pull and serve migrated to plain-cobra commands in cmd/theme
-		// (mounted via themecmd.RegisterCommands) so they own their -e-aware
-		// store client.
-		shareShortcut,
+		// push, pull, serve and share migrated to plain-cobra commands in
+		// cmd/theme (mounted via themecmd.RegisterCommands) so they own their
+		// -e-aware store client. Only the local init/package scaffolds and the
+		// read-only env commands remain shortcuts.
 		envListShortcut,
 		envShowShortcut,
 		envCheckShortcut,
