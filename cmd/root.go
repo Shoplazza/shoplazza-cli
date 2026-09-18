@@ -45,21 +45,8 @@ func NewRootCmd() *cobra.Command {
 
 New here? Run 'shoplazza auth login' to authenticate first.
 
-Common workflows:
-  shoplazza auth login                    authenticate to your account
-  shoplazza <module> --help                explore a resource's commands
-  shoplazza <module> <command> [--params <json>] [--data <json>]
-                                           invoke an API endpoint
-  shoplazza schema <module>.<command>      inspect parameters / body / response
-  shoplazza api rest <METHOD> <PATH>       raw HTTP call (escape hatch)
-
-Building on Shoplazza (each family's --help shows its numbered dev loop):
-  shoplazza app                            an app: shell + extensions (needs a partner account)
-  shoplazza checkout-extension             a checkout UI extension
-  shoplazza theme-extension                a theme app extension (embeds into merchant themes)
-  shoplazza themes                         a storefront theme (Nova template — init / serve / push)
-
-Run any command with --dry-run to print the request without sending it.`, spec.Version),
+Tips: 'shoplazza schema <module>.<command>' inspects an endpoint's params/body/response;
+add --dry-run to preview any request without sending it.`, spec.Version),
 		Version:       build.DisplayVersion(),
 		SilenceErrors: true,
 		SilenceUsage:  true,
