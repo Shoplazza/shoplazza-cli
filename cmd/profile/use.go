@@ -27,7 +27,17 @@ func newCmdUse(f *cmdutil.Factory) *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if name == "" && !previous {
-				return output.ErrValidation("--name or --previous is required")
+				// In a terminal, pick from configured profiles; agents/pipes error.
+				if cmdutil.Interactive(f) {
+					picked, err := pickProfile(f, "Which profile to switch to?")
+					if err != nil {
+						return err
+					}
+					name = picked
+				}
+				if name == "" {
+					return output.ErrValidation("--name or --previous is required")
+				}
 			}
 
 			// Pre-lock check: if we're already on the resolved target, skip

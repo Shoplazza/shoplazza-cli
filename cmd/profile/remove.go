@@ -22,6 +22,21 @@ func newCmdRemove(f *cmdutil.Factory) *cobra.Command {
 		Short: "Remove a profile",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Resolve the target first: in a terminal, pick from configured
+			// profiles; agents/pipes must pass --name.
+			if name == "" {
+				if cmdutil.Interactive(f) {
+					picked, err := pickProfile(f, "Which profile to remove?")
+					if err != nil {
+						return err
+					}
+					name = picked
+				}
+				if name == "" {
+					return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+						"--name is required", "pass --name <profile>, or run 'shoplazza profile list' to see them")
+				}
+			}
 			// Human-only confirmation; agents/pipes/CI proceed unchanged.
 			if err := cmdutil.ConfirmDestructive(f,
 				"Remove profile "+name+"? Its cached store token and config record are deleted."); err != nil {
