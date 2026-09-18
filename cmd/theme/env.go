@@ -2,6 +2,7 @@ package themecmd
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/env"
@@ -162,6 +164,17 @@ func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
 		Annotations: authFreeWrite,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
+			// Interactive fill (same contract as themeext/app): a human is prompted
+			// for the store (required) and offered theme/profile; an agent that
+			// omits --store gets one structured "required flag not set" error
+			// instead of a silently-empty environment.
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "store", Title: "Store domain (e.g. my-dev.myshoplaza.com)"},
+				cmdutil.PromptField{Flag: "theme", Title: "Theme id (optional)", Optional: true},
+				cmdutil.PromptField{Flag: "profile", Title: "Profile to authenticate with (optional; else matched by store)", Optional: true},
+			); err != nil {
+				return err
+			}
 			file, p, existed, err := loadOrNewThemeEnvFile(path)
 			if err != nil {
 				return err
@@ -172,6 +185,9 @@ func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
 					"use 'shoplazza themes env set "+name+"' to change it")
 			}
 			e := env.Environment{Store: store, Theme: themeID, Profile: profile, Live: live}
+			if verr := confirmEnvIfUnverified(cmd, f, e); verr != nil {
+				return verr
+			}
 			if file.Environments == nil {
 				file.Environments = map[string]env.Environment{}
 			}
@@ -193,15 +209,18 @@ func newCmdEnvSet(f *cmdutil.Factory) *cobra.Command {
 	var path, store, themeID, profile string
 	var live bool
 	cmd := &cobra.Command{
-		Use:         "set <name> [--store <domain>] [--theme <id>] [--profile <name>] [--live]",
+		Use:         "set [name] [--store <domain>] [--theme <id>] [--profile <name>] [--live]",
 		Short:       "Change fields of an existing environment in " + env.FileName,
-		Long:        "Update an existing [environments.<name>] block; only the flags you pass are changed. Errors if the environment does not exist — use 'themes env add'. Rewrites the file without comments.",
+		Long:        "Update an existing [environments.<name>] block; only the flags you pass are changed. Omit the name to pick one interactively. Errors if the environment does not exist — use 'themes env add'. Rewrites the file without comments.",
 		Example:     "  shoplazza themes env set staging --theme 654321",
-		Args:        cobra.ExactArgs(1),
+		Args:        cobra.MaximumNArgs(1),
 		Annotations: authFreeWrite,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
 			file, p, err := loadThemeEnvFile(path)
+			if err != nil {
+				return err
+			}
+			name, err := resolveEnvName(f, file, args)
 			if err != nil {
 				return err
 			}
@@ -239,15 +258,18 @@ func newCmdEnvSet(f *cmdutil.Factory) *cobra.Command {
 func newCmdEnvRemove(f *cmdutil.Factory) *cobra.Command {
 	var path string
 	cmd := &cobra.Command{
-		Use:         "remove <name>",
+		Use:         "remove [name]",
 		Short:       "Remove an environment from " + env.FileName,
-		Long:        "Delete the [environments.<name>] block from " + env.FileName + ". Rewrites the file without comments.",
+		Long:        "Delete the [environments.<name>] block from " + env.FileName + ". Omit the name to pick one interactively. Rewrites the file without comments.",
 		Example:     "  shoplazza themes env remove staging",
-		Args:        cobra.ExactArgs(1),
+		Args:        cobra.MaximumNArgs(1),
 		Annotations: authFreeWrite,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
 			file, p, err := loadThemeEnvFile(path)
+			if err != nil {
+				return err
+			}
+			name, err := resolveEnvName(f, file, args)
 			if err != nil {
 				return err
 			}
@@ -274,6 +296,59 @@ func bindEnvWriteFlags(cmd *cobra.Command, path, store, themeID, profile *string
 	cmd.Flags().StringVar(themeID, "theme", "", "Theme id the environment targets")
 	cmd.Flags().StringVar(profile, "profile", "", "Keychain profile to authenticate with (else matched by store)")
 	cmd.Flags().BoolVar(live, "live", false, "Target the store's published (live) theme")
+}
+
+// confirmEnvIfUnverified soft-validates a new environment against the profile
+// library and, for a human, warns then asks to proceed when nothing
+// authenticates it (a likely-typo store, or an unknown profile name). It is a
+// human-only guard: it never logs in, never blocks agents (non-interactive
+// returns nil), and reads only local config. Declining surfaces ErrCanceled.
+func confirmEnvIfUnverified(cmd *cobra.Command, f *cmdutil.Factory, e env.Environment) error {
+	if !cmdutil.Interactive(f) {
+		return nil
+	}
+	cfg := loadProfileConfig()
+	issues := checkEnvironment(&cfg, e)
+	if len(issues) == 0 {
+		return nil
+	}
+	for _, msg := range issues {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "⚠ %s\n", msg)
+	}
+	ok, err := interact.Confirm("Add this environment anyway?")
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return output.ErrCanceled()
+	}
+	return nil
+}
+
+// resolveEnvName resolves the target environment for set/remove: the positional
+// arg when given, else a fuzzy picker over the file's environments for a human.
+// Non-interactively an omitted name is a structured error (agents must name the
+// environment); an empty file is likewise an error either way.
+func resolveEnvName(f *cmdutil.Factory, file env.File, args []string) (string, error) {
+	if len(args) > 0 {
+		return args[0], nil
+	}
+	names := file.Names()
+	if len(names) == 0 {
+		return "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"no environments are defined in "+env.FileName,
+			"add one with 'shoplazza themes env add <name> --store <domain>'")
+	}
+	if !cmdutil.Interactive(f) {
+		return "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"environment name is required",
+			"pass a name (one of: "+strings.Join(names, ", ")+")")
+	}
+	opts := make([]interact.Option, 0, len(names))
+	for _, n := range names {
+		opts = append(opts, interact.Option{Label: n, Value: n})
+	}
+	return interact.SelectFiltered("Which environment? (type to filter)", opts)
 }
 
 // envNotFound builds the structured "environment not found" error listing the

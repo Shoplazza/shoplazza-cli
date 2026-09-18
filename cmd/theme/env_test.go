@@ -86,6 +86,81 @@ func TestEnvAdd_SetOnlyChangesGivenFields(t *testing.T) {
 	}
 }
 
+// TestEnvAdd_RequiresStoreNonInteractively: an agent that omits --store must get
+// a structured "required flag" error, not a silently-empty environment (and no
+// file is written).
+func TestEnvAdd_RequiresStoreNonInteractively(t *testing.T) {
+	dir := t.TempDir()
+	f := &cmdutil.Factory{} // non-interactive
+
+	err := runEnv(t, newCmdEnvAdd(f), []string{"staging"}, map[string]string{"path": dir})
+	if err == nil {
+		t.Fatal("expected an error when --store is omitted non-interactively")
+	}
+	if _, lerr := env.Load(filepath.Join(dir, env.FileName)); lerr == nil {
+		t.Fatal("no shoplazza.theme.toml should have been written")
+	}
+}
+
+// TestConfirmEnvIfUnverified_NonInteractiveNoop: the soft-validation is a
+// human-only guard — an agent (non-interactive) is never warned or blocked, even
+// when the store matches no authenticated profile.
+func TestConfirmEnvIfUnverified_NonInteractiveNoop(t *testing.T) {
+	f := &cmdutil.Factory{} // non-interactive
+	cmd := newCmdEnvAdd(f)
+	bogus := env.Environment{Store: "typo-nobody.myshoplaza.com"}
+	if err := confirmEnvIfUnverified(cmd, f, bogus); err != nil {
+		t.Fatalf("non-interactive must be a no-op, got %v", err)
+	}
+}
+
+// TestResolveEnvName covers name resolution for set/remove: an explicit arg wins;
+// non-interactively an omitted name errors (agents must name it); an empty file
+// errors regardless.
+func TestResolveEnvName(t *testing.T) {
+	f := &cmdutil.Factory{} // non-interactive
+	file := env.File{Environments: map[string]env.Environment{
+		"staging": {Store: "s.myshoplaza.com"},
+		"prod":    {Store: "p.myshoplaza.com"},
+	}}
+
+	// Explicit arg is returned verbatim.
+	if name, err := resolveEnvName(f, file, []string{"prod"}); err != nil || name != "prod" {
+		t.Fatalf("explicit arg: name=%q err=%v", name, err)
+	}
+	// Omitted name, non-interactive → error naming the choices.
+	if _, err := resolveEnvName(f, file, nil); err == nil {
+		t.Fatal("omitted name non-interactively must error")
+	}
+	// Empty file → error even with an explicit... no: explicit still returned.
+	if _, err := resolveEnvName(f, env.File{}, nil); err == nil {
+		t.Fatal("empty file with no name must error")
+	}
+}
+
+// TestEnvSetRemove_RequireNameNonInteractively: set/remove with no name and no
+// TTY fail-fast instead of hanging on a picker.
+func TestEnvSetRemove_RequireNameNonInteractively(t *testing.T) {
+	dir := t.TempDir()
+	f := &cmdutil.Factory{}
+	if err := runEnv(t, newCmdEnvAdd(f), []string{"staging"},
+		map[string]string{"path": dir, "store": "staging.myshoplaza.com"}); err != nil {
+		t.Fatalf("seed add: %v", err)
+	}
+
+	if err := runEnv(t, newCmdEnvSet(f), nil, map[string]string{"path": dir, "theme": "9"}); err == nil {
+		t.Error("env set with no name non-interactively must error")
+	}
+	if err := runEnv(t, newCmdEnvRemove(f), nil, map[string]string{"path": dir}); err == nil {
+		t.Error("env remove with no name non-interactively must error")
+	}
+	// The seeded environment must still be intact (nothing was removed).
+	file, _ := env.Load(filepath.Join(dir, env.FileName))
+	if _, ok := file.Environment("staging"); !ok {
+		t.Fatal("staging environment was unexpectedly removed")
+	}
+}
+
 func TestEnvSet_MissingEnvironmentErrors(t *testing.T) {
 	dir := t.TempDir()
 	writeEnvFixture(t, dir)
