@@ -224,6 +224,19 @@ func TestRunConfigLink_NoSelector_Validation(t *testing.T) {
 	}
 }
 
+// TestConfigLink_NeitherMode_NonInteractive pins that a non-interactive run with
+// neither mode fails fast with a structured validation error — before any
+// project open or network — now that MarkFlagsOneRequired is handled in RunE
+// (a human with neither is offered the wizard instead).
+func TestConfigLink_NeitherMode_NonInteractive(t *testing.T) {
+	cmd := newCmdConfigLink(&cmdutil.Factory{}) // nil IOStreams → non-interactive
+	err := cmd.RunE(cmd, nil)
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
+		t.Fatalf("want a validation ExitError, got %v", err)
+	}
+}
+
 // ── sanitizeConfigName ────────────────────────────────────────────────────────
 
 func TestSanitizeConfigName(t *testing.T) {

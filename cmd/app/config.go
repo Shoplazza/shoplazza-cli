@@ -15,6 +15,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
@@ -211,6 +212,17 @@ mode first creates a new app in the backend, then writes its config. Afterwards 
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			gateOpen := cmdutil.Interactive(f)
+			clientIDSet := cmd.Flags().Changed("client-id")
+			createSet := cmd.Flags().Changed("create")
+			// Exactly one mode is required (cobra enforces they aren't both set).
+			// Non-interactively neither is a structured error; a human picks in the
+			// wizard below. Keyed on Changed so an explicit empty flag still counts.
+			if !clientIDSet && !createSet && !gateOpen {
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"one of --client-id or --create is required",
+					"pass --client-id <id> to link an existing app, or --create --name <name> to create one")
+			}
 			p, err := openProject(path)
 			if err != nil {
 				return err
@@ -218,6 +230,23 @@ mode first creates a new app in the backend, then writes its config. Afterwards 
 			d, err := dashboardClient(cmd.Context(), f)
 			if err != nil {
 				return err
+			}
+			switch {
+			case !clientIDSet && !createSet:
+				// No mode named: full partner→app wizard (link existing or create new).
+				var card []string
+				if o, card, err = wizardLink(cmd.Context(), d, o); err != nil {
+					return err
+				}
+				if len(card) > 0 {
+					interact.Summary(cmd.ErrOrStderr(), card...)
+				}
+			case createSet:
+				// Explicit create mode: prompt for the name if the human left it off
+				// (non-interactively an unset --name stays the structured missing error).
+				if err := cmdutil.ResolveFlags(cmd, f, cmdutil.PromptField{Flag: "name", Title: "App name"}); err != nil {
+					return err
+				}
 			}
 			return runConfigLink(cmd.Context(), d, p, o, cmd.OutOrStdout(), cmdutil.GetFormat(cmd), "")
 		},
@@ -228,9 +257,9 @@ mode first creates a new app in the backend, then writes its config. Afterwards 
 	cmd.Flags().StringVar(&o.Partner, "partner", "", "Create mode: partner (org) to create the app under; auto-selected when you belong to only one")
 	cmd.Flags().StringVar(&o.ConfigName, "config", "", "The name of the app configuration (default: the app's name) — written to shoplazza.app.<name>.toml, merged if it exists")
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
-	// The two modes can't be combined, and exactly one entry point is required.
+	// The two modes can't be combined; "exactly one required" is enforced in RunE
+	// (a human with neither is offered the wizard instead of a bare cobra error).
 	cmd.MarkFlagsMutuallyExclusive("client-id", "create")
-	cmd.MarkFlagsOneRequired("client-id", "create")
 	return cmd
 }
 

@@ -27,13 +27,21 @@ const (
 // nameColWidth caps the first column of the two-column pickers.
 const nameColWidth = 32
 
-// wizardInit asks the screens stepsFor selects and returns the flags as if the
+// wizardInit is `app init`'s wrapper over the shared partner→app wizard: it
+// validates a created app's name against the project sub-dir it will scaffold.
+func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags) (initFlags, []string, error) {
+	return runAppWizard(ctx, d, fl, validateAppName(root))
+}
+
+// runAppWizard asks the screens stepsFor selects and returns the flags as if the
 // answers had been typed on the command line, plus the summary card's rows, nil
 // when it asked nothing. The rows are built here: the link branch drops the
-// chosen partner from the flags. root holds the new project sub-dir.
+// chosen partner from the flags. validateName guards the create-name Input —
+// `app init` checks the target dir, `app config link` only non-emptiness — so
+// the core is reused by both without knowing which is calling.
 //
 // Two forms: huh's Select.OptionsFunc drops its first option, so the app list uses static Options().
-func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags) (initFlags, []string, error) {
+func runAppWizard(ctx context.Context, d *app.Dashboard, fl initFlags, validateName func(string) error) (initFlags, []string, error) {
 	// Link mode asks nothing and reads no list.
 	if fl.clientID != "" {
 		return fl, nil, nil
@@ -93,7 +101,7 @@ func wizardInit(ctx context.Context, d *app.Dashboard, root string, fl initFlags
 					Placeholder("My App").
 					// OnlyOnSubmit: Input.Blur validates too, and huh refuses to
 					// leave a group holding an error — esc would be swallowed.
-					Validate(interact.OnlyOnSubmit(validateAppName(root))).
+					Validate(interact.OnlyOnSubmit(validateName)).
 					Value(&name),
 			).WithHideFunc(func() bool { return choice != createNewApp }),
 		)
