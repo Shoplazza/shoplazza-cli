@@ -64,7 +64,7 @@ func newCmdEnvList(f *cmdutil.Factory) *cobra.Command {
 				e, _ := file.Environment(name)
 				envs = append(envs, envToMap(name, e))
 			}
-			return output.PrintBody(cmd.OutOrStdout(), map[string]any{"file": p, "environments": envs}, cmdutil.GetFormat(cmd), "")
+			return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{"file": p, "environments": envs}, cmdutil.GetFormat(cmd), "")
 		},
 	}
 }
@@ -94,7 +94,7 @@ func newCmdEnvShow(f *cmdutil.Factory) *cobra.Command {
 			if resolved == "" {
 				resolved = env.DefaultEnvironment
 			}
-			return output.PrintBody(cmd.OutOrStdout(), envToMap(resolved, e), cmdutil.GetFormat(cmd), "")
+			return output.PrintAPISuccess(cmd.OutOrStdout(), envToMap(resolved, e), cmdutil.GetFormat(cmd), "")
 		},
 	}
 }
@@ -138,7 +138,7 @@ func newCmdEnvCheck(f *cmdutil.Factory) *cobra.Command {
 				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
 					strconv.Itoa(len(failures))+" environment issue(s) in "+env.FileName, strings.Join(failures, "; "))
 			}
-			return output.PrintBody(cmd.OutOrStdout(), map[string]any{"file": p, "ok": true, "environments": results}, cmdutil.GetFormat(cmd), "")
+			return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{"file": p, "environments": results}, cmdutil.GetFormat(cmd), "")
 		},
 	}
 }
@@ -187,7 +187,12 @@ func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
 			body := envToMap(name, e)
 			body["file"] = p
 			body["created_file"] = !existed
-			return output.PrintBody(cmd.OutOrStdout(), body, cmdutil.GetFormat(cmd), "")
+			confirmMsg := fmt.Sprintf("✓ added environment %q to %s", name, p)
+			if !existed {
+				confirmMsg = fmt.Sprintf("✓ created %s with environment %q", p, name)
+			}
+			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), confirmMsg)
+			return output.PrintAPISuccess(cmd.OutOrStdout(), body, cmdutil.GetFormat(cmd), "")
 		},
 	}
 	bindEnvWriteFlags(cmd, &store, &themeID, &profile)
@@ -233,7 +238,8 @@ func newCmdEnvSet(f *cmdutil.Factory) *cobra.Command {
 			}
 			body := envToMap(name, e)
 			body["file"] = p
-			return output.PrintBody(cmd.OutOrStdout(), body, cmdutil.GetFormat(cmd), "")
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "✓ updated environment %q in %s\n", name, p)
+			return output.PrintAPISuccess(cmd.OutOrStdout(), body, cmdutil.GetFormat(cmd), "")
 		},
 	}
 	bindEnvWriteFlags(cmd, &store, &themeID, &profile)
@@ -266,7 +272,8 @@ func newCmdEnvRemove(f *cmdutil.Factory) *cobra.Command {
 			if serr := env.Save(p, file); serr != nil {
 				return theme.ErrLocalIO("write "+env.FileName, serr)
 			}
-			return output.PrintBody(cmd.OutOrStdout(), map[string]any{"file": p, "removed": name}, cmdutil.GetFormat(cmd), "")
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "✓ removed environment %q from %s\n", name, p)
+			return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{"file": p, "removed": name}, cmdutil.GetFormat(cmd), "")
 		},
 	}
 }
