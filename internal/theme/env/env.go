@@ -59,9 +59,6 @@ type Environment struct {
 	// Profile names the keychain profile to authenticate with. Empty → the
 	// store is matched against the profile library (today's behavior).
 	Profile string `toml:"profile"`
-	// Live targets the store's published theme. Following Shopify, only true is
-	// meaningful; an explicit false is rejected by Validate to avoid ambiguity.
-	Live bool `toml:"live"`
 	// Config optionally activates a sibling app config (shoplazza.app.<config>.toml)
 	// for projects that hold both an app and a theme.
 	Config string `toml:"config"`
@@ -145,9 +142,6 @@ func Save(path string, f File) error {
 		}
 		if e.Profile != "" {
 			m["profile"] = e.Profile
-		}
-		if e.Live {
-			m["live"] = true
 		}
 		if e.Config != "" {
 			m["config"] = e.Config

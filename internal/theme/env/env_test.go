@@ -60,8 +60,10 @@ func TestLoad_ParsesEnvironmentsAndIgnoresUnknownKeys(t *testing.T) {
 	if !reflect.DeepEqual(staging, want) {
 		t.Errorf("staging = %+v, want %+v", staging, want)
 	}
-	if prod, _ := f.Environment("production"); !prod.Live {
-		t.Error("production.live should be true")
+	// production carries a now-unknown "live" key: it must be ignored, not fail
+	// parsing (forward-compat), and the block still resolves.
+	if prod, _ := f.Environment("production"); prod.Store != "prod.myshoplaza.com" {
+		t.Errorf("production.store = %q, want prod.myshoplaza.com", prod.Store)
 	}
 }
 
@@ -121,7 +123,7 @@ func TestSave_RoundTripOmitsEmptyFields(t *testing.T) {
 	path := filepath.Join(dir, FileName)
 	in := File{Environments: map[string]Environment{
 		"staging": {Store: "s.myshoplaza.com", Theme: "123", Profile: "staging"},
-		"prod":    {Store: "p.myshoplaza.com", Live: true},
+		"prod":    {Store: "p.myshoplaza.com"},
 	}}
 	if err := Save(path, in); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -130,10 +132,10 @@ func TestSave_RoundTripOmitsEmptyFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if s, _ := out.Environment("staging"); s.Store != "s.myshoplaza.com" || s.Theme != "123" || s.Profile != "staging" || s.Path != "" || s.Live {
+	if s, _ := out.Environment("staging"); s.Store != "s.myshoplaza.com" || s.Theme != "123" || s.Profile != "staging" || s.Path != "" {
 		t.Errorf("staging round-trip = %+v", s)
 	}
-	if p, _ := out.Environment("prod"); p.Store != "p.myshoplaza.com" || !p.Live || p.Theme != "" {
+	if p, _ := out.Environment("prod"); p.Store != "p.myshoplaza.com" || p.Theme != "" {
 		t.Errorf("prod round-trip = %+v", p)
 	}
 	// Empty fields must not be written (clean blocks).

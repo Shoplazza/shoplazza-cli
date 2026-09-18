@@ -145,9 +145,8 @@ func newCmdEnvCheck(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
 	var store, themeID, profile string
-	var live bool
 	cmd := &cobra.Command{
-		Use:         "add [name] --store <domain> [--theme <id>] [--profile <name>] [--live]",
+		Use:         "add [name] --store <domain> [--theme <id>]",
 		Short:       "Add a new environment to " + env.FileName,
 		Long:        "Add a new [environments.<name>] block to " + env.FileName + " (created if absent). Omit the name to be prompted for it. Errors if the environment exists — use 'themes env set'. Advanced keys (path/ignore) are hand-edited; this rewrites the file without comments.",
 		Example:     "  shoplazza themes env add staging --store staging.myshoplaza.com --theme 123456 --profile staging",
@@ -177,7 +176,7 @@ func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
 					"environment "+name+" already exists in "+env.FileName,
 					"use 'shoplazza themes env set "+name+"' to change it")
 			}
-			e := env.Environment{Store: store, Theme: themeID, Profile: profile, Live: live}
+			e := env.Environment{Store: store, Theme: themeID, Profile: profile}
 			if file.Environments == nil {
 				file.Environments = map[string]env.Environment{}
 			}
@@ -191,15 +190,14 @@ func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
 			return output.PrintBody(cmd.OutOrStdout(), body, cmdutil.GetFormat(cmd), "")
 		},
 	}
-	bindEnvWriteFlags(cmd, &store, &themeID, &profile, &live)
+	bindEnvWriteFlags(cmd, &store, &themeID, &profile)
 	return cmd
 }
 
 func newCmdEnvSet(f *cmdutil.Factory) *cobra.Command {
 	var store, themeID, profile string
-	var live bool
 	cmd := &cobra.Command{
-		Use:         "set [name] [--store <domain>] [--theme <id>] [--profile <name>] [--live]",
+		Use:         "set [name] [--store <domain>] [--theme <id>]",
 		Short:       "Change fields of an existing environment in " + env.FileName,
 		Long:        "Update an existing [environments.<name>] block; only the flags you pass are changed. Omit the name to pick one interactively. Errors if the environment does not exist — use 'themes env add'. Rewrites the file without comments.",
 		Example:     "  shoplazza themes env set staging --theme 654321",
@@ -229,9 +227,6 @@ func newCmdEnvSet(f *cmdutil.Factory) *cobra.Command {
 			if cmd.Flags().Changed("profile") {
 				e.Profile = profile
 			}
-			if cmd.Flags().Changed("live") {
-				e.Live = live
-			}
 			file.Environments[name] = e
 			if serr := env.Save(p, file); serr != nil {
 				return theme.ErrLocalIO("write "+env.FileName, serr)
@@ -241,7 +236,7 @@ func newCmdEnvSet(f *cmdutil.Factory) *cobra.Command {
 			return output.PrintBody(cmd.OutOrStdout(), body, cmdutil.GetFormat(cmd), "")
 		},
 	}
-	bindEnvWriteFlags(cmd, &store, &themeID, &profile, &live)
+	bindEnvWriteFlags(cmd, &store, &themeID, &profile)
 	return cmd
 }
 
@@ -279,11 +274,10 @@ func newCmdEnvRemove(f *cmdutil.Factory) *cobra.Command {
 // bindEnvWriteFlags binds the shared add/set env-field flags. --profile is
 // hidden: it auto-matches the store at run time, so it exists only as an escape
 // hatch for the rare one-store-many-profiles case.
-func bindEnvWriteFlags(cmd *cobra.Command, store, themeID, profile *string, live *bool) {
+func bindEnvWriteFlags(cmd *cobra.Command, store, themeID, profile *string) {
 	cmd.Flags().StringVar(store, "store", "", "Store domain (e.g. staging.myshoplaza.com)")
 	cmd.Flags().StringVar(themeID, "theme", "", "Theme id the environment targets")
 	cmd.Flags().StringVar(profile, "profile", "", "Keychain profile to authenticate with (advanced; else matched by store)")
-	cmd.Flags().BoolVar(live, "live", false, "Target the store's published (live) theme")
 	_ = cmd.Flags().MarkHidden("profile")
 }
 
@@ -437,9 +431,6 @@ func envToMap(name string, e env.Environment) map[string]any {
 	}
 	if e.Profile != "" {
 		m["profile"] = e.Profile
-	}
-	if e.Live {
-		m["live"] = true
 	}
 	if e.Config != "" {
 		m["config"] = e.Config
