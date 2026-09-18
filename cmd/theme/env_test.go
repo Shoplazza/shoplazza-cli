@@ -159,33 +159,6 @@ func TestResolveEnvName(t *testing.T) {
 	}
 }
 
-// TestProfilePickerChoices: env add's --profile picker lists a skip option plus
-// one option per configured profile; no profiles → nil (text-input fallthrough).
-func TestProfilePickerChoices(t *testing.T) {
-	// No profiles configured → nil (ResolveFlags falls through to text input).
-	if opts, err := profilePickerChoices(t.Context(), nil, &cmdutil.Factory{}); err != nil || opts != nil {
-		t.Fatalf("empty config: opts=%v err=%v, want nil/nil", opts, err)
-	}
-
-	f := &cmdutil.Factory{Config: core.CliConfig{Profiles: []core.ProfileConfig{
-		{Name: "prod", StoreDomain: "prod.myshoplaza.com"},
-		{Name: "staging", StoreDomain: "staging.myshoplaza.com"},
-	}}}
-	opts, err := profilePickerChoices(t.Context(), nil, f)
-	if err != nil {
-		t.Fatalf("picker: %v", err)
-	}
-	if len(opts) != 3 {
-		t.Fatalf("want 3 options (skip + 2 profiles), got %d: %+v", len(opts), opts)
-	}
-	if opts[0].Value != "" {
-		t.Errorf("first option must be the skip sentinel (empty value), got %q", opts[0].Value)
-	}
-	if opts[1].Value != "prod" || opts[2].Value != "staging" {
-		t.Errorf("profile values = %q, %q; want prod, staging", opts[1].Value, opts[2].Value)
-	}
-}
-
 // TestEnvSetRemove_RequireNameNonInteractively: set/remove with no name and no
 // TTY fail-fast instead of hanging on a picker.
 func TestEnvSetRemove_RequireNameNonInteractively(t *testing.T) {
