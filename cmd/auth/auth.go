@@ -302,12 +302,21 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 		// Mutates the local keychain.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Human-only confirmation; agents/pipes/CI proceed unchanged.
-			if err := cmdutil.ConfirmDestructive(f,
-				"Log out? This clears all profiles and stored credentials on this machine."); err != nil {
-				return err
-			}
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
+
+			// Only confirm when logging out actually clears something. If there's
+			// no account session and no profiles, logout is a no-op — don't prompt
+			// to confirm nothing (Logout/wipe below stay idempotent either way).
+			st, sErr := manager.CurrentStatus()
+			hasState := sErr != nil || st.LoggedIn || st.UATAvailable || len(f.Config.Profiles) > 0
+			if hasState {
+				// Human-only confirmation; agents/pipes/CI proceed unchanged.
+				if err := cmdutil.ConfirmDestructive(f,
+					"Log out? This clears all profiles and stored credentials on this machine."); err != nil {
+					return err
+				}
+			}
+
 			_, err := manager.Logout()
 			if err != nil {
 				return output.Errorf(output.ExitAPI, output.TypeAuth, "logout failed: %s", err.Error())
@@ -316,8 +325,9 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 				return output.ErrInternal("failed to clear profile state: %v", err)
 			}
 			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
-				"ok":     true,
-				"action": "logout",
+				"ok":                 true,
+				"action":             "logout",
+				"already_logged_out": !hasState,
 			})
 		},
 	}

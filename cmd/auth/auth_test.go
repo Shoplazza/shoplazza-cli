@@ -79,6 +79,40 @@ func TestLogin_NonInteractiveUAT_NoScopeRequired(t *testing.T) {
 	}
 }
 
+// Logout with no session and no profiles is a no-op: it must not prompt (there's
+// nothing to confirm) and reports already_logged_out.
+func TestLogout_NothingToDo_NoConfirm(t *testing.T) {
+	f, out := tempAuthFactory(t, "http://unused")
+	if err := execAuth(t, f, out, "logout"); err != nil {
+		t.Fatalf("logout on a fresh install: %v", err)
+	}
+	var env map[string]any
+	if err := json.Unmarshal(out.Bytes(), &env); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if env["ok"] != true || env["already_logged_out"] != true {
+		t.Errorf("fresh-install logout = %v, want ok+already_logged_out", env)
+	}
+}
+
+// Logout with a configured profile has state to clear, so already_logged_out is
+// false (the human-only confirm is skipped here only because the test factory is
+// non-interactive).
+func TestLogout_WithProfile_HasState(t *testing.T) {
+	f, out := tempAuthFactory(t, "http://unused")
+	f.Config.Profiles = []core.ProfileConfig{{Name: "store1"}}
+	if err := execAuth(t, f, out, "logout"); err != nil {
+		t.Fatalf("logout with a profile: %v", err)
+	}
+	var env map[string]any
+	if err := json.Unmarshal(out.Bytes(), &env); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if env["already_logged_out"] != false {
+		t.Errorf("logout with a profile: already_logged_out = %v, want false", env["already_logged_out"])
+	}
+}
+
 func TestStatus_FreshInstall_LoggedInFalse(t *testing.T) {
 	f, out := tempAuthFactory(t, "http://unused")
 	if err := execAuth(t, f, out, "status"); err != nil {
