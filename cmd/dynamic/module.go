@@ -33,20 +33,27 @@ func moduleShort(name string) string {
 // the top of `shoplazza <module> --help`; accessTierLong is still appended.
 // Unlisted modules fall back to their Short.
 var moduleLongs = map[string]string{
-	"themes": `Develop and manage Shoplazza storefront themes.
+	"themes": `Develop Shoplazza themes locally, and operate the store's themes over the API.
+
+Two kinds of commands (grouped below) — pick by what you're doing:
+  • Theme development — work inside a theme directory; sync local files to/from a
+    theme on your store. Typical loop: init -> serve -> push.
+  • Store theme operations — act on themes that already exist in the store
+    (list/get/publish/delete/...); scriptable and agent-friendly, no local dir needed.
 
 Prerequisite:
-  shoplazza auth login                      authenticate your account
+  shoplazza auth login                      authenticate your account`,
+}
 
-Local theme development:
-  shoplazza themes init                     1. scaffold a new theme (Nova-2023 template)
-  shoplazza themes pull --theme-id <id>     .  or download an existing theme into the cwd
-  shoplazza themes serve                    2. run a dev theme, watch files, live-reload the browser
-  shoplazza themes push                     3. package the current dir and upload to the theme
-  shoplazza themes package                  .  zip the current theme locally (no upload)
-  shoplazza themes share                    .  get a shareable preview link
-
-Manage in the store:  list · get · publish · delete · file.`,
+// moduleGroups lists the help-display groups a module opts into. A module here
+// splits its subcommands in `--help` into a shortcut/dev tier and an OpenAPI
+// store tier (see internal/cmdutil.Group*). Order = render order. Unlisted
+// modules render a single flat "Available Commands" list as before.
+var moduleGroups = map[string][]*cobra.Group{
+	"themes": {
+		{ID: cmdutil.GroupShortcut, Title: "Theme development (local files <-> a theme on your store):"},
+		{ID: cmdutil.GroupAPI, Title: "Store theme operations (OpenAPI - manage themes in the store):"},
+	},
 }
 
 // moduleLong returns a module's full Long: its workflow map (or Short) plus the
@@ -95,6 +102,14 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 		return nil
 	}
 
+	// Opt into help grouping: generated commands are the OpenAPI/store tier;
+	// shortcuts mounted later (RegisterShortcuts) land in the shortcut tier.
+	grouped := false
+	if grps, ok := moduleGroups[mod.Name]; ok {
+		moduleCmd.AddGroup(grps...)
+		grouped = true
+	}
+
 	nodes := map[string]*cobra.Command{"": moduleCmd}
 	for _, c := range valid {
 		parent := moduleCmd
@@ -111,11 +126,17 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 				Long:        long,
 				Annotations: map[string]string{annotationDiscovery: "true"},
 			}
+			if grouped && parent == moduleCmd {
+				grp.GroupID = cmdutil.GroupAPI
+			}
 			parent.AddCommand(grp)
 			nodes[key] = grp
 			parent = grp
 		}
 		leaf := buildLeafCommand(c, spec, factory, mod.Name)
+		if grouped && parent == moduleCmd {
+			leaf.GroupID = cmdutil.GroupAPI
+		}
 		parent.AddCommand(leaf)
 	}
 	return moduleCmd
