@@ -29,5 +29,7 @@ func Shortcuts() []common.Shortcut {
 		pushShortcut,
 		shareShortcut,
 		serveShortcut,
+		envListShortcut,
+		envShowShortcut,
 	}
 }
