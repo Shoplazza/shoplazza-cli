@@ -11,6 +11,7 @@
 package themeenv
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -115,6 +116,51 @@ func (f File) Environment(name string) (Environment, bool) {
 	}
 	env, ok := f.Environments[name]
 	return env, ok
+}
+
+// Save writes f to path as TOML. It re-encodes from the model — every
+// environment renders only the fields it actually sets (empty strings, empty
+// ignore lists and live=false are omitted), so blocks stay clean. Comments and
+// hand-authored formatting are NOT preserved: `env add/set/remove` are helpers;
+// hand-editing shoplazza.theme.toml remains fully supported.
+func Save(path string, f File) error {
+	root := map[string]any{}
+	if f.Version != 0 {
+		root["version"] = f.Version
+	}
+	envs := map[string]any{}
+	for name, e := range f.Environments {
+		m := map[string]any{}
+		if e.Store != "" {
+			m["store"] = e.Store
+		}
+		if e.Theme != "" {
+			m["theme"] = e.Theme
+		}
+		if e.Path != "" {
+			m["path"] = e.Path
+		}
+		if len(e.Ignore) > 0 {
+			m["ignore"] = e.Ignore
+		}
+		if e.Profile != "" {
+			m["profile"] = e.Profile
+		}
+		if e.Live {
+			m["live"] = true
+		}
+		if e.Config != "" {
+			m["config"] = e.Config
+		}
+		envs[name] = m
+	}
+	root["environments"] = envs
+
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(root); err != nil {
+		return fmt.Errorf("encode %s: %w", FileName, err)
+	}
+	return os.WriteFile(path, buf.Bytes(), 0o644)
 }
 
 // Names returns the defined environment names in sorted order, for `env list`

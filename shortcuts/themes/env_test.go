@@ -130,6 +130,83 @@ func TestEnvCheck_FailsWhenAnyEnvironmentIsInvalid(t *testing.T) {
 	}
 }
 
+// envWriteFlags builds a FlagSet for add/set with the given fields set (Changed).
+func envWriteFlags(dir string, set map[string]string) common.FlagSet {
+	cmd := &cobra.Command{Use: "env"}
+	cmd.Flags().String("path", dir, "")
+	cmd.Flags().String("store", "", "")
+	cmd.Flags().String("theme", "", "")
+	cmd.Flags().String("profile", "", "")
+	cmd.Flags().Bool("live", false, "")
+	for k, v := range set {
+		_ = cmd.Flags().Set(k, v)
+	}
+	return common.NewCobraFlagSet(cmd)
+}
+
+func TestEnvAdd_CreatesFileAndSetOnlyChangesGivenFields(t *testing.T) {
+	dir := t.TempDir()
+
+	// add creates the file + block.
+	in := common.ExecInput{Args: []string{"staging"}, Flags: envWriteFlags(dir, map[string]string{"store": "staging.myshoplaza.com", "theme": "123"})}
+	if _, err := envAddShortcut.Execute(context.Background(), in); err != nil {
+		t.Fatalf("env add: %v", err)
+	}
+	f, err := themeenv.Load(filepath.Join(dir, themeenv.FileName))
+	if err != nil {
+		t.Fatalf("load after add: %v", err)
+	}
+	e, _ := f.Environment("staging")
+	if e.Store != "staging.myshoplaza.com" || e.Theme != "123" {
+		t.Fatalf("added env = %+v", e)
+	}
+
+	// add again → duplicate error.
+	if _, err := envAddShortcut.Execute(context.Background(), in); err == nil {
+		t.Error("adding an existing environment must error")
+	}
+
+	// set only --theme: store is preserved, theme changes.
+	setIn := common.ExecInput{Args: []string{"staging"}, Flags: envWriteFlags(dir, map[string]string{"theme": "999"})}
+	if _, err := envSetShortcut.Execute(context.Background(), setIn); err != nil {
+		t.Fatalf("env set: %v", err)
+	}
+	f, _ = themeenv.Load(filepath.Join(dir, themeenv.FileName))
+	e, _ = f.Environment("staging")
+	if e.Theme != "999" || e.Store != "staging.myshoplaza.com" {
+		t.Errorf("after set: theme/store = %q/%q, want 999 with store preserved", e.Theme, e.Store)
+	}
+}
+
+func TestEnvSet_MissingEnvironmentErrors(t *testing.T) {
+	dir := writeEnvFile(t) // has staging + default
+	in := common.ExecInput{Args: []string{"ghost"}, Flags: envWriteFlags(dir, map[string]string{"theme": "1"})}
+	_, err := envSetShortcut.Execute(context.Background(), in)
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
+		t.Fatalf("set on a missing env must be a validation error, got %v", err)
+	}
+}
+
+func TestEnvRemove(t *testing.T) {
+	dir := writeEnvFile(t) // staging + default
+	in := common.ExecInput{Args: []string{"staging"}, Flags: envFlags(dir)}
+	if _, err := envRemoveShortcut.Execute(context.Background(), in); err != nil {
+		t.Fatalf("env remove: %v", err)
+	}
+	f, _ := themeenv.Load(filepath.Join(dir, themeenv.FileName))
+	if _, ok := f.Environment("staging"); ok {
+		t.Error("staging should be gone after remove")
+	}
+	if _, ok := f.Environment("default"); !ok {
+		t.Error("default must survive removing staging")
+	}
+	// removing a missing env errors.
+	if _, err := envRemoveShortcut.Execute(context.Background(), common.ExecInput{Args: []string{"nope"}, Flags: envFlags(dir)}); err == nil {
+		t.Error("removing a missing env must error")
+	}
+}
+
 func TestEnvList_NoFileIsStructuredError(t *testing.T) {
 	// A bare dir with no shoplazza.theme.toml anywhere up the tree.
 	_, err := envListShortcut.Execute(context.Background(), common.ExecInput{Flags: envFlags(t.TempDir())})

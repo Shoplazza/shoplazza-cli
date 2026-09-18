@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -181,6 +182,161 @@ func loadProfileConfig() core.CliConfig {
 	path, _ := core.DefaultConfigPath()
 	cfg, _ := core.LoadConfig(path)
 	return cfg
+}
+
+// env-field flags shared by add/set. --store/--theme/--profile/--live map to the
+// environment's toml keys; path= and ignore= are advanced and hand-edited.
+var (
+	envStoreFlag   = common.Flag{Name: "store", Type: common.FlagString, Description: "Store domain (e.g. staging.myshoplaza.com)"}
+	envThemeFlag   = common.Flag{Name: "theme", Type: common.FlagString, Description: "Theme id the environment targets"}
+	envProfileFlag = common.Flag{Name: "profile", Type: common.FlagString, Description: "Keychain profile to authenticate with (else matched by store)"}
+	envLiveFlag    = common.Flag{Name: "live", Type: common.FlagBool, Description: "Target the store's published (live) theme"}
+)
+
+// envAddShortcut adds a new environment to shoplazza.theme.toml (creating the
+// file when none exists up-tree). Errors if the environment already exists.
+var envAddShortcut = common.Shortcut{
+	Service:      "themes env",
+	Command:      "add",
+	Use:          "add <name> --store <domain> [--theme <id>] [--profile <name>] [--live]",
+	Short:        "Add a new environment to " + themeenv.FileName,
+	Long:         "Add a new [environments.<name>] block to " + themeenv.FileName + " (created if absent). Errors if the environment exists — use 'themes env set' to change one. Advanced keys (path/ignore) are hand-edited; this rewrites the file without comments.",
+	Example:      "  shoplazza themes env add staging --store staging.myshoplaza.com --theme 123456 --profile staging",
+	Args:         cobra.ExactArgs(1),
+	AuthFree:     true,
+	Local:        true,
+	NotScannable: true, // writes the local filesystem
+	Flags:        []common.Flag{envPathFlag, envStoreFlag, envThemeFlag, envProfileFlag, envLiveFlag},
+	Execute: func(_ context.Context, in common.ExecInput) (common.ExecResult, error) {
+		name := in.Args[0]
+		f, path, existed, err := loadOrNewThemeEnvFile(in.Flags.GetString("path"))
+		if err != nil {
+			return common.ExecResult{}, err
+		}
+		if _, ok := f.Environment(name); ok {
+			return common.ExecResult{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+				"environment "+name+" already exists in "+themeenv.FileName,
+				"use 'shoplazza themes env set "+name+"' to change it")
+		}
+		env := themeenv.Environment{
+			Store:   in.Flags.GetString("store"),
+			Theme:   in.Flags.GetString("theme"),
+			Profile: in.Flags.GetString("profile"),
+			Live:    in.Flags.GetBool("live"),
+		}
+		if f.Environments == nil {
+			f.Environments = map[string]themeenv.Environment{}
+		}
+		f.Environments[name] = env
+		if serr := themeenv.Save(path, f); serr != nil {
+			return common.ExecResult{}, theme.ErrLocalIO("write "+themeenv.FileName, serr)
+		}
+		body := envToMap(name, env)
+		body["file"] = path
+		body["created_file"] = !existed
+		return common.ExecResult{Body: body}, nil
+	},
+}
+
+// envSetShortcut updates fields of an existing environment (only flags the user
+// passed are changed). Errors if the environment does not exist.
+var envSetShortcut = common.Shortcut{
+	Service:      "themes env",
+	Command:      "set",
+	Use:          "set <name> [--store <domain>] [--theme <id>] [--profile <name>] [--live]",
+	Short:        "Change fields of an existing environment in " + themeenv.FileName,
+	Long:         "Update an existing [environments.<name>] block; only the flags you pass are changed. Errors if the environment does not exist — use 'themes env add'. Rewrites the file without comments.",
+	Example:      "  shoplazza themes env set staging --theme 654321",
+	Args:         cobra.ExactArgs(1),
+	AuthFree:     true,
+	Local:        true,
+	NotScannable: true,
+	Flags:        []common.Flag{envPathFlag, envStoreFlag, envThemeFlag, envProfileFlag, envLiveFlag},
+	Execute: func(_ context.Context, in common.ExecInput) (common.ExecResult, error) {
+		name := in.Args[0]
+		f, path, err := loadThemeEnvFile(in.Flags.GetString("path"))
+		if err != nil {
+			return common.ExecResult{}, err
+		}
+		env, ok := f.Environment(name)
+		if !ok {
+			return common.ExecResult{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+				"environment "+name+" not found in "+themeenv.FileName,
+				"use 'shoplazza themes env add "+name+"' to create it")
+		}
+		if in.Flags.Changed("store") {
+			env.Store = in.Flags.GetString("store")
+		}
+		if in.Flags.Changed("theme") {
+			env.Theme = in.Flags.GetString("theme")
+		}
+		if in.Flags.Changed("profile") {
+			env.Profile = in.Flags.GetString("profile")
+		}
+		if in.Flags.Changed("live") {
+			env.Live = in.Flags.GetBool("live")
+		}
+		f.Environments[name] = env
+		if serr := themeenv.Save(path, f); serr != nil {
+			return common.ExecResult{}, theme.ErrLocalIO("write "+themeenv.FileName, serr)
+		}
+		body := envToMap(name, env)
+		body["file"] = path
+		return common.ExecResult{Body: body}, nil
+	},
+}
+
+// envRemoveShortcut deletes an environment. Errors if it does not exist.
+var envRemoveShortcut = common.Shortcut{
+	Service:      "themes env",
+	Command:      "remove",
+	Use:          "remove <name>",
+	Short:        "Remove an environment from " + themeenv.FileName,
+	Long:         "Delete the [environments.<name>] block from " + themeenv.FileName + ". Rewrites the file without comments.",
+	Example:      "  shoplazza themes env remove staging",
+	Args:         cobra.ExactArgs(1),
+	AuthFree:     true,
+	Local:        true,
+	NotScannable: true,
+	Flags:        []common.Flag{envPathFlag},
+	Execute: func(_ context.Context, in common.ExecInput) (common.ExecResult, error) {
+		name := in.Args[0]
+		f, path, err := loadThemeEnvFile(in.Flags.GetString("path"))
+		if err != nil {
+			return common.ExecResult{}, err
+		}
+		if _, ok := f.Environment(name); !ok {
+			return common.ExecResult{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+				"environment "+name+" not found in "+themeenv.FileName,
+				"run 'shoplazza themes env list' to see the defined environments")
+		}
+		delete(f.Environments, name)
+		if serr := themeenv.Save(path, f); serr != nil {
+			return common.ExecResult{}, theme.ErrLocalIO("write "+themeenv.FileName, serr)
+		}
+		return common.ExecResult{Body: map[string]any{"file": path, "removed": name}}, nil
+	},
+}
+
+// loadOrNewThemeEnvFile finds shoplazza.theme.toml upward from startPath and
+// parses it; when none exists it returns an empty File and the path where a new
+// one should be written (startPath/FileName), with existed=false.
+func loadOrNewThemeEnvFile(startPath string) (themeenv.File, string, bool, error) {
+	if startPath == "" {
+		startPath = "."
+	}
+	path, err := themeenv.Find(startPath)
+	if err == nil {
+		f, lerr := themeenv.Load(path)
+		if lerr != nil {
+			return themeenv.File{}, "", false, theme.ErrValidation("%v", lerr)
+		}
+		return f, path, true, nil
+	}
+	if !errors.Is(err, themeenv.ErrNotFound) {
+		return themeenv.File{}, "", false, theme.ErrLocalIO("find "+themeenv.FileName, err)
+	}
+	return themeenv.File{}, filepath.Join(startPath, themeenv.FileName), false, nil
 }
 
 // loadThemeEnvFile finds shoplazza.theme.toml upward from startPath and parses

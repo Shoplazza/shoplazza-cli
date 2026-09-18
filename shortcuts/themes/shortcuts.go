@@ -32,5 +32,8 @@ func Shortcuts() []common.Shortcut {
 		envListShortcut,
 		envShowShortcut,
 		envCheckShortcut,
+		envAddShortcut,
+		envSetShortcut,
+		envRemoveShortcut,
 	}
 }
