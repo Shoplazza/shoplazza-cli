@@ -91,7 +91,7 @@ func dashboardClient(ctx context.Context, f *cmdutil.Factory) (*app.Dashboard, e
 
 // storeTokenForDomain mints a store token for domain: a profile bound to it
 // uses AccessTokenReadyForProfile (cached/persisted credentials); otherwise
-// an ephemeral, unpersisted exchange (mirrors theme_extension's storeTokenFor
+// an ephemeral, unpersisted exchange (mirrors themeext's storeTokenFor
 // ad-hoc path — a legacy-only current store with no matching profile yet).
 func storeTokenForDomain(ctx context.Context, f *cmdutil.Factory, mgr *internalauth.Manager, domain string) (string, error) {
 	if p := f.Config.FindProfileByStore(domain); p != nil {

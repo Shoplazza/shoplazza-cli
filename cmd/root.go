@@ -11,7 +11,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/api"
 	appcmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/app"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/auth"
-	"github.com/Shoplazza/shoplazza-cli/v2/cmd/checkout"
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd/checkoutext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/completion"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/doctor"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/dynamic"
@@ -19,7 +19,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/profile"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/schema"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/skill"
-	"github.com/Shoplazza/shoplazza-cli/v2/cmd/theme_extension"
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd/themeext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/update"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
@@ -63,8 +63,8 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 	_ = rootCmd.RegisterFlagCompletionFunc("profile", cmdutil.ProfileNameCompletionFunc(factory))
 	rootCmd.AddCommand(auth.NewCmdAuth(factory))
 	rootCmd.AddCommand(appcmd.NewCmdApp(factory))
-	rootCmd.AddCommand(checkout.NewCmdCheckout(factory))
-	rootCmd.AddCommand(theme_extension.NewCmdThemeExtension(factory))
+	rootCmd.AddCommand(checkoutext.NewCmdCheckout(factory))
+	rootCmd.AddCommand(themeext.NewCmdThemeExtension(factory))
 	rootCmd.AddCommand(api.NewCmdAPI(factory))
 	rootCmd.AddCommand(profile.NewCmdProfile(factory))
 	rootCmd.AddCommand(schema.NewCmdSchema(spec))

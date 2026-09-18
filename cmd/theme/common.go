@@ -1,7 +1,7 @@
 // Package themecmd hosts the theme development workflow commands (push / pull /
 // serve) as plain cobra commands. They are complex, filesystem-heavy, sometimes
 // long-running dev loops that need per-command control over which store and
-// profile they act on — the same shape as cmd/theme_extension, NOT the
+// profile they act on — the same shape as cmd/themeext, NOT the
 // single-request shortcut model. Because they build their own store client
 // here, project-level multi-environment (-e) is resolved entirely in this
 // package: nothing in the shared shortcut engine or cmdutil.ResolveProfile needs
@@ -21,7 +21,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/themeenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/env"
 )
 
 // envAccessToken is the CI/test bypass honored across the CLI: a non-empty
@@ -35,7 +35,7 @@ const envAccessToken = "SHOPLAZZA_ACCESS_TOKEN"
 type resolvedStore struct {
 	Client *client.Client
 	Domain string
-	Env    themeenv.Environment
+	Env    env.Environment
 }
 
 // resolveStore decides the target store+profile for a theme command and builds a
@@ -45,14 +45,14 @@ type resolvedStore struct {
 // --profile > SHOPLAZZA_CLI_PROFILE > current). All multi-environment logic
 // lives here — the generic resolver is only consulted for the no-env case.
 func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (resolvedStore, error) {
-	var env themeenv.Environment
+	var selEnv env.Environment
 	envName := environmentName(cmd)
 	if envName != "" {
 		e, err := loadSelectedEnvironment(cmd, envName)
 		if err != nil {
 			return resolvedStore{}, err
 		}
-		env = e
+		selEnv = e
 	}
 
 	// CI/env-token bypass FIRST — it needs no profile. The store target comes
@@ -60,7 +60,7 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 	// current profile's domain. Base URL is that env var when set, else
 	// https://<domain>.
 	if tok := os.Getenv(envAccessToken); tok != "" {
-		domain := envDomain(f, env)
+		domain := envDomain(f, selEnv)
 		base := os.Getenv("SHOPLAZZA_CLI_API_BASE_URL")
 		if base == "" {
 			if domain == "" {
@@ -72,13 +72,13 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 		}
 		c := client.New(base)
 		c.SetBearerToken(tok)
-		return resolvedStore{Client: c, Domain: domain, Env: env}, nil
+		return resolvedStore{Client: c, Domain: domain, Env: selEnv}, nil
 	}
 
 	// Normal path: resolve the profile (env-aware) and mint its token.
 	var profile *core.ProfileConfig
 	if envName != "" {
-		p, err := profileForEnvironment(f, envName, env)
+		p, err := profileForEnvironment(f, envName, selEnv)
 		if err != nil {
 			return resolvedStore{}, err
 		}
@@ -98,17 +98,17 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 	}
 	c := client.New("https://" + profile.StoreDomain)
 	c.SetBearerToken(tok)
-	return resolvedStore{Client: c, Domain: profile.StoreDomain, Env: env}, nil
+	return resolvedStore{Client: c, Domain: profile.StoreDomain, Env: selEnv}, nil
 }
 
 // envDomain derives the store domain for the env-token path: a selected
 // environment's store=/profile=, else the current profile's domain, else "".
-func envDomain(f *cmdutil.Factory, env themeenv.Environment) string {
-	if env.Store != "" {
-		return cmdutil.NormalizeStoreDomain(env.Store)
+func envDomain(f *cmdutil.Factory, e env.Environment) string {
+	if e.Store != "" {
+		return cmdutil.NormalizeStoreDomain(e.Store)
 	}
-	if env.Profile != "" {
-		if p := f.Config.FindProfile(env.Profile); p != nil {
+	if e.Profile != "" {
+		if p := f.Config.FindProfile(e.Profile); p != nil {
 			return p.StoreDomain
 		}
 	}
@@ -121,54 +121,54 @@ func envDomain(f *cmdutil.Factory, env themeenv.Environment) string {
 // environmentName is the selected environment: --environment else
 // SHOPLAZZA_CLI_ENVIRONMENT. Empty when the command defines no such flag.
 func environmentName(cmd *cobra.Command) string {
-	if cmd.Flags().Lookup(themeenv.EnvironmentFlag) == nil {
+	if cmd.Flags().Lookup(env.EnvironmentFlag) == nil {
 		return ""
 	}
-	if v, _ := cmd.Flags().GetString(themeenv.EnvironmentFlag); v != "" {
+	if v, _ := cmd.Flags().GetString(env.EnvironmentFlag); v != "" {
 		return v
 	}
-	return os.Getenv(themeenv.EnvironmentVar)
+	return os.Getenv(env.EnvironmentVar)
 }
 
 // loadSelectedEnvironment finds shoplazza.theme.toml upward from --path (else
 // cwd), parses it, and returns the named environment. A missing file or unknown
 // environment is a structured, hinted error.
-func loadSelectedEnvironment(cmd *cobra.Command, name string) (themeenv.Environment, error) {
+func loadSelectedEnvironment(cmd *cobra.Command, name string) (env.Environment, error) {
 	start := "."
 	if cmd.Flags().Lookup("path") != nil {
 		if v, _ := cmd.Flags().GetString("path"); v != "" {
 			start = v
 		}
 	}
-	path, err := themeenv.Find(start)
+	path, err := env.Find(start)
 	if err != nil {
-		if errors.Is(err, themeenv.ErrNotFound) {
-			return themeenv.Environment{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-				"-e "+name+" was given but no "+themeenv.FileName+" was found",
-				"create "+themeenv.FileName+" with an [environments."+name+"] block, or drop -e")
+		if errors.Is(err, env.ErrNotFound) {
+			return env.Environment{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+				"-e "+name+" was given but no "+env.FileName+" was found",
+				"create "+env.FileName+" with an [environments."+name+"] block, or drop -e")
 		}
-		return themeenv.Environment{}, output.ErrInternal("find %s: %v", themeenv.FileName, err)
+		return env.Environment{}, output.ErrInternal("find %s: %v", env.FileName, err)
 	}
-	file, err := themeenv.Load(path)
+	file, err := env.Load(path)
 	if err != nil {
-		return themeenv.Environment{}, output.ErrValidation("%v", err)
+		return env.Environment{}, output.ErrValidation("%v", err)
 	}
-	env, ok := file.Environment(name)
+	e, ok := file.Environment(name)
 	if !ok {
 		hint := "no environments are defined in " + path
 		if names := file.Names(); len(names) > 0 {
 			hint = "defined environments: " + joinNames(names)
 		}
-		return themeenv.Environment{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-			"environment "+name+" not found in "+themeenv.FileName, hint)
+		return env.Environment{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"environment "+name+" not found in "+env.FileName, hint)
 	}
-	return env, nil
+	return e, nil
 }
 
 // profileForEnvironment maps a selected environment to an authenticated profile:
 // profile= by name, else store= matched to a profile. Any miss is a structured
 // error — never a silent wrong-store.
-func profileForEnvironment(f *cmdutil.Factory, name string, e themeenv.Environment) (*core.ProfileConfig, error) {
+func profileForEnvironment(f *cmdutil.Factory, name string, e env.Environment) (*core.ProfileConfig, error) {
 	if e.Profile != "" {
 		if p := f.Config.FindProfile(e.Profile); p != nil {
 			return p, nil
@@ -191,7 +191,7 @@ func profileForEnvironment(f *cmdutil.Factory, name string, e themeenv.Environme
 	return cmdutil.ResolveProfile(f, nil)
 }
 
-// storeTokenError classifies a failed store-token mint (mirrors cmd/theme_extension):
+// storeTokenError classifies a failed store-token mint (mirrors cmd/themeext):
 // an already-structured error passes through; an HTTP error becomes auth-class
 // with a re-login hint; a wire failure is network-class; else a plain auth error.
 func storeTokenError(err error) *output.ExitError {

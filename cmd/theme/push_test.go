@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/themeenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/env"
 )
 
 // TestResolveThemeID pins the precedence: explicit flag > environment theme= >
@@ -16,13 +16,13 @@ func TestResolveThemeID(t *testing.T) {
 	f := &cmdutil.Factory{} // nil IOStreams → non-interactive
 
 	// explicit flag wins over the environment.
-	got, err := resolveThemeID(context.Background(), f, resolvedStore{Env: themeenv.Environment{Theme: "env-theme"}}, "flag-theme")
+	got, err := resolveThemeID(context.Background(), f, resolvedStore{Env: env.Environment{Theme: "env-theme"}}, "flag-theme")
 	if err != nil || got != "flag-theme" {
 		t.Fatalf("explicit flag: got %q, %v", got, err)
 	}
 
 	// environment theme= fills an unset flag.
-	got, err = resolveThemeID(context.Background(), f, resolvedStore{Env: themeenv.Environment{Theme: "env-theme"}}, "")
+	got, err = resolveThemeID(context.Background(), f, resolvedStore{Env: env.Environment{Theme: "env-theme"}}, "")
 	if err != nil || got != "env-theme" {
 		t.Fatalf("env theme: got %q, %v", got, err)
 	}

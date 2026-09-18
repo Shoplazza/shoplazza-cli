@@ -12,7 +12,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/themeenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/env"
 )
 
 // runEnv drives an env subcommand's RunE with the given flags + args, capturing
@@ -36,15 +36,15 @@ func TestCheckEnvironment(t *testing.T) {
 	}}
 	for _, tc := range []struct {
 		name   string
-		env    themeenv.Environment
+		env    env.Environment
 		wantOK bool
 	}{
-		{"configured profile", themeenv.Environment{Profile: "staging"}, true},
-		{"store with authenticated profile", themeenv.Environment{Store: "staging.myshoplaza.com"}, true},
-		{"theme-only rides current store", themeenv.Environment{Theme: "123"}, true},
-		{"unconfigured profile", themeenv.Environment{Profile: "ghost"}, false},
-		{"store with no profile", themeenv.Environment{Store: "nobody.myshoplaza.com"}, false},
-		{"empty block", themeenv.Environment{}, false},
+		{"configured profile", env.Environment{Profile: "staging"}, true},
+		{"store with authenticated profile", env.Environment{Store: "staging.myshoplaza.com"}, true},
+		{"theme-only rides current store", env.Environment{Theme: "123"}, true},
+		{"unconfigured profile", env.Environment{Profile: "ghost"}, false},
+		{"store with no profile", env.Environment{Store: "nobody.myshoplaza.com"}, false},
+		{"empty block", env.Environment{}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			issues := checkEnvironment(cfg, tc.env)
@@ -63,7 +63,7 @@ func TestEnvAdd_SetOnlyChangesGivenFields(t *testing.T) {
 		map[string]string{"path": dir, "store": "staging.myshoplaza.com", "theme": "123"}); err != nil {
 		t.Fatalf("add: %v", err)
 	}
-	file, err := themeenv.Load(filepath.Join(dir, themeenv.FileName))
+	file, err := env.Load(filepath.Join(dir, env.FileName))
 	if err != nil {
 		t.Fatalf("load after add: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestEnvAdd_SetOnlyChangesGivenFields(t *testing.T) {
 	if err := runEnv(t, newCmdEnvSet(f), []string{"staging"}, map[string]string{"path": dir, "theme": "999"}); err != nil {
 		t.Fatalf("set: %v", err)
 	}
-	file, _ = themeenv.Load(filepath.Join(dir, themeenv.FileName))
+	file, _ = env.Load(filepath.Join(dir, env.FileName))
 	if e, _ := file.Environment("staging"); e.Theme != "999" || e.Store != "staging.myshoplaza.com" {
 		t.Errorf("after set: theme/store = %q/%q, want 999 with store preserved", e.Theme, e.Store)
 	}
@@ -102,7 +102,7 @@ func TestEnvRemove(t *testing.T) {
 	if err := runEnv(t, newCmdEnvRemove(&cmdutil.Factory{}), []string{"staging"}, map[string]string{"path": dir}); err != nil {
 		t.Fatalf("remove: %v", err)
 	}
-	file, _ := themeenv.Load(filepath.Join(dir, themeenv.FileName))
+	file, _ := env.Load(filepath.Join(dir, env.FileName))
 	if _, ok := file.Environment("staging"); ok {
 		t.Error("staging should be gone")
 	}
@@ -117,7 +117,7 @@ func TestEnvRemove(t *testing.T) {
 func TestEnvCheck_FailsWhenAnyInvalid(t *testing.T) {
 	dir := t.TempDir()
 	body := "[environments.ok]\ntheme = \"123\"\n[environments.bad]\nprofile = \"ghost\"\n"
-	if err := os.WriteFile(filepath.Join(dir, themeenv.FileName), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, env.FileName), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	err := runEnv(t, newCmdEnvCheck(&cmdutil.Factory{}), nil, map[string]string{"path": dir})
@@ -138,7 +138,7 @@ func TestEnvList_NoFileIsStructuredError(t *testing.T) {
 func writeEnvFixture(t *testing.T, dir string) {
 	t.Helper()
 	body := "[environments.default]\nstore = \"my-dev.myshoplaza.com\"\n[environments.staging]\nstore = \"staging.myshoplaza.com\"\ntheme = \"123\"\nprofile = \"staging\"\n"
-	if err := os.WriteFile(filepath.Join(dir, themeenv.FileName), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, env.FileName), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
