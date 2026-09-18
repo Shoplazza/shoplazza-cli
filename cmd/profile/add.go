@@ -35,6 +35,15 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
+			// In a terminal, prompt for the name and store; agents/pipes must pass
+			// the flags. Validation below applies to typed and prompted values alike.
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "name", Title: "Profile name"},
+				cmdutil.PromptField{Flag: "store-domain", Title: "Store domain (e.g. my-store.myshoplaza.com)"},
+			); err != nil {
+				return err
+			}
+
 			if err := core.ValidateProfileName(name); err != nil {
 				return output.ErrValidation("%s", err.Error())
 			}

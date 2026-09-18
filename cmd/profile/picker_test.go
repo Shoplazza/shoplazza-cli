@@ -57,3 +57,12 @@ func TestRename_NonInteractive_Errors(t *testing.T) {
 		t.Error("non-interactive rename with no target must error, not prompt")
 	}
 }
+
+// Non-interactively, add with no flags must fail fast with the required-flag
+// error — never prompt for name/store.
+func TestAdd_NonInteractive_RequiresFlags(t *testing.T) {
+	f := newTestFactory(t, "http://unused")
+	if _, err := execProfile(f, "add"); err == nil || !strings.Contains(err.Error(), "required flag(s) not set") {
+		t.Errorf("want required error, got %v", err)
+	}
+}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func newCmdVersions(f *cmdutil.Factory) *cobra.Command {
@@ -18,9 +17,10 @@ func newCmdVersions(f *cmdutil.Factory) *cobra.Command {
   shoplazza checkout-extension versions --extension-id ext_123`,
 		PreRunE: authPreRun(f),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if extID == "" {
-				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					"--extension-id is required", "run 'shoplazza checkout list' to find the extension id")
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "extension-id", Title: "Extension", Picker: extensionOptions},
+			); err != nil {
+				return err
 			}
 			return fireAndPrint(cmd, f, client.RawRequest{
 				Method: "GET",

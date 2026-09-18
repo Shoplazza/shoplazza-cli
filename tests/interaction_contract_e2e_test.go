@@ -49,6 +49,7 @@ func TestInteraction_NonInteractiveContract(t *testing.T) {
 		{"cmd fill: checkout deploy", "--extension-id", []string{"checkout-extension", "deploy"}},
 		{"cmd fill: checkout preview", "--extension-id", []string{"checkout-extension", "preview"}},
 		{"cmd fill: checkout undeploy", "--extension-id", []string{"checkout-extension", "undeploy"}},
+		{"cmd fill: checkout versions", "--extension-id", []string{"checkout-extension", "versions"}},
 		{"cmd fill: checkout push", "--name", []string{"checkout-extension", "push"}},
 		{"cmd fill: checkout init", "--name", []string{"checkout-extension", "init"}},
 		{"cmd fill: checkout extension add", "--name", []string{"checkout-extension", "create"}},
