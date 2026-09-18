@@ -6,6 +6,7 @@ import (
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
@@ -21,12 +22,29 @@ func newCmdRename(f *cmdutil.Factory) *cobra.Command {
 		Short: "Rename a profile",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := core.ValidateProfileName(to); err != nil {
-				return output.ErrValidation("%s", err.Error())
+			// Which profile to rename: pick in a terminal when --from is omitted;
+			// non-interactively --from still defaults to the current profile.
+			if from == "" && cmdutil.Interactive(f) {
+				picked, err := pickProfile(f, "Which profile to rename?")
+				if err != nil {
+					return err
+				}
+				from = picked
 			}
 			from, ferr := currentOrNamed(f, from)
 			if ferr != nil {
 				return ferr
+			}
+			// New name: prompt in a terminal when --to is omitted.
+			if to == "" && cmdutil.Interactive(f) {
+				v, err := interact.Input("New name for profile "+from, core.ValidateProfileName)
+				if err != nil {
+					return err
+				}
+				to = v
+			}
+			if err := core.ValidateProfileName(to); err != nil {
+				return output.ErrValidation("%s", err.Error())
 			}
 
 			err := core.UpdateConfig(f.ConfigPath, core.ConfigLockTimeout, func(c *core.CliConfig) error {

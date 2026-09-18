@@ -49,3 +49,11 @@ func TestRemove_NonInteractive_RequiresName(t *testing.T) {
 		t.Errorf("want required error, got %v", err)
 	}
 }
+
+// Non-interactively, rename with no target must error (never open a picker/input).
+func TestRename_NonInteractive_Errors(t *testing.T) {
+	f := newTestFactory(t, "http://unused")
+	if _, err := execProfile(f, "rename"); err == nil {
+		t.Error("non-interactive rename with no target must error, not prompt")
+	}
+}
