@@ -86,6 +86,21 @@ func TestEnvAdd_SetOnlyChangesGivenFields(t *testing.T) {
 	}
 }
 
+// TestEnvAdd_RequiresNameNonInteractively: an agent that omits the name gets a
+// structured error (not cobra's arg-count message) and writes nothing.
+func TestEnvAdd_RequiresNameNonInteractively(t *testing.T) {
+	dir := t.TempDir()
+	f := &cmdutil.Factory{} // non-interactive
+
+	err := runEnv(t, newCmdEnvAdd(f), nil, map[string]string{"path": dir, "store": "s.myshoplaza.com"})
+	if err == nil {
+		t.Fatal("expected an error when the name is omitted non-interactively")
+	}
+	if _, lerr := env.Load(filepath.Join(dir, env.FileName)); lerr == nil {
+		t.Fatal("no shoplazza.theme.toml should have been written")
+	}
+}
+
 // TestEnvAdd_RequiresStoreNonInteractively: an agent that omits --store must get
 // a structured "required flag" error, not a silently-empty environment (and no
 // file is written).

@@ -156,18 +156,21 @@ func newCmdEnvAdd(f *cmdutil.Factory) *cobra.Command {
 	var path, store, themeID, profile string
 	var live bool
 	cmd := &cobra.Command{
-		Use:         "add <name> --store <domain> [--theme <id>] [--profile <name>] [--live]",
+		Use:         "add [name] --store <domain> [--theme <id>] [--profile <name>] [--live]",
 		Short:       "Add a new environment to " + env.FileName,
-		Long:        "Add a new [environments.<name>] block to " + env.FileName + " (created if absent). Errors if the environment exists — use 'themes env set'. Advanced keys (path/ignore) are hand-edited; this rewrites the file without comments.",
+		Long:        "Add a new [environments.<name>] block to " + env.FileName + " (created if absent). Omit the name to be prompted for it. Errors if the environment exists — use 'themes env set'. Advanced keys (path/ignore) are hand-edited; this rewrites the file without comments.",
 		Example:     "  shoplazza themes env add staging --store staging.myshoplaza.com --theme 123456 --profile staging",
-		Args:        cobra.ExactArgs(1),
+		Args:        cobra.MaximumNArgs(1),
 		Annotations: authFreeWrite,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
 			// Interactive fill (same contract as themeext/app): a human is prompted
-			// for the store (required) and offered theme/profile; an agent that
-			// omits --store gets one structured "required flag not set" error
-			// instead of a silently-empty environment.
+			// for the name and store (required) and offered theme/profile; an agent
+			// that omits the name or --store gets one structured error instead of a
+			// silently-empty environment.
+			name, err := resolveNewEnvName(cmd, f, args)
+			if err != nil {
+				return err
+			}
 			if err := cmdutil.ResolveFlags(cmd, f,
 				cmdutil.PromptField{Flag: "store", Title: "Store domain (e.g. my-dev.myshoplaza.com)"},
 				cmdutil.PromptField{Flag: "theme", Title: "Theme id (optional)", Optional: true},
@@ -323,6 +326,28 @@ func confirmEnvIfUnverified(cmd *cobra.Command, f *cmdutil.Factory, e env.Enviro
 		return output.ErrCanceled()
 	}
 	return nil
+}
+
+// resolveNewEnvName resolves the name for a new environment (env add): the
+// positional arg when given, else a text prompt for a human. Non-interactively
+// an omitted name is a structured error — the name is required for agents. Unlike
+// set/remove this must NOT pick from existing names: the name is new.
+func resolveNewEnvName(cmd *cobra.Command, f *cmdutil.Factory, args []string) (string, error) {
+	if len(args) > 0 {
+		return args[0], nil
+	}
+	if !cmdutil.Interactive(f) {
+		return "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"environment name is required",
+			"pass a name, e.g. 'shoplazza themes env add staging --store <domain>'")
+	}
+	name, err := interact.Input("Environment name (e.g. staging)", func(s string) error {
+		if strings.TrimSpace(s) == "" {
+			return fmt.Errorf("environment name is required")
+		}
+		return nil
+	})
+	return strings.TrimSpace(name), err
 }
 
 // resolveEnvName resolves the target environment for set/remove: the positional
