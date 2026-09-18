@@ -43,6 +43,8 @@ func NewRootCmd() *cobra.Command {
 		Short: "Shoplazza Open Platform command-line interface",
 		Long: fmt.Sprintf(`Shoplazza CLI — official command-line interface to the Shoplazza Open Platform (OpenAPI %s).
 
+New here? Run 'shoplazza auth login' to authenticate first.
+
 Common workflows:
   shoplazza auth login                    authenticate to your account
   shoplazza <module> --help                explore a resource's commands
@@ -84,6 +86,8 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 	rootCmd.AddCommand(update.NewCmdUpdate(factory))
 	dynamic.RegisterCommands(rootCmd, spec, factory)
 	shortcuts.RegisterShortcuts(rootCmd, factory)
+
+	applyRootGroups(rootCmd)
 
 	return rootCmd
 }
