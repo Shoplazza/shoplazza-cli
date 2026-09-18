@@ -16,7 +16,7 @@ func confirmNo(string) bool  { return false }
 func TestRecordPullEnvironment_CreatesWhenAbsent(t *testing.T) {
 	dir := t.TempDir()
 
-	p, action, err := recordThemeEnvironment(dir, "myshop.myshoplaza.com", "123456", "default", nil)
+	p, action, err := recordThemeEnvironment(dir, env.DefaultEnvironment, "myshop.myshoplaza.com", "123456", "default", nil)
 	if err != nil {
 		t.Fatalf("recordThemeEnvironment: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestRecordPullEnvironment_SkipsExistingWhenNonInteractive(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	_, action, err := recordThemeEnvironment(dir, "new.myshoplaza.com", "999", "default", nil)
+	_, action, err := recordThemeEnvironment(dir, env.DefaultEnvironment, "new.myshoplaza.com", "999", "default", nil)
 	if err != nil {
 		t.Fatalf("recordThemeEnvironment: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestRecordPullEnvironment_UpdatesOnConfirmPreservingOthers(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	_, action, err := recordThemeEnvironment(dir, "new.myshoplaza.com", "999", "prod", confirmYes)
+	_, action, err := recordThemeEnvironment(dir, env.DefaultEnvironment, "new.myshoplaza.com", "999", "prod", confirmYes)
 	if err != nil {
 		t.Fatalf("recordThemeEnvironment: %v", err)
 	}
@@ -102,6 +102,35 @@ func TestRecordPullEnvironment_UpdatesOnConfirmPreservingOthers(t *testing.T) {
 	}
 }
 
+// TestRecordThemeEnvironment_TargetsNamedEnv: with -e, the record goes to the
+// named environment (not default), leaving other environments untouched.
+func TestRecordThemeEnvironment_TargetsNamedEnv(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, env.FileName)
+	seed := env.File{Environments: map[string]env.Environment{
+		"default": {Store: "d.myshoplaza.com", Theme: "1"},
+		"prod":    {Store: "prod.myshoplaza.com", Theme: "old"},
+	}}
+	if err := env.Save(p, seed); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	_, action, err := recordThemeEnvironment(dir, "prod", "prod.myshoplaza.com", "999", "prodprofile", confirmYes)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if action != envWriteUpdated {
+		t.Fatalf("action = %q, want updated", action)
+	}
+	file, _ := env.Load(p)
+	if pr, _ := file.Environment("prod"); pr.Theme != "999" || pr.Profile != "prodprofile" {
+		t.Fatalf("prod not updated: %+v", pr)
+	}
+	if d, _ := file.Environment("default"); d.Theme != "1" {
+		t.Fatalf("default must be untouched: %+v", d)
+	}
+}
+
 // TestRecordPullEnvironment_UnchangedWhenMatching: re-pulling the same store/
 // theme/profile is a no-op even without confirmation.
 func TestRecordPullEnvironment_UnchangedWhenMatching(t *testing.T) {
@@ -114,7 +143,7 @@ func TestRecordPullEnvironment_UnchangedWhenMatching(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	_, action, err := recordThemeEnvironment(dir, "myshop.myshoplaza.com", "123456", "default", confirmNo)
+	_, action, err := recordThemeEnvironment(dir, env.DefaultEnvironment, "myshop.myshoplaza.com", "123456", "default", confirmNo)
 	if err != nil {
 		t.Fatalf("recordThemeEnvironment: %v", err)
 	}
@@ -128,7 +157,7 @@ func TestRecordPullEnvironment_UnchangedWhenMatching(t *testing.T) {
 func TestRecordPullEnvironment_NoneWhenNothingBindable(t *testing.T) {
 	dir := t.TempDir()
 
-	_, action, err := recordThemeEnvironment(dir, "", "123456", "", nil)
+	_, action, err := recordThemeEnvironment(dir, env.DefaultEnvironment, "", "123456", "", nil)
 	if err != nil {
 		t.Fatalf("recordThemeEnvironment: %v", err)
 	}

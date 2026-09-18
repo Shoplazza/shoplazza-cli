@@ -180,20 +180,21 @@ const (
 )
 
 // maybeWriteThemeEnv records the store/theme/profile a pull or push just used
-// into the project's shoplazza.theme.toml "default" environment, so the theme
-// directory is immediately -e aware and the chosen target sticks. tag ("pull" /
-// "push") only labels the stderr notes. Best-effort: every failure degrades to a
-// stderr note and never fails the (already-successful) command.
+// into shoplazza.theme.toml, so the theme directory is immediately -e aware and
+// the chosen target sticks. It writes to the selected environment when -e is
+// given, else to "default". tag ("pull"/"push") only labels the stderr notes.
+// Best-effort: every failure degrades to a stderr note and never fails the
+// (already-successful) command.
 //
 // Semantics mirror the store-file/config asymmetry: an absent file is created
 // outright, but an existing file is user-owned config (it may carry other
 // hand-authored environments and comments) so it is only rewritten after a human
 // confirms — agents are handed the exact `env set` command instead of a silent
-// overwrite. A run driven by -e is skipped entirely: that environment already
-// exists and is authoritative.
+// overwrite.
 func maybeWriteThemeEnv(cmd *cobra.Command, f *cmdutil.Factory, cwd string, rs resolvedStore, themeID, tag string) {
-	if environmentName(cmd) != "" {
-		return
+	target := environmentName(cmd)
+	if target == "" {
+		target = env.DefaultEnvironment
 	}
 	stderr := cmd.ErrOrStderr()
 
@@ -205,22 +206,22 @@ func maybeWriteThemeEnv(cmd *cobra.Command, f *cmdutil.Factory, cwd string, rs r
 		}
 	}
 
-	p, action, err := recordThemeEnvironment(cwd, rs.Domain, themeID, rs.Profile, confirm)
+	p, action, err := recordThemeEnvironment(cwd, target, rs.Domain, themeID, rs.Profile, confirm)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "[%s] left %s untouched: %v\n", tag, env.FileName, err)
 		return
 	}
 	switch action {
 	case envWriteCreated:
-		_, _ = fmt.Fprintf(stderr, "[%s] wrote %s (environment: %s)\n", tag, p, env.DefaultEnvironment)
+		_, _ = fmt.Fprintf(stderr, "[%s] wrote %s (environment: %s)\n", tag, p, target)
 	case envWriteUpdated:
-		_, _ = fmt.Fprintf(stderr, "[%s] updated %s (environment: %s)\n", tag, p, env.DefaultEnvironment)
+		_, _ = fmt.Fprintf(stderr, "[%s] updated %s (environment: %s)\n", tag, p, target)
 	case envWriteSkipped:
 		// Existing file, not rewritten. Agents get the command to record it by hand.
 		if confirm == nil {
 			_, _ = fmt.Fprintf(stderr,
-				"[%s] %s already exists; not modifying it. To record this target:\n  shoplazza themes env set %s --store %s --theme %s\n",
-				tag, env.FileName, env.DefaultEnvironment, rs.Domain, themeID)
+				"[%s] %s already has environment %q; not modifying it. To record this target:\n  shoplazza themes env set %s --store %s --theme %s\n",
+				tag, env.FileName, target, target, rs.Domain, themeID)
 		} else {
 			_, _ = fmt.Fprintf(stderr, "[%s] left %s unchanged\n", tag, env.FileName)
 		}
@@ -228,11 +229,12 @@ func maybeWriteThemeEnv(cmd *cobra.Command, f *cmdutil.Factory, cwd string, rs r
 	}
 }
 
-// recordThemeEnvironment upserts the default environment in shoplazza.theme.toml
-// found up from cwd. It is pure of terminal/cobra wiring so it is unit-testable:
-// confirm==nil means "non-interactive" — an existing file is never rewritten.
-// Returns the file path acted on and what happened.
-func recordThemeEnvironment(cwd, store, themeID, profile string, confirm func(string) bool) (string, envWriteAction, error) {
+// recordThemeEnvironment upserts the named environment in shoplazza.theme.toml
+// found up from cwd, pinning its store/theme/profile. It is pure of
+// terminal/cobra wiring so it is unit-testable: confirm==nil means
+// "non-interactive" — an existing file is never rewritten. Returns the file path
+// acted on and what happened.
+func recordThemeEnvironment(cwd, target, store, themeID, profile string, confirm func(string) bool) (string, envWriteAction, error) {
 	if store == "" && profile == "" {
 		return "", envWriteNone, nil // nothing bindable to record
 	}
@@ -244,23 +246,23 @@ func recordThemeEnvironment(cwd, store, themeID, profile string, confirm func(st
 	}
 
 	if !existed {
-		created := env.File{Environments: map[string]env.Environment{env.DefaultEnvironment: newEnv}}
+		created := env.File{Environments: map[string]env.Environment{target: newEnv}}
 		if serr := env.Save(p, created); serr != nil {
 			return "", envWriteNone, serr
 		}
 		return p, envWriteCreated, nil
 	}
 
-	cur, hasDefault := file.Environment(env.DefaultEnvironment)
-	if hasDefault && cur.Store == store && cur.Theme == themeID && cur.Profile == profile {
+	cur, has := file.Environment(target)
+	if has && cur.Store == store && cur.Theme == themeID && cur.Profile == profile {
 		return p, envWriteUnchanged, nil
 	}
 	prompt := fmt.Sprintf("Update the %q environment in %s to store=%s, theme=%s?",
-		env.DefaultEnvironment, env.FileName, store, themeID)
+		target, env.FileName, store, themeID)
 	if confirm == nil || !confirm(prompt) {
 		return p, envWriteSkipped, nil
 	}
-	// Merge onto the existing default so hand-set path/ignore/live/config survive.
+	// Merge onto any existing block so hand-set path/ignore/config survive.
 	merged := cur
 	merged.Store = store
 	merged.Theme = themeID
@@ -268,7 +270,7 @@ func recordThemeEnvironment(cwd, store, themeID, profile string, confirm func(st
 	if file.Environments == nil {
 		file.Environments = map[string]env.Environment{}
 	}
-	file.Environments[env.DefaultEnvironment] = merged
+	file.Environments[target] = merged
 	if serr := env.Save(p, file); serr != nil {
 		return "", envWriteNone, serr
 	}
