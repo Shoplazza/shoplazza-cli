@@ -57,6 +57,35 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 		// Interactive: waits on the browser OAuth callback.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Already-logged-in guard (human-only). A bare `auth login` while a
+			// session exists is likely accidental, so confirm before re-running
+			// OAuth. Flags that clearly intend a change (store / scope / domain /
+			// merge / uat) skip the guard — that's a deliberate re-auth. Agents
+			// (non-interactive) always proceed and never block.
+			changeIntent := storeDomain != "" || len(domain) > 0 || len(scope) > 0 || mergeScopes ||
+				firstNonEmpty(uat, os.Getenv("SHOPLAZZA_UAT")) != ""
+			if cmdutil.Interactive(f) && !changeIntent {
+				if st, sErr := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient).CurrentStatus(); sErr == nil && st.LoggedIn {
+					who := st.Account
+					if who == "" {
+						who = "your account"
+					}
+					title := "Already logged in as " + who
+					if st.CurrentStore != "" {
+						title += " (store " + st.CurrentStore + ")"
+					}
+					title += ". Re-authenticate?"
+					ok, err := interact.Confirm(title)
+					if err != nil {
+						return err
+					}
+					if !ok {
+						_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Keeping the current session.")
+						return nil
+					}
+				}
+			}
+
 			if len(scope) > 0 {
 				if err := internalauth.ValidateScopes(scope); err != nil {
 					return output.ErrWithHint(
