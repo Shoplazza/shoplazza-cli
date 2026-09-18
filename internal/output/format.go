@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
-	"text/tabwriter"
+	"unicode/utf8"
 )
 
 // Format names accepted by PrintFormatted / --format.
@@ -19,14 +20,29 @@ const (
 	FormatCSV    = "csv"
 )
 
+// ANSI attributes used to emphasize keys/headers in pretty & table output. They
+// are applied only when the destination is a real terminal (see colorEnabled),
+// and always AFTER width padding, so column alignment is never thrown off by the
+// zero-display-width escape bytes.
+const (
+	ansiReset = "\x1b[0m"
+	ansiBold  = "\x1b[1m"
+	ansiCyan  = "\x1b[36m"
+	ansiDim   = "\x1b[2m"
+)
+
+// maxFlattenDepth bounds how deep table flattening expands nested objects into
+// dot-notation columns before falling back to a compact placeholder.
+const maxFlattenDepth = 3
+
 // PrintFormatted writes v to w using the specified format.
 // Supported formats: FormatJSON (default), FormatPretty, FormatTable, FormatNDJSON, FormatCSV.
 func PrintFormatted(w io.Writer, v any, format string) error {
 	switch format {
 	case FormatPretty:
-		return printPretty(w, v)
+		return printPretty(w, v, colorEnabled(w))
 	case FormatTable:
-		return printTable(w, v)
+		return printTable(w, v, colorEnabled(w))
 	case FormatNDJSON:
 		return printNDJSON(w, v)
 	case FormatCSV:
@@ -34,6 +50,38 @@ func PrintFormatted(w io.Writer, v any, format string) error {
 	default:
 		return PrintJSON(w, v)
 	}
+}
+
+// colorEnabled reports whether ANSI emphasis should be applied to w: only when w
+// is a real terminal and NO_COLOR is unset. A pipe, file, or in-memory buffer
+// (agents, CI, tests) gets plain text, so machine consumers never see escapes.
+func colorEnabled(w io.Writer) bool {
+	if _, ok := os.LookupEnv("NO_COLOR"); ok {
+		return false
+	}
+	f, ok := w.(*os.File)
+	return ok && IsTerminal(f)
+}
+
+func colorKey(s string, color bool) string {
+	if !color {
+		return s
+	}
+	return ansiCyan + s + ansiReset
+}
+
+func colorHeader(s string, color bool) string {
+	if !color {
+		return s
+	}
+	return ansiBold + s + ansiReset
+}
+
+func colorDim(s string, color bool) string {
+	if !color {
+		return s
+	}
+	return ansiDim + s + ansiReset
 }
 
 // printNDJSON writes one compact JSON object per line. A list-shaped payload
@@ -147,80 +195,149 @@ func csvCell(v any) string {
 	}
 }
 
-func printPretty(w io.Writer, v any) error {
+// ── pretty ──────────────────────────────────────────────────────────────────
+
+func printPretty(w io.Writer, v any, color bool) error {
 	switch typed := v.(type) {
 	case map[string]any:
-		return printMapPretty(w, typed)
+		return prettyMap(w, typed, color)
 	case []any:
-		return printSlicePretty(w, typed, nil)
+		return prettyList(w, typed, nil, 0, color)
 	default:
-		_, err := fmt.Fprintln(w, v)
+		_, err := fmt.Fprintln(w, formatScalar(v, 0))
 		return err
 	}
 }
 
-func printMapPretty(w io.Writer, m map[string]any) error {
+func prettyMap(w io.Writer, m map[string]any, color bool) error {
+	// Unwrap a single-key wrapper around a nested object: {theme:{...}} → {...}.
 	if len(m) == 1 {
-		for k, v := range m {
+		for _, v := range m {
 			if nested, ok := v.(map[string]any); ok {
-				return printFlatPretty(w, nested)
-			}
-			if list, ok := v.([]any); ok {
-				return printSlicePretty(w, list, selectColumns(k, list))
+				return prettyMap(w, nested, color)
 			}
 		}
 	}
-
-	if list, key := extractListKey(m); list != nil {
-		if err := printSlicePretty(w, list, selectColumns(key, list)); err != nil {
+	// A map dominated by one list OF OBJECTS → render the list, then the
+	// remaining meta. A scalar array (e.g. tags) is left as an inline field.
+	if list, key := extractListKey(m); isObjectList(list) {
+		if err := prettyList(w, list, selectColumns(key, list), 0, color); err != nil {
 			return err
 		}
-		meta := make(map[string]any, len(m)-1)
-		for k, v := range m {
-			if k != key {
-				meta[k] = v
-			}
-		}
+		meta := mapWithout(m, key)
 		if len(meta) > 0 {
 			fmt.Fprintln(w)
-			return printFlatPretty(w, meta)
+			return prettyBlock(w, meta, 0, color)
 		}
 		return nil
 	}
-
-	return printFlatPretty(w, m)
+	return prettyBlock(w, m, 0, color)
 }
 
-func printFlatPretty(w io.Writer, m map[string]any) error {
-	keys := sortedKeys(m)
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+// prettyBlock renders an object's fields at the given indent. Scalar (and
+// scalar-array) values are aligned within the block; a nested object or an array
+// of objects prints its key on its own line and recurses one level deeper.
+func prettyBlock(w io.Writer, m map[string]any, indent int, color bool) error {
+	keys := orderedKeys(m)
+	width := inlineKeyWidth(m, keys)
+	prefix := strings.Repeat(" ", indent)
 	for _, k := range keys {
-		fmt.Fprintf(tw, "%s:\t%s\n", k, formatScalar(m[k], 0))
+		v := m[k]
+		if nested, ok := v.(map[string]any); ok {
+			if len(nested) == 0 {
+				writeKV(w, prefix, k, colorDim("{}", color), width, color)
+				continue
+			}
+			_, _ = fmt.Fprintf(w, "%s%s\n", prefix, colorKey(k+":", color))
+			if err := prettyBlock(w, nested, indent+2, color); err != nil {
+				return err
+			}
+			continue
+		}
+		if list, ok := toAnySlice(v); ok {
+			if sok, joined := joinScalars(list); sok {
+				writeKV(w, prefix, k, joined, width, color)
+				continue
+			}
+			_, _ = fmt.Fprintf(w, "%s%s\n", prefix, colorKey(k+":", color))
+			if err := prettyList(w, list, nil, indent+2, color); err != nil {
+				return err
+			}
+			continue
+		}
+		writeKV(w, prefix, k, formatScalar(v, 0), width, color)
 	}
-	return tw.Flush()
+	return nil
 }
 
-// printSlicePretty renders each item as an indexed block. When cols is
-// non-empty each map item is trimmed to those columns (curated list view);
-// cols == nil shows all fields (e.g. a bare slice or an un-curated list).
-func printSlicePretty(w io.Writer, items []any, cols []string) error {
+// writeKV prints one aligned "key: value" line. The key token is padded to width
+// on its raw text, then colorized, so alignment survives the escape bytes.
+func writeKV(w io.Writer, prefix, k, val string, width int, color bool) {
+	token := k + ":"
+	pad := width - utf8.RuneCountInString(token)
+	if pad < 0 {
+		pad = 0
+	}
+	_, _ = fmt.Fprintf(w, "%s%s%s %s\n", prefix, colorKey(token, color), strings.Repeat(" ", pad), val)
+}
+
+// prettyList renders each item as a dimmed "[i]" header followed by its fields.
+// cols, when non-empty, trims each map item to those curated columns.
+func prettyList(w io.Writer, items []any, cols []string, indent int, color bool) error {
+	prefix := strings.Repeat(" ", indent)
 	for i, item := range items {
-		fmt.Fprintf(w, "--- [%d] ---\n", i+1)
-		switch typed := item.(type) {
+		header := prefix + colorDim(fmt.Sprintf("[%d]", i+1), color)
+		switch t := item.(type) {
 		case map[string]any:
-			m := typed
+			m := t
 			if len(cols) > 0 {
-				m = filterMap(typed, cols)
+				m = filterMap(t, cols)
 			}
-			if err := printFlatPretty(w, m); err != nil {
+			_, _ = fmt.Fprintln(w, header)
+			if err := prettyBlock(w, m, indent+2, color); err != nil {
 				return err
 			}
 		default:
-			b, _ := json.Marshal(item)
-			fmt.Fprintln(w, string(b))
+			_, _ = fmt.Fprintf(w, "%s %s\n", header, formatScalar(item, 0))
 		}
 	}
 	return nil
+}
+
+// inlineKeyWidth is the max "key:" token width among the block's fields that
+// render on one line (scalars and scalar arrays), for value alignment.
+func inlineKeyWidth(m map[string]any, keys []string) int {
+	width := 0
+	for _, k := range keys {
+		inline := true
+		v := m[k]
+		if nested, ok := v.(map[string]any); ok {
+			inline = len(nested) == 0
+		} else if list, ok := toAnySlice(v); ok {
+			sok, _ := joinScalars(list)
+			inline = sok
+		}
+		if inline {
+			if l := utf8.RuneCountInString(k) + 1; l > width {
+				width = l
+			}
+		}
+	}
+	return width
+}
+
+// joinScalars returns (true, "a, b, c") when every item is a scalar, else
+// (false, ""). Used to render a scalar array inline instead of as sub-blocks.
+func joinScalars(items []any) (bool, string) {
+	parts := make([]string, 0, len(items))
+	for _, it := range items {
+		switch it.(type) {
+		case map[string]any, []any:
+			return false, ""
+		}
+		parts = append(parts, formatScalar(it, 0))
+	}
+	return true, strings.Join(parts, ", ")
 }
 
 // formatScalar renders v as a one-line string suitable for tabular/pretty
@@ -248,39 +365,275 @@ func formatScalar(v any, truncateAt int) string {
 	}
 }
 
-func printTable(w io.Writer, v any) error {
+// ── table ───────────────────────────────────────────────────────────────────
+
+func printTable(w io.Writer, v any, color bool) error {
 	switch typed := v.(type) {
 	case map[string]any:
-		if list, key := extractListKey(typed); list != nil {
-			return printListTable(w, list, typed, key)
+		if list, key := extractListKey(typed); isObjectList(list) {
+			return listTable(w, list, typed, key, color)
 		}
 		if len(typed) == 1 {
 			for _, val := range typed {
 				if nested, ok := val.(map[string]any); ok {
-					return printObjectTable(w, nested)
+					return objectTable(w, nested, color)
 				}
 			}
 		}
-		return printObjectTable(w, typed)
+		return objectTable(w, typed, color)
 	case []any:
-		return printListTable(w, typed, nil, "")
+		return listTable(w, typed, nil, "", color)
 	default:
 		return PrintJSON(w, v)
 	}
 }
+
+// listTable renders items as a table. Curated lists (orders/products/…) use the
+// allow-listed scalar columns; any other list flattens each record to
+// dot-notation columns (http.method, http.path) so nested objects stay visible
+// instead of collapsing to "{…}". Parent (non-list) keys print below.
+func listTable(w io.Writer, items []any, parent map[string]any, listKey string, color bool) error {
+	if len(items) == 0 {
+		_, _ = fmt.Fprintln(w, "(no items)")
+		return writeParentMeta(w, parent, listKey, color)
+	}
+
+	var headers []string
+	var rows [][]string
+
+	if cols := selectColumns(listKey, items); len(cols) > 0 {
+		headers = cols
+		for _, item := range items {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			row := make([]string, len(cols))
+			for i, c := range cols {
+				row[i] = tableCell(m[c])
+			}
+			rows = append(rows, row)
+		}
+	} else {
+		headers, rows = flattenRows(items)
+	}
+
+	if len(headers) == 0 {
+		if err := PrintJSON(w, items); err != nil {
+			return err
+		}
+		return writeParentMeta(w, parent, listKey, color)
+	}
+
+	if err := renderTable(w, headers, rows, color); err != nil {
+		return err
+	}
+	return writeParentMeta(w, parent, listKey, color)
+}
+
+// flattenRows flattens each map item to dot-notation entries and returns the
+// union of columns (first-occurrence order) plus per-item value rows.
+func flattenRows(items []any) ([]string, [][]string) {
+	var cols []string
+	seen := map[string]bool{}
+	perItem := make([]map[string]string, len(items))
+	for i, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		values := map[string]string{}
+		for _, e := range flattenEntries(m, "", 0) {
+			values[e.Key] = e.Value
+			if !seen[e.Key] {
+				seen[e.Key] = true
+				cols = append(cols, e.Key)
+			}
+		}
+		perItem[i] = values
+	}
+	rows := make([][]string, 0, len(items))
+	for _, values := range perItem {
+		if values == nil {
+			continue
+		}
+		row := make([]string, len(cols))
+		for i, c := range cols {
+			row[i] = values[c]
+		}
+		rows = append(rows, row)
+	}
+	return cols, rows
+}
+
+type flatEntry struct{ Key, Value string }
+
+// flattenEntries flattens a nested object into ordered dot-notation entries.
+// Objects deeper than maxFlattenDepth (and empty/array values) collapse to a
+// compact placeholder via tableCell rather than exploding into columns.
+func flattenEntries(m map[string]any, prefix string, depth int) []flatEntry {
+	var out []flatEntry
+	for _, k := range orderedKeys(m) {
+		key := k
+		if prefix != "" {
+			key = prefix + "." + k
+		}
+		if nested, ok := m[k].(map[string]any); ok && len(nested) > 0 && depth+1 < maxFlattenDepth {
+			out = append(out, flattenEntries(nested, key, depth+1)...)
+			continue
+		}
+		out = append(out, flatEntry{Key: key, Value: tableCell(m[k])})
+	}
+	return out
+}
+
+// objectTable renders a single object as a flattened KEY/VALUE table.
+func objectTable(w io.Writer, m map[string]any, color bool) error {
+	entries := flattenEntries(m, "", 0)
+	rows := make([][]string, len(entries))
+	for i, e := range entries {
+		rows[i] = []string{e.Key, e.Value}
+	}
+	return renderTable(w, []string{"KEY", "VALUE"}, rows, color)
+}
+
+// renderTable lays out headers + rows in aligned columns using manual width
+// computation (not tabwriter), so bold headers with ANSI escapes stay aligned.
+func renderTable(w io.Writer, headers []string, rows [][]string, color bool) error {
+	n := len(headers)
+	widths := make([]int, n)
+	for i, h := range headers {
+		widths[i] = utf8.RuneCountInString(h)
+	}
+	for _, r := range rows {
+		for i := 0; i < n && i < len(r); i++ {
+			if l := utf8.RuneCountInString(r[i]); l > widths[i] {
+				widths[i] = l
+			}
+		}
+	}
+	// Headers render upper-case (table convention); rune count is unchanged, so
+	// column widths and the separator row still line up.
+	upper := make([]string, n)
+	for i, h := range headers {
+		upper[i] = strings.ToUpper(h)
+	}
+	if err := writeTableRow(w, upper, widths, color, true); err != nil {
+		return err
+	}
+	seps := make([]string, n)
+	for i := range seps {
+		seps[i] = strings.Repeat("-", widths[i])
+	}
+	if err := writeTableRow(w, seps, widths, false, false); err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if err := writeTableRow(w, r, widths, false, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeTableRow pads each cell to its column width (on raw text), optionally
+// bolds the whole row (headers), and joins with two spaces. Trailing padding is
+// trimmed so lines don't carry dangling spaces.
+func writeTableRow(w io.Writer, cells []string, widths []int, color, bold bool) error {
+	parts := make([]string, len(widths))
+	for i := range widths {
+		c := ""
+		if i < len(cells) {
+			c = cells[i]
+		}
+		pad := widths[i] - utf8.RuneCountInString(c)
+		if pad < 0 {
+			pad = 0
+		}
+		cell := c + strings.Repeat(" ", pad)
+		if bold {
+			cell = colorHeader(cell, color)
+		}
+		parts[i] = cell
+	}
+	line := strings.TrimRight(strings.Join(parts, "  "), " ")
+	_, err := fmt.Fprintln(w, line)
+	return err
+}
+
+// writeParentMeta prints a list envelope's non-list keys below the table.
+func writeParentMeta(w io.Writer, parent map[string]any, listKey string, color bool) error {
+	if parent == nil {
+		return nil
+	}
+	for _, k := range sortedKeys(parent) {
+		if k == listKey {
+			continue
+		}
+		_, _ = fmt.Fprintf(w, "%s %s\n", colorKey(k+":", color), formatScalar(parent[k], 60))
+	}
+	return nil
+}
+
+// tableCell renders one list-table cell: a scalar as usual, a scalar array
+// joined ("a, b"), an object array as "[N]", and a nested object as "{…}" —
+// anything but a wall of truncated JSON.
+func tableCell(v any) string {
+	if _, ok := v.(map[string]any); ok {
+		return "{…}"
+	}
+	if list, ok := toAnySlice(v); ok {
+		if sok, joined := joinScalars(list); sok {
+			if len(joined) > 60 {
+				joined = joined[:57] + "..."
+			}
+			return joined
+		}
+		return fmt.Sprintf("[%d]", len(list))
+	}
+	return formatScalar(v, 60)
+}
+
+// toAnySlice normalizes the slice types this CLI actually emits ([]any from JSON;
+// []string and []map[string]any from code-generated payloads) to []any. Non-slice
+// values return ok=false.
+func toAnySlice(v any) ([]any, bool) {
+	switch t := v.(type) {
+	case []any:
+		return t, true
+	case []string:
+		out := make([]any, len(t))
+		for i, s := range t {
+			out[i] = s
+		}
+		return out, true
+	case []map[string]any:
+		out := make([]any, len(t))
+		for i, m := range t {
+			out[i] = m
+		}
+		return out, true
+	default:
+		return nil, false
+	}
+}
+
+// ── shared helpers ──────────────────────────────────────────────────────────
 
 // extractListKey finds the first list-shaped value in a map and returns
 // it (as []any) along with its key. Returns nil, "" if none found.
 // Recognises []any and []map[string]any (the latter is what code-generated
 // payloads like `schema <module>` emit).
 func extractListKey(m map[string]any) ([]any, string) {
-	for k, v := range m {
-		if list, ok := v.([]any); ok {
-			return list, k
-		}
-		if typed, ok := v.([]map[string]any); ok {
-			list := make([]any, len(typed))
-			for i, item := range typed {
+	// Deterministic: probe keys in priority-then-alpha order so a map with more
+	// than one list value always resolves to the same one.
+	for _, k := range orderedKeys(m) {
+		switch v := m[k].(type) {
+		case []any:
+			return v, k
+		case []map[string]any:
+			list := make([]any, len(v))
+			for i, item := range v {
 				list[i] = item
 			}
 			return list, k
@@ -289,68 +642,15 @@ func extractListKey(m map[string]any) ([]any, string) {
 	return nil, ""
 }
 
-func printListTable(w io.Writer, items []any, parent map[string]any, listKey string) error {
+// isObjectList reports whether items is a non-empty list whose first element is
+// an object — the signal to render it as record sections/rows rather than an
+// inline scalar list.
+func isObjectList(items []any) bool {
 	if len(items) == 0 {
-		fmt.Fprintln(w, "(no items)")
-		return nil
+		return false
 	}
-
-	headers := selectColumns(listKey, items)
-	if len(headers) == 0 {
-		headers = listColumnHeaders(items)
-	}
-	if len(headers) == 0 {
-		return PrintJSON(w, items)
-	}
-
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-
-	upper := make([]string, len(headers))
-	for i, h := range headers {
-		upper[i] = strings.ToUpper(h)
-	}
-	fmt.Fprintln(tw, strings.Join(upper, "\t"))
-
-	seps := make([]string, len(headers))
-	for i, h := range headers {
-		seps[i] = strings.Repeat("-", len(h))
-	}
-	fmt.Fprintln(tw, strings.Join(seps, "\t"))
-
-	for _, item := range items {
-		itemMap, ok := item.(map[string]any)
-		if !ok {
-			b, _ := json.Marshal(item)
-			fmt.Fprintln(tw, string(b))
-			continue
-		}
-		row := make([]string, len(headers))
-		for i, h := range headers {
-			row[i] = tableCell(itemMap[h])
-		}
-		fmt.Fprintln(tw, strings.Join(row, "\t"))
-	}
-
-	if parent != nil {
-		for _, k := range sortedKeys(parent) {
-			if k == listKey {
-				continue
-			}
-			fmt.Fprintf(w, "%s: %s\n", k, formatScalar(parent[k], 60))
-		}
-	}
-
-	return tw.Flush()
-}
-
-func printObjectTable(w io.Writer, m map[string]any) error {
-	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "KEY\tVALUE")
-	fmt.Fprintln(tw, "---\t-----")
-	for _, k := range sortedKeys(m) {
-		fmt.Fprintf(tw, "%s\t%s\n", k, formatScalar(m[k], 60))
-	}
-	return tw.Flush()
+	_, ok := items[0].(map[string]any)
+	return ok
 }
 
 func listColumnHeaders(items []any) []string {
@@ -367,7 +667,7 @@ func listColumnHeaders(items []any) []string {
 // one produces a table dozens of columns wide with nested objects dumped as
 // truncated JSON — unreadable. Only columns actually present in the data are
 // shown; an unknown list key, or records matching none of these, fall back to
-// all top-level keys (the previous behavior), so nothing ever renders empty.
+// flattened top-level keys, so nothing ever renders empty.
 var listColumnAllowlist = map[string][]string{
 	"orders":    {"id", "number", "status", "financial_status", "fulfillment_status", "total_price", "currency", "placed_at"},
 	"products":  {"id", "title", "product_type", "published", "price_min", "inventory_quantity", "updated_at"},
@@ -378,7 +678,7 @@ var listColumnAllowlist = map[string][]string{
 // selectColumns returns the curated columns for a list under listKey: the
 // allow-listed columns present in the first item, in allow-list order. Returns
 // nil when there is no allow-list for the key or none of its columns are
-// present, signalling the caller to fall back to all keys.
+// present, signalling the caller to fall back to flattened keys.
 func selectColumns(listKey string, items []any) []string {
 	allow, ok := listColumnAllowlist[listKey]
 	if !ok || len(items) == 0 {
@@ -397,19 +697,6 @@ func selectColumns(listKey string, items []any) []string {
 	return cols
 }
 
-// tableCell renders one list-table cell: scalars as usual, but a nested object
-// as "{…}" and a nested array as "[N]" instead of a wall of truncated JSON.
-func tableCell(v any) string {
-	switch t := v.(type) {
-	case map[string]any:
-		return "{…}"
-	case []any:
-		return fmt.Sprintf("[%d]", len(t))
-	default:
-		return formatScalar(v, 60)
-	}
-}
-
 // filterMap keeps only the given keys (present ones), for a curated pretty view.
 func filterMap(m map[string]any, cols []string) map[string]any {
 	out := make(map[string]any, len(cols))
@@ -421,11 +708,54 @@ func filterMap(m map[string]any, cols []string) map[string]any {
 	return out
 }
 
+// mapWithout returns a copy of m without the given key.
+func mapWithout(m map[string]any, drop string) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		if k != drop {
+			out[k] = v
+		}
+	}
+	return out
+}
+
 func sortedKeys(m map[string]any) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	return keys
+}
+
+// keyPriority ranks well-known identifying fields so they lead in pretty/table
+// output ("重点突出") instead of being buried by alphabetical order. Lower =
+// earlier; unlisted keys sort alphabetically after all ranked ones.
+var keyPriority = map[string]int{
+	"id": 0, "name": 1, "title": 1, "handle": 2, "code": 2,
+	"status": 3, "state": 3, "type": 4, "email": 5, "phone": 6,
+}
+
+// orderedKeys returns m's keys with prioritized fields first, then the rest
+// alphabetically — deterministic and emphasis-aware.
+func orderedKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		pi, iok := keyPriority[keys[i]]
+		pj, jok := keyPriority[keys[j]]
+		if iok && jok {
+			if pi != pj {
+				return pi < pj
+			}
+			return keys[i] < keys[j]
+		}
+		if iok != jok {
+			return iok
+		}
+		return keys[i] < keys[j]
+	})
 	return keys
 }

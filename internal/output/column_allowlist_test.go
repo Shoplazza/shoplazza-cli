@@ -44,8 +44,12 @@ func TestTableCell_NestedSummary(t *testing.T) {
 	if got := tableCell(map[string]any{"a": 1, "b": 2}); got != "{…}" {
 		t.Errorf("object cell = %q, want {…}", got)
 	}
-	if got := tableCell([]any{1, 2, 3}); got != "[3]" {
-		t.Errorf("array cell = %q, want [3]", got)
+	// A scalar array joins (values stay visible); an object array collapses to [N].
+	if got := tableCell([]any{1, 2, 3}); got != "1, 2, 3" {
+		t.Errorf("scalar array cell = %q, want \"1, 2, 3\"", got)
+	}
+	if got := tableCell([]any{map[string]any{"x": 1}, map[string]any{"y": 2}}); got != "[2]" {
+		t.Errorf("object array cell = %q, want [2]", got)
 	}
 	if got := tableCell("plain"); got != "plain" {
 		t.Errorf("scalar cell = %q, want plain", got)
