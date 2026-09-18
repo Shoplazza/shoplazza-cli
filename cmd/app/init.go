@@ -2,7 +2,6 @@ package appcmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -208,10 +207,13 @@ the owning partner is derived from the app.`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Plain error, not ExitError, to keep cobra's usage block; keyed on Changed, not value.
+			// Structured error (not a bare error) so the non-TTY/agent path stays
+			// JSON-parseable; keyed on Changed, not value.
 			gateOpen := cmdutil.Interactive(f)
 			if !gateOpen && !cmd.Flags().Changed("client-id") && !cmd.Flags().Changed("name") {
-				return errors.New("at least one of the flags in the group [client-id name] is required")
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"at least one of --client-id or --name is required",
+					"pass --client-id <id> to link an existing app, or --name <name> to create one")
 			}
 			// The project is created as a sub-dir under the current working directory.
 			p, err := openProject(".")

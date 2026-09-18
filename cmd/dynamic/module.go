@@ -84,6 +84,11 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 			if cmd.Annotations[cmdutil.AnnotationAuthFree] == "true" {
 				return nil
 			}
+			// --dry-run only prints the request — no network, so previewing must
+			// not require auth (a leaf's own dry-run branch never calls out).
+			if cmdutil.IsDryRun(cmd) {
+				return nil
+			}
 			return cmdutil.RequireAuth(cmd.Context(), factory, cmd)
 		},
 		Annotations: map[string]string{annotationDiscovery: "true"},

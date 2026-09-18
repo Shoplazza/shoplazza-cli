@@ -35,6 +35,13 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 						map[string]any{"extension": map[string]any{"extension_id": extID, "version": version}}),
 				}, cmdutil.GetFormat(cmd), "")
 			}
+			// Human-only confirmation: activating a version replaces the extension
+			// currently live on the store's checkout. Non-interactive proceeds;
+			// --dry-run already returned above.
+			if err := cmdutil.ConfirmDestructive(f,
+				"Activate version "+version+" of extension "+extID+"? It replaces the currently live checkout extension."); err != nil {
+				return err
+			}
 			// Resolve the human version (e.g. 1.0) to its server id.
 			versionID, exitErr := resolveCheckoutVersionID(cmd.Context(), f, extID, version)
 			if exitErr != nil {

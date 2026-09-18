@@ -41,6 +41,13 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 				return ex
 			}
 
+			// Human-only confirmation: deploy publishes a new version of the app to
+			// the current store. Non-interactive callers proceed unchanged.
+			if err := cmdutil.ConfirmDestructive(f,
+				"Deploy a new version of this app to the current store? It publishes to the live app."); err != nil {
+				return err
+			}
+
 			d, err := dashboardClient(ctx, f)
 			if err != nil {
 				return err

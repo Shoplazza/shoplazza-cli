@@ -29,6 +29,11 @@ func addDryRunFlag(cmd *cobra.Command) {
 // --store-domain override.
 func authPreRun(f *cmdutil.Factory) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
+		// --dry-run only prints the request it would send — no network, so don't
+		// require auth to preview (matches the dry-run branches' own promise).
+		if cmdutil.IsDryRun(cmd) {
+			return nil
+		}
 		return cmdutil.RequireAuth(cmd.Context(), f, cmd)
 	}
 }

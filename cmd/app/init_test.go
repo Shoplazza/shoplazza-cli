@@ -289,7 +289,7 @@ func TestNewCmdInit_FlagGroups(t *testing.T) {
 		{"both modes at once", []string{"--name", "myapp", "--client-id", "cid123"},
 			"if any flags in the group [client-id name] are set none of the others can be; [client-id name] were all set"},
 		{"neither mode", nil,
-			"at least one of the flags in the group [client-id name] is required"},
+			"at least one of --client-id or --name is required"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f, out, errOut := initFactory(t, newInitServer(t, "unused").URL)

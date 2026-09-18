@@ -126,7 +126,8 @@ func runInitOffTTY(t *testing.T, f *cmdutil.Factory, out, errOut *bytes.Buffer, 
 }
 
 // TestInit_OffTTY_BareRunRejectedBeforeAnyRequest pins that a bare run is
-// rejected, with cobra's wording, before any request.
+// rejected — as a structured ExitError so the agent path stays JSON-parseable —
+// before any request.
 func TestInit_OffTTY_BareRunRejectedBeforeAnyRequest(t *testing.T) {
 	t.Chdir(t.TempDir())
 	is := newInitServer(t, "unused", "p1")
@@ -136,14 +137,21 @@ func TestInit_OffTTY_BareRunRejectedBeforeAnyRequest(t *testing.T) {
 	if err == nil {
 		t.Fatal("a bare run must still be rejected without a terminal")
 	}
-	const want = "at least one of the flags in the group [client-id name] is required"
+	const want = "at least one of --client-id or --name is required"
 	if err.Error() != want {
 		t.Errorf("error = %q, want %q", err.Error(), want)
 	}
-	// A plain error, not an ExitError: that is what keeps the usage block and exit 2.
+	// A structured validation ExitError: agents parse stderr as JSON, so the
+	// non-TTY path must not emit a bare cobra error.
 	var ee *output.ExitError
-	if errors.As(err, &ee) {
-		t.Errorf("error must stay a plain error, got *output.ExitError %+v", ee)
+	if !errors.As(err, &ee) {
+		t.Fatalf("error must be an *output.ExitError, got %T", err)
+	}
+	if ee.Code != output.ExitValidation {
+		t.Errorf("exit code = %d, want %d", ee.Code, output.ExitValidation)
+	}
+	if ee.Detail == nil || ee.Detail.Type != output.TypeValidation {
+		t.Errorf("error detail type = %+v, want %q", ee.Detail, output.TypeValidation)
 	}
 	if reqs := is.requests(); len(reqs) != 0 {
 		t.Errorf("sent %v before failing, want no request", reqs)

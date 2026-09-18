@@ -16,6 +16,8 @@ var destructiveVerbs = map[string]bool{
 	"unpublish":    true,
 	"remove":       true,
 	"destroy":      true,
+	"publish":      true, // sets the live storefront default (customer-facing)
+	"upgrade":      true, // irreversibly bumps the theme framework version
 }
 
 // isDestructive reports whether a dynamic command performs an irreversible
