@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	te "github.com/Shoplazza/shoplazza-cli/v2/internal/theme_extension"
@@ -47,6 +48,50 @@ func themePickerOptions(themes []map[string]any) []interact.Option {
 			label += " · " + role
 		}
 		opts = append(opts, interact.Option{Label: label, Value: id})
+	}
+	return opts
+}
+
+// appClientIDOptions lists the account's apps across all partners for a fuzzy
+// --client-id picker (value = client_id, label = name + client_id). Uses the
+// Partner Dashboard (partner token). On any error / empty list the caller
+// (ResolveFlags) degrades to manual entry — never a hard failure.
+func appClientIDOptions(ctx context.Context, _ *cobra.Command, f *cmdutil.Factory) ([]interact.Option, error) {
+	d, err := dashboardClient(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	partners, err := d.GetPartners(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var opts []interact.Option
+	for _, p := range partners.Partners {
+		apps, aErr := d.GetApps(ctx, string(p.ID))
+		if aErr != nil {
+			return nil, aErr
+		}
+		opts = append(opts, appPickerOptions(apps.Apps)...)
+	}
+	return opts, nil
+}
+
+// appPickerOptions maps a partner's apps to picker options: value = client_id,
+// label = name (plus client_id), skipping apps with no client_id. Pure, so the
+// mapping is unit-tested.
+func appPickerOptions(apps []app.App) []interact.Option {
+	opts := make([]interact.Option, 0, len(apps))
+	for _, a := range apps {
+		if a.ClientID == "" {
+			continue
+		}
+		label := a.Name
+		if label == "" {
+			label = a.ClientID
+		} else {
+			label += " · " + a.ClientID
+		}
+		opts = append(opts, interact.Option{Label: label, Value: a.ClientID})
 	}
 	return opts
 }

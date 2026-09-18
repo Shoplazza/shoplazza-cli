@@ -89,10 +89,12 @@ func TestCreate_PreRunE_PassesWithValidArgs(t *testing.T) {
 	}
 }
 
-// TestConnect_PreRunE_MissingClientID hits the first guard in newCmdConnect.
-func TestConnect_PreRunE_MissingClientID(t *testing.T) {
+// TestConnect_RunE_MissingClientID: the client-id gate now lives in RunE (the
+// picker lists apps with the partner token) — non-interactively an unset
+// --client-id is still the structured missing-flag error, before any network.
+func TestConnect_RunE_MissingClientID(t *testing.T) {
 	cmd := newCmdConnect(&cmdutil.Factory{})
-	if err := cmd.PreRunE(cmd, nil); err == nil {
+	if err := cmd.RunE(cmd, nil); err == nil {
 		t.Error("expected error when --client-id is missing")
 	}
 }

@@ -19,11 +19,6 @@ func newCmdConnect(f *cmdutil.Factory) *cobra.Command {
 		Example: `  # Link the extension to an app
   shoplazza theme-extension connect --client-id abc123`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			if clientID == "" {
-				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					"--client-id is required",
-					"the bound app's client id — list your apps with 'shoplazza app list'")
-			}
 			c, exErr := te.RequireExtensionID(path)
 			if exErr != nil {
 				return exErr // missing/corrupt config → validation + hint (before any network)
@@ -33,6 +28,15 @@ func newCmdConnect(f *cmdutil.Factory) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
+			// A human with no --client-id picks from the account's apps; non-interactive
+			// callers still get the structured missing-flag error. Resolved here, not in
+			// PreRunE, because the picker lists apps with the partner token requireLogin
+			// validated.
+			if err := cmdutil.ResolveFlags(cmd, f, cmdutil.PromptField{
+				Flag: "client-id", Title: "App to link", Picker: appClientIDOptions,
+			}); err != nil {
+				return err
+			}
 			d, err := dashboardClient(ctx, f)
 			if err != nil {
 				return err
