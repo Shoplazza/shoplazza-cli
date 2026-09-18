@@ -1,4 +1,4 @@
-// Package themeenv parses the project-level theme environment file
+// Package env parses the project-level theme environment file
 // (shoplazza.theme.toml) and resolves a named environment to the values that
 // seed theme-command flags. It is the foundation of theme multi-environment
 // ("one config, many stores"): pure parsing + find-up + lookup, with no
