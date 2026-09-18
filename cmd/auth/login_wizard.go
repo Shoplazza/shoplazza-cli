@@ -24,7 +24,10 @@ func runLoginWizard(steps []loginStep, fl loginFlags) (loginFlags, error) {
 	askDomains := slices.Contains(steps, stepDomains)
 
 	store := fl.storeDomain
-	var selected []string
+	// Default to every domain selected: the common case is full access, so Enter
+	// grants everything and the user unchecks to narrow (least privilege stays one
+	// keystroke away). Mirrors the "all by default, narrow opt-in" convention.
+	selected := append([]string(nil), domains...)
 
 	// One form, one group per planned step: separate forms cannot go back, and
 	// huh v1.0.0's WithHideFunc cannot hide the FIRST group.
@@ -43,7 +46,7 @@ func runLoginWizard(steps []loginStep, fl loginFlags) (loginFlags, error) {
 			groups = append(groups, huh.NewGroup(
 				huh.NewMultiSelect[string]().
 					Title("Which domains do you need access to?").
-					Description("Each domain grants the scopes its commands need.").
+					Description("All selected by default — press x to remove any you don't need. Each grants the scopes its commands use.").
 					Options(domainOptions(domains)...).
 					// OnlyOnSubmit: the error appears on enter, and never blocks esc.
 					Validate(interact.OnlyOnSubmit(func(v []string) error {
@@ -86,9 +89,30 @@ func collapseAll(selected, domains []string) []string {
 func domainOptions(domains []string) []huh.Option[string] {
 	out := make([]huh.Option[string], 0, len(domains))
 	for _, d := range domains {
-		out = append(out, huh.NewOption(d, d))
+		label := d
+		if desc := domainDescriptions[d]; desc != "" {
+			label = d + " — " + desc
+		}
+		out = append(out, huh.NewOption(label, d))
 	}
 	return out
+}
+
+// domainDescriptions gives each login domain a one-line "what it grants" hint so
+// the picker supports informed choice. The label carries it (huh options have no
+// separate description column); the authoritative scope list is shown on the
+// store's OAuth consent page and afterwards by `auth status`.
+var domainDescriptions = map[string]string{
+	"orders":    "orders, fulfillments, refunds, transactions",
+	"products":  "products, variants, inventory, collections",
+	"customers": "customers and addresses",
+	"discounts": "discount campaigns and coupon codes",
+	"shop":      "shop info, files, metafields, blogs, pages",
+	"themes":    "storefront themes",
+	"webhook":   "webhook subscriptions",
+	"billing":   "application charges (billing)",
+	"checkout":  "checkout extensions",
+	"app":       "app and extension management",
 }
 
 // loginSummaryRows builds the card shown after the wizard, expanding the "all"

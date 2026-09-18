@@ -2,10 +2,34 @@ package auth
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 )
+
+// Every login domain must carry a one-line description so the picker supports
+// informed choice; a new domain without one is a gap to fill.
+func TestDomainDescriptions_CoverAllDomains(t *testing.T) {
+	for _, d := range internalauth.TopLevelDomains() {
+		if strings.TrimSpace(domainDescriptions[d]) == "" {
+			t.Errorf("domain %q has no description hint", d)
+		}
+	}
+}
+
+// The picker label is "<domain> — <description>" while the option value stays
+// the bare domain (so collapseAll / scope resolution are unaffected).
+func TestDomainOptions_LabelsCarryDescription(t *testing.T) {
+	for _, o := range domainOptions(internalauth.TopLevelDomains()) {
+		if o.Value == o.Key {
+			t.Errorf("domain %q label should differ from its value (carry a description)", o.Value)
+		}
+		if !strings.HasPrefix(o.Key, o.Value+" — ") {
+			t.Errorf("label %q should start with %q + ' — '", o.Key, o.Value)
+		}
+	}
+}
 
 // TestDomainOptions_NoAllRow pins the picker to the concrete domains, with no
 // "all" row: ctrl+a is huh's own select-all.
