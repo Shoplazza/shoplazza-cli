@@ -263,7 +263,7 @@ func pushAPIError(err error, configName string) *output.ExitError {
 	return apiError(err)
 }
 
-func runConfigPush(ctx context.Context, d *app.Dashboard, p *project.Project, yes bool, w io.Writer, format, jq string) error {
+func runConfigPush(ctx context.Context, f *cmdutil.Factory, d *app.Dashboard, p *project.Project, yes bool, w io.Writer, format, jq string) error {
 	configName, cfg, ex := activeAppConfigNamed(p)
 	if ex != nil {
 		return ex
@@ -299,9 +299,18 @@ func runConfigPush(ctx context.Context, d *app.Dashboard, p *project.Project, ye
 			if status == "" {
 				status = "unknown"
 			}
-			return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-				fmt.Sprintf("app %q has status %s; pushing config will update the live app settings and refresh its review checks", current.Name, status),
-				"re-run with --yes to confirm")
+			msg := fmt.Sprintf("app %q has status %s; pushing config will update the live app settings and refresh its review checks", current.Name, status)
+			// A human on a TTY confirms inline (like every other destructive op);
+			// a non-interactive caller (agent, pipe, CI) keeps the explicit --yes
+			// gate — a review-affecting write to a live app is not done silently on
+			// automation's behalf.
+			if !cmdutil.Interactive(f) {
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					msg, "re-run with --yes to confirm")
+			}
+			if err := cmdutil.ConfirmDestructive(f, msg+". Push anyway?"); err != nil {
+				return err
+			}
 		}
 	}
 	updated, err := d.UpdateApp(ctx, pid, cfg.ClientID, patch)
@@ -360,7 +369,7 @@ rather than the local file.`,
 			if err != nil {
 				return err
 			}
-			return runConfigPush(cmd.Context(), d, p, yes, cmd.OutOrStdout(), cmdutil.GetFormat(cmd), "")
+			return runConfigPush(cmd.Context(), f, d, p, yes, cmd.OutOrStdout(), cmdutil.GetFormat(cmd), "")
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")

@@ -449,7 +449,7 @@ func TestRunConfigPush_SendsOnlyValuedFields(t *testing.T) {
 	var patched map[string]any
 	d := pushDash(t, "draft", &patched, 0, "")
 	var buf bytes.Buffer
-	if err := runConfigPush(context.Background(), d, p, false, &buf, "json", ""); err != nil {
+	if err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", ""); err != nil {
 		t.Fatalf("runConfigPush: %v", err)
 	}
 	// Empty strings are dropped; embed = false is a value and travels.
@@ -472,7 +472,7 @@ func TestRunConfigPush_EmbedMissingNotSent(t *testing.T) {
 	var patched map[string]any
 	d := pushDash(t, "draft", &patched, 0, "")
 	var buf bytes.Buffer
-	if err := runConfigPush(context.Background(), d, p, false, &buf, "json", ""); err != nil {
+	if err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", ""); err != nil {
 		t.Fatalf("runConfigPush: %v", err)
 	}
 	if _, has := patched["embed"]; has || len(patched) != 1 {
@@ -490,7 +490,7 @@ func TestRunConfigPush_EmptyDashboard_Validation(t *testing.T) {
 			t.Fatalf("no request expected, got %s %s", r.Method, r.URL.Path)
 		})
 		var buf bytes.Buffer
-		err := runConfigPush(context.Background(), d, p, false, &buf, "json", "")
+		err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", "")
 		var ee *output.ExitError
 		if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
 			t.Fatalf("toml %q: want validation error, got %v", toml, err)
@@ -506,7 +506,7 @@ func TestRunConfigPush_InvalidURL_FailsBeforeNetwork(t *testing.T) {
 			t.Fatalf("no request expected for %q, got %s %s", bad, r.Method, r.URL.Path)
 		})
 		var buf bytes.Buffer
-		err := runConfigPush(context.Background(), d, p, false, &buf, "json", "")
+		err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", "")
 		var ee *output.ExitError
 		if !errors.As(err, &ee) || ee.Code != output.ExitValidation || !strings.Contains(err.Error(), "redirect_url") {
 			t.Errorf("%q: want validation error naming redirect_url, got %v", bad, err)
@@ -530,7 +530,7 @@ func TestRunConfigPush_StatusGate(t *testing.T) {
 			var patched map[string]any
 			d := pushDash(t, c.status, &patched, 0, "")
 			var buf bytes.Buffer
-			err := runConfigPush(context.Background(), d, p, yes, &buf, "json", "")
+			err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, yes, &buf, "json", "")
 			wantBlock := c.needsYes && !yes
 			if wantBlock {
 				shown := c.status
@@ -563,7 +563,7 @@ func TestRunConfigPush_404_HintsClientID(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"ResourceNotFound","message":"The app does not exist or does not belong to the currently logged account"}`))
 	})
 	var buf bytes.Buffer
-	err := runConfigPush(context.Background(), d, p, false, &buf, "json", "")
+	err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", "")
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Code != output.ExitAPI {
 		t.Fatalf("want api error, got %v", err)
@@ -581,7 +581,7 @@ func TestRunConfigPush_422_PassesMessage(t *testing.T) {
 	p := pushProject(t, "client_id = \"cid_x\"\npartner_id = \"p1\"\n[dashboard]\n  name = \"taken\"\n")
 	d := pushDash(t, "draft", nil, http.StatusUnprocessableEntity, `{"code":"UnprocessableEntity","message":"app name is already exists"}`)
 	var buf bytes.Buffer
-	err := runConfigPush(context.Background(), d, p, false, &buf, "json", "")
+	err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", "")
 	if err == nil || !strings.Contains(err.Error(), "app name is already exists") {
 		t.Fatalf("want backend 422 message, got %v", err)
 	}
@@ -598,7 +598,7 @@ func TestRunConfigPush_Yes_SkipsStatusRead(t *testing.T) {
 			"data": map[string]any{"app": map[string]any{"client_id": "cid_x", "status": "published"}}})
 	})
 	var buf bytes.Buffer
-	if err := runConfigPush(context.Background(), d, p, true, &buf, "json", ""); err != nil {
+	if err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, true, &buf, "json", ""); err != nil {
 		t.Fatalf("runConfigPush --yes: %v", err)
 	}
 	if len(methods) != 1 || methods[0] != http.MethodPatch {
@@ -614,7 +614,7 @@ func TestRunConfigPush_401_IsAuthClass(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"Unauthorized","message":"token expired"}`))
 	})
 	var buf bytes.Buffer
-	err := runConfigPush(context.Background(), d, p, false, &buf, "json", "")
+	err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", "")
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Code != output.ExitAuth || ee.Detail == nil || ee.Detail.Type != output.TypeAuth {
 		t.Fatalf("want auth-class error, got %+v", err)
@@ -627,7 +627,7 @@ func TestRunConfigPush_401_IsAuthClass(t *testing.T) {
 func TestRunConfigPush_NoClientID_Validation(t *testing.T) {
 	p := pushProject(t, "[dashboard]\n  app_url = \"https://b.example/auth\"\n")
 	var buf bytes.Buffer
-	err := runConfigPush(context.Background(), nil, p, false, &buf, "json", "")
+	err := runConfigPush(context.Background(), &cmdutil.Factory{}, nil, p, false, &buf, "json", "")
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
 		t.Fatalf("want validation error, got %v", err)
