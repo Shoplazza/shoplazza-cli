@@ -28,6 +28,9 @@ const pullMaxUnpackSize = 200 * 1024 * 1024
 // PlanDetail uses the v2 spec path (best-effort, name only used for the
 // progress label). PlanDownload uses the v1 download path because no v2
 // equivalent exists in the spec (see service.go header comment).
+// Deprecated: pull migrated to a plain-cobra command in cmd/theme. Unregistered
+// (see Shortcuts()); kept transitionally until the shortcut remnants + P1b/P1c
+// are removed in the multi-env cleanup.
 var pullShortcut = common.Shortcut{
 	Service: "themes",
 	Command: "pull",
