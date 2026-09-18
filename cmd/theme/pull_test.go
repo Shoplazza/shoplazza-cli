@@ -7,7 +7,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/env"
 )
 
-// confirmYes / confirmNo are canned interactive answers for recordPullEnvironment.
+// confirmYes / confirmNo are canned interactive answers for recordThemeEnvironment.
 func confirmYes(string) bool { return true }
 func confirmNo(string) bool  { return false }
 
@@ -16,9 +16,9 @@ func confirmNo(string) bool  { return false }
 func TestRecordPullEnvironment_CreatesWhenAbsent(t *testing.T) {
 	dir := t.TempDir()
 
-	p, action, err := recordPullEnvironment(dir, "myshop.myshoplaza.com", "123456", "default", nil)
+	p, action, err := recordThemeEnvironment(dir, "myshop.myshoplaza.com", "123456", "default", nil)
 	if err != nil {
-		t.Fatalf("recordPullEnvironment: %v", err)
+		t.Fatalf("recordThemeEnvironment: %v", err)
 	}
 	if action != envWriteCreated {
 		t.Fatalf("action = %q, want created", action)
@@ -53,9 +53,9 @@ func TestRecordPullEnvironment_SkipsExistingWhenNonInteractive(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	_, action, err := recordPullEnvironment(dir, "new.myshoplaza.com", "999", "default", nil)
+	_, action, err := recordThemeEnvironment(dir, "new.myshoplaza.com", "999", "default", nil)
 	if err != nil {
-		t.Fatalf("recordPullEnvironment: %v", err)
+		t.Fatalf("recordThemeEnvironment: %v", err)
 	}
 	if action != envWriteSkipped {
 		t.Fatalf("action = %q, want skipped", action)
@@ -81,9 +81,9 @@ func TestRecordPullEnvironment_UpdatesOnConfirmPreservingOthers(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	_, action, err := recordPullEnvironment(dir, "new.myshoplaza.com", "999", "prod", confirmYes)
+	_, action, err := recordThemeEnvironment(dir, "new.myshoplaza.com", "999", "prod", confirmYes)
 	if err != nil {
-		t.Fatalf("recordPullEnvironment: %v", err)
+		t.Fatalf("recordThemeEnvironment: %v", err)
 	}
 	if action != envWriteUpdated {
 		t.Fatalf("action = %q, want updated", action)
@@ -114,9 +114,9 @@ func TestRecordPullEnvironment_UnchangedWhenMatching(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 
-	_, action, err := recordPullEnvironment(dir, "myshop.myshoplaza.com", "123456", "default", confirmNo)
+	_, action, err := recordThemeEnvironment(dir, "myshop.myshoplaza.com", "123456", "default", confirmNo)
 	if err != nil {
-		t.Fatalf("recordPullEnvironment: %v", err)
+		t.Fatalf("recordThemeEnvironment: %v", err)
 	}
 	if action != envWriteUnchanged {
 		t.Fatalf("action = %q, want unchanged", action)
@@ -128,9 +128,9 @@ func TestRecordPullEnvironment_UnchangedWhenMatching(t *testing.T) {
 func TestRecordPullEnvironment_NoneWhenNothingBindable(t *testing.T) {
 	dir := t.TempDir()
 
-	_, action, err := recordPullEnvironment(dir, "", "123456", "", nil)
+	_, action, err := recordThemeEnvironment(dir, "", "123456", "", nil)
 	if err != nil {
-		t.Fatalf("recordPullEnvironment: %v", err)
+		t.Fatalf("recordThemeEnvironment: %v", err)
 	}
 	if action != envWriteNone {
 		t.Fatalf("action = %q, want none", action)

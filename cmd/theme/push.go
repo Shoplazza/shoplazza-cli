@@ -79,6 +79,12 @@ func newCmdPush(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Record the resolved target into the default environment, same rules as
+			// pull (create if absent; confirm before overwriting an existing default;
+			// skipped under -e). A one-off push declines that overwrite prompt.
+			cwd, _ := os.Getwd()
+			maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID, "push")
+
 			return output.PrintAPISuccess(cmd.OutOrStdout(),
 				map[string]any{"theme_id": resolvedID, "task": payload}, cmdutil.GetFormat(cmd), "")
 		},

@@ -110,7 +110,7 @@ func newCmdPull(f *cmdutil.Factory) *cobra.Command {
 
 			// Bridge pull -> environments: record what we just pulled so the theme
 			// dir is immediately -e aware (best-effort; never fails the pull).
-			maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID)
+			maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID, "pull")
 
 			return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{
 				"theme_id":   resolvedID,
@@ -168,7 +168,7 @@ func roundedElapsed(start time.Time) float64 {
 	return float64(int(time.Since(start).Seconds()*10)) / 10
 }
 
-// envWriteAction reports what recordPullEnvironment did to shoplazza.theme.toml.
+// envWriteAction reports what recordThemeEnvironment did to shoplazza.theme.toml.
 type envWriteAction string
 
 const (
@@ -179,19 +179,19 @@ const (
 	envWriteNone      envWriteAction = "none"      // nothing worth recording
 )
 
-// maybeWriteThemeEnv records the store/theme/profile this pull used into the
-// project's shoplazza.theme.toml "default" environment, so the freshly pulled
-// directory is immediately -e aware. It bridges the gap where pulling a theme
-// forgot everything it authenticated with. Best-effort: every failure degrades
-// to a stderr note and never fails the (already-successful) pull.
+// maybeWriteThemeEnv records the store/theme/profile a pull or push just used
+// into the project's shoplazza.theme.toml "default" environment, so the theme
+// directory is immediately -e aware and the chosen target sticks. tag ("pull" /
+// "push") only labels the stderr notes. Best-effort: every failure degrades to a
+// stderr note and never fails the (already-successful) command.
 //
 // Semantics mirror the store-file/config asymmetry: an absent file is created
 // outright, but an existing file is user-owned config (it may carry other
 // hand-authored environments and comments) so it is only rewritten after a human
 // confirms — agents are handed the exact `env set` command instead of a silent
-// overwrite. A pull driven by -e is skipped entirely: that environment already
+// overwrite. A run driven by -e is skipped entirely: that environment already
 // exists and is authoritative.
-func maybeWriteThemeEnv(cmd *cobra.Command, f *cmdutil.Factory, cwd string, rs resolvedStore, themeID string) {
+func maybeWriteThemeEnv(cmd *cobra.Command, f *cmdutil.Factory, cwd string, rs resolvedStore, themeID, tag string) {
 	if environmentName(cmd) != "" {
 		return
 	}
@@ -205,34 +205,34 @@ func maybeWriteThemeEnv(cmd *cobra.Command, f *cmdutil.Factory, cwd string, rs r
 		}
 	}
 
-	p, action, err := recordPullEnvironment(cwd, rs.Domain, themeID, rs.Profile, confirm)
+	p, action, err := recordThemeEnvironment(cwd, rs.Domain, themeID, rs.Profile, confirm)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "[pull] left %s untouched: %v\n", env.FileName, err)
+		_, _ = fmt.Fprintf(stderr, "[%s] left %s untouched: %v\n", tag, env.FileName, err)
 		return
 	}
 	switch action {
 	case envWriteCreated:
-		_, _ = fmt.Fprintf(stderr, "[pull] wrote %s (environment: %s)\n", p, env.DefaultEnvironment)
+		_, _ = fmt.Fprintf(stderr, "[%s] wrote %s (environment: %s)\n", tag, p, env.DefaultEnvironment)
 	case envWriteUpdated:
-		_, _ = fmt.Fprintf(stderr, "[pull] updated %s (environment: %s)\n", p, env.DefaultEnvironment)
+		_, _ = fmt.Fprintf(stderr, "[%s] updated %s (environment: %s)\n", tag, p, env.DefaultEnvironment)
 	case envWriteSkipped:
 		// Existing file, not rewritten. Agents get the command to record it by hand.
 		if confirm == nil {
 			_, _ = fmt.Fprintf(stderr,
-				"[pull] %s already exists; not modifying it. To record this pull:\n  shoplazza themes env set %s --store %s --theme %s\n",
-				env.FileName, env.DefaultEnvironment, rs.Domain, themeID)
+				"[%s] %s already exists; not modifying it. To record this target:\n  shoplazza themes env set %s --store %s --theme %s\n",
+				tag, env.FileName, env.DefaultEnvironment, rs.Domain, themeID)
 		} else {
-			_, _ = fmt.Fprintf(stderr, "[pull] left %s unchanged\n", env.FileName)
+			_, _ = fmt.Fprintf(stderr, "[%s] left %s unchanged\n", tag, env.FileName)
 		}
 	case envWriteUnchanged, envWriteNone:
 	}
 }
 
-// recordPullEnvironment upserts the default environment in shoplazza.theme.toml
+// recordThemeEnvironment upserts the default environment in shoplazza.theme.toml
 // found up from cwd. It is pure of terminal/cobra wiring so it is unit-testable:
 // confirm==nil means "non-interactive" — an existing file is never rewritten.
 // Returns the file path acted on and what happened.
-func recordPullEnvironment(cwd, store, themeID, profile string, confirm func(string) bool) (string, envWriteAction, error) {
+func recordThemeEnvironment(cwd, store, themeID, profile string, confirm func(string) bool) (string, envWriteAction, error) {
 	if store == "" && profile == "" {
 		return "", envWriteNone, nil // nothing bindable to record
 	}
@@ -255,7 +255,7 @@ func recordPullEnvironment(cwd, store, themeID, profile string, confirm func(str
 	if hasDefault && cur.Store == store && cur.Theme == themeID && cur.Profile == profile {
 		return p, envWriteUnchanged, nil
 	}
-	prompt := fmt.Sprintf("Update the %q environment in %s to this pull (store=%s, theme=%s)?",
+	prompt := fmt.Sprintf("Update the %q environment in %s to store=%s, theme=%s?",
 		env.DefaultEnvironment, env.FileName, store, themeID)
 	if confirm == nil || !confirm(prompt) {
 		return p, envWriteSkipped, nil
