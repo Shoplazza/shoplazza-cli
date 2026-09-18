@@ -143,9 +143,9 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 		Example: `  # Release one function extension to the active app
   shoplazza app function release --name my-function`,
 		Args: cobra.NoArgs,
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			return requireLogin(cmd.Context(), f) // --name resolved in RunE
-		},
+		// Login is checked in RunE, AFTER --name, so a missing/invalid name fails
+		// with a validation error regardless of auth state (and a human can be
+		// prompted for it) rather than being forced through the login gate first.
 		RunE: func(cmd *cobra.Command, _ []string) (err error) {
 			if err := cmdutil.ResolveFlags(cmd, f,
 				cmdutil.PromptField{Flag: "name", Title: "Function extension name (directory under extensions/)"},
@@ -153,6 +153,9 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			if err := requireExtensionName(name); err != nil {
+				return err
+			}
+			if err := requireLogin(cmd.Context(), f); err != nil {
 				return err
 			}
 			ctx := cmd.Context()
