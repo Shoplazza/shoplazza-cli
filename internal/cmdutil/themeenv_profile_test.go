@@ -124,6 +124,45 @@ func TestResolveProfile_EnvironmentErrors(t *testing.T) {
 	}
 }
 
+func TestApplyThemeEnvironment(t *testing.T) {
+	dir := t.TempDir()
+	body := "[environments.staging]\nstore = \"staging.myshoplaza.com\"\ntheme = \"998877\"\n"
+	if err := os.WriteFile(filepath.Join(dir, themeenv.FileName), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	newCmd := func() *cobra.Command {
+		cmd := &cobra.Command{Use: "push"}
+		cmd.Flags().String("theme-id", "", "")
+		cmd.Flags().StringP(EnvironmentFlag, "e", "", "")
+		cmd.Flags().String("path", dir, "")
+		return cmd
+	}
+
+	// Injects the environment's theme into an unset --theme-id.
+	cmd := newCmd()
+	_ = cmd.Flags().Set(EnvironmentFlag, "staging")
+	ApplyThemeEnvironment(cmd)
+	if v, _ := cmd.Flags().GetString("theme-id"); v != "998877" {
+		t.Errorf("theme-id = %q, want the environment's 998877", v)
+	}
+
+	// An explicit --theme-id is never overwritten.
+	cmd = newCmd()
+	_ = cmd.Flags().Set(EnvironmentFlag, "staging")
+	_ = cmd.Flags().Set("theme-id", "111")
+	ApplyThemeEnvironment(cmd)
+	if v, _ := cmd.Flags().GetString("theme-id"); v != "111" {
+		t.Errorf("theme-id = %q, want the explicit 111 to win", v)
+	}
+
+	// No environment selected → no injection.
+	cmd = newCmd()
+	ApplyThemeEnvironment(cmd)
+	if v, _ := cmd.Flags().GetString("theme-id"); v != "" {
+		t.Errorf("theme-id = %q, want empty with no -e", v)
+	}
+}
+
 // TestResolveProfile_NonThemeCommandIgnoresEnvironmentVar pins the gate: a
 // command without an --environment flag never consults the theme env file, even
 // with SHOPLAZZA_CLI_ENVIRONMENT set — so non-theme commands are byte-for-byte

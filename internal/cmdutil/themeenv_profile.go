@@ -96,3 +96,71 @@ func profileFromThemeEnv(f *Factory, cmd *cobra.Command) (*core.ProfileConfig, b
 	}
 	return nil, false, nil // environment sets neither profile nor store → today's resolution
 }
+
+// ApplyThemeEnvironment injects a selected theme environment's values into any
+// matching flags the command left UNSET: theme→--theme-id, path→--path,
+// ignore→--ignore (only the flags a given command actually defines). Explicit
+// flags always win — a set flag is never overwritten.
+//
+// It is gated on --environment (a no-op for non-theme commands / no selection)
+// and best-effort: the environment file and name were already validated when the
+// profile resolved (RequireAuth runs first), so a re-read hiccup here must not
+// fail an otherwise-valid command. Call it before the required-flag fill so an
+// injected value counts as "provided".
+func ApplyThemeEnvironment(cmd *cobra.Command) {
+	name := selectedEnvironment(cmd)
+	if name == "" {
+		return
+	}
+	start := "."
+	if cmd.Flags().Lookup("path") != nil {
+		if v, _ := cmd.Flags().GetString("path"); v != "" {
+			start = v
+		}
+	}
+	path, err := themeenv.Find(start)
+	if err != nil {
+		return
+	}
+	file, err := themeenv.Load(path)
+	if err != nil {
+		return
+	}
+	env, ok := file.Environment(name)
+	if !ok {
+		return
+	}
+	setFlagIfUnset(cmd, "theme-id", env.Theme)
+	setFlagIfUnset(cmd, "path", env.Path)
+	setSliceIfUnset(cmd, "ignore", env.Ignore)
+}
+
+// setFlagIfUnset sets flag to val when the command defines it, the user did not
+// set it, and val is non-empty.
+func setFlagIfUnset(cmd *cobra.Command, flag, val string) {
+	if val == "" {
+		return
+	}
+	f := cmd.Flags().Lookup(flag)
+	if f == nil || f.Changed {
+		return
+	}
+	_ = cmd.Flags().Set(flag, val)
+}
+
+// setSliceIfUnset fills a StringSlice/StringArray flag from vals only when the
+// user did not set it (an explicit --ignore replaces the environment's list, it
+// does not merge). The user-set check is read once before the first Set, since
+// Set itself flips the flag's Changed state.
+func setSliceIfUnset(cmd *cobra.Command, flag string, vals []string) {
+	if len(vals) == 0 {
+		return
+	}
+	f := cmd.Flags().Lookup(flag)
+	if f == nil || f.Changed {
+		return
+	}
+	for _, v := range vals {
+		_ = cmd.Flags().Set(flag, v)
+	}
+}
