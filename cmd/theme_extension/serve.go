@@ -36,15 +36,19 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 		// Long-running watch process.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			if themeID == "" {
-				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					"--theme-id/-t is required",
-					"run 'shoplazza themes list' to find a theme id")
-			}
 			return requireLogin(cmd.Context(), f)
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
+			// A human with no --theme-id picks from the store's themes; non-interactive
+			// callers still get the structured missing-flag error (fail-fast). Resolved
+			// here, not in PreRunE, because the picker lists themes with the store token
+			// that requireLogin just validated.
+			if err := cmdutil.ResolveFlags(cmd, f, cmdutil.PromptField{
+				Flag: "theme-id", Title: "Theme to preview the extension on", Picker: themeOptions,
+			}); err != nil {
+				return err
+			}
 			root := projectRoot
 			cfg, err := te.ReadConfig(root)
 			if err != nil {

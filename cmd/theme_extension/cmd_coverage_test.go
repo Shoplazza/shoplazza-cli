@@ -42,17 +42,21 @@ func TestBuild_RunE_NotATEProjectErrors(t *testing.T) {
 	}
 }
 
-// TestServe_PreRunE_RequiresThemeID covers newCmdServe's --theme-id gate.
-func TestServe_PreRunE_RequiresThemeID(t *testing.T) {
+// TestServe_RunE_RequiresThemeID covers newCmdServe's --theme-id gate, which now
+// lives in RunE (the picker lists themes with the store token) — non-interactively
+// an unset --theme-id is still the structured missing-flag error, before any I/O.
+func TestServe_RunE_RequiresThemeID(t *testing.T) {
 	cmd := newCmdServe(&cmdutil.Factory{})
-	if err := cmd.PreRunE(cmd, nil); err == nil {
+	if err := cmd.RunE(cmd, nil); err == nil {
 		t.Error("expected error when --theme-id is missing")
 	}
 }
 
-// TestServe_RunE_NotATEProjectErrors drives newCmdServe's RunE to te.ReadConfig.
+// TestServe_RunE_NotATEProjectErrors drives newCmdServe's RunE past the theme-id
+// gate (set here) to te.ReadConfig on a bare dir.
 func TestServe_RunE_NotATEProjectErrors(t *testing.T) {
 	cmd := newCmdServe(&cmdutil.Factory{})
+	_ = cmd.Flags().Set("theme-id", "123456")
 	_ = cmd.Flags().Set("path", t.TempDir())
 	if err := cmd.RunE(cmd, nil); err == nil {
 		t.Fatal("expected error when --path is not a te project")

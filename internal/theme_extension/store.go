@@ -332,6 +332,31 @@ func ListVersions(ctx context.Context, store *client.Client, extensionID string)
 	return asMaps(teDigToArray(body)), nil
 }
 
+// ListThemes GETs /themes (store-token) — the store's themes, used to offer a
+// picker for `te serve --theme-id`. The list may arrive as {data:[...]},
+// {data:{data:[...]}} (teDigToArray) or nested under a "themes" key, so it
+// probes the themes key too before giving up (an empty result degrades the
+// caller to manual entry).
+func ListThemes(ctx context.Context, store *client.Client) ([]map[string]any, *output.ExitError) {
+	var body any
+	if err := store.GetJSON(ctx, "/openapi/2026-01/themes", &body); err != nil {
+		return nil, apiOrInternalTE(err)
+	}
+	arr := teDigToArray(body)
+	if len(arr) == 0 {
+		if m, ok := body.(map[string]any); ok {
+			if a, ok := m["themes"].([]any); ok {
+				arr = a
+			} else if d, ok := m["data"].(map[string]any); ok {
+				if a, ok := d["themes"].([]any); ok {
+					arr = a
+				}
+			}
+		}
+	}
+	return asMaps(arr), nil
+}
+
 // ListExtensions GETs /theme-extensions (store-token) — the store's private
 // theme-extension list. Also the recovery path: a lost config can find its
 // extension_id back here by title/name.
