@@ -12,7 +12,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/themeenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/themeenv"
 )
 
 // newCmdEnv is the `themes env` subtree: read + edit the project's

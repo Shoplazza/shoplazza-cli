@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/themeenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/themeenv"
 )
 
 // TestResolveThemeID pins the precedence: explicit flag > environment theme= >

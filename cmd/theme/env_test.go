@@ -12,7 +12,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/themeenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/themeenv"
 )
 
 // runEnv drives an env subcommand's RunE with the given flags + args, capturing

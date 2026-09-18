@@ -21,7 +21,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/themeenv"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/themeenv"
 )
 
 // envAccessToken is the CI/test bypass honored across the CLI: a non-empty
