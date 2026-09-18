@@ -112,6 +112,7 @@ func newCmdPull(f *cmdutil.Factory) *cobra.Command {
 			// dir is immediately -e aware (best-effort; never fails the pull).
 			maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID, "pull")
 
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "✓ pulled %s into ./\n", themeLabel(themeName, resolvedID))
 			return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{
 				"theme_id":   resolvedID,
 				"theme_name": themeName,

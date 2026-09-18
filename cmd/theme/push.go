@@ -85,6 +85,7 @@ func newCmdPush(f *cmdutil.Factory) *cobra.Command {
 			cwd, _ := os.Getwd()
 			maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID, "push")
 
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "✓ pushed to theme %s on %s\n", resolvedID, rs.Domain)
 			return output.PrintAPISuccess(cmd.OutOrStdout(),
 				map[string]any{"theme_id": resolvedID, "task": payload}, cmdutil.GetFormat(cmd), "")
 		},
