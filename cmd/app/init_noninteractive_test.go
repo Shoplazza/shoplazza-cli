@@ -216,6 +216,7 @@ func TestInit_OffTTY_FullySpecifiedModesRun(t *testing.T) {
 			partners: []string{"p1"}, dir: "my-app",
 			wantReqs: []string{
 				"GET /api/cli/v2/partners",
+				"GET /api/cli/v2/partners/p1/apps",
 				"POST /api/cli/v2/partners/p1/apps",
 				"GET /api/cli/v2/template",
 			},
@@ -225,6 +226,7 @@ func TestInit_OffTTY_FullySpecifiedModesRun(t *testing.T) {
 			partners: []string{"p1", "p2"}, dir: "my-app",
 			wantReqs: []string{
 				"GET /api/cli/v2/partners",
+				"GET /api/cli/v2/partners/p2/apps",
 				"POST /api/cli/v2/partners/p2/apps",
 				"GET /api/cli/v2/template",
 			},

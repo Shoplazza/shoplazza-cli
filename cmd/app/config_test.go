@@ -125,6 +125,42 @@ func TestRunConfigLink_LinkExisting(t *testing.T) {
 	}
 }
 
+func TestRunConfigLink_CreateDuplicate(t *testing.T) {
+	root := t.TempDir()
+	d := dashFor(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/partners"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"apps": []map[string]any{{"client_id": "cid_dup", "id": 7, "name": "DevApp"}}, "total": 1}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
+			t.Fatal("must NOT create a duplicate when a same-named app already exists")
+		default:
+			t.Fatalf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	})
+	p, _ := project.Open(root)
+	var buf bytes.Buffer
+	err := runConfigLink(context.Background(), d, p, linkOpts{Create: true, Name: "DevApp", ConfigName: "dev"}, &buf, "json", "")
+
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
+		t.Fatalf("want a validation error on duplicate, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "cid_dup") {
+		t.Fatalf("message should name the existing client_id, got %q", err.Error())
+	}
+	if ee.Detail == nil || !strings.Contains(ee.Detail.Hint, "--client-id cid_dup") {
+		t.Fatalf("hint should point at linking the existing app, got %+v", ee.Detail)
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "shoplazza.app.dev.toml")); statErr == nil {
+		t.Fatal("no config should be written when create is refused")
+	}
+}
+
 func TestRunConfigLink_CreateNew(t *testing.T) {
 	root := t.TempDir()
 	d := dashFor(t, func(w http.ResponseWriter, r *http.Request) {
@@ -133,6 +169,9 @@ func TestRunConfigLink_CreateNew(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/partners"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"apps": []map[string]any{}, "total": 0}})
 		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"app": map[string]any{"client_id": "cid_new", "id": 2, "name": "DevApp", "scopes": []string{}}}})
@@ -164,6 +203,9 @@ func TestRunConfigLink_EmptyScopes_FillsTemplateDefault(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/partners"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"apps": []map[string]any{}, "total": 0}})
 		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"app": map[string]any{"client_id": "cid_new", "id": 2, "name": "DevApp", "scopes": []string{}}}})
@@ -196,6 +238,9 @@ func TestRunConfigLink_EmptyScopes_PreservesExisting(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/partners"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"apps": []map[string]any{}, "total": 0}})
 		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"app": map[string]any{"client_id": "cid_new", "id": 2, "name": "DevApp", "scopes": []string{}}}})
@@ -397,6 +442,9 @@ func TestRunConfigLink_CreateWritesOnlyName(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/partners"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"apps": []map[string]any{}, "total": 0}})
 		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"app": map[string]any{"client_id": "cid_new", "id": 2, "name": "DevApp"}}})

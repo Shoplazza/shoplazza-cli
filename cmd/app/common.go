@@ -260,6 +260,19 @@ func resolveAppRef(ctx context.Context, d *app.Dashboard, clientID string, creat
 		if name == "" {
 			return appRef{}, output.ErrValidation("--create requires --name")
 		}
+		// Pre-check for a same-named app under this partner: a developer who forgot
+		// they already created it would otherwise silently make a duplicate (or hit
+		// a raw backend error). Point them at linking the existing one. Best-effort:
+		// a listing hiccup falls through to CreateApp, whose own error is the backstop.
+		if existing, lerr := d.GetApps(ctx, pid); lerr == nil {
+			for _, a := range existing.Apps {
+				if strings.EqualFold(strings.TrimSpace(a.Name), strings.TrimSpace(name)) {
+					return appRef{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+						fmt.Sprintf("an app named %q already exists under partner %s (client_id %s)", a.Name, pid, a.ClientID),
+						fmt.Sprintf("link it instead of creating a duplicate: shoplazza app config link --client-id %s — or create one under a different --name", a.ClientID))
+				}
+			}
+		}
 		created, err := d.CreateApp(ctx, pid, name)
 		if err != nil {
 			return appRef{}, apiError(err)
