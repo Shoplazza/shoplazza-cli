@@ -249,13 +249,13 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			// Store warning is shown in the stderr summary only, not echoed in the JSON.
-			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
+			return output.PrintBody(cmd.OutOrStdout(), map[string]any{
 				"ok":     true,
 				"action": "login",
 				"flow":   result.Flow,
 				"uat":    result.UAT,
 				"status": result.Status,
-			})
+			}, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
 	}
 
@@ -324,11 +324,11 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 			if err := wipeV2OnLogout(f); err != nil {
 				return output.ErrInternal("failed to clear profile state: %v", err)
 			}
-			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
+			return output.PrintBody(cmd.OutOrStdout(), map[string]any{
 				"ok":                 true,
 				"action":             "logout",
 				"already_logged_out": !hasState,
-			})
+			}, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
 	}
 }
@@ -379,11 +379,11 @@ func newCmdScopes(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return output.Errorf(output.ExitInternal, output.TypeInternal, "failed to read auth state: %s", err.Error())
 			}
-			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
+			return output.PrintBody(cmd.OutOrStdout(), map[string]any{
 				"current_store":    manager.Config.CurrentStoreDomain(),
 				"granted_scopes":   state.GrantedScopes,
 				"supported_scopes": internalauth.SupportedScopes(),
-			})
+			}, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
 	}
 }
