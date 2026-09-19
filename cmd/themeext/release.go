@@ -17,7 +17,7 @@ func newCmdRelease(f *cmdutil.Factory) *cobra.Command {
 	var target string // resolved target version (flag, else config's recorded version)
 	cmd := &cobra.Command{
 		Use:   "release",
-		Short: "Publish a version in the BOUND APP (partner-openapi, app-token)",
+		Short: "Publish a version in the bound app",
 		Long:  "Publish a theme-extension version in the app it is bound to (run 'te connect' first); defaults to the version recorded by 'te build', override with --version.",
 		Example: `  # Release the version recorded by 'te build'
   shoplazza theme-extension release

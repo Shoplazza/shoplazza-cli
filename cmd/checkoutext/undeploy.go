@@ -11,7 +11,7 @@ func newCmdUndeploy(f *cmdutil.Factory) *cobra.Command {
 	var extID string
 	cmd := &cobra.Command{
 		Use:   "undeploy",
-		Short: "Undeploy an extension (extension-level, no confirmation)",
+		Short: "Undeploy an extension",
 		Long:  "Undeploy a checkout extension on the current store (extension-level, takes effect with no confirmation); requires --extension-id.",
 		Example: `  # Preview the undeploy request without sending
   shoplazza checkout-extension undeploy --extension-id ext_123 --dry-run

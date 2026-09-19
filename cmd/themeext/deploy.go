@@ -15,7 +15,7 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 	var target string // resolved target version (flag, else config's recorded version)
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Enable a version in the CURRENT STORE (store-token)",
+		Short: "Enable a version in the current store",
 		Long:  "Enable a theme-extension version in the current store; defaults to the version recorded by 'te build', override with --version.",
 		Example: `  # Enable the version recorded by 'te build' in the current store
   shoplazza theme-extension deploy

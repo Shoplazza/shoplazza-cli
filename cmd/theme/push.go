@@ -37,7 +37,7 @@ func newCmdPush(f *cmdutil.Factory) *cobra.Command {
 	var themeID, taskID, environment string
 	cmd := &cobra.Command{
 		Use:   "push",
-		Short: "Package cwd, upload to a remote theme, and poll the upload task",
+		Short: "Package and upload the current theme to a remote theme",
 		Long:  "Package the current directory and upload it to a theme, then wait for the server to process it. --theme-id is required (or comes from -e); it OVERWRITES the theme's files on the server.",
 		Example: `  # Package the current directory and upload it to a theme
   shoplazza themes push --theme-id 123456

@@ -14,7 +14,7 @@ func newCmdConnect(f *cmdutil.Factory) *cobra.Command {
 	var cfg te.Config // validated by PreRunE; RunE reuses it (no lossy re-read)
 	cmd := &cobra.Command{
 		Use:   "connect",
-		Short: "Link this theme extension to an app (partner-openapi, app-token)",
+		Short: "Link this theme extension to an app",
 		Long:  "Bind this theme extension to an app by --client-id (partner derived automatically) and persist the binding, so 'te release' knows which app to publish in.",
 		Example: `  # Link the extension to an app
   shoplazza theme-extension connect --client-id abc123`,

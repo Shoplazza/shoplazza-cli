@@ -29,7 +29,7 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 	var projectRoot, themeID string
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Register + push a dev build, then sync each saved file incrementally (create/update/delete via dev-doc)",
+		Short: "Push a dev build, then live-sync each saved file (create/update/delete)",
 		Long:  "Push a dev build of the theme extension and watch theme-app/, syncing each saved file to the current store; --theme-id is required and prints the preview URLs. Long-running until interrupted.",
 		Example: `  # Serve the extension against a theme for live preview
   shoplazza theme-extension serve --theme-id 123456`,
