@@ -19,7 +19,7 @@ import (
 func NewCmdAuth(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
-		Short: "Authentication commands",
+		Short: "Log in/out, view status and scopes, and switch store",
 	}
 
 	cmd.AddCommand(
