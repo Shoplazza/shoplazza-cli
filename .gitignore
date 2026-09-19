@@ -1,5 +1,6 @@
 # Build output
 /shoplazza
+/shoplazza-cli
 /bin/
 /dist/
 
