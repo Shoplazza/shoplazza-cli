@@ -152,7 +152,7 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 				return output.ErrInternal("failed to save profile: %v", err)
 			}
 
-			return output.PrintJSON(cmd.OutOrStdout(), map[string]any{
+			return output.PrintBody(cmd.OutOrStdout(), map[string]any{
 				"ok":           true,
 				"action":       "store_use",
 				"profile":      name,
@@ -160,7 +160,7 @@ func newCmdStoreUse(f *cmdutil.Factory) *cobra.Command {
 				"store_id":     meta.StoreID,
 				"scopes":       meta.GrantedScopes,
 				"token_status": internalauth.TokenStatus(meta.ExpiresAt),
-			})
+			}, cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd))
 		},
 	}
 	cmd.Flags().StringVarP(&storeDomain, "store-domain", "s", "", "Store hostname to switch to (e.g. my-store.myshoplazza.com). Required.")
