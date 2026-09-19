@@ -292,7 +292,8 @@ before use.
 
 | Flag | Scope | Description |
 |------|-------|-------------|
-| `--format json\|pretty\|table` | All commands | Output format (default: `json`) |
+| `--format json\|pretty\|table\|ndjson\|csv` | All commands | Output format (default: `json`; or set `SHOPLAZZA_CLI_FORMAT`). `json` is the machine contract; `pretty`/`table` are for humans |
+| `--no-input` | All commands | Never prompt; fail fast on missing input (scripts/agents). Same as `SHOPLAZZA_CLI_NO_INTERACTIVE=1` |
 | `--profile <name>` | All commands | Profile for this invocation (beats `SHOPLAZZA_CLI_PROFILE` and the current profile) |
 | `--dry-run` | API & shortcut commands | Preview request without executing |
 | `--jq "expr"` / `-q` | API & shortcut commands | Filter JSON output with jq expression |
@@ -320,12 +321,21 @@ shoplazza update --check    # report current/latest versions only, no install
 |----------|-------------|
 | `SHOPLAZZA_UAT` | User Access Token for non-interactive login (equivalent to `--uat`) |
 | `SHOPLAZZA_CLI_PROFILE` | Profile to use (overridden by `--profile`) |
-| `SHOPLAZZA_CLI_NO_INTERACTIVE` | Disable interactive prompts (set it in Agent harnesses that allocate a pty) |
+| `SHOPLAZZA_CLI_FORMAT` | Default output format (`json`/`pretty`/`table`/`ndjson`/`csv`); overridden by `--format`. For interactive use — keep `json` for scripts/agents |
+| `SHOPLAZZA_CLI_NO_INTERACTIVE` | Disable interactive prompts (set it in Agent harnesses that allocate a pty; or pass `--no-input`) |
 | `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | Disable the background new-version check |
 | `SHOPLAZZA_CLI_NO_META_UPDATE` | Disable background API-metadata refreshes |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | Override auth base URL (default: `https://partners.shoplazza.com`) |
 
 Interactive prompts are auto-detected from the terminal and can only be switched **off** — there is no `--interactive` flag to force them on.
+
+### Output & interactivity: humans vs scripts/agents
+
+The CLI serves two audiences and never guesses between them from the terminal:
+
+- **Default output is always `json`** — a stable, parseable contract. It is *not* auto-switched by TTY, so an agent running inside a pty still gets JSON.
+- **Humans** opt into readable output per command with `--format pretty` (or `table`), or once with `export SHOPLAZZA_CLI_FORMAT=pretty`. `pretty`/`table` are for reading, **not** a stable contract — don't parse them (and they may truncate/collapse nested data).
+- **Scripts & agents** should keep JSON: don't set `SHOPLAZZA_CLI_FORMAT` in a shared shell profile (child processes inherit it), or pass `--format json` explicitly. To guarantee no prompt ever blocks, pass `--no-input` (or set `SHOPLAZZA_CLI_NO_INTERACTIVE=1` / `CI=1`) — required when the harness allocates a pty for stdin/stderr.
 
 ## Security & Risk Warnings
 

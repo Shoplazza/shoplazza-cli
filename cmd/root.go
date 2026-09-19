@@ -110,6 +110,14 @@ func Execute() (exitCode int) {
 
 	rootCmd := NewRootCmd()
 
+	// --no-input forces non-interactive mode by funneling into the existing
+	// interactivity gate's env escape hatch, before any command runs. This gives
+	// callers a definite off-switch even when stdin/stderr are a PTY (where TTY
+	// detection would otherwise treat the run as human and could block on a prompt).
+	if wantsNoInput(os.Args[1:]) {
+		_ = os.Setenv("SHOPLAZZA_CLI_NO_INTERACTIVE", "1")
+	}
+
 	// Ctrl-C / SIGTERM cancel the command context so in-flight work can unwind.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

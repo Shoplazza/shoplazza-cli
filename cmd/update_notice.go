@@ -82,6 +82,21 @@ func wantsVersion(args []string) bool {
 	return false
 }
 
+// wantsNoInput reports whether --no-input (or --no-input=true) is present before
+// the -- terminator. Scanned early in Execute so it can force non-interactive
+// mode before any command's interactivity gate is consulted.
+func wantsNoInput(args []string) bool {
+	for _, a := range args {
+		switch a {
+		case "--no-input", "--no-input=true":
+			return true
+		case "--":
+			return false
+		}
+	}
+	return false
+}
+
 // skillLine describes the Agent Skills state for the --version output.
 func skillLine() string {
 	installed, err := skillsync.Installed()
