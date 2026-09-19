@@ -20,7 +20,7 @@ Prerequisites:
 
 Typical workflow:
   shoplazza app init                1. create or link an app project
-  shoplazza app dev                 2. run it locally (auto tunnel + hot reload)
+  shoplazza app dev                 2. run it locally (auto tunnel; re-run to apply changes)
   shoplazza app extension --help    3. add an extension (checkout / theme / function)
   shoplazza app deploy              4. build and deploy a new version
   shoplazza app versions            5. list deployed versions

@@ -265,8 +265,17 @@ func devNextSteps(res app.DevResult, root, writtenConfig string) string {
 				"       cd %s && shoplazza app config push\n",
 			writtenConfig, root)
 	}
-	return "\nNext steps:\n" + step1 +
-		"  2. Then open the install URL in your browser to install the app on your store:\n" +
+	// Extension changes are pushed to the dev store by the /dev call above,
+	// independent of the OAuth install — so iterating on extensions needs only a
+	// refresh, NOT a reinstall. The install URL is first-install / app-auth only;
+	// re-clicking it against an already-installed app is what misled developers
+	// into thinking dev was "stuck". Lead with the refresh; demote the install.
+	return "\nYour extension changes are already pushed to the dev store — just refresh\n" +
+		"the store (checkout / theme editor or storefront) to see them. Nothing else\n" +
+		"is needed to iterate on extensions.\n" +
+		"\nOnly for the app's own admin UI / OAuth (first install, or after the tunnel\n" +
+		"URL changed):\n" + step1 +
+		"  2. Open the install URL — skip this if the app is already installed:\n" +
 		"       " + res.InstallURL + "\n"
 }
 
