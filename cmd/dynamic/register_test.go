@@ -15,12 +15,70 @@ func newFactory(t *testing.T) *cmdutil.Factory {
 }
 
 func hasSubcommand(parent *cobra.Command, name string) bool {
+	return childByName(parent, name) != nil
+}
+
+func childByName(parent *cobra.Command, name string) *cobra.Command {
 	for _, c := range parent.Commands() {
 		if c.Name() == name {
-			return true
+			return c
 		}
 	}
-	return false
+	return nil
+}
+
+// themes opts into help grouping: it declares both groups and its generated
+// leaves land in the OpenAPI/store group.
+func TestRegisterCommands_ThemesGrouped(t *testing.T) {
+	root := &cobra.Command{}
+	spec := &registry.Spec{Modules: []registry.Module{{
+		Name: "themes", Commands: []registry.Command{
+			{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/themes"}},
+		},
+	}}}
+	RegisterCommands(root, spec, newFactory(t))
+
+	themes := childByName(root, "themes")
+	if themes == nil {
+		t.Fatal("themes module not registered")
+	}
+	if !themes.ContainsGroup(cmdutil.GroupShortcut) || !themes.ContainsGroup(cmdutil.GroupAPI) {
+		t.Fatal("themes must declare both the shortcut and API help groups")
+	}
+	list := childByName(themes, "list")
+	if list == nil || list.GroupID != cmdutil.GroupAPI {
+		t.Errorf("generated leaf must be tagged into the API group, got GroupID=%q", groupIDOf(list))
+	}
+}
+
+// A module without a grouping entry stays a flat list: no groups, no GroupID on
+// its leaves (so cobra never warns about an undefined group).
+func TestRegisterCommands_UngroupedModuleStaysFlat(t *testing.T) {
+	root := &cobra.Command{}
+	spec := &registry.Spec{Modules: []registry.Module{{
+		Name: "orders", Commands: []registry.Command{
+			{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/orders"}},
+		},
+	}}}
+	RegisterCommands(root, spec, newFactory(t))
+
+	orders := childByName(root, "orders")
+	if orders == nil {
+		t.Fatal("orders module not registered")
+	}
+	if orders.ContainsGroup(cmdutil.GroupAPI) || orders.ContainsGroup(cmdutil.GroupShortcut) {
+		t.Error("a module without a grouping entry must not declare groups")
+	}
+	if list := childByName(orders, "list"); list == nil || list.GroupID != "" {
+		t.Errorf("ungrouped module's leaf must have no GroupID, got %q", groupIDOf(list))
+	}
+}
+
+func groupIDOf(c *cobra.Command) string {
+	if c == nil {
+		return "<nil>"
+	}
+	return c.GroupID
 }
 
 func TestRegisterCommands_NilSpec(t *testing.T) {

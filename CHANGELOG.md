@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.14 - 2026-09-17
+
+### Added
+- Interactive prompts for missing required flags, humans only. In a real terminal, a command or shortcut left missing a required flag now asks for it instead of failing — a menu when the flag has fixed choices, a text field otherwise — and fills the answer in. Nothing changes for non-interactive callers: an agent, a pipe, a CI run, or `--format json` still gets the one structured `required flag(s) not set` error it always did, so scripts keep failing fast rather than blocking on a hidden prompt. The prompt appears only when both stdin and stderr are terminals; `CI` or `SHOPLAZZA_CLI_NO_INTERACTIVE` in the environment turns it off. The prompt UI is drawn on stderr, so stdout stays a clean result envelope. This covers every shortcut with required flags, `app extension create` (`--type` and `--theme-type` offered as choices, `--name` typed), and the checkout-extension and function commands.
+- Fuzzy resource pickers for id flags, humans only. Leave an id flag unset in a terminal and the CLI fetches the matching resources from the server and opens a filter-as-you-type list — you see a readable label (an order number and status, a product title, a theme name, an extension and its version) and the id behind your choice is filled in, so you never hand-copy an internal id. Wired to `orders +refund` / `+ship` / `+update-tracking` (`--order-id`), `products +publish` / `+unpublish` / `+tag` (`--id`), `themes push` / `pull` (`--theme-id`), and `checkout-extension deploy` / `preview` / `undeploy` (pick the extension, then its version). If the lookup returns nothing or the call fails, it quietly falls back to typing the id. Non-interactive callers are unaffected — the id flags stay required exactly as before.
+
+### Changed
+- Destructive commands now ask a human to confirm before they run, and only a human. In a terminal you are asked before the write goes out — `orders +refund` has you retype the order id, `products +unpublish`, `themes push`, every dynamic `delete` / `cancel`, `checkout-extension undeploy`, `auth logout` and `profile remove` ask to proceed — and declining cancels with no change made. This is a safety net for interactive use only: agents, pipes, CI and any `--dry-run` proceed exactly as before, with no new flag and no prompt, so no automation or agent workflow is affected.
+
 ## 2.0.13 - 2026-09-11
 
 ### Added

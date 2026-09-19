@@ -10,8 +10,14 @@ var updateTrackingShortcut = common.Shortcut{
 	Command: "+update-tracking",
 	Use:     "+update-tracking --order-id <id> --fulfillment-id <id> --tracking <no>",
 	Short:   "Update tracking info on an existing fulfillment",
+	Long:    "Replace the tracking number (and optionally carrier/URL) on an existing fulfillment; run --dry-run first to preview.",
+	Example: `  # Preview a tracking-number correction
+  shoplazza orders +update-tracking --order-id 12345 --fulfillment-id ff-1 --tracking SF999 --dry-run
+
+  # Update tracking, set carrier, and notify the customer
+  shoplazza orders +update-tracking --order-id 12345 --fulfillment-id ff-1 --tracking SF999 --company SF --notify`,
 	Flags: []common.Flag{
-		{Name: "order-id", Type: common.FlagString, Required: true, Description: "Order ID."},
+		{Name: "order-id", Type: common.FlagString, Required: true, Description: "Order ID.", Picker: orderPicker},
 		{Name: "fulfillment-id", Type: common.FlagString, Required: true, Description: "Fulfillment ID."},
 		{Name: "tracking", Type: common.FlagString, Required: true, Description: "New tracking number."},
 		{Name: "company", Type: common.FlagString, Description: "Carrier company name."},

@@ -163,6 +163,39 @@ func TestWithEndpoint_RendersInDetail(t *testing.T) {
 	}
 }
 
+// TestWithRequestID_RendersInDetail: the request id lands in error.detail even
+// on errors built without an HTTP context (200-but-rejected envelopes).
+func TestWithRequestID_RendersInDetail(t *testing.T) {
+	err := output.Errorf(output.ExitAPI, output.TypeAPI, "INTERNAL_ERROR").
+		WithRequestID("req-abc-123")
+	if err.Detail.Detail == nil || err.Detail.Detail.RequestID != "req-abc-123" {
+		t.Fatalf("request id not in detail: %+v", err.Detail.Detail)
+	}
+	var buf bytes.Buffer
+	output.WriteErrorEnvelope(&buf, err)
+	var env struct {
+		Error struct {
+			Detail struct {
+				RequestID string `json:"request_id"`
+			} `json:"detail"`
+		} `json:"error"`
+	}
+	if e := json.Unmarshal(buf.Bytes(), &env); e != nil {
+		t.Fatalf("envelope is not valid JSON: %v\n%s", e, buf.String())
+	}
+	if env.Error.Detail.RequestID != "req-abc-123" {
+		t.Errorf("envelope detail request_id = %q, want req-abc-123", env.Error.Detail.RequestID)
+	}
+}
+
+// TestWithRequestID_NoopWhenEmpty: an empty id must not fabricate a detail block.
+func TestWithRequestID_NoopWhenEmpty(t *testing.T) {
+	err := output.ErrValidation("bad input").WithRequestID("")
+	if err.Detail != nil && err.Detail.Detail != nil {
+		t.Errorf("empty request id should not create a detail context: %+v", err.Detail.Detail)
+	}
+}
+
 // TestWithEndpoint_NoopWhenEmpty: enrichment with empty method+path must not
 // fabricate an empty detail block (keeps non-HTTP errors clean).
 func TestWithEndpoint_NoopWhenEmpty(t *testing.T) {
@@ -208,7 +241,7 @@ func TestErrAPI_EmptyBody(t *testing.T) {
 func TestErrAPIAuthHint(t *testing.T) {
 	const hint = "run 'shoplazza auth login -s --scope' or 'shoplazza store use -s' to re-authenticate"
 	body := `{"code":"session_not_found","errors":["store not found: ssa.stg.myshoplaza.com"]}`
-	err := output.ErrAPIAuthHint(404, body, hint)
+	err := output.ErrAPIAuthHint(404, body, "req-auth-1", hint)
 
 	if err.Code != output.ExitAuth {
 		t.Errorf("Code = %d, want ExitAuth", err.Code)
@@ -230,6 +263,9 @@ func TestErrAPIAuthHint(t *testing.T) {
 	}
 	if err.Detail.Detail == nil || err.Detail.Detail.StatusCode != 404 {
 		t.Errorf("Detail.StatusCode = %v, want 404", err.Detail.Detail)
+	}
+	if err.Detail.Detail == nil || err.Detail.Detail.RequestID != "req-auth-1" {
+		t.Errorf("Detail.RequestID = %v, want req-auth-1", err.Detail.Detail)
 	}
 }
 

@@ -38,7 +38,7 @@ Run 'shoplazza api rest --help' for raw-request flag usage and examples.`
 func NewCmdAPI(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "api",
-		Short: "Raw Shoplazza API commands",
+		Short: "Call any Shoplazza API endpoint directly (raw fallback)",
 		Long:  apiLong,
 	}
 

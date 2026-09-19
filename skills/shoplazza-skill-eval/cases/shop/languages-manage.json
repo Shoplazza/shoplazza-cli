@@ -1,0 +1,141 @@
+[
+  {
+    "case_id": "shop.languages-enable-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.languages.enable",
+    "scenario": "启用一门已添加语言 — language_code 是路径参数(--params)用 IETF code(ja-JP),不是'日语';写操作先 --dry-run + 复述",
+    "input": "把店铺的日语启用一下，让访客能看到",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop languages enable",
+      "flags_must_contain": ["--params", "--dry-run"],
+      "params_must_contain": ["language_code", "ja-JP"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "日语 is passed as its IETF language code ja-JP, not the word 日语 / Japanese",
+        "the code goes into language_code inside --params (it is a PATH parameter), NOT into a --data body — enable takes no request body",
+        "启用 is a write: previews with --dry-run first and restates the intent per the safety protocol before executing",
+        "does not fabricate a code it has not confirmed the store actually has / that is supported"
+      ]
+    },
+    "notes": "Grounded: shop languages enable --help + schema shop.languages.enable. POST /languages/{language_code}/enable; language_code is a required path param (in:path), no request body. So --params {\"language_code\":\"ja-JP\"}, never --data. IETF code confirmed by param description 'IETF language code'. Write op → --dry-run + restate."
+  },
+  {
+    "case_id": "shop.languages-disable-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.languages.disable",
+    "scenario": "停用一门语言 — language_code 路径参数,IETF code;至少要保留一门启用语言,写操作 --dry-run + 复述",
+    "input": "先把店铺的法语停用，暂时不对外展示",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop languages disable",
+      "flags_must_contain": ["--params", "--dry-run"],
+      "params_must_contain": ["language_code", "fr-FR"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "法语 is passed as its IETF language code (fr-FR), not the word 法语 / French",
+        "the code goes into language_code inside --params (PATH parameter); disable takes no --data body",
+        "停用 is a write: previews with --dry-run and restates before executing",
+        "aware a store must keep at least one enabled language and a market's last/default language cannot be disabled — does not blindly assume it will succeed"
+      ]
+    },
+    "notes": "Grounded: shop languages disable --help + schema shop.languages.disable. POST /languages/{language_code}/disable; language_code required path param, no body → --params only, no --data. Help text states a store must keep >=1 enabled language and primary market's default / a market's last enabled language cannot be disabled. Write op → --dry-run + restate."
+  },
+  {
+    "case_id": "shop.languages-publish-02",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.languages.publish",
+    "scenario": "把语言发布到市场(深化 publish-01)— language_code 走 --params(路径), market_ids[] 走 --data(body,全量替换);发布前先查 markets 拿真实 market id",
+    "input": "把日语发布到日本市场",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop languages publish",
+      "flags_must_contain": ["--params", "--data", "--dry-run"],
+      "params_must_contain": ["language_code", "ja-JP", "market_ids"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "日语 is passed as its IETF language code ja-JP in language_code inside --params (path parameter)",
+        "the target market(s) go into a market_ids array inside the --data body — publish needs BOTH the path code and the body list",
+        "resolves 日本市场 to a real market id via shop languages markets rather than inventing an id, because market_ids expects ids not names",
+        "understands publish is a FULL replacement of the language's market relations (not incremental) — does not accidentally drop other markets",
+        "发布 is a write: previews with --dry-run and restates before executing"
+      ]
+    },
+    "notes": "Grounded: shop languages publish --help + schema shop.languages.publish. POST /languages/{language_code}/publish; language_code required path param (→ --params), body has market_ids (array of string) which is a FULL replacement — empty array removes all relations. Market ids must be resolved via shop languages markets (GET) first; ids not names. Write op → --dry-run + restate. params_must_contain checks substrings across the --params/--data payloads: language_code+ja-JP in path params, market_ids in the --data body."
+  },
+  {
+    "case_id": "shop.languages-list-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.languages.list",
+    "scenario": "查看店铺当前语言 — 纯读,must_ask false,不加 --dry-run",
+    "input": "看下我店铺现在开了哪些语言",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop languages list",
+      "flags_must_not_contain": ["--dry-run", "--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "treats this as a read: shop languages list with no write, no --dry-run",
+        "does not ask a clarifying question — a plain list needs no parameters",
+        "reads the languages array from .data (each entry has code / name / is_enabled / markets), does not fabricate the list"
+      ]
+    },
+    "notes": "Grounded: shop languages list --help + schema shop.languages.list. GET /languages, no parameters. Response: data.languages[] with {code,name,is_enabled,markets[]}. Read → must_ask false, no --dry-run."
+  },
+  {
+    "case_id": "shop.languages-supported-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.languages.supported",
+    "scenario": "校验语言码是否受支持 — 纯读;不支持的码在 add 时被静默丢弃,所以先查 supported",
+    "input": "韩语这个语言平台支持吗？我想加到店铺里",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop languages supported",
+      "flags_must_not_contain": ["--dry-run", "--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "answers the support question with a read: shop languages supported (no write, no --dry-run)",
+        "checks the returned supported list for the Korean IETF code (ko-KR) rather than asserting support from memory",
+        "explains WHY this check matters: on add, codes not in the supported list are SILENTLY dropped, so the code must be validated first",
+        "does not jump straight to shop languages add before confirming support"
+      ]
+    },
+    "notes": "Grounded: shop languages supported --help + schema shop.languages.supported. GET /languages/supported, no parameters. Help + description: use to validate codes before add; unsupported codes are silently dropped on add. Response: data.languages[] with {code,name}. Read → must_ask false, no --dry-run. Mirrors seed shop.languages-add-01's silent-drop theme."
+  },
+  {
+    "case_id": "shop.languages-delete-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.languages.delete",
+    "scenario": "删除一门语言 — language_code 路径参数;删除前必须先停用;写操作 --dry-run + 复述",
+    "input": "帮我把店铺里的德语删掉",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop languages delete",
+      "flags_must_contain": ["--params", "--dry-run"],
+      "params_must_contain": ["language_code", "de-DE"],
+      "flags_must_not_contain": ["--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "德语 is passed as its IETF language code de-DE in language_code inside --params (path parameter); delete takes no --data body",
+        "删除 is a write: previews with --dry-run and restates the intent before executing",
+        "aware the language must be DISABLED before it can be deleted — surfaces the disable-first precondition rather than assuming delete works on an enabled language",
+        "notes deletion only removes configuration; the translation corpus is retained (does not overstate the loss)"
+      ]
+    },
+    "notes": "Grounded: shop languages delete --help + schema shop.languages.delete. DELETE /languages/{language_code}; language_code required path param → --params, no body. Help: language must be disabled first; only configuration removed, translation corpus retained. Write op → --dry-run + restate."
+  }
+]

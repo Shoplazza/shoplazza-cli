@@ -14,6 +14,12 @@ var setPriceShortcut = common.Shortcut{
 	Command: "+set-price",
 	Use:     "+set-price (--variant-id <id> | --sku <sku> [--all] | --product-id <id>) --price <n> [--compare-price <n>]",
 	Short:   "Set a variant's price by variant ID, SKU, or product ID",
+	Long:    "Set a variant's price, targeting it by variant ID, SKU, or product ID; run --dry-run first to preview the request.",
+	Example: `  # Preview a price change by variant ID
+  shoplazza products +set-price --variant-id v-1 --price 24.99 --dry-run
+
+  # Set price and compare-at price by SKU
+  shoplazza products +set-price --sku TS-RED-M --price 24.99 --compare-price 34.99`,
 	Flags: []common.Flag{
 		{Name: "variant-id", Type: common.FlagString, Description: "Variant ID — the unique, exact target."},
 		{Name: "sku", Type: common.FlagString, Description: "Variant SKU. Resolves to one variant; a multi-match is refused with the candidates listed (use --variant-id, or --all)."},

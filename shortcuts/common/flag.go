@@ -34,6 +34,20 @@ type Flag struct {
 	Description string
 	Required    bool
 	Completions []string
+	// Picker, when set, supplies choices interactively: a human who leaves this
+	// flag unset in a terminal is shown a fuzzy-filterable list of live
+	// resources and the chosen id is written back onto the flag. Non-interactive
+	// runs (agents, pipes, CI) ignore it entirely and keep the fail-fast
+	// contract. See ResourcePicker.
+	Picker *ResourcePicker
+}
+
+// WithPicker returns a copy of f with the resource picker attached, so a flag
+// declared by a shared helper (e.g. IDFlag) can opt into interactive selection
+// without mutating the original.
+func (f Flag) WithPicker(p *ResourcePicker) Flag {
+	f.Picker = p
+	return f
 }
 
 // FlagSet is the typed accessor over parsed flag values that the engine passes

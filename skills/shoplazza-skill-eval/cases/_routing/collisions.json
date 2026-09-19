@@ -219,5 +219,21 @@
       "semantic_rubric": ["If a command is named, it is orders +search filtered by customer, not a customers command"]
     },
     "notes": "Bidirectional pair with collision.customer-by-email. Both unbuilt — pass = does not force customers."
+  },
+  {
+    "case_id": "collision.market-vs-shipping-plan",
+    "type": "routing",
+    "skill": "shoplazza-orders",
+    "scenario": "跨域相似词: 句子里有'市场'但意图是运费方案 → orders shipping-schemas, 不是 shop markets",
+    "input": "给日本市场建一个运费方案",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "must_not_route_to": ["shoplazza-shop"],
+      "semantic_rubric": [
+        "the entity is a shipping plan / 运费方案 (zones, methods, rates) → orders shipping-schemas, even though the sentence mentions 市场/market",
+        "does NOT route to shop markets just because '市场' appears; markets manage market lifecycle/pricing/tax/status, not shipping rates"
+      ]
+    },
+    "notes": "Keyword-vs-intent trap complementing collision.shipping-zone-rate: '市场' is a distractor; 运费方案 owns the intent → orders shipping-schemas."
   }
 ]

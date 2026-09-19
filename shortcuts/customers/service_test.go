@@ -39,6 +39,19 @@ func TestCustomerPlanList_NilQuery(t *testing.T) {
 	}
 }
 
+func TestCustomerPlanCount_Shape(t *testing.T) {
+	p := PlanCount(map[string]any{"email": "a@b.com"})
+	if p.Method != "GET" {
+		t.Errorf("Method: got %q want GET", p.Method)
+	}
+	if !strings.HasSuffix(p.Path, "/customers/count") {
+		t.Errorf("Path: got %q want suffix /customers/count", p.Path)
+	}
+	if p.Query["email"] != "a@b.com" {
+		t.Errorf("Query not propagated: %v", p.Query)
+	}
+}
+
 func TestCustomerPlanCreate_Shape(t *testing.T) {
 	body := map[string]any{"email": "a@b.com"}
 	p := PlanCreate(body)

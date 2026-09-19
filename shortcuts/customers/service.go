@@ -9,6 +9,11 @@ func PlanList(query map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: customersBase, Query: query}
 }
 
+// PlanCount builds a GET request to count customers matching the given query.
+func PlanCount(query map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: customersBase + "/count", Query: query}
+}
+
 // PlanCreate builds a POST request to create a customer from the given body.
 func PlanCreate(body map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "POST", Path: customersBase, Body: body}

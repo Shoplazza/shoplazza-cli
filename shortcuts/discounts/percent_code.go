@@ -10,6 +10,12 @@ var percentCodeShortcut = common.Shortcut{
 	Command: "+percent-code",
 	Use:     "+percent-code --target order|product --percent <1-99> [--limit-max N] [--limit-user N] [--products <ids> | --variants <ids> | --collections <ids>] [--exclude] [--min-amount <amount>] [--min-quantity <n>] [--code <CODE>] [--combines order,product,shipping] [--customer-segments <ids>]",
 	Short:   "Create a percent-off discount code (order or product scope)",
+	Long:    "Create a percent-off discount code scoped to the whole order or specific products; run --dry-run first to preview the request.",
+	Example: `  # Preview a 20% order-wide code
+  shoplazza discounts +percent-code --target order --percent 20 --code SAVE20 --dry-run
+
+  # 15% off specific products, capped total uses
+  shoplazza discounts +percent-code --target product --percent 15 --products p-1,p-2 --limit-max 500`,
 	Flags: append(codeOffFlags(),
 		common.Flag{
 			Name:        "percent",

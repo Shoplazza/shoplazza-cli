@@ -289,7 +289,8 @@ npx skills add Shoplazza/shoplazza-cli -g
 
 | Flag | 适用范围 | 说明 |
 |------|----------|------|
-| `--format json\|pretty\|table` | 所有命令 | 输出格式（默认：`json`） |
+| `--format json\|pretty\|table\|ndjson\|csv` | 所有命令 | 输出格式。默认自动判定：终端里 `pretty`，管道/CI 下 `json`（或用 `SHOPLAZZA_CLI_FORMAT`）。`json` 是机器契约，`pretty`/`table` 给人看 |
+| `--no-input` | 所有命令 | 从不提问；缺输入直接结构化报错（脚本/agent）。等同 `SHOPLAZZA_CLI_NO_INTERACTIVE=1` |
 | `--profile <name>` | 所有命令 | 本次调用使用的 profile（优先级高于 `SHOPLAZZA_CLI_PROFILE` 和当前 profile） |
 | `--dry-run` | API 和快捷命令 | 预览请求但不执行 |
 | `--jq "expr"` / `-q` | API 和快捷命令 | 使用 jq 表达式过滤 JSON 输出 |
@@ -317,9 +318,21 @@ shoplazza update --check    # 仅报告当前/最新版本，不安装
 |------|------|
 | `SHOPLAZZA_UAT` | 用于非交互式登录的 User Access Token（等同 `--uat`） |
 | `SHOPLAZZA_CLI_PROFILE` | 指定使用的 profile（`--profile` 优先） |
+| `SHOPLAZZA_CLI_FORMAT` | 固定默认输出格式（`json`/`pretty`/`table`/`ndjson`/`csv`），覆盖 TTY 自动判定；`--format` 仍优先。伪终端里可用 `=json` 强制机器输出 |
+| `SHOPLAZZA_CLI_NO_INTERACTIVE` | 关闭交互式提问（会分配伪终端的 Agent harness 需设置；或用 `--no-input`） |
 | `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | 关闭后台新版本检测 |
 | `SHOPLAZZA_CLI_NO_META_UPDATE` | 关闭后台 API 元数据刷新 |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | 覆盖认证服务基础 URL（默认：`https://partners.shoplazza.com`） |
+
+交互式提问按终端自动判定，且只能关、不能强开 — 不存在对应的 `--interactive` flag。
+
+### 输出与交互：人 vs 脚本/agent
+
+CLI 按 stdout 的去向自动判定使用者（与 `gh`/`docker`/`kubectl` 一致）：
+
+- **在交互式终端 → `pretty`**（可读、带色）。**管道 / 重定向 / CI / 设了 `--no-input`·`SHOPLAZZA_CLI_NO_INTERACTIVE`·`CI` → `json`**（稳定、可解析的机器契约）。所以用管道抓 stdout 的 agent（最常见）或声明了自己的 agent,永远拿到 JSON。
+- **人**：在终端里什么都不用传。`pretty`/`table` 只给人看、**不是稳定契约**，别去解析（可能截断/折叠嵌套数据）。任何场景都可 `--format json` 强制 JSON。
+- **脚本 / agent**：管道抓 stdout 本身就得到 JSON。若你的 harness 给 stdout 分配了**伪终端**,用 `--format json` 或 `SHOPLAZZA_CLI_FORMAT=json` 强制,并传 `--no-input`（或设 `SHOPLAZZA_CLI_NO_INTERACTIVE=1` / `CI=1`）确保提问不卡住。别把 `SHOPLAZZA_CLI_FORMAT=pretty` 写进共享 shell 配置（子进程会继承）。
 
 ## 安全与风险提示
 

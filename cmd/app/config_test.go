@@ -125,6 +125,42 @@ func TestRunConfigLink_LinkExisting(t *testing.T) {
 	}
 }
 
+func TestRunConfigLink_CreateDuplicate(t *testing.T) {
+	root := t.TempDir()
+	d := dashFor(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/partners"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"apps": []map[string]any{{"client_id": "cid_dup", "id": 7, "name": "DevApp"}}, "total": 1}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
+			t.Fatal("must NOT create a duplicate when a same-named app already exists")
+		default:
+			t.Fatalf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	})
+	p, _ := project.Open(root)
+	var buf bytes.Buffer
+	err := runConfigLink(context.Background(), d, p, linkOpts{Create: true, Name: "DevApp", ConfigName: "dev"}, &buf, "json", "")
+
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
+		t.Fatalf("want a validation error on duplicate, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "cid_dup") {
+		t.Fatalf("message should name the existing client_id, got %q", err.Error())
+	}
+	if ee.Detail == nil || !strings.Contains(ee.Detail.Hint, "--client-id cid_dup") {
+		t.Fatalf("hint should point at linking the existing app, got %+v", ee.Detail)
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "shoplazza.app.dev.toml")); statErr == nil {
+		t.Fatal("no config should be written when create is refused")
+	}
+}
+
 func TestRunConfigLink_CreateNew(t *testing.T) {
 	root := t.TempDir()
 	d := dashFor(t, func(w http.ResponseWriter, r *http.Request) {
@@ -133,6 +169,9 @@ func TestRunConfigLink_CreateNew(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/partners"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"apps": []map[string]any{}, "total": 0}})
 		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"app": map[string]any{"client_id": "cid_new", "id": 2, "name": "DevApp", "scopes": []string{}}}})
@@ -164,6 +203,9 @@ func TestRunConfigLink_EmptyScopes_FillsTemplateDefault(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/partners"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"apps": []map[string]any{}, "total": 0}})
 		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"app": map[string]any{"client_id": "cid_new", "id": 2, "name": "DevApp", "scopes": []string{}}}})
@@ -196,6 +238,9 @@ func TestRunConfigLink_EmptyScopes_PreservesExisting(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/partners"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"apps": []map[string]any{}, "total": 0}})
 		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"app": map[string]any{"client_id": "cid_new", "id": 2, "name": "DevApp", "scopes": []string{}}}})
@@ -221,6 +266,19 @@ func TestRunConfigLink_NoSelector_Validation(t *testing.T) {
 	var buf bytes.Buffer
 	if err := runConfigLink(context.Background(), d, p, linkOpts{}, &buf, "json", ""); err == nil {
 		t.Fatal("expected validation error when neither --client-id nor --create given")
+	}
+}
+
+// TestConfigLink_NeitherMode_NonInteractive pins that a non-interactive run with
+// neither mode fails fast with a structured validation error — before any
+// project open or network — now that MarkFlagsOneRequired is handled in RunE
+// (a human with neither is offered the wizard instead).
+func TestConfigLink_NeitherMode_NonInteractive(t *testing.T) {
+	cmd := newCmdConfigLink(&cmdutil.Factory{}) // nil IOStreams → non-interactive
+	err := cmd.RunE(cmd, nil)
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
+		t.Fatalf("want a validation ExitError, got %v", err)
 	}
 }
 
@@ -384,6 +442,9 @@ func TestRunConfigLink_CreateWritesOnlyName(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/partners"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"partners": []map[string]any{{"id": "p1"}}}})
+		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
+				"data": map[string]any{"apps": []map[string]any{}, "total": 0}})
 		case strings.HasSuffix(r.URL.Path, "/apps") && r.Method == http.MethodPost:
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success",
 				"data": map[string]any{"app": map[string]any{"client_id": "cid_new", "id": 2, "name": "DevApp"}}})
@@ -449,7 +510,7 @@ func TestRunConfigPush_SendsOnlyValuedFields(t *testing.T) {
 	var patched map[string]any
 	d := pushDash(t, "draft", &patched, 0, "")
 	var buf bytes.Buffer
-	if err := runConfigPush(context.Background(), d, p, false, &buf, "json", ""); err != nil {
+	if err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", ""); err != nil {
 		t.Fatalf("runConfigPush: %v", err)
 	}
 	// Empty strings are dropped; embed = false is a value and travels.
@@ -472,7 +533,7 @@ func TestRunConfigPush_EmbedMissingNotSent(t *testing.T) {
 	var patched map[string]any
 	d := pushDash(t, "draft", &patched, 0, "")
 	var buf bytes.Buffer
-	if err := runConfigPush(context.Background(), d, p, false, &buf, "json", ""); err != nil {
+	if err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", ""); err != nil {
 		t.Fatalf("runConfigPush: %v", err)
 	}
 	if _, has := patched["embed"]; has || len(patched) != 1 {
@@ -490,7 +551,7 @@ func TestRunConfigPush_EmptyDashboard_Validation(t *testing.T) {
 			t.Fatalf("no request expected, got %s %s", r.Method, r.URL.Path)
 		})
 		var buf bytes.Buffer
-		err := runConfigPush(context.Background(), d, p, false, &buf, "json", "")
+		err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", "")
 		var ee *output.ExitError
 		if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
 			t.Fatalf("toml %q: want validation error, got %v", toml, err)
@@ -506,7 +567,7 @@ func TestRunConfigPush_InvalidURL_FailsBeforeNetwork(t *testing.T) {
 			t.Fatalf("no request expected for %q, got %s %s", bad, r.Method, r.URL.Path)
 		})
 		var buf bytes.Buffer
-		err := runConfigPush(context.Background(), d, p, false, &buf, "json", "")
+		err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", "")
 		var ee *output.ExitError
 		if !errors.As(err, &ee) || ee.Code != output.ExitValidation || !strings.Contains(err.Error(), "redirect_url") {
 			t.Errorf("%q: want validation error naming redirect_url, got %v", bad, err)
@@ -530,7 +591,7 @@ func TestRunConfigPush_StatusGate(t *testing.T) {
 			var patched map[string]any
 			d := pushDash(t, c.status, &patched, 0, "")
 			var buf bytes.Buffer
-			err := runConfigPush(context.Background(), d, p, yes, &buf, "json", "")
+			err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, yes, &buf, "json", "")
 			wantBlock := c.needsYes && !yes
 			if wantBlock {
 				shown := c.status
@@ -563,7 +624,7 @@ func TestRunConfigPush_404_HintsClientID(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"ResourceNotFound","message":"The app does not exist or does not belong to the currently logged account"}`))
 	})
 	var buf bytes.Buffer
-	err := runConfigPush(context.Background(), d, p, false, &buf, "json", "")
+	err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", "")
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Code != output.ExitAPI {
 		t.Fatalf("want api error, got %v", err)
@@ -581,7 +642,7 @@ func TestRunConfigPush_422_PassesMessage(t *testing.T) {
 	p := pushProject(t, "client_id = \"cid_x\"\npartner_id = \"p1\"\n[dashboard]\n  name = \"taken\"\n")
 	d := pushDash(t, "draft", nil, http.StatusUnprocessableEntity, `{"code":"UnprocessableEntity","message":"app name is already exists"}`)
 	var buf bytes.Buffer
-	err := runConfigPush(context.Background(), d, p, false, &buf, "json", "")
+	err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", "")
 	if err == nil || !strings.Contains(err.Error(), "app name is already exists") {
 		t.Fatalf("want backend 422 message, got %v", err)
 	}
@@ -598,7 +659,7 @@ func TestRunConfigPush_Yes_SkipsStatusRead(t *testing.T) {
 			"data": map[string]any{"app": map[string]any{"client_id": "cid_x", "status": "published"}}})
 	})
 	var buf bytes.Buffer
-	if err := runConfigPush(context.Background(), d, p, true, &buf, "json", ""); err != nil {
+	if err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, true, &buf, "json", ""); err != nil {
 		t.Fatalf("runConfigPush --yes: %v", err)
 	}
 	if len(methods) != 1 || methods[0] != http.MethodPatch {
@@ -614,7 +675,7 @@ func TestRunConfigPush_401_IsAuthClass(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"Unauthorized","message":"token expired"}`))
 	})
 	var buf bytes.Buffer
-	err := runConfigPush(context.Background(), d, p, false, &buf, "json", "")
+	err := runConfigPush(context.Background(), &cmdutil.Factory{}, d, p, false, &buf, "json", "")
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Code != output.ExitAuth || ee.Detail == nil || ee.Detail.Type != output.TypeAuth {
 		t.Fatalf("want auth-class error, got %+v", err)
@@ -627,7 +688,7 @@ func TestRunConfigPush_401_IsAuthClass(t *testing.T) {
 func TestRunConfigPush_NoClientID_Validation(t *testing.T) {
 	p := pushProject(t, "[dashboard]\n  app_url = \"https://b.example/auth\"\n")
 	var buf bytes.Buffer
-	err := runConfigPush(context.Background(), nil, p, false, &buf, "json", "")
+	err := runConfigPush(context.Background(), &cmdutil.Factory{}, nil, p, false, &buf, "json", "")
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
 		t.Fatalf("want validation error, got %v", err)

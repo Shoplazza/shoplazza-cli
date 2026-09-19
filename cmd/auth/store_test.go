@@ -260,3 +260,16 @@ func TestStoreUse_MissingFlag(t *testing.T) {
 		t.Errorf("expected type=validation, got type=%q err=%v", typ, err)
 	}
 }
+
+// Non-interactively (agent/pipe), store use with no --store-domain must fail
+// fast with the required-flag error — never open the picker.
+func TestStoreUse_NonInteractive_RequiresStoreDomain(t *testing.T) {
+	f, out := tempAuthFactory(t, "http://unused")
+	err := execAuth(t, f, out, "store", "use")
+	if err == nil {
+		t.Fatal("non-interactive store use with no --store-domain must error, not prompt")
+	}
+	if !strings.Contains(err.Error(), "--store-domain is required") {
+		t.Errorf("want required-flag error, got %v", err)
+	}
+}

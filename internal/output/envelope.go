@@ -19,7 +19,9 @@ type ErrorEnvelope struct {
 // (task, elapsed_seconds, ...) without bloating this struct.
 type ErrDetail struct {
 	Type    string         `json:"-"`
+	Subtype string         `json:"-"` // stable machine-branchable id within a Type; omitempty
 	Code    string         `json:"-"`
+	Param   string         `json:"-"` // the offending flag/parameter name, when known; omitempty
 	Message string         `json:"-"`
 	Hint    string         `json:"-"`
 	Detail  *ErrorContext  `json:"-"`
@@ -39,8 +41,14 @@ func (d *ErrDetail) MarshalJSON() ([]byte, error) {
 	// Well-known fields overwrite any colliding Extra key — Extra is
 	// intended for domain-specific additions, not to override the schema.
 	out["type"] = d.Type
+	if d.Subtype != "" {
+		out["subtype"] = d.Subtype
+	}
 	if d.Code != "" {
 		out["code"] = d.Code
+	}
+	if d.Param != "" {
+		out["param"] = d.Param
 	}
 	out["message"] = d.Message
 	if d.Hint != "" {
