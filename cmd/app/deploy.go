@@ -36,7 +36,7 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			cfg, ex := activeAppConfig(p)
+			cfg, ex := activeAppConfig(cmd, p)
 			if ex != nil {
 				return ex
 			}
@@ -117,6 +117,7 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
+	cmd.Flags().String("config", "", "App config to deploy (name segment; overrides the active config for this run only, not persisted)")
 	cmd.Flags().BoolVar(&debug, "debug", false, "Build extensions in debug mode")
 	return cmd
 }

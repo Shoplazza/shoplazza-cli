@@ -58,7 +58,7 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			configName, cfg, ex := activeAppConfigNamed(p)
+			configName, cfg, ex := resolveAppConfigNamed(cmd, p)
 			if ex != nil {
 				return ex
 			}
@@ -231,6 +231,7 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
+	cmd.Flags().String("config", "", "App config to run against (name segment; overrides the active config for this run only, not persisted)")
 	cmd.Flags().BoolVar(&debug, "debug", false, "Build extensions in debug mode")
 	cmd.Flags().BoolVar(&writeURLs, "write-urls", false,
 		"Write this session's tunnel App URL / Redirect URL into the active config's [dashboard] section "+

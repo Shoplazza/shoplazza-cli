@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
@@ -288,35 +290,77 @@ func resolveAppRef(ctx context.Context, d *app.Dashboard, clientID string, creat
 // resolve it via ensurePartnerID once a Dashboard client is in hand. Used by the
 // read commands (dev/deploy/function) now that partner is sourced from the config
 // rather than a --partner flag.
-func activeAppConfig(p *project.Project) (project.Config, *output.ExitError) {
-	_, cfg, ex := activeAppConfigNamed(p)
+// activeAppConfig resolves the config an action command (dev/deploy/function)
+// should act on: a per-invocation --config override (see resolveConfigFile) or
+// the persisted active config, validated and echoed.
+func activeAppConfig(cmd *cobra.Command, p *project.Project) (project.Config, *output.ExitError) {
+	_, cfg, ex := resolveAppConfigNamed(cmd, p)
 	return cfg, ex
 }
 
-// activeAppConfigNamed is activeAppConfig plus the active toml's file name.
+// resolveConfigFile picks the config file for this run: an explicit --config
+// override (name segment; empty = base shoplazza.app.toml) when the flag is set,
+// else the project's persisted active config. The override is NOT persisted —
+// run 'app config use' to change the active config.
+func resolveConfigFile(cmd *cobra.Command, p *project.Project) (string, error) {
+	if fl := cmd.Flags().Lookup("config"); fl != nil && fl.Changed {
+		if seg := fl.Value.String(); seg != "" {
+			return configFileForName(seg), nil
+		}
+		return "shoplazza.app.toml", nil
+	}
+	return p.ActiveConfigName()
+}
+
+// resolveAppConfigNamed is the cmd-aware config reader (override + target echo)
+// for the action commands. It returns the resolved toml file name too.
+func resolveAppConfigNamed(cmd *cobra.Command, p *project.Project) (string, project.Config, *output.ExitError) {
+	name, err := resolveConfigFile(cmd, p)
+	if err != nil {
+		return "", project.Config{}, output.ErrValidation("cannot read active config: %v", err)
+	}
+	cfg, ex := readAppConfig(p, name)
+	if ex != nil {
+		return "", project.Config{}, ex
+	}
+	// Echo the acting config so the target is never silent (mirrors themes' store
+	// echo). An explicit --config is a one-off; run 'app config use' to persist.
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "→ app config: %s (client_id %s)\n", name, cfg.ClientID)
+	return name, cfg, nil
+}
+
+// activeAppConfigNamed reads the persisted active config (no override, no echo).
+// Used where the active config is the deliberate target, e.g. 'app config push'.
 func activeAppConfigNamed(p *project.Project) (string, project.Config, *output.ExitError) {
 	name, err := p.ActiveConfigName()
 	if err != nil {
 		return "", project.Config{}, output.ErrValidation("cannot read active config: %v", err)
 	}
+	cfg, ex := readAppConfig(p, name)
+	return name, cfg, ex
+}
+
+// readAppConfig loads and validates one app config file (network-free), so a bad
+// project fails before any auth.
+func readAppConfig(p *project.Project, name string) (project.Config, *output.ExitError) {
 	cfg, err := p.ReadConfig(name)
 	if err != nil {
 		// A missing config = run outside an app project; a present-but-undecodable
 		// one = a malformed toml. Distinguish so the hint is actionable.
 		if errors.Is(err, os.ErrNotExist) {
-			return "", project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			return project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
 				fmt.Sprintf("no app config (%s) in this directory", name),
 				"run 'shoplazza app init' to create an app project, or cd into one (pass --path to point elsewhere)")
 		}
-		return "", project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-			fmt.Sprintf("cannot read active config %s: %v", name, err),
+		return project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			fmt.Sprintf("cannot read app config %s: %v", name, err),
 			fmt.Sprintf("check the TOML syntax of %s", name))
 	}
 	if cfg.ClientID == "" {
-		return "", project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-			"no client_id in active config", "run 'shoplazza app config link' or 'shoplazza app config use'")
+		return project.Config{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"no client_id in app config", "run 'shoplazza app config link' or 'shoplazza app config use'")
 	}
-	return name, cfg, nil
+	return cfg, nil
 }
 
 // ensurePartnerID returns the config's partner_id, resolving it live from /info

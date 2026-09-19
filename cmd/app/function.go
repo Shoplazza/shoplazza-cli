@@ -175,7 +175,7 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cfg, ex := activeAppConfig(p)
+			cfg, ex := activeAppConfig(cmd, p)
 			if ex != nil {
 				return ex
 			}
@@ -277,6 +277,7 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Function extension name under extensions/ (required)")
 	cmd.Flags().StringVar(&clientID, "client-id", "", "App client_id (defaults to active config; partner_id is always read from the active config, so overriding to an app under a different partner will 404)")
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
+	cmd.Flags().String("config", "", "App config to release under (name segment; overrides the active config for this run only, not persisted)")
 	cmd.Flags().BoolVar(&debug, "debug", false, "(reserved; javy build is not debug-aware)")
 	return cmd
 }
@@ -344,7 +345,7 @@ func newCmdFunctionList(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cfg, ex := activeAppConfig(p)
+			cfg, ex := activeAppConfig(cmd, p)
 			if ex != nil {
 				return ex
 			}
