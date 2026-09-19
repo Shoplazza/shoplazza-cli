@@ -222,12 +222,15 @@ func prettyMap(w io.Writer, m map[string]any, color bool) error {
 	// the meta. A rich detail object that merely contains a sub-collection (a
 	// product with variants[]) is NOT an envelope and renders as an object below.
 	if list, key, ok := dominantObjectList(m); ok {
-		if err := prettyList(w, list, selectColumns(key, list), 0, color); err != nil {
+		// Label the list with its key so the reader knows what the [i] items are
+		// (e.g. "profiles:"), then indent the items beneath it.
+		_, _ = fmt.Fprintf(w, "%s\n", colorKey(key+":", color))
+		if err := prettyList(w, list, selectColumns(key, list), 2, color); err != nil {
 			return err
 		}
 		meta := mapWithout(m, key)
 		if len(meta) > 0 {
-			fmt.Fprintln(w)
+			_, _ = fmt.Fprintln(w)
 			return prettyBlock(w, meta, 0, color)
 		}
 		return nil
@@ -394,6 +397,11 @@ func printTable(w io.Writer, v any, color bool) error {
 // dot-notation columns (http.method, http.path) so nested objects stay visible
 // instead of collapsing to "{…}". Parent (non-list) keys print below.
 func listTable(w io.Writer, items []any, parent map[string]any, listKey string, color bool) error {
+	// Caption the table with the list's key (e.g. "profiles:") so the rows are
+	// identifiable; a bare top-level list (no key) gets no caption.
+	if listKey != "" {
+		_, _ = fmt.Fprintf(w, "%s\n", colorKey(listKey+":", color))
+	}
 	if len(items) == 0 {
 		_, _ = fmt.Fprintln(w, "(no items)")
 		return writeParentMeta(w, parent, listKey, color)
@@ -567,11 +575,11 @@ func writeParentMeta(w io.Writer, parent map[string]any, listKey string, color b
 	if parent == nil {
 		return nil
 	}
-	for _, k := range sortedKeys(parent) {
+	for _, k := range orderedKeys(parent) {
 		if k == listKey {
 			continue
 		}
-		_, _ = fmt.Fprintf(w, "%s %s\n", colorKey(k+":", color), formatScalar(parent[k], 60))
+		_, _ = fmt.Fprintf(w, "%s %s\n", colorKey(k+":", color), tableCell(parent[k]))
 	}
 	return nil
 }

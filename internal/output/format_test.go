@@ -320,6 +320,32 @@ func TestColorEnabled_BufferIsPlain(t *testing.T) {
 	}
 }
 
+func TestPretty_ListEnvelopeLabelsKey(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{"profiles": []any{map[string]any{"name": "x"}}, "logged_in": true}
+	if err := PrintFormatted(&buf, m, FormatPretty); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.HasPrefix(strings.TrimSpace(out), "profiles:") {
+		t.Errorf("list envelope should lead with its key label, not a bare [1]: %s", out)
+	}
+	if !strings.Contains(out, "\n  [1]") {
+		t.Errorf("items should be indented under the key: %s", out)
+	}
+}
+
+func TestTable_ListEnvelopeCaption(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{"profiles": []any{map[string]any{"name": "x"}}, "logged_in": true}
+	if err := PrintFormatted(&buf, m, FormatTable); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "profiles:") {
+		t.Errorf("table should caption the list with its key: %s", buf.String())
+	}
+}
+
 func TestDominantObjectList(t *testing.T) {
 	// A clean envelope: one object-list + scalar meta.
 	if _, key, ok := dominantObjectList(map[string]any{
