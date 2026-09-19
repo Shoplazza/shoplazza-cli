@@ -123,7 +123,7 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 
 			// Print v1's two preview URLs (Admin + Storefront, keyed on theme_id +
 			// ext_debug; --theme-id is required by PreRunE).
-			printServeBanner(cmd.OutOrStdout(), domain, cfg.ExtensionID, themeID)
+			printServeBanner(cmd.ErrOrStderr(), domain, cfg.ExtensionID, themeID)
 
 			filter := newServeFilter(cmd.ErrOrStderr())
 
@@ -152,7 +152,7 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 			onFile := func(op string) func(string) {
 				return func(rel string) {
 					syncDevDocFile(ctx, store, cfg.ExtensionID, themeApp, op, rel, dedup,
-						cmd.OutOrStdout(), cmd.ErrOrStderr())
+						cmd.ErrOrStderr(), cmd.ErrOrStderr())
 				}
 			}
 			// Fatal watcher errors (EMFILE, watcher loss, permission revoked) must
@@ -174,7 +174,7 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 				return output.ErrInternal("start watcher: %v", wErr)
 			}
 			defer stop()
-			fmt.Fprintln(cmd.OutOrStdout(), "Listening for file changes ...")
+			fmt.Fprintln(cmd.ErrOrStderr(), "Listening for file changes ...")
 			select {
 			case <-ctx.Done():
 			case werr := <-watchErrCh:
@@ -218,20 +218,23 @@ func newServeFilter(stderr io.Writer) func(string) bool {
 // syncDevDocFile pushes one watched change through the per-file dev-doc API.
 // Errors are reported to stderr and swallowed — the dev loop must survive a
 // transient per-file failure.
-func syncDevDocFile(ctx context.Context, store *client.Client, extensionID, themeApp, op, rel string, dedup *doc.Deduper, stdout, stderr io.Writer) {
+// syncDevDocFile writes its success line to okW and any failure/skip note to
+// errW. Both are stderr for the live `serve` loop (progress, not data); the two
+// params stay split so tests can assert routing.
+func syncDevDocFile(ctx context.Context, store *client.Client, extensionID, themeApp, op, rel string, dedup *doc.Deduper, okW, errW io.Writer) {
 	fileType, location := te.DevDocTarget(rel)
 	var ex *output.ExitError
 	switch op {
 	case "create", "update":
 		content, rErr := os.ReadFile(filepath.Join(themeApp, filepath.FromSlash(rel)))
 		if rErr != nil {
-			fmt.Fprintf(stderr, "read %s: %v\n", rel, rErr)
+			fmt.Fprintf(errW, "read %s: %v\n", rel, rErr)
 			return
 		}
 		// Invalid UTF-8 (binary asset) must NEVER ride the JSON dev-doc body —
 		// every non-UTF-8 byte would be mangled to U+FFFD on the wire.
 		if !utf8.Valid(content) {
-			fmt.Fprintf(stderr, "[skip] %s: binary file — restart 'te serve' (or run 'te build') to push it via the bundle upload\n", rel)
+			fmt.Fprintf(errW, "[skip] %s: binary file — restart 'te serve' (or run 'te build') to push it via the bundle upload\n", rel)
 			return
 		}
 		// Skip when content is identical to the last synced version — metadata-only
@@ -253,10 +256,10 @@ func syncDevDocFile(ctx context.Context, store *client.Client, extensionID, them
 		}
 	}
 	if ex != nil {
-		fmt.Fprintf(stderr, "%s %s failed: %v\n", op, rel, ex)
+		fmt.Fprintf(errW, "%s %s failed: %v\n", op, rel, ex)
 		return
 	}
-	fmt.Fprintf(stdout, "synced (%s): %s\n", op, rel)
+	fmt.Fprintf(okW, "synced (%s): %s\n", op, rel)
 }
 
 // printServeBanner prints te serve's two preview URLs in the same plain style as
