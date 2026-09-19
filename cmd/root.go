@@ -15,10 +15,10 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/completion"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/doctor"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/dynamic"
-	themecmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/theme"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/profile"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/schema"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/skill"
+	themecmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/theme"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/themeext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/update"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
@@ -56,7 +56,7 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
-	RegisterGlobalFlags(rootCmd.PersistentFlags())
+	RegisterGlobalFlags(rootCmd.PersistentFlags(), defaultOutputFormat())
 	// --profile completes from configured profile names (best-effort: a
 	// registration failure here would only affect shell completion, never
 	// command execution).
@@ -82,6 +82,17 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 	applyRootGroups(rootCmd)
 
 	return rootCmd
+}
+
+// defaultOutputFormat resolves the --format flag's default from
+// SHOPLAZZA_CLI_FORMAT (a human/CI convenience so pretty needn't be typed each
+// time), falling back to json. An invalid value is ignored, and an explicit
+// --format on any command still overrides it.
+func defaultOutputFormat() string {
+	if v := os.Getenv("SHOPLAZZA_CLI_FORMAT"); output.ValidFormat(v) {
+		return v
+	}
+	return output.FormatJSON
 }
 
 // Execute runs the root command and returns the process exit code.

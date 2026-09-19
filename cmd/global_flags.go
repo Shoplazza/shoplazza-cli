@@ -6,7 +6,9 @@ import "github.com/spf13/pflag"
 //
 // --dry-run and --jq live on the trees that honor them, not here, so they
 // don't surface as inert global flags under commands that ignore them.
-func RegisterGlobalFlags(flags *pflag.FlagSet) {
-	flags.String("format", "json", `Output format: json (default), pretty, table, ndjson, csv`)
+// defaultFormat is the resolved default (SHOPLAZZA_CLI_FORMAT env > "json"); an
+// explicit --format on a command still overrides it.
+func RegisterGlobalFlags(flags *pflag.FlagSet, defaultFormat string) {
+	flags.String("format", defaultFormat, `Output format: json (default), pretty, table, ndjson, csv (env: SHOPLAZZA_CLI_FORMAT)`)
 	flags.String("profile", "", "Profile to use for this invocation")
 }

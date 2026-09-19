@@ -35,6 +35,16 @@ const (
 // dot-notation columns before falling back to a compact placeholder.
 const maxFlattenDepth = 3
 
+// ValidFormat reports whether s names a supported output format.
+func ValidFormat(s string) bool {
+	switch s {
+	case FormatJSON, FormatPretty, FormatTable, FormatNDJSON, FormatCSV:
+		return true
+	default:
+		return false
+	}
+}
+
 // PrintFormatted writes v to w using the specified format.
 // Supported formats: FormatJSON (default), FormatPretty, FormatTable, FormatNDJSON, FormatCSV.
 func PrintFormatted(w io.Writer, v any, format string) error {
