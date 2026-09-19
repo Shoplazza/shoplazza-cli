@@ -61,8 +61,9 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 				return cErr
 			}
 
-			// Progress for the slow push steps goes to stderr while serve's banner
-			// and per-file "synced:" lines stay on stdout.
+			// All human output for this long-running dev loop — push progress, the
+			// preview banner, and per-file "synced:" lines — goes to stderr; stdout
+			// stays clean (serve emits no structured data).
 			prog := output.NewProgress(cmd.ErrOrStderr())
 
 			// Build+upload+(register if first time)+initial dev-doctree push.
@@ -174,7 +175,7 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 				return output.ErrInternal("start watcher: %v", wErr)
 			}
 			defer stop()
-			fmt.Fprintln(cmd.ErrOrStderr(), "Listening for file changes ...")
+			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Listening for file changes ...")
 			select {
 			case <-ctx.Done():
 			case werr := <-watchErrCh:
@@ -228,13 +229,13 @@ func syncDevDocFile(ctx context.Context, store *client.Client, extensionID, them
 	case "create", "update":
 		content, rErr := os.ReadFile(filepath.Join(themeApp, filepath.FromSlash(rel)))
 		if rErr != nil {
-			fmt.Fprintf(errW, "read %s: %v\n", rel, rErr)
+			_, _ = fmt.Fprintf(errW, "read %s: %v\n", rel, rErr)
 			return
 		}
 		// Invalid UTF-8 (binary asset) must NEVER ride the JSON dev-doc body —
 		// every non-UTF-8 byte would be mangled to U+FFFD on the wire.
 		if !utf8.Valid(content) {
-			fmt.Fprintf(errW, "[skip] %s: binary file — restart 'te serve' (or run 'te build') to push it via the bundle upload\n", rel)
+			_, _ = fmt.Fprintf(errW, "[skip] %s: binary file — restart 'te serve' (or run 'te build') to push it via the bundle upload\n", rel)
 			return
 		}
 		// Skip when content is identical to the last synced version — metadata-only
@@ -256,10 +257,10 @@ func syncDevDocFile(ctx context.Context, store *client.Client, extensionID, them
 		}
 	}
 	if ex != nil {
-		fmt.Fprintf(errW, "%s %s failed: %v\n", op, rel, ex)
+		_, _ = fmt.Fprintf(errW, "%s %s failed: %v\n", op, rel, ex)
 		return
 	}
-	fmt.Fprintf(okW, "synced (%s): %s\n", op, rel)
+	_, _ = fmt.Fprintf(okW, "synced (%s): %s\n", op, rel)
 }
 
 // printServeBanner prints te serve's two preview URLs in the same plain style as
