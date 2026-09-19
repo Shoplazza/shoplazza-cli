@@ -341,8 +341,8 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 		Example: `  # Show authentication status
   shoplazza auth status
 
-  # Extract just the account with --jq
-  shoplazza auth status --jq '.account'`,
+  # Human-readable output
+  shoplazza auth status --format pretty`,
 		Annotations: map[string]string{cmdutil.AnnotationAuthFree: "true"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			manager := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestFormatScalar(t *testing.T) {
@@ -383,6 +384,39 @@ func TestPretty_RichObjectNotHijackedByList(t *testing.T) {
 	}
 	if strings.HasPrefix(strings.TrimSpace(out), "[1]") {
 		t.Errorf("rich object must not be hijacked into a bare variants list: %s", out)
+	}
+}
+
+// TestTableCell_MultibyteTruncation: a long scalar array of CJK strings must be
+// truncated on rune boundaries, never mid-rune (no invalid UTF-8).
+func TestTableCell_MultibyteTruncation(t *testing.T) {
+	arr := make([]any, 0, 40)
+	for i := 0; i < 40; i++ {
+		arr = append(arr, "中文标签")
+	}
+	got := tableCell(arr)
+	if !utf8.ValidString(got) {
+		t.Fatalf("truncation produced invalid UTF-8: %q", got)
+	}
+	if !strings.HasSuffix(got, "...") {
+		t.Fatalf("expected ellipsis after truncation: %q", got)
+	}
+}
+
+// TestCSV_PrefersObjectList: CSV exports the object list (records), not a sibling
+// scalar array, matching what --format table/pretty render.
+func TestCSV_PrefersObjectList(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{
+		"ids":    []any{"a", "b"},
+		"orders": []any{map[string]any{"id": "1", "status": "open"}},
+	}
+	if err := PrintFormatted(&buf, m, FormatCSV); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "id") {
+		t.Fatalf("CSV should export the orders records (id header), got:\n%s", out)
 	}
 }
 

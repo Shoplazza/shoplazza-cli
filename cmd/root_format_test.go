@@ -37,6 +37,18 @@ func TestWantsNoInput(t *testing.T) {
 	if wantsNoInput([]string{"--", "--no-input"}) {
 		t.Error("after -- it is an operand, not a flag")
 	}
+	// All truthy pflag bool forms enable it.
+	for _, tv := range []string{"--no-input=1", "--no-input=t", "--no-input=TRUE", "--no-input=True"} {
+		if !wantsNoInput([]string{tv}) {
+			t.Errorf("%q should enable no-input", tv)
+		}
+	}
+	// Falsy forms do not.
+	for _, fv := range []string{"--no-input=false", "--no-input=0", "--no-input=F"} {
+		if wantsNoInput([]string{fv}) {
+			t.Errorf("%q must NOT enable no-input", fv)
+		}
+	}
 }
 
 // TestAutoPretty: pretty only when stdout is a terminal and no automation signal.

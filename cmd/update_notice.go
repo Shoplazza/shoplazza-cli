@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -87,11 +89,16 @@ func wantsVersion(args []string) bool {
 // mode before any command's interactivity gate is consulted.
 func wantsNoInput(args []string) bool {
 	for _, a := range args {
-		switch a {
-		case "--no-input", "--no-input=true":
-			return true
-		case "--":
+		switch {
+		case a == "--":
 			return false
+		case a == "--no-input":
+			return true
+		case strings.HasPrefix(a, "--no-input="):
+			// Accept every truthy form pflag's bool parser does (=1, =t, =TRUE …);
+			// an invalid value parses false here and pflag rejects it at parse time.
+			b, _ := strconv.ParseBool(a[len("--no-input="):])
+			return b
 		}
 	}
 	return false

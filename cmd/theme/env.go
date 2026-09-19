@@ -293,7 +293,7 @@ func bindEnvWriteFlags(cmd *cobra.Command, store, themeID, profile *string) {
 // an omitted name is a structured error — the name is required for agents. Unlike
 // set/remove this must NOT pick from existing names: the name is new.
 func resolveNewEnvName(cmd *cobra.Command, f *cmdutil.Factory, args []string) (string, error) {
-	if len(args) > 0 {
+	if len(args) > 0 && strings.TrimSpace(args[0]) != "" {
 		return args[0], nil
 	}
 	if !cmdutil.Interactive(f) {
@@ -315,7 +315,9 @@ func resolveNewEnvName(cmd *cobra.Command, f *cmdutil.Factory, args []string) (s
 // Non-interactively an omitted name is a structured error (agents must name the
 // environment); an empty file is likewise an error either way.
 func resolveEnvName(f *cmdutil.Factory, file env.File, args []string) (string, error) {
-	if len(args) > 0 {
+	// An empty positional (e.g. an unset shell var) must not silently resolve to
+	// the "default" environment; treat it as "no name given".
+	if len(args) > 0 && strings.TrimSpace(args[0]) != "" {
 		return args[0], nil
 	}
 	names := file.Names()

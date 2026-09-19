@@ -56,7 +56,7 @@ serve uploads to and continuously overwrites that theme. Syncing is one-way
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			if port < 0 || port > 65535 {
+			if port < 1 || port > 65535 {
 				return theme.ErrValidation("invalid --port %d: must be between 1 and 65535", port)
 			}
 			rs, err := resolveStore(ctx, f, cmd)

@@ -62,16 +62,14 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 			return resolvedStore{}, err
 		}
 		selEnv = e
-	} else {
-		// No -e / env var: auto-apply a committed default environment if present.
-		e, ok, err := defaultEnvironmentAt(".")
-		if err != nil {
-			return resolvedStore{}, err
-		}
-		if ok {
-			envName = env.DefaultEnvironment
-			selEnv = e
-		}
+	} else if e, ok, err := defaultEnvironmentAt("."); err != nil {
+		// No -e was given, so a malformed shoplazza.theme.toml must NOT break the
+		// command — warn and fall back to the ordinary profile chain. (With -e the
+		// parse error is surfaced hard, via loadSelectedEnvironment above.)
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: ignoring %s: %v\n", env.FileName, err)
+	} else if ok {
+		envName = env.DefaultEnvironment
+		selEnv = e
 	}
 
 	// CI/env-token bypass FIRST — it needs no profile. The store target comes

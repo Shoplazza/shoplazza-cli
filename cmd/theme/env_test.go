@@ -153,6 +153,13 @@ func TestResolveEnvName(t *testing.T) {
 	if _, err := resolveEnvName(f, file, nil); err == nil {
 		t.Fatal("omitted name non-interactively must error")
 	}
+	// An empty / whitespace positional must NOT silently resolve to "default".
+	if _, err := resolveEnvName(f, file, []string{""}); err == nil {
+		t.Fatal("empty name arg must error, not target default")
+	}
+	if _, err := resolveEnvName(f, file, []string{"  "}); err == nil {
+		t.Fatal("whitespace name arg must error")
+	}
 	// Empty file, no name → error.
 	if _, err := resolveEnvName(f, env.File{}, nil); err == nil {
 		t.Fatal("empty file with no name must error")

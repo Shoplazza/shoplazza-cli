@@ -104,6 +104,11 @@ func printNDJSON(w io.Writer, v any) error {
 	case []any:
 		return writeNDJSONLines(w, typed)
 	case map[string]any:
+		// Prefer the object-list (same choice table/pretty make via dominantObjectList)
+		// so all formats stream the same records; fall back to any list.
+		if list, _, ok := dominantObjectList(typed); ok {
+			return writeNDJSONLines(w, list)
+		}
 		if list, _ := extractListKey(typed); list != nil {
 			return writeNDJSONLines(w, list)
 		}
@@ -140,6 +145,9 @@ func printCSV(w io.Writer, v any) error {
 	case []any:
 		return writeCSV(w, "", typed)
 	case map[string]any:
+		if list, key, ok := dominantObjectList(typed); ok {
+			return writeCSV(w, key, list)
+		}
 		if list, key := extractListKey(typed); list != nil {
 			return writeCSV(w, key, list)
 		}
@@ -603,8 +611,8 @@ func tableCell(v any) string {
 	}
 	if list, ok := toAnySlice(v); ok {
 		if sok, joined := joinScalars(list); sok {
-			if len(joined) > 60 {
-				joined = joined[:57] + "..."
+			if utf8.RuneCountInString(joined) > 60 {
+				joined = string([]rune(joined)[:57]) + "..."
 			}
 			return joined
 		}

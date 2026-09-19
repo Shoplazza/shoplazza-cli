@@ -258,8 +258,11 @@ func recordThemeEnvironment(cwd, target, store, themeID, profile string, confirm
 	if has && cur.Store == store && cur.Theme == themeID && cur.Profile == profile {
 		return p, envWriteUnchanged, nil
 	}
-	prompt := fmt.Sprintf("Update the %q environment in %s to store=%s, theme=%s?",
-		target, env.FileName, store, themeID)
+	detail := fmt.Sprintf("store=%s, theme=%s", store, themeID)
+	if profile != "" {
+		detail += ", profile=" + profile
+	}
+	prompt := fmt.Sprintf("Update the %q environment in %s to %s?", target, env.FileName, detail)
 	if confirm == nil || !confirm(prompt) {
 		return p, envWriteSkipped, nil
 	}
