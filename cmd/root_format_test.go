@@ -38,3 +38,40 @@ func TestWantsNoInput(t *testing.T) {
 		t.Error("after -- it is an operand, not a flag")
 	}
 }
+
+// TestAutoPretty: pretty only when stdout is a terminal and no automation signal.
+func TestAutoPretty(t *testing.T) {
+	none := func(string) (string, bool) { return "", false }
+	if !autoPretty(true, none, nil) {
+		t.Error("terminal + no signals → pretty")
+	}
+	if autoPretty(false, none, nil) {
+		t.Error("non-terminal → json")
+	}
+	// An empty CI value must not gate (treated as unset).
+	ciEmpty := func(k string) (string, bool) { return "", k == "CI" }
+	if !autoPretty(true, ciEmpty, nil) {
+		t.Error("empty CI must not gate → pretty")
+	}
+	ciSet := func(k string) (string, bool) {
+		if k == "CI" {
+			return "1", true
+		}
+		return "", false
+	}
+	if autoPretty(true, ciSet, nil) {
+		t.Error("CI=1 → json even on a terminal")
+	}
+	niSet := func(k string) (string, bool) {
+		if k == "SHOPLAZZA_CLI_NO_INTERACTIVE" {
+			return "1", true
+		}
+		return "", false
+	}
+	if autoPretty(true, niSet, nil) {
+		t.Error("SHOPLAZZA_CLI_NO_INTERACTIVE=1 → json")
+	}
+	if autoPretty(true, none, []string{"--no-input"}) {
+		t.Error("--no-input → json")
+	}
+}

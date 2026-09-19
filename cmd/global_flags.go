@@ -9,7 +9,7 @@ import "github.com/spf13/pflag"
 // defaultFormat is the resolved default (SHOPLAZZA_CLI_FORMAT env > "json"); an
 // explicit --format on a command still overrides it.
 func RegisterGlobalFlags(flags *pflag.FlagSet, defaultFormat string) {
-	flags.String("format", defaultFormat, `Output format: json (default), pretty, table, ndjson, csv (env: SHOPLAZZA_CLI_FORMAT)`)
+	flags.String("format", defaultFormat, `Output format: json|pretty|table|ndjson|csv (default: pretty on a terminal, json when piped/CI; env: SHOPLAZZA_CLI_FORMAT)`)
 	flags.String("profile", "", "Profile to use for this invocation")
 	flags.Bool("no-input", false, "Never prompt; fail fast on missing input (for scripts/agents). Same as SHOPLAZZA_CLI_NO_INTERACTIVE=1")
 }

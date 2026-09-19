@@ -84,15 +84,36 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 	return rootCmd
 }
 
-// defaultOutputFormat resolves the --format flag's default from
-// SHOPLAZZA_CLI_FORMAT (a human/CI convenience so pretty needn't be typed each
-// time), falling back to json. An invalid value is ignored, and an explicit
-// --format on any command still overrides it.
+// defaultOutputFormat resolves the --format flag's default. Precedence:
+// SHOPLAZZA_CLI_FORMAT (explicit override) > auto-pretty for a human at a
+// terminal > json (the machine contract). An explicit --format on any command
+// still overrides this.
 func defaultOutputFormat() string {
 	if v := os.Getenv("SHOPLAZZA_CLI_FORMAT"); output.ValidFormat(v) {
 		return v
 	}
+	if autoPretty(output.IsTerminal(os.Stdout), os.LookupEnv, os.Args[1:]) {
+		return output.FormatPretty
+	}
 	return output.FormatJSON
+}
+
+// autoPretty decides the human-friendly default: stdout is a real terminal AND
+// nothing marks the run as automation (CI / SHOPLAZZA_CLI_NO_INTERACTIVE /
+// --no-input). Piped or redirected output, or any of those signals, keeps json —
+// the machine contract — so agents that pipe stdout (the common case) or declare
+// themselves are unaffected. gh/docker/kubectl behave the same way. Injected
+// deps keep it testable without a real terminal.
+func autoPretty(stdoutTTY bool, env func(string) (string, bool), args []string) bool {
+	if !stdoutTTY {
+		return false
+	}
+	for _, k := range []string{"CI", "SHOPLAZZA_CLI_NO_INTERACTIVE"} {
+		if v, ok := env(k); ok && v != "" {
+			return false
+		}
+	}
+	return !wantsNoInput(args)
 }
 
 // Execute runs the root command and returns the process exit code.
