@@ -15,7 +15,7 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 - **Agent-Native Design** — Structured JSON output out of the box; AI Agents can operate Shoplazza stores with zero extra setup
 - **Agent Skills Included** — One command installs [skills](#agent-skills) that teach AI agents this CLI's commands, safety rules, and per-domain gotchas
 - **E-Commerce Focused** — Products, Discounts, Orders, Customers with full CRUD and 20+ shortcut commands for high-frequency operations
-- **Full Developer Workflow** — App creation, extension scaffolding (checkout / theme / function), local dev server with HMR, one-command deploy; plus theme init, live reload, and packaging
+- **Full Developer Workflow** — App creation, extension scaffolding (checkout / theme / function), local dev server over an auto tunnel, one-command deploy; plus theme init, live reload, multi-environment, and packaging
 - **Secure & Controllable** — Input injection protection, OS-native keychain credential storage, token auto-refresh
 - **Three-Layer Architecture** — Shortcuts (human & AI friendly) → API Commands (OpenAPI-synced) → Raw API (full coverage)
 - **Up and Running in 3 Minutes** — Interactive login, from install to first API call in 3 steps
@@ -31,7 +31,7 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 | 🏪 Shop | Shop info, blogs & articles, pages, files (`+upload-file`), metafields, markets, languages, redirects, analytics |
 | 💳 Billing | Application charges: one-time, recurring, usage-based |
 | 🔔 Webhooks | Webhook subscription CRUD |
-| 🎨 Themes | `init`, `serve` (live reload), `pull`, `push`, `package`, `share` |
+| 🎨 Themes | `init`, `serve` (live reload), `pull`, `push`, `package`, `share`, `env` (multi-environment) |
 | 🧩 App | Full lifecycle: init → extension create → dev → deploy; extensions: checkout, theme, function |
 
 ## Installation & Quick Start
@@ -150,7 +150,7 @@ shoplazza app extension create --type checkout --name my-checkout
 shoplazza app extension create --type theme --name my-theme --theme-type basic
 shoplazza app extension create --type function --name my-fn
 
-# 3. Local development (dev server + HMR) — store comes from the active app config
+# 3. Local development (auto tunnel; re-run to apply changes) — store from the active app config
 shoplazza app dev
 
 # 4. Deploy all extensions
@@ -166,7 +166,8 @@ shoplazza app versions
 ```bash
 shoplazza app list                              # List apps in your account
 shoplazza app info                              # Print app and extension info
-shoplazza app config use --config alt.toml      # Switch active app config
+shoplazza app config use --config alt.toml      # Switch active app config (persistent)
+shoplazza app dev --config staging              # Run against one config for this invocation only (not persisted); dev/deploy/function too
 shoplazza app config link --client-id <id>      # Link an existing app (pulls its dashboard settings into [dashboard])
 shoplazza app config push                       # Push [dashboard] (name / app_url / redirect_url / embed) to the Partner dashboard
 shoplazza app dev --write-urls                  # Also record the tunnel URLs in [dashboard], then `app config push` them
@@ -199,6 +200,23 @@ shoplazza themes package
 # 4. Upload as a preview
 shoplazza themes share
 ```
+
+<details>
+<summary>Theme environments (multi-store / staging)</summary>
+
+Record named environments (store, theme id, path, ignore) in `shoplazza.theme.toml` and target one with `-e`:
+
+```bash
+shoplazza themes env add --name staging     # interactive; validates before writing
+shoplazza themes env list                    # list configured environments
+shoplazza themes env check                   # validate all environments offline
+shoplazza themes push -e staging             # run against that environment (store + theme + path)
+shoplazza themes pull -e staging             # records its resolved target back into staging
+```
+
+A `default` environment is auto-applied when present; `env set` / `env remove` edit and delete entries.
+
+</details>
 
 ## Three-Layer Command System
 
