@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,11 +15,19 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func newCmdConfig(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "config", Short: "Manage app config files and the active config"}
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "Manage app config files and the active config",
+		Long: `Manage the project's app config files (shoplazza.app.*.toml): switch the active
+config, link/create an app, and push dashboard settings.
+
+Run a subcommand with --help for its options and examples.`,
+	}
 	cmd.AddCommand(newCmdConfigUse(f))
 	cmd.AddCommand(newCmdConfigLink(f))
 	cmd.AddCommand(newCmdConfigPush(f))
@@ -28,8 +37,14 @@ func newCmdConfig(f *cmdutil.Factory) *cobra.Command {
 func newCmdConfigUse(f *cmdutil.Factory) *cobra.Command {
 	var configName, path string
 	cmd := &cobra.Command{
-		Use:     "use",
-		Short:   "Switch the active app config (validated online)",
+		Use:   "use",
+		Short: "Switch the active app config (validated online)",
+		Long:  "Switch the project's active app config to another shoplazza.app.<name>.toml, validating its client_id online before activating; omit --config for the base shoplazza.app.toml.",
+		Example: `  # Switch to the base config
+  shoplazza app config use
+
+  # Switch to a named config (shoplazza.app.prod.toml)
+  shoplazza app config use --config prod`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -57,10 +72,19 @@ func newCmdConfigUse(f *cmdutil.Factory) *cobra.Command {
 func runConfigUse(ctx context.Context, d *app.Dashboard, p *project.Project, configName string, w io.Writer, format, jq string) error {
 	cfg, err := p.ReadConfig(configName)
 	if err != nil {
-		return output.ErrValidation("cannot read %s: %v", configName, err)
+		if errors.Is(err, os.ErrNotExist) {
+			return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+				fmt.Sprintf("config %s not found in this project", configName),
+				"run 'shoplazza app config link' to create it, or 'shoplazza app config use' without --config for the base config")
+		}
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			fmt.Sprintf("cannot read %s: %v", configName, err),
+			fmt.Sprintf("check the TOML syntax of %s", configName))
 	}
 	if cfg.ClientID == "" {
-		return output.ErrValidation("%s has no client_id", configName)
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			fmt.Sprintf("%s has no client_id", configName),
+			"run 'shoplazza app config link --client-id <id>' to populate it")
 	}
 	if _, err := d.GetCompleteInfo(ctx, cfg.ClientID); err != nil {
 		return apiError(err).WithHint("check the client_id in " + configName + " and ensure you have access")
@@ -180,9 +204,25 @@ Two mutually-exclusive modes:
 Link mode pulls the app's client_id / partner / scopes from the Dashboard. Create
 mode first creates a new app in the backend, then writes its config. Afterwards run
 'shoplazza app config use' to make this config the active one.`,
+		Example: `  # Link an existing app by client_id
+  shoplazza app config link --client-id abc123
+
+  # Create a new app and write its config
+  shoplazza app config link --create --name "My App"`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			gateOpen := cmdutil.Interactive(f)
+			clientIDSet := cmd.Flags().Changed("client-id")
+			createSet := cmd.Flags().Changed("create")
+			// Exactly one mode is required (cobra enforces they aren't both set).
+			// Non-interactively neither is a structured error; a human picks in the
+			// wizard below. Keyed on Changed so an explicit empty flag still counts.
+			if !clientIDSet && !createSet && !gateOpen {
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"one of --client-id or --create is required",
+					"pass --client-id <id> to link an existing app, or --create --name <name> to create one")
+			}
 			p, err := openProject(path)
 			if err != nil {
 				return err
@@ -190,6 +230,23 @@ mode first creates a new app in the backend, then writes its config. Afterwards 
 			d, err := dashboardClient(cmd.Context(), f)
 			if err != nil {
 				return err
+			}
+			switch {
+			case !clientIDSet && !createSet:
+				// No mode named: full partner→app wizard (link existing or create new).
+				var card []string
+				if o, card, err = wizardLink(cmd.Context(), d, o); err != nil {
+					return err
+				}
+				if len(card) > 0 {
+					interact.Summary(cmd.ErrOrStderr(), card...)
+				}
+			case createSet:
+				// Explicit create mode: prompt for the name if the human left it off
+				// (non-interactively an unset --name stays the structured missing error).
+				if err := cmdutil.ResolveFlags(cmd, f, cmdutil.PromptField{Flag: "name", Title: "App name"}); err != nil {
+					return err
+				}
 			}
 			return runConfigLink(cmd.Context(), d, p, o, cmd.OutOrStdout(), cmdutil.GetFormat(cmd), "")
 		},
@@ -200,9 +257,9 @@ mode first creates a new app in the backend, then writes its config. Afterwards 
 	cmd.Flags().StringVar(&o.Partner, "partner", "", "Create mode: partner (org) to create the app under; auto-selected when you belong to only one")
 	cmd.Flags().StringVar(&o.ConfigName, "config", "", "The name of the app configuration (default: the app's name) — written to shoplazza.app.<name>.toml, merged if it exists")
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
-	// The two modes can't be combined, and exactly one entry point is required.
+	// The two modes can't be combined; "exactly one required" is enforced in RunE
+	// (a human with neither is offered the wizard instead of a bare cobra error).
 	cmd.MarkFlagsMutuallyExclusive("client-id", "create")
-	cmd.MarkFlagsOneRequired("client-id", "create")
 	return cmd
 }
 
@@ -213,7 +270,9 @@ var safeStatuses = map[string]bool{"draft": true, "rejected": true}
 func validateDashboardURL(key, raw string) *output.ExitError {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return output.ErrValidation("dashboard.%s is not a valid http(s) URL: %q", key, raw)
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			fmt.Sprintf("dashboard.%s is not a valid http(s) URL: %q", key, raw),
+			fmt.Sprintf("set dashboard.%s to an absolute http(s) URL (e.g. https://example.com) in the active config", key))
 	}
 	return nil
 }
@@ -226,14 +285,14 @@ func pushAPIError(err error, configName string) *output.ExitError {
 	}
 	switch he.StatusCode {
 	case 401:
-		return output.ErrAPIAuthHint(he.StatusCode, he.Body, "run 'shoplazza auth login' to re-authenticate").WithEndpoint(he.Method, he.Path)
+		return output.ErrAPIAuthHint(he.StatusCode, he.Body, he.RequestID, "run 'shoplazza auth login' to re-authenticate").WithEndpoint(he.Method, he.Path)
 	case 404:
 		return apiError(err).WithHint("check client_id in " + configName + " and that the app belongs to the logged-in account ('shoplazza auth status')")
 	}
 	return apiError(err)
 }
 
-func runConfigPush(ctx context.Context, d *app.Dashboard, p *project.Project, yes bool, w io.Writer, format, jq string) error {
+func runConfigPush(ctx context.Context, f *cmdutil.Factory, d *app.Dashboard, p *project.Project, yes bool, w io.Writer, format, jq string) error {
 	configName, cfg, ex := activeAppConfigNamed(p)
 	if ex != nil {
 		return ex
@@ -269,9 +328,18 @@ func runConfigPush(ctx context.Context, d *app.Dashboard, p *project.Project, ye
 			if status == "" {
 				status = "unknown"
 			}
-			return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-				fmt.Sprintf("app %q has status %s; pushing config will update the live app settings and refresh its review checks", current.Name, status),
-				"re-run with --yes to confirm")
+			msg := fmt.Sprintf("app %q has status %s; pushing config will update the live app settings and refresh its review checks", current.Name, status)
+			// A human on a TTY confirms inline (like every other destructive op);
+			// a non-interactive caller (agent, pipe, CI) keeps the explicit --yes
+			// gate — a review-affecting write to a live app is not done silently on
+			// automation's behalf.
+			if !cmdutil.Interactive(f) {
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					msg, "re-run with --yes to confirm")
+			}
+			if err := cmdutil.ConfirmDestructive(f, msg+". Push anyway?"); err != nil {
+				return err
+			}
 		}
 	}
 	updated, err := d.UpdateApp(ctx, pid, cfg.ClientID, patch)
@@ -314,6 +382,11 @@ also refreshes the app's review checks.
 
 The output is the app as stored by the backend after the write — check it
 rather than the local file.`,
+		Example: `  # Push the active config's [dashboard] settings
+  shoplazza app config push
+
+  # Push for an app in review/published (requires confirmation)
+  shoplazza app config push --yes`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -325,7 +398,7 @@ rather than the local file.`,
 			if err != nil {
 				return err
 			}
-			return runConfigPush(cmd.Context(), d, p, yes, cmd.OutOrStdout(), cmdutil.GetFormat(cmd), "")
+			return runConfigPush(cmd.Context(), f, d, p, yes, cmd.OutOrStdout(), cmdutil.GetFormat(cmd), "")
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")

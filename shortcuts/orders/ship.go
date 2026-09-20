@@ -16,8 +16,14 @@ var shipShortcut = common.Shortcut{
 	Command: "+ship",
 	Use:     "+ship --order-id <id> --tracking <no> [--line-items <id:qty,...>]",
 	Short:   "Create a fulfillment (ship an order)",
+	Long:    "Ship an order by creating a fulfillment with a tracking number; run --dry-run first to preview the request.",
+	Example: `  # Preview shipping the whole order
+  shoplazza orders +ship --order-id 12345 --tracking SF123456789 --company SF --dry-run
+
+  # Ship specific line items and notify the customer
+  shoplazza orders +ship --order-id 12345 --tracking SF123456789 --line-items li-1:2,li-2:1 --notify`,
 	Flags: []common.Flag{
-		{Name: "order-id", Type: common.FlagString, Required: true, Description: "Order ID."},
+		{Name: "order-id", Type: common.FlagString, Required: true, Description: "Order ID.", Picker: orderPicker},
 		{Name: "tracking", Type: common.FlagString, Required: true, Description: "Tracking number."},
 		{Name: "company", Type: common.FlagString, Description: "Carrier company name (e.g., DHL, UPS)."},
 		{Name: "company-code", Type: common.FlagString, Description: "Carrier company code."},

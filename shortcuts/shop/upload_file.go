@@ -11,6 +11,12 @@ var uploadFileShortcut = common.Shortcut{
 	Command: "+upload-file",
 	Use:     "+upload-file --source-url <url> [--source-url <url> ...]",
 	Short:   "Submit a file upload task (takes public URLs, NOT local files)",
+	Long:    "Submit a file-upload task that fetches public URLs into the store media library (not local files); run --dry-run first to preview.",
+	Example: `  # Preview uploading one image URL
+  shoplazza shop +upload-file --source-url https://cdn.example.com/a.jpg --dry-run
+
+  # Upload several URLs into the product folder
+  shoplazza shop +upload-file --source-url https://cdn.example.com/a.jpg --source-url https://cdn.example.com/b.jpg --folder product`,
 	Flags: []common.Flag{
 		{Name: "source-url", Type: common.FlagStringSlice, Required: true, Description: "Public URL(s) for the API to fetch. Can repeat."},
 		{Name: "folder", Type: common.FlagString, Default: "all_upload", Description: "Target folder.",

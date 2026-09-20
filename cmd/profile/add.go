@@ -25,9 +25,24 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a new profile (mints and persists its store access token)",
-		Args:  cobra.NoArgs,
+		Long:  "Add a named profile bound to a store, minting and caching its store token; requires an account login first.",
+		Example: `  # Add a profile for a store
+  shoplazza profile add --name prod --store-domain my-store.myshoplazza.com
+
+  # Add a scoped profile and switch to it
+  shoplazza profile add --name staging --store-domain staging.myshoplazza.com --scope read_product --use`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
+
+			// In a terminal, prompt for the name and store; agents/pipes must pass
+			// the flags. Validation below applies to typed and prompted values alike.
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "name", Title: "Profile name"},
+				cmdutil.PromptField{Flag: "store-domain", Title: "Store domain (e.g. my-store.myshoplaza.com)"},
+			); err != nil {
+				return err
+			}
 
 			if err := core.ValidateProfileName(name); err != nil {
 				return output.ErrValidation("%s", err.Error())
@@ -112,7 +127,7 @@ func translateExchangeErr(err error) error {
 		if httpErr.StatusCode >= 500 {
 			return output.ErrAPI(httpErr.StatusCode, httpErr.Body, "")
 		}
-		return output.ErrAPIAuthHint(httpErr.StatusCode, httpErr.Body,
+		return output.ErrAPIAuthHint(httpErr.StatusCode, httpErr.Body, httpErr.RequestID,
 			"re-run 'shoplazza auth login' with the scopes you need (see 'shoplazza auth scopes')")
 	}
 	return output.ErrWithHint(output.ExitAuth, output.TypeAuth,

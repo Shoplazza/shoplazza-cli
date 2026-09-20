@@ -1,0 +1,25 @@
+[
+  {
+    "case_id": "orders.shipping-schemas.update-zone-01",
+    "type": "behavior",
+    "skill": "shoplazza-orders",
+    "operation": "orders.shipping-schemas.update-zone",
+    "scenario": "删一个'运费方案'(zone 里的一条 line)≠ 删整个 zone — 用 update-zone,不是 delete-zone",
+    "input": "把某个区域里那个'标准运费'方案删掉,别的方案留着",
+    "expected": {
+      "route_to_skill": "shoplazza-orders",
+      "access_tier": "leaf",
+      "command_prefix": "orders shipping-schemas update-zone",
+      "flags_must_contain": ["--data", "--dry-run"],
+      "flags_must_not_contain": ["delete-zone"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "recognizes a 运费方案 / shipping method is one line inside a zone, not the whole zone",
+        "removes just that method via update-zone (re-sending the zone without that line), and does NOT call delete-zone, which would drop the entire zone and its other methods",
+        "the user said '别的方案留着' — preserving the zone's other lines confirms update-zone over delete-zone",
+        "destructive write: --dry-run first + restate which method is being removed"
+      ]
+    },
+    "notes": "orders shipping-schemas has create-zone/update-zone/delete-zone; a zone holds shipping lines. Removing one method = update-zone; delete-zone nukes the whole zone. Entity-granularity trap (store-agent shipping.zone.delete)."
+  }
+]

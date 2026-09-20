@@ -15,7 +15,7 @@ import (
 func NewCmdProfile(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "profile",
-		Short:       "Manage store execution contexts (profiles)",
+		Short:       "Manage store profiles (add, switch, and inspect stores)",
 		Annotations: map[string]string{cmdutil.AnnotationAuthFree: "true"},
 	}
 	cmd.AddCommand(

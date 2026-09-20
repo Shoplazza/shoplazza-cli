@@ -12,6 +12,12 @@ var rebateShortcut = common.Shortcut{
 		`[--type ...] (--products <ids> | --collections <ids> | --variants <ids> — required when --target=product) [--exclude] ` +
 		`[--limit-order-once=true|false] [--combines order,product,shipping] [--customer-segments <ids>]`,
 	Short: "Create an amount/quantity rebate (order or product scope)",
+	Long:  "Create an automatic tiered spend-N-save-M rebate scoped to the order or specific products; run --dry-run first to preview.",
+	Example: `  # Preview: spend 100 save 10, spend 200 save 25 (order-wide)
+  shoplazza discounts +rebate --target order --tiers 100:10,200:25 --dry-run
+
+  # Product-scoped percent rebate
+  shoplazza discounts +rebate --target product --type amount-percent --tiers 100:10 --products p-1,p-2`,
 	Flags: []common.Flag{
 		{Name: "target", Type: common.FlagString, Required: true,
 			Description: "Rebate scope: order or product (required).",

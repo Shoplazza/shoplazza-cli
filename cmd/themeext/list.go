@@ -1,0 +1,35 @@
+package themeext
+
+import (
+	"github.com/spf13/cobra"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	te "github.com/Shoplazza/shoplazza-cli/v2/internal/themeext"
+)
+
+func newCmdList(f *cmdutil.Factory) *cobra.Command {
+	var storeDomain string
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List the store's theme extensions",
+		Long:  "List the theme extensions registered on a store; defaults to the current store, override with --store-domain.",
+		Example: `  # List the current store's theme extensions
+  shoplazza theme-extension list`,
+		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
+			store, _, cErr := storeClient(ctx, f, storeDomain)
+			if cErr != nil {
+				return cErr
+			}
+			exts, lErr := te.ListExtensions(ctx, store)
+			if lErr != nil {
+				return lErr
+			}
+			return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{"extensions": exts}, cmdutil.GetFormat(cmd), "")
+		},
+	}
+	cmd.Flags().StringVarP(&storeDomain, "store-domain", "s", "", "Target store (defaults to current store)")
+	return cmd
+}

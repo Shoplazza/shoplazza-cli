@@ -164,8 +164,30 @@ From `schema orders.list` — used by `+search` / `+count` / `list`:
 **`unfulfilled` / `fulfilled` are NOT valid values** — "还没发货" maps to `waiting`.
 Each shortcut flag takes ONE value; to filter on several at once use the `list` leaf, whose
 `status` / `financial_status` / `fulfillment_status` params are JSON arrays.
-`+search --since/--until` bound the **placed** time (`placed_at_min`/`placed_at_max`),
-ISO date or unix ts.
+**Time window — which field.** `+search --since/--until` bound the **placed** time
+(`placed_at_min`/`placed_at_max`), ISO date or unix ts — that is the sales clock and the right
+default. To filter on a *different* moment, drop to the `list` leaf, which exposes one
+`_min`/`_max` pair per time field; pick it from the user's verb:
+
+| User's words | Param |
+|---|---|
+| 下单 / 支付 / 成交 / 售出 / 卖 / 卖了多少 / 销量 / 销售额 / placed / paid / sold | `placed_at_min` / `placed_at_max` |
+| 创建 / 新增 / created | `created_at_min` / `created_at_max` |
+| 更新 / 修改 / 最后交互 / updated / last changed | `updated_at_min` / `updated_at_max` |
+| 完成 / 订单完成 / finished | `finished_at_min` / `finished_at_max` |
+| 发货完成 / 履约完成 / fulfilled | `fulfilled_at_min` / `fulfilled_at_max` |
+
+**`created_at` ≠ `placed_at` (easy to get wrong).** A Shoplazza order row is created the moment a
+buyer enters checkout — *before* payment — so `created_at` counts abandoned / unpaid carts too.
+`placed_at` is when the order was actually placed (paid). For anything measuring **real sales**
+(销量 / 卖了多少 / 成交量 / 销售额 / how much sold), filter on `placed_at_*`, never `created_at_*`,
+or you fold abandoned carts into the number. Use `created_at_*` only when the user literally asks
+how many orders were *created / 新增*. With no time verb at all: if a `financial_status` or
+`fulfillment_status` filter is present the intent is sales → `placed_at_*`; otherwise `created_at_*`.
+
+**Restate the resolved window.** When you turn a relative phrase (最近 7 天 / 这个月) into
+`--since` / `--until`, tell the user the concrete window you used (e.g. `2026-09-10` to
+`2026-09-17`) — a wrong boundary or timezone then shows up instead of silently skewing the count.
 
 ## Searching orders precisely
 

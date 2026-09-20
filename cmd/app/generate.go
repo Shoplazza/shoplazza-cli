@@ -45,7 +45,9 @@ var extensionNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 // and testable with a local template repo.
 func runGenerateExtension(ctx context.Context, d *app.Dashboard, projectRoot, extType, name, themeType string, w, errW io.Writer, format, jq string) (err error) {
 	if name == "" {
-		return output.ErrValidation("--name is required")
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"--name is required",
+			"the extension's directory name under extensions/ (e.g. --name my-extension)")
 	}
 	if !extensionNamePattern.MatchString(name) {
 		return output.ErrValidation("invalid --name %q: use lowercase letters, digits, '-' or '_', starting with a letter or digit", name)
@@ -119,11 +121,28 @@ func runGenerateExtension(ctx context.Context, d *app.Dashboard, projectRoot, ex
 func newCmdExtensionCreate(f *cmdutil.Factory) *cobra.Command {
 	var extType, name, themeType, path string
 	cmd := &cobra.Command{
-		Use:     "create",
-		Short:   "Scaffold a new extension (theme / checkout / function)",
+		Use:   "create",
+		Short: "Scaffold a new extension (theme / checkout / function)",
+		Long:  "Scaffold a new extension under the current app project's extensions/ directory; --type selects theme, checkout, or function (theme also needs --theme-type).",
+		Example: `  # Scaffold a checkout extension
+  shoplazza app extension create --type checkout --name my-checkout
+
+  # Scaffold a theme extension
+  shoplazza app extension create --type theme --theme-type basic --name my-theme`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// A human picks the type/subtype and names the extension; non-
+			// interactive callers must pass the flags. --theme-type applies only
+			// to theme extensions.
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "type", Title: "Extension type", Choices: []string{"theme", "checkout", "function"}},
+				cmdutil.PromptField{Flag: "theme-type", Title: "Theme subtype", Choices: []string{"basic", "embed"},
+					When: func(c *cobra.Command) bool { t, _ := c.Flags().GetString("type"); return t == "theme" }},
+				cmdutil.PromptField{Flag: "name", Title: "Extension name (directory under extensions/)"},
+			); err != nil {
+				return err
+			}
 			p, err := openProject(path)
 			if err != nil {
 				return err
@@ -139,8 +158,6 @@ func newCmdExtensionCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Extension name / target directory (required)")
 	cmd.Flags().StringVar(&themeType, "theme-type", "", "Theme subtype: basic or embed (required when --type theme)")
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
-	_ = cmd.MarkFlagRequired("type")
-	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 
@@ -148,6 +165,9 @@ func newCmdExtension(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "extension",
 		Short: "Create and manage app extensions",
+		Long: `Create and manage the current app's extensions (theme, checkout, function).
+
+Run a subcommand with --help for its options and examples.`,
 	}
 	cmd.AddCommand(newCmdExtensionCreate(f))
 	return cmd

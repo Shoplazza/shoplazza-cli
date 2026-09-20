@@ -2,7 +2,9 @@ package appcmd
 
 import (
 	"context"
+	"errors"
 	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -15,8 +17,14 @@ func newCmdVersions(f *cmdutil.Factory) *cobra.Command {
 	var clientID, partner, path string
 	var offset, limit int
 	cmd := &cobra.Command{
-		Use:     "versions",
-		Short:   "List deployed app versions (paginated)",
+		Use:   "versions",
+		Short: "List deployed app versions (paginated)",
+		Long:  "List an app's deployed versions, paginated with --offset/--limit; --client-id and --partner default to the active config independently.",
+		Example: `  # List the active app's versions
+  shoplazza app versions
+
+  # Page through another app's versions
+  shoplazza app versions --client-id abc123 --offset 20 --limit 20`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -47,6 +55,11 @@ func newCmdVersions(f *cmdutil.Factory) *cobra.Command {
 			}
 			if cid == "" || pid == "" {
 				if cfgErr != nil {
+					if errors.Is(cfgErr, os.ErrNotExist) {
+						return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+							"no app config in this directory (pass --client-id and --partner, or run inside an app project)",
+							"run 'shoplazza app init' to create an app project, or cd into one (pass --path to point elsewhere)")
+					}
 					return output.ErrValidation("cannot read active config: %v", cfgErr)
 				}
 				if cid == "" {

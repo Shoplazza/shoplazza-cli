@@ -14,8 +14,14 @@ import (
 func newCmdList(f *cmdutil.Factory) *cobra.Command {
 	var partner string
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List apps in your account (partner / client_id / name)",
+		Use:   "list",
+		Short: "List apps in your account (partner / client_id / name)",
+		Long:  "List apps in your account across all partners; pass --partner to filter to one (required when the account has multiple partners).",
+		Example: `  # List apps across all partners
+  shoplazza app list
+
+  # List apps under one partner
+  shoplazza app list --partner 12345`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {

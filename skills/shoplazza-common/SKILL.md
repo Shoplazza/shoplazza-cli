@@ -100,9 +100,32 @@ prefer the narrowest: a dedicated **exact-match** param (often an array, e.g. `c
 over a full page. Exact params say what they match; keyword search may match a field you did
 not intend.
 
+**Which tier — read the user's verb.** The phrasing tells you whether they mean a whole value
+or a fragment, and that decides exact vs keyword:
+
+| User's signal | Meaning | Tier |
+|---|---|---|
+| 「是 / 为 / 等于 / =」, 「编号 / 号码 / 值 is X」, or a self-identifying whole string (a full email, a full SKU like `ABC-001`, a full phone) | whole value | exact-match array param |
+| 「包含 / 含 / 像 / 类似 / 以…开头 / 前缀 / 片段 / 部分」, `X*`, contains / starts-with / like | fragment | keyword search |
+
+「是 / equals」is the authoritative exact signal even when it sits right next to a field name —
+match the whole value, do not fuzzy-search it.
+
 **Report the basis, not just the number.** When you answer from a list read, say which filter
 was applied and what the completeness basis is ("3 of 3, unfiltered total 18"). It makes a
 dropped filter visible to the user instead of invisible.
+
+**Locate before you act.** A write targets a record by its id, but users name it by something
+else (an order number, a code, an email, a title). Resolve the target with a read first, then
+branch on the count:
+
+- **0 matches** → stop and say so; do not fall back to a broader write or invent an id.
+- **exactly 1** → proceed (still `--dry-run` + restate for a destructive / money op).
+- **2+ matches** → list the candidates and ask which one. Never guess, and never act on "the
+  first" silently.
+
+A number is not an id (e.g. an order number vs the internal order_id) — feeding one where the
+other is expected hits the wrong record or errors. Resolve it through the read, don't assume.
 
 ## Schema introspection
 
@@ -179,6 +202,16 @@ When acting as an AI agent to log the user in: run `auth login` in the **backgro
 `--poll-interval` / `--timeout`, defaults 2s / 300s), **extract the authorization URL from its
 output and hand it to the user**; the command returns on its own after the user authorizes.
 
+**Missing flags become on-screen questions when a terminal is present.** `auth login` (and
+`app init`) asks for what you left out only when stdin **and** stderr are both real terminals and
+neither `SHOPLAZZA_CLI_NO_INTERACTIVE` nor `CI` is set (present and non-empty = set); otherwise a
+missing flag is an error pointing at that flag. **A harness that hands the child process a pty
+passes that check** and the command waits on a keypress that never comes — export
+`SHOPLAZZA_CLI_NO_INTERACTIVE=1` once for the session if yours does.
+
+It only switches prompting **off**. There is no `--interactive` flag and no env var to force it
+on — deliberately, since forcing it would hang for good wherever no terminal exists.
+
 **Re-login for a missing scope? Pass `--merge-scopes`.** Scopes are replaced, not merged
 (see Login above); requesting only the missing scope drops everything else mid-task. If the
 flag is unknown (older CLI), fall back to building the union: `auth scopes` → granted, then
@@ -191,6 +224,10 @@ If you already ran `auth login` on another machine and have an account UAT, skip
 ```bash
 shoplazza auth login --uat <UAT>     # or set env SHOPLAZZA_UAT=<UAT>
 ```
+
+`--uat` is promptless whatever the terminal looks like — a second, whole-command off-switch on
+top of the gate above. Browser logins driven from a pty-allocating harness still need
+`SHOPLAZZA_CLI_NO_INTERACTIVE=1`.
 
 ### Store switching and status
 

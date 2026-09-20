@@ -9,6 +9,10 @@ const (
 	ExitAuth       = 3 // unauthenticated or token expired
 	ExitNetwork    = 4 // network unreachable or timeout
 	ExitInternal   = 5 // unexpected internal error
+
+	// ExitCanceled marks a prompt the user aborted with Ctrl-C, following the
+	// Unix 128+SIGINT convention. Not 1: that is already ExitAPI.
+	ExitCanceled = 130
 )
 
 // Error type strings serialized as ErrDetail.Type. Each pairs naturally with

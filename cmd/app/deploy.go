@@ -18,8 +18,14 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 		debug bool
 	)
 	cmd := &cobra.Command{
-		Use:     "deploy",
-		Short:   "Build and deploy extensions",
+		Use:   "deploy",
+		Short: "Build and deploy extensions",
+		Long:  "Build the project's extensions and deploy them to the app on your current store.",
+		Example: `  # Build and deploy from the project root
+  shoplazza app deploy
+
+  # Deploy a project at a path, building extensions in debug mode
+  shoplazza app deploy --path ./my-app --debug`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -30,9 +36,16 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			cfg, ex := activeAppConfig(p)
+			cfg, ex := activeAppConfig(cmd, p)
 			if ex != nil {
 				return ex
+			}
+
+			// Human-only confirmation: deploy publishes a new version of the app to
+			// the current store. Non-interactive callers proceed unchanged.
+			if err := cmdutil.ConfirmDestructive(f,
+				"Deploy a new version of this app to the current store? It publishes to the live app."); err != nil {
+				return err
 			}
 
 			d, err := dashboardClient(ctx, f)
@@ -104,6 +117,7 @@ func newCmdDeploy(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
+	cmd.Flags().String("config", "", "App config to deploy (name segment; overrides the active config for this run only, not persisted)")
 	cmd.Flags().BoolVar(&debug, "debug", false, "Build extensions in debug mode")
 	return cmd
 }

@@ -78,7 +78,7 @@ func (c *Client) SendStream(ctx context.Context, request RawRequest) (io.ReadClo
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		errBody, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
-		return nil, &HTTPError{StatusCode: resp.StatusCode, Body: string(errBody), Method: strings.ToUpper(request.Method), Path: request.Path}
+		return nil, &HTTPError{StatusCode: resp.StatusCode, Body: string(errBody), Method: strings.ToUpper(request.Method), Path: request.Path, RequestID: resp.Header.Get("Request-Id")}
 	}
 	return resp.Body, nil
 }
@@ -151,15 +151,21 @@ func (c *Client) DoRaw(ctx context.Context, request RawRequest) (RawResponse, er
 	}
 	defer resp.Body.Close()
 
+	// headers-only response for error returns, so Request-Id survives read/parse failures
+	headOnly := RawResponse{
+		StatusCode:  resp.StatusCode,
+		ContentType: resp.Header.Get("Content-Type"),
+		Headers:     map[string][]string(resp.Header),
+	}
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return RawResponse{}, err
+		return headOnly, err
 	}
 	success := resp.StatusCode >= 200 && resp.StatusCode < 300
 	parsedBody, parseErr := parseResponseBody(resp.Header.Get("Content-Type"), respBody)
 	if parseErr != nil {
 		if success {
-			return RawResponse{}, parseErr
+			return headOnly, parseErr
 		}
 		// Non-2xx with an unparseable body (HTML error page behind a JSON
 		// content-type, truncated proxy response): the HTTP failure must win,
@@ -175,7 +181,7 @@ func (c *Client) DoRaw(ctx context.Context, request RawRequest) (RawResponse, er
 		Body:        unwrapped,
 	}
 	if !success {
-		return rawResponse, &HTTPError{StatusCode: resp.StatusCode, Body: string(respBody), Method: strings.ToUpper(request.Method), Path: request.Path}
+		return rawResponse, &HTTPError{StatusCode: resp.StatusCode, Body: string(respBody), Method: strings.ToUpper(request.Method), Path: request.Path, RequestID: resp.Header.Get("Request-Id")}
 	}
 	return rawResponse, nil
 }
@@ -237,7 +243,7 @@ func (c *Client) doJSON(ctx context.Context, method, rawPath string, query map[s
 		fmt.Fprintf(c.Debug, "[debug] < %d  body: %s\n", resp.StatusCode, string(respBody))
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return &HTTPError{StatusCode: resp.StatusCode, Body: string(respBody), Method: method, Path: rawPath}
+		return &HTTPError{StatusCode: resp.StatusCode, Body: string(respBody), Method: method, Path: rawPath, RequestID: resp.Header.Get("Request-Id")}
 	}
 	if out == nil || len(respBody) == 0 {
 		return nil

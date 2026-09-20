@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
+	"github.com/spf13/cobra"
 )
 
 // newProductPlanInput builds a PlanInput via a cobra command.
