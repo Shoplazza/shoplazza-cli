@@ -256,13 +256,16 @@ func devNextSteps(res app.DevResult, root, writtenConfig string) string {
 		"  1. Register the tunnel URLs on the Partner dashboard. Either set them manually:\n"+
 			"       App URL:      %s\n"+
 			"       Redirect URL: %s\n"+
-			"     or re-run with --write-urls to record them in [dashboard], then sync:\n"+
-			"       cd %s && shoplazza app config push\n",
+			"     or re-run with --write-urls to record them in [dashboard], then sync\n"+
+			"     (two lines so it works in every shell, incl. PowerShell):\n"+
+			"       cd %s\n"+
+			"       shoplazza app config push\n",
 		res.AppURL, res.RedirectURL, root)
 	if writtenConfig != "" {
 		step1 = fmt.Sprintf(
 			"  1. Tunnel URLs written to %s. Sync them to the Partner dashboard:\n"+
-				"       cd %s && shoplazza app config push\n",
+				"       cd %s\n"+
+				"       shoplazza app config push\n",
 			writtenConfig, root)
 	}
 	// Extension changes are pushed to the dev store by the /dev call above,

@@ -219,7 +219,7 @@ func TestDevNextSteps_TwoVariants(t *testing.T) {
 	res := app.DevResult{InstallURL: "https://install", AppURL: "https://t/auth", RedirectURL: "https://t/auth/callback"}
 	// Without --write-urls the text must not claim anything was written.
 	plain := devNextSteps(res, "/proj", "")
-	for _, want := range []string{"--write-urls", "cd /proj && shoplazza app config push", "https://t/auth", "https://t/auth/callback", "https://install"} {
+	for _, want := range []string{"--write-urls", "cd /proj\n       shoplazza app config push", "https://t/auth", "https://t/auth/callback", "https://install"} {
 		if !strings.Contains(plain, want) {
 			t.Errorf("plain next steps missing %q:\n%s", want, plain)
 		}
@@ -236,7 +236,7 @@ func TestDevNextSteps_TwoVariants(t *testing.T) {
 		}
 	}
 	written := devNextSteps(res, "/proj", "shoplazza.app.toml")
-	for _, want := range []string{"written to shoplazza.app.toml", "cd /proj && shoplazza app config push", "https://install"} {
+	for _, want := range []string{"written to shoplazza.app.toml", "cd /proj\n       shoplazza app config push", "https://install"} {
 		if !strings.Contains(written, want) {
 			t.Errorf("write-urls next steps missing %q:\n%s", want, written)
 		}
