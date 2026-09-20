@@ -49,6 +49,42 @@ func TestWriteErrorHuman_RequestContext(t *testing.T) {
 	}
 }
 
+// An API error surfaces its code and HTTP status on a dedicated line.
+func TestWriteErrorHuman_CodeAndStatus(t *testing.T) {
+	var b bytes.Buffer
+	e := &ExitError{Detail: &ErrDetail{
+		Code:    "InvalidParameter",
+		Message: "bad param",
+		Detail:  &ErrorContext{StatusCode: 400, Method: "PATCH", Path: "/openapi/shop/333", RequestID: "r1"},
+	}}
+	writeErrorHuman(&b, e, false)
+	out := b.String()
+	for _, want := range []string{"Error: bad param", "Code: InvalidParameter (HTTP 400)", "Request: PATCH /openapi/shop/333", "Request ID: r1"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestCodeStatusLine(t *testing.T) {
+	cases := []struct {
+		code string
+		ctx  *ErrorContext
+		want string
+	}{
+		{"InvalidParameter", &ErrorContext{StatusCode: 400}, "Code: InvalidParameter (HTTP 400)\n"},
+		{"InvalidParameter", nil, "Code: InvalidParameter\n"},
+		{"", &ErrorContext{StatusCode: 500}, "HTTP status: 500\n"},
+		{"", nil, ""},
+		{"", &ErrorContext{}, ""}, // status 0 = not set
+	}
+	for _, tc := range cases {
+		if got := codeStatusLine(tc.code, tc.ctx, false); got != tc.want {
+			t.Errorf("codeStatusLine(%q, %+v) = %q, want %q", tc.code, tc.ctx, got, tc.want)
+		}
+	}
+}
+
 // WriteError keeps the JSON envelope for machine formats and for a non-terminal
 // stderr even in pretty mode — the contract that agents parse stderr as JSON.
 func TestWriteError_MachineStaysJSON(t *testing.T) {
