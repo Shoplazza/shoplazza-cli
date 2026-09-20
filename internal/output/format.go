@@ -29,6 +29,7 @@ const (
 	ansiBold  = "\x1b[1m"
 	ansiCyan  = "\x1b[36m"
 	ansiDim   = "\x1b[2m"
+	ansiRed   = "\x1b[31m"
 )
 
 // maxFlattenDepth bounds how deep table flattening expands nested objects into

@@ -186,17 +186,21 @@ func Execute() (exitCode int) {
 	}
 
 	if execErr != nil {
+		// Errors follow the same audience split as stdout data: a human at a
+		// pretty/table terminal gets a readable "Error:" line; every machine case
+		// (json/ndjson/csv, or a non-terminal stderr) gets the JSON envelope, so
+		// agents still parse stderr as JSON. WriteError enforces both conditions.
+		format := cmdutil.GetFormat(rootCmd)
 		if isExitErr {
-			output.WriteErrorEnvelope(os.Stderr, exitErr)
+			output.WriteError(os.Stderr, exitErr, format)
 			return exitErr.Code
 		}
 
 		// A non-ExitError here is a cobra/pflag usage error (unknown command,
-		// unknown flag, missing required flag, bad argument). Emit it through the
-		// JSON error envelope with a stable subtype so agents parse stderr as JSON
-		// even for the commonest usage mistakes — never leak plain "Error: ..." text.
+		// unknown flag, missing required flag, bad argument). Route it through the
+		// same renderer with a stable subtype so machine consumers still get JSON.
 		usageErr := output.ClassifyUsageError(execErr)
-		output.WriteErrorEnvelope(os.Stderr, usageErr)
+		output.WriteError(os.Stderr, usageErr, format)
 		return usageErr.Code
 	}
 

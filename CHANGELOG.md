@@ -19,6 +19,7 @@
 - `auth scopes` / `login` / `logout`, `auth store use` and the remaining `PrintJSON` sites now honor `--format`; `themeext serve` writes its banner and progress to stderr so stdout stays a clean JSON envelope.
 - Command help rewritten in plain language (implementation jargon dropped), with tightened root-help wording.
 - `app dev` next-steps now lead with "your changes are already pushed — just refresh"; the OAuth install URL is demoted to first-install / app-auth only (skip it if the app is already installed); the app help no longer claims "hot reload" (there is no watcher — re-run to apply changes); and the `app config push` hint is split across two lines so it works in every shell, PowerShell included.
+- Errors now follow the same audience split as data output. At a `pretty`/`table` terminal a failure prints a readable `Error:` line — with the hint, and the failing endpoint / request id when the server returned them — instead of a raw JSON blob. Piped, in CI, with `--no-input`, or in any `json`/`ndjson`/`csv` mode, stderr still carries the `{"ok":false,"error":{…}}` envelope, so agents and scripts keep parsing errors as JSON. Both conditions must hold for the human line (a human-oriented format **and** a terminal on stderr), so redirecting stderr always yields the JSON envelope.
 
 ### Fixed
 - `--no-input` recognizes every truthy pflag form (`--no-input`, `--no-input=true`, and the rest), not just the bare flag.

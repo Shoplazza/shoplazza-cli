@@ -351,6 +351,7 @@ CLI 按 stdout 的去向自动判定使用者（与 `gh`/`docker`/`kubectl` 一�
 - **在交互式终端 → `pretty`**（可读、带色）。**管道 / 重定向 / CI / 设了 `--no-input`·`SHOPLAZZA_CLI_NO_INTERACTIVE`·`CI` → `json`**（稳定、可解析的机器契约）。所以用管道抓 stdout 的 agent（最常见）或声明了自己的 agent,永远拿到 JSON。
 - **人**：在终端里什么都不用传。`pretty`/`table` 只给人看、**不是稳定契约**，别去解析（可能截断/折叠嵌套数据）。任何场景都可 `--format json` 强制 JSON。
 - **脚本 / agent**：管道抓 stdout 本身就得到 JSON。若你的 harness 给 stdout 分配了**伪终端**,用 `--format json` 或 `SHOPLAZZA_CLI_FORMAT=json` 强制,并传 `--no-input`（或设 `SHOPLAZZA_CLI_NO_INTERACTIVE=1` / `CI=1`）确保提问不卡住。别把 `SHOPLAZZA_CLI_FORMAT=pretty` 写进共享 shell 配置（子进程会继承）。
+- **错误**同样按受众区分：在 `pretty`/`table` 终端下失败会打印可读的 `Error:` / `Hint:` 行（服务端返回时还带失败的 endpoint 和 request id）；管道 / CI / `--no-input` / 任意 `json`·`ndjson`·`csv` 模式下,stderr 仍是 `{"ok":false,"error":{…}}` 信封。可读行需**同时满足**"人类格式 + stderr 是终端"两个条件,所以重定向 stderr 永远是 JSON —— 脚本和 agent 照常解析。
 
 ## 安全与风险提示
 

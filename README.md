@@ -354,6 +354,7 @@ The CLI auto-detects the audience from where stdout goes (like `gh`/`docker`/`ku
 - **At an interactive terminal → `pretty`** (readable, colored). **Piped, redirected, in CI, or with `--no-input`/`SHOPLAZZA_CLI_NO_INTERACTIVE`/`CI` set → `json`** — the stable, parseable machine contract. So an agent that pipes stdout (the common case), or declares itself, always gets JSON.
 - **Humans** need pass nothing at a terminal. `pretty`/`table` are for reading, **not** a stable contract — don't parse them (they may truncate/collapse nested data). Force JSON anywhere with `--format json`.
 - **Scripts & agents**: piping stdout already yields JSON. If your harness allocates a **pty** for stdout, force it with `--format json` or `SHOPLAZZA_CLI_FORMAT=json`, and pass `--no-input` (or set `SHOPLAZZA_CLI_NO_INTERACTIVE=1` / `CI=1`) so no prompt can block. Don't set `SHOPLAZZA_CLI_FORMAT=pretty` in a shared shell profile — child processes inherit it.
+- **Errors** follow the same split. At a `pretty`/`table` terminal a failure prints a readable `Error:` / `Hint:` line (plus the failing endpoint and request id when the server returned them); piped, in CI, with `--no-input`, or in any `json`/`ndjson`/`csv` mode, stderr carries the `{"ok":false,"error":{…}}` envelope. Both a human format **and** a terminal on stderr are required for the readable line, so a redirected stderr always stays JSON — scripts and agents keep parsing it.
 
 ## Security & Risk Warnings
 
