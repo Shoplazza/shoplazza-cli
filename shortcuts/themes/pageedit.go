@@ -244,8 +244,8 @@ func isPbType(sectionType string) bool {
 	return strings.HasPrefix(sectionType, "shoplazza://apps/page-builder/")
 }
 
-// isSessionNotFound reports whether an API error means the edit session is gone
-// (never auto-recreate); an invalid oseid surfaces as a 500 with "b_invalid_themeid".
+// isSessionNotFound reports whether an API error means the edit session is gone.
+// The caller never auto-recreates one.
 func isSessionNotFound(err error) bool {
 	if err == nil {
 		return false
