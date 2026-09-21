@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.2.0 - 2026-09-21
 
 ### Fixed
 - `themes +edit` `add_section` now carries `value.settings` and `value.blocks`, so a section can be added and configured in one op instead of an add followed by a second `+edit` round-trip for `append_array_item` / `replace_props`. Both fields were previously dropped from the request without any error (the op still reported `success` and produced an empty card). An unknown key under `value`, a non-object `settings`, a non-array `blocks` or a block without `type` is now a validation error; the server keeps validating block types, field names and `max_blocks`. Omitting `value` behaves exactly as before.
