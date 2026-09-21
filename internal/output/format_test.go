@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestFormatScalar(t *testing.T) {
@@ -103,7 +104,7 @@ func TestPrintFormatted_Pretty_Slice(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "--- [1] ---") {
+	if !strings.Contains(out, "[1]") {
 		t.Errorf("pretty slice missing index header: %s", out)
 	}
 }
@@ -137,7 +138,7 @@ func TestPrintFormatted_Pretty_SingleKeyList(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "--- [1] ---") {
+	if !strings.Contains(out, "[1]") {
 		t.Errorf("single-key list pretty: %s", out)
 	}
 }
@@ -237,12 +238,185 @@ func TestPrintFormatted_Table_Scalar(t *testing.T) {
 func TestPrintListTable_NonMapItems(t *testing.T) {
 	var buf bytes.Buffer
 	items := []any{"string1", "string2"}
-	if err := printListTable(&buf, items, nil, ""); err != nil {
+	if err := listTable(&buf, items, nil, "", false); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
 	if !strings.Contains(out, "string1") {
 		t.Errorf("non-map items table: %s", out)
+	}
+}
+
+func TestPretty_NestedObjectIndented(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{"name": "x", "config": map[string]any{"width": float64(100), "height": float64(50)}}
+	if err := PrintFormatted(&buf, m, FormatPretty); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	// The nested object expands with indentation, not inline JSON.
+	if !strings.Contains(out, "config:\n") {
+		t.Errorf("nested key should head its own line: %s", out)
+	}
+	if !strings.Contains(out, "\n  width:") || !strings.Contains(out, "100") {
+		t.Errorf("nested field should be indented under config: %s", out)
+	}
+	if strings.Contains(out, `{"width"`) {
+		t.Errorf("nested object must not render as inline JSON: %s", out)
+	}
+}
+
+func TestPretty_ScalarArrayJoined(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{"name": "x", "tags": []any{"a", "b", "c"}}
+	if err := PrintFormatted(&buf, m, FormatPretty); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "tags: a, b, c") {
+		t.Errorf("scalar array should join inline: %s", out)
+	}
+}
+
+func TestPretty_FieldPriorityIdFirst(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{"zebra": "z", "id": "1", "alpha": "a"}
+	if err := PrintFormatted(&buf, m, FormatPretty); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	// id (prioritized) precedes the alphabetical rest.
+	if idx, aIdx := strings.Index(out, "id:"), strings.Index(out, "alpha:"); idx < 0 || idx > aIdx {
+		t.Errorf("id should lead alphabetical fields: %s", out)
+	}
+}
+
+func TestTable_FlattensNestedToDotColumns(t *testing.T) {
+	var buf bytes.Buffer
+	items := []any{
+		map[string]any{"summary": "Create", "http": map[string]any{"method": "POST", "path": "/x"}},
+	}
+	if err := PrintFormatted(&buf, items, FormatTable); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	// Nested object becomes dot-notation columns (upper-cased), not "{…}".
+	if !strings.Contains(out, "HTTP.METHOD") || !strings.Contains(out, "HTTP.PATH") {
+		t.Errorf("nested object should flatten to dot columns: %s", out)
+	}
+	if strings.Contains(out, "{…}") {
+		t.Errorf("table must not collapse nested object to placeholder: %s", out)
+	}
+}
+
+func TestColorEnabled_BufferIsPlain(t *testing.T) {
+	var buf bytes.Buffer
+	if colorEnabled(&buf) {
+		t.Error("a non-terminal writer must not enable color")
+	}
+	// And the rendered output carries no ANSI escapes.
+	_ = PrintFormatted(&buf, map[string]any{"id": "1"}, FormatPretty)
+	if strings.Contains(buf.String(), "\x1b[") {
+		t.Errorf("plain writer output must not contain ANSI escapes: %q", buf.String())
+	}
+}
+
+func TestPretty_ListEnvelopeLabelsKey(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{"profiles": []any{map[string]any{"name": "x"}}, "logged_in": true}
+	if err := PrintFormatted(&buf, m, FormatPretty); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.HasPrefix(strings.TrimSpace(out), "profiles:") {
+		t.Errorf("list envelope should lead with its key label, not a bare [1]: %s", out)
+	}
+	if !strings.Contains(out, "\n  [1]") {
+		t.Errorf("items should be indented under the key: %s", out)
+	}
+}
+
+func TestTable_ListEnvelopeCaption(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{"profiles": []any{map[string]any{"name": "x"}}, "logged_in": true}
+	if err := PrintFormatted(&buf, m, FormatTable); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "profiles:") {
+		t.Errorf("table should caption the list with its key: %s", buf.String())
+	}
+}
+
+func TestDominantObjectList(t *testing.T) {
+	// A clean envelope: one object-list + scalar meta.
+	if _, key, ok := dominantObjectList(map[string]any{
+		"orders": []any{map[string]any{"id": "1"}}, "total": float64(1),
+	}); !ok || key != "orders" {
+		t.Errorf("clean envelope should be dominant (key=%q ok=%v)", key, ok)
+	}
+	// A rich record: object-list PLUS a nested-object sibling → not an envelope.
+	if _, _, ok := dominantObjectList(map[string]any{
+		"variants": []any{map[string]any{"id": "v"}}, "image": map[string]any{"src": "x"},
+	}); ok {
+		t.Error("object with a nested-object sibling must not be treated as an envelope")
+	}
+	// Two object-lists → ambiguous, not a single envelope.
+	if _, _, ok := dominantObjectList(map[string]any{
+		"variants": []any{map[string]any{"id": "v"}}, "options": []any{map[string]any{"name": "Size"}},
+	}); ok {
+		t.Error("two object-lists must not resolve to a single dominant list")
+	}
+}
+
+func TestPretty_RichObjectNotHijackedByList(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{
+		"id": "1", "title": "Tee",
+		"image":    map[string]any{"src": "x"},
+		"variants": []any{map[string]any{"id": "v1"}},
+	}
+	if err := PrintFormatted(&buf, m, FormatPretty); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "title:") || !strings.Contains(out, "variants:") {
+		t.Errorf("rich object should render as an object with nested variants: %s", out)
+	}
+	if strings.HasPrefix(strings.TrimSpace(out), "[1]") {
+		t.Errorf("rich object must not be hijacked into a bare variants list: %s", out)
+	}
+}
+
+// TestTableCell_MultibyteTruncation: a long scalar array of CJK strings must be
+// truncated on rune boundaries, never mid-rune (no invalid UTF-8).
+func TestTableCell_MultibyteTruncation(t *testing.T) {
+	arr := make([]any, 0, 40)
+	for i := 0; i < 40; i++ {
+		arr = append(arr, "中文标签")
+	}
+	got := tableCell(arr)
+	if !utf8.ValidString(got) {
+		t.Fatalf("truncation produced invalid UTF-8: %q", got)
+	}
+	if !strings.HasSuffix(got, "...") {
+		t.Fatalf("expected ellipsis after truncation: %q", got)
+	}
+}
+
+// TestCSV_PrefersObjectList: CSV exports the object list (records), not a sibling
+// scalar array, matching what --format table/pretty render.
+func TestCSV_PrefersObjectList(t *testing.T) {
+	var buf bytes.Buffer
+	m := map[string]any{
+		"ids":    []any{"a", "b"},
+		"orders": []any{map[string]any{"id": "1", "status": "open"}},
+	}
+	if err := PrintFormatted(&buf, m, FormatCSV); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "id") {
+		t.Fatalf("CSV should export the orders records (id header), got:\n%s", out)
 	}
 }
 

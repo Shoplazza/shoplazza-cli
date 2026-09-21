@@ -16,6 +16,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Theme workflow commands (init/package/push/pull/serve/share + env) are NOT
+// shortcuts: they are plain-cobra commands in cmd/theme (mounted via
+// themecmd.RegisterCommands) because they are project-scoped dev tooling that
+// owns its own store client, not account-level single-request store ops. The
+// themes shortcuts below are the page/block editing tier, which does run as
+// single-request store ops.
 var allShortcuts = concat(
 	products.Shortcuts(),
 	discounts.Shortcuts(),

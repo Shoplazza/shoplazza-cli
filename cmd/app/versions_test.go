@@ -65,8 +65,9 @@ func TestRunVersionsList_ServerError_RoutesViaErrAPI(t *testing.T) {
 }
 
 // TestVersions_RunE_UnreadableConfig_SurfacesCause: when no flag fills the gap
-// AND ActiveConfig() itself failed (here: no toml at all), the error names the
-// unreadable config — not a misleading "no client_id".
+// AND ActiveConfig() itself failed (here: no toml at all), the error reports the
+// run-outside-a-project cause with an 'app init' hint — not a misleading
+// "no client_id".
 func TestVersions_RunE_UnreadableConfig_SurfacesCause(t *testing.T) {
 	// Temp dir with no shoplazza.app.toml → ActiveConfig() read fails.
 	cmd := newCmdVersions(&cmdutil.Factory{})
@@ -78,8 +79,16 @@ func TestVersions_RunE_UnreadableConfig_SurfacesCause(t *testing.T) {
 	if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
 		t.Fatalf("expected validation error, got %v", err)
 	}
-	if !strings.Contains(ee.Error(), "cannot read active config") {
-		t.Fatalf("message = %q, want the read-failure cause surfaced", ee.Error())
+	if !strings.Contains(ee.Error(), "no app config in this directory") {
+		t.Fatalf("message = %q, want the run-outside-a-project cause surfaced", ee.Error())
+	}
+	if ee.Detail == nil || !strings.Contains(ee.Detail.Hint, "app init") {
+		t.Fatalf("hint = %q, want an 'app init' next step", func() string {
+			if ee.Detail == nil {
+				return ""
+			}
+			return ee.Detail.Hint
+		}())
 	}
 }
 

@@ -40,7 +40,13 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dev",
 		Short: "Run the app in development mode",
-		Args:  cobra.NoArgs,
+		Long:  "Run the app locally against your current store, opening a public tunnel and serving the OAuth install flow until you stop it.",
+		Example: `  # Start the dev server from the project root
+  shoplazza app dev
+
+  # Run from a path and record the tunnel URLs into the config
+  shoplazza app dev --path ./my-app --write-urls`,
+		Args: cobra.NoArgs,
 		// Long-running local dev server.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		PreRunE:     func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
@@ -52,7 +58,7 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			configName, cfg, ex := activeAppConfigNamed(p)
+			configName, cfg, ex := resolveAppConfigNamed(cmd, p)
 			if ex != nil {
 				return ex
 			}
@@ -225,6 +231,7 @@ func newCmdDev(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
+	cmd.Flags().String("config", "", "App config to run against (name segment; overrides the active config for this run only, not persisted)")
 	cmd.Flags().BoolVar(&debug, "debug", false, "Build extensions in debug mode")
 	cmd.Flags().BoolVar(&writeURLs, "write-urls", false,
 		"Write this session's tunnel App URL / Redirect URL into the active config's [dashboard] section "+
@@ -249,17 +256,29 @@ func devNextSteps(res app.DevResult, root, writtenConfig string) string {
 		"  1. Register the tunnel URLs on the Partner dashboard. Either set them manually:\n"+
 			"       App URL:      %s\n"+
 			"       Redirect URL: %s\n"+
-			"     or re-run with --write-urls to record them in [dashboard], then sync:\n"+
-			"       cd %s && shoplazza app config push\n",
+			"     or re-run with --write-urls to record them in [dashboard], then sync\n"+
+			"     (two lines so it works in every shell, incl. PowerShell):\n"+
+			"       cd %s\n"+
+			"       shoplazza app config push\n",
 		res.AppURL, res.RedirectURL, root)
 	if writtenConfig != "" {
 		step1 = fmt.Sprintf(
 			"  1. Tunnel URLs written to %s. Sync them to the Partner dashboard:\n"+
-				"       cd %s && shoplazza app config push\n",
+				"       cd %s\n"+
+				"       shoplazza app config push\n",
 			writtenConfig, root)
 	}
-	return "\nNext steps:\n" + step1 +
-		"  2. Then open the install URL in your browser to install the app on your store:\n" +
+	// Extension changes are pushed to the dev store by the /dev call above,
+	// independent of the OAuth install — so iterating on extensions needs only a
+	// refresh, NOT a reinstall. The install URL is first-install / app-auth only;
+	// re-clicking it against an already-installed app is what misled developers
+	// into thinking dev was "stuck". Lead with the refresh; demote the install.
+	return "\nYour extension changes are already pushed to the dev store — just refresh\n" +
+		"the store (checkout / theme editor or storefront) to see them. Nothing else\n" +
+		"is needed to iterate on extensions.\n" +
+		"\nOnly for the app's own admin UI / OAuth (first install, or after the tunnel\n" +
+		"URL changed):\n" + step1 +
+		"  2. Open the install URL — skip this if the app is already installed:\n" +
 		"       " + res.InstallURL + "\n"
 }
 

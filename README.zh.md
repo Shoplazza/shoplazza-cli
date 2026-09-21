@@ -15,7 +15,7 @@ Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能在终�
 - **为 Agent 原生设计** — 结构化 JSON 输出开箱即用，AI Agent 无需额外适配即可操作 Shoplazza 店铺
 - **内置 Agent Skills** — 一条命令即可安装 [skills](#agent-skills)，让 AI Agent 掌握本 CLI 的命令体系、安全规则与各业务域的易错点
 - **电商全域覆盖** — 商品、折扣、订单、客户完整 CRUD，20+ 快捷命令覆盖高频操作
-- **完整开发者工作流** — App 创建、扩展脚手架（checkout / theme / function）、本地开发服务器 + HMR、一键部署；主题 init、实时热重载与打包
+- **完整开发者工作流** — App 创建、扩展脚手架（checkout / theme / function）、经自动隧道的本地开发服务器、一键部署；主题 init、实时热重载、多环境与打包
 - **安全可控** — 输入防注入、OS 原生密钥链存储凭证、Access Token 自动刷新
 - **三层调用架构** — 快捷命令（人机友好）→ API 命令（OpenAPI 同步）→ 通用调用（全 API 覆盖）
 - **三分钟上手** — 交互式登录授权，从安装到第一次 API 调用只需三步
@@ -31,7 +31,7 @@ Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能在终�
 | 🏪 店铺 | 店铺信息、博客与文章、自定义页面、文件（`+upload-file`）、metafields、市场、多语言、URL 重定向、数据分析 |
 | 💳 计费 | 应用收费：一次性、订阅、按量 |
 | 🔔 Webhook | Webhook 订阅 CRUD |
-| 🎨 主题 | `init`、`serve`（实时热重载）、`pull`、`push`、`package`、`share` |
+| 🎨 主题 | `init`、`serve`（实时热重载）、`pull`、`push`、`package`、`share`、`env`（多环境） |
 | 🧩 应用 | 完整生命周期：init → extension create → dev → deploy；扩展类型：checkout、theme、function |
 
 ## 安装与快速开始
@@ -150,7 +150,7 @@ shoplazza app extension create --type checkout --name my-checkout
 shoplazza app extension create --type theme --name my-theme --theme-type basic
 shoplazza app extension create --type function --name my-fn
 
-# 3. 本地开发（开发服务器 + HMR）— 店铺由当前活跃的 App 配置决定
+# 3. 本地开发（自动隧道；改动后重跑 app dev 生效）— 店铺由当前活跃的 App 配置决定
 shoplazza app dev
 
 # 4. 部署所有扩展
@@ -166,7 +166,8 @@ shoplazza app versions
 ```bash
 shoplazza app list                              # 列出账户下的 App
 shoplazza app info                              # 查看 App 及扩展信息
-shoplazza app config use --config alt.toml      # 切换活跃 App 配置
+shoplazza app config use --config alt.toml      # 切换活跃 App 配置（持久）
+shoplazza app dev --config staging              # 仅本次针对某个配置运行（不持久化）；dev/deploy/function 同样支持
 shoplazza app config link --client-id <id>      # 关联已有 App
 shoplazza app config push                       # 把 [dashboard]（name / app_url / redirect_url / embed）推送到 Partner 后台
 shoplazza app dev --write-urls                  # 同时把隧道 URL 写入 [dashboard]，随后用 app config push 同步
@@ -203,6 +204,23 @@ shoplazza themes share
 shoplazza themes block +edit --session <oseid> --content card.liquid --template index --target <section_id>.blocks
 shoplazza themes block +get  --session <oseid> --id gen_1a0d523 --section <section_id>
 ```
+
+<details>
+<summary>主题多环境（多店 / staging）</summary>
+
+在 `shoplazza.theme.toml` 里记录命名环境（店铺、theme id、路径、ignore），用 `-e` 指定其一：
+
+```bash
+shoplazza themes env add --name staging     # 交互式；写入前校验
+shoplazza themes env list                    # 列出已配置环境
+shoplazza themes env check                   # 离线校验所有环境
+shoplazza themes push -e staging             # 针对该环境运行（店铺 + theme + 路径）
+shoplazza themes pull -e staging             # 把解析出的目标回写到 staging
+```
+
+存在 `default` 环境时会自动套用；`env set` / `env remove` 用于修改和删除条目。
+
+</details>
 
 ## 三层命令调用
 
@@ -293,7 +311,8 @@ npx skills add Shoplazza/shoplazza-cli -g
 
 | Flag | 适用范围 | 说明 |
 |------|----------|------|
-| `--format json\|pretty\|table` | 所有命令 | 输出格式（默认：`json`） |
+| `--format json\|pretty\|table\|ndjson\|csv` | 所有命令 | 输出格式。默认自动判定：终端里 `pretty`，管道/CI 下 `json`（或用 `SHOPLAZZA_CLI_FORMAT`）。`json` 是机器契约，`pretty`/`table` 给人看 |
+| `--no-input` | 所有命令 | 从不提问；缺输入直接结构化报错（脚本/agent）。等同 `SHOPLAZZA_CLI_NO_INTERACTIVE=1` |
 | `--profile <name>` | 所有命令 | 本次调用使用的 profile（优先级高于 `SHOPLAZZA_CLI_PROFILE` 和当前 profile） |
 | `--dry-run` | API 和快捷命令 | 预览请求但不执行 |
 | `--jq "expr"` / `-q` | API 和快捷命令 | 使用 jq 表达式过滤 JSON 输出 |
@@ -321,9 +340,22 @@ shoplazza update --check    # 仅报告当前/最新版本，不安装
 |------|------|
 | `SHOPLAZZA_UAT` | 用于非交互式登录的 User Access Token（等同 `--uat`） |
 | `SHOPLAZZA_CLI_PROFILE` | 指定使用的 profile（`--profile` 优先） |
+| `SHOPLAZZA_CLI_FORMAT` | 固定默认输出格式（`json`/`pretty`/`table`/`ndjson`/`csv`），覆盖 TTY 自动判定；`--format` 仍优先。伪终端里可用 `=json` 强制机器输出 |
+| `SHOPLAZZA_CLI_NO_INTERACTIVE` | 关闭交互式提问（会分配伪终端的 Agent harness 需设置；或用 `--no-input`） |
 | `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | 关闭后台新版本检测 |
 | `SHOPLAZZA_CLI_NO_META_UPDATE` | 关闭后台 API 元数据刷新 |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | 覆盖认证服务基础 URL（默认：`https://partners.shoplazza.com`） |
+
+交互式提问按终端自动判定，且只能关、不能强开 — 不存在对应的 `--interactive` flag。
+
+### 输出与交互：人 vs 脚本/agent
+
+CLI 按 stdout 的去向自动判定使用者（与 `gh`/`docker`/`kubectl` 一致）：
+
+- **在交互式终端 → `pretty`**（可读、带色）。**管道 / 重定向 / CI / 设了 `--no-input`·`SHOPLAZZA_CLI_NO_INTERACTIVE`·`CI` → `json`**（稳定、可解析的机器契约）。所以用管道抓 stdout 的 agent（最常见）或声明了自己的 agent,永远拿到 JSON。
+- **人**：在终端里什么都不用传。`pretty`/`table` 只给人看、**不是稳定契约**，别去解析（可能截断/折叠嵌套数据）。任何场景都可 `--format json` 强制 JSON。
+- **脚本 / agent**：管道抓 stdout 本身就得到 JSON。若你的 harness 给 stdout 分配了**伪终端**,用 `--format json` 或 `SHOPLAZZA_CLI_FORMAT=json` 强制,并传 `--no-input`（或设 `SHOPLAZZA_CLI_NO_INTERACTIVE=1` / `CI=1`）确保提问不卡住。别把 `SHOPLAZZA_CLI_FORMAT=pretty` 写进共享 shell 配置（子进程会继承）。
+- **错误**同样按受众区分：在 `pretty`/`table` 终端下失败会打印可读的 `Error:` / `Hint:` 行（服务端返回时还带失败的 endpoint 和 request id）；管道 / CI / `--no-input` / 任意 `json`·`ndjson`·`csv` 模式下,stderr 仍是 `{"ok":false,"error":{…}}` 信封。可读行需**同时满足**"人类格式 + stderr 是终端"两个条件,所以重定向 stderr 永远是 JSON —— 脚本和 agent 照常解析。
 
 ## 安全与风险提示
 

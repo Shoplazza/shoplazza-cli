@@ -11,13 +11,15 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/api"
 	appcmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/app"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/auth"
-	"github.com/Shoplazza/shoplazza-cli/v2/cmd/checkout"
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd/checkoutext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/completion"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/doctor"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/dynamic"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/profile"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/schema"
-	"github.com/Shoplazza/shoplazza-cli/v2/cmd/theme_extension"
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd/skill"
+	themecmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/theme"
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd/themeext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/update"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
@@ -42,15 +44,10 @@ func NewRootCmd() *cobra.Command {
 		Short: "Shoplazza Open Platform command-line interface",
 		Long: fmt.Sprintf(`Shoplazza CLI — official command-line interface to the Shoplazza Open Platform (OpenAPI %s).
 
-Common workflows:
-  shoplazza auth login                    authenticate to your account
-  shoplazza <module> --help                explore a resource's commands
-  shoplazza <module> <command> [--params <json>] [--data <json>]
-                                           invoke an API endpoint
-  shoplazza schema <module>.<command>      inspect parameters / body / response
-  shoplazza api rest <METHOD> <PATH>       raw HTTP call (escape hatch)
+New here? Run 'shoplazza auth login' to authenticate first.
 
-Run any command with --dry-run to print the request without sending it.`, spec.Version),
+Tips: 'shoplazza schema <module>.<command>' inspects an endpoint's params/body/response;
+add --dry-run to preview any request without sending it.`, spec.Version),
 		Version:       build.DisplayVersion(),
 		SilenceErrors: true,
 		SilenceUsage:  true,
@@ -59,25 +56,64 @@ Run any command with --dry-run to print the request without sending it.`, spec.V
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
-	RegisterGlobalFlags(rootCmd.PersistentFlags())
+	RegisterGlobalFlags(rootCmd.PersistentFlags(), defaultOutputFormat())
 	// --profile completes from configured profile names (best-effort: a
 	// registration failure here would only affect shell completion, never
 	// command execution).
 	_ = rootCmd.RegisterFlagCompletionFunc("profile", cmdutil.ProfileNameCompletionFunc(factory))
 	rootCmd.AddCommand(auth.NewCmdAuth(factory))
 	rootCmd.AddCommand(appcmd.NewCmdApp(factory))
-	rootCmd.AddCommand(checkout.NewCmdCheckout(factory))
-	rootCmd.AddCommand(theme_extension.NewCmdThemeExtension(factory))
+	rootCmd.AddCommand(checkoutext.NewCmdCheckout(factory))
+	rootCmd.AddCommand(themeext.NewCmdThemeExtension(factory))
 	rootCmd.AddCommand(api.NewCmdAPI(factory))
 	rootCmd.AddCommand(profile.NewCmdProfile(factory))
 	rootCmd.AddCommand(schema.NewCmdSchema(spec))
+	rootCmd.AddCommand(skill.NewCmdSkill())
 	rootCmd.AddCommand(doctor.NewCmdDoctor(factory))
 	rootCmd.AddCommand(completion.NewCmdCompletion(factory))
 	rootCmd.AddCommand(update.NewCmdUpdate(factory))
 	dynamic.RegisterCommands(rootCmd, spec, factory)
 	shortcuts.RegisterShortcuts(rootCmd, factory)
+	// Plain-cobra theme workflow commands (push/…) mount under `themes` after it
+	// and its help groups exist. They own their store client, which is what lets
+	// -e select the store/profile locally (see cmd/theme).
+	themecmd.RegisterCommands(rootCmd, factory)
+
+	applyRootGroups(rootCmd)
 
 	return rootCmd
+}
+
+// defaultOutputFormat resolves the --format flag's default. Precedence:
+// SHOPLAZZA_CLI_FORMAT (explicit override) > auto-pretty for a human at a
+// terminal > json (the machine contract). An explicit --format on any command
+// still overrides this.
+func defaultOutputFormat() string {
+	if v := os.Getenv("SHOPLAZZA_CLI_FORMAT"); output.ValidFormat(v) {
+		return v
+	}
+	if autoPretty(output.IsTerminal(os.Stdout), os.LookupEnv, os.Args[1:]) {
+		return output.FormatPretty
+	}
+	return output.FormatJSON
+}
+
+// autoPretty decides the human-friendly default: stdout is a real terminal AND
+// nothing marks the run as automation (CI / SHOPLAZZA_CLI_NO_INTERACTIVE /
+// --no-input). Piped or redirected output, or any of those signals, keeps json —
+// the machine contract — so agents that pipe stdout (the common case) or declare
+// themselves are unaffected. gh/docker/kubectl behave the same way. Injected
+// deps keep it testable without a real terminal.
+func autoPretty(stdoutTTY bool, env func(string) (string, bool), args []string) bool {
+	if !stdoutTTY {
+		return false
+	}
+	for _, k := range []string{"CI", "SHOPLAZZA_CLI_NO_INTERACTIVE"} {
+		if v, ok := env(k); ok && v != "" {
+			return false
+		}
+	}
+	return !wantsNoInput(args)
 }
 
 // Execute runs the root command and returns the process exit code.
@@ -94,6 +130,14 @@ func Execute() (exitCode int) {
 	}()
 
 	rootCmd := NewRootCmd()
+
+	// --no-input forces non-interactive mode by funneling into the existing
+	// interactivity gate's env escape hatch, before any command runs. This gives
+	// callers a definite off-switch even when stdin/stderr are a PTY (where TTY
+	// detection would otherwise treat the run as human and could block on a prompt).
+	if wantsNoInput(os.Args[1:]) {
+		_ = os.Setenv("SHOPLAZZA_CLI_NO_INTERACTIVE", "1")
+	}
 
 	// Ctrl-C / SIGTERM cancel the command context so in-flight work can unwind.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -116,6 +160,9 @@ func Execute() (exitCode int) {
 		// deliberate — no command pays latency for a cache it isn't using.
 		go updatecheck.RefreshCache(build.Version)
 		go metasync.Refresh(ctx, build.Version)
+		// Surface staleness to agents inside the json success envelope's
+		// "_notice" block (opt out with SHOPLAZZA_CLI_NO_NOTICE=1).
+		output.SetNotice(buildNotice(pendingUpdate))
 	}
 
 	// The template is a plain string built up front, so the skills line is
@@ -127,25 +174,34 @@ func Execute() (exitCode int) {
 
 	execErr := rootCmd.ExecuteContext(ctx)
 
+	var exitErr *output.ExitError
+	isExitErr := errors.As(execErr, &exitErr)
+
 	// After the command output, print a one-line notice to stderr for interactive use
 	// (printed on both success and failure paths — never touches stdout).
-	if pendingUpdate != nil && stderrIsTTY() {
+	// Skipped on cancel (ExitCanceled): Ctrl-C must leave both streams empty.
+	canceled := isExitErr && exitErr.Code == output.ExitCanceled
+	if pendingUpdate != nil && !canceled && output.IsTerminal(os.Stderr) {
 		fmt.Fprintln(os.Stderr, "\n"+pendingUpdate.Message())
 	}
 
 	if execErr != nil {
-		var exitErr *output.ExitError
-		if errors.As(execErr, &exitErr) {
-			output.WriteErrorEnvelope(os.Stderr, exitErr)
+		// Errors follow the same audience split as stdout data: a human at a
+		// pretty/table terminal gets a readable "Error:" line; every machine case
+		// (json/ndjson/csv, or a non-terminal stderr) gets the JSON envelope, so
+		// agents still parse stderr as JSON. WriteError enforces both conditions.
+		format := cmdutil.GetFormat(rootCmd)
+		if isExitErr {
+			output.WriteError(os.Stderr, exitErr, format)
 			return exitErr.Code
 		}
 
-		if failing, _, ferr := rootCmd.Find(os.Args[1:]); ferr == nil && failing != nil {
-			_ = failing.Usage()
-		}
-		fmt.Fprintln(os.Stderr, "Error:", execErr.Error())
-
-		return output.ExitValidation
+		// A non-ExitError here is a cobra/pflag usage error (unknown command,
+		// unknown flag, missing required flag, bad argument). Route it through the
+		// same renderer with a stable subtype so machine consumers still get JSON.
+		usageErr := output.ClassifyUsageError(execErr)
+		output.WriteError(os.Stderr, usageErr, format)
+		return usageErr.Code
 	}
 
 	return output.ExitOK

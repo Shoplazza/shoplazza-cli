@@ -24,6 +24,12 @@ var stockShortcut = common.Shortcut{
 	Command: "+stock",
 	Use:     "+stock (--variant-id <id> | --sku <sku> | --product-id <id>) (--set <n> | --adjust <±n>) [--location-id <id>]",
 	Short:   "Set or adjust variant inventory level",
+	Long:    "Set an absolute stock level or apply a delta for a variant (by variant ID, SKU, or product ID); run --dry-run first to preview.",
+	Example: `  # Preview restocking a SKU by +50
+  shoplazza products +stock --sku TS-RED-M --adjust 50 --dry-run
+
+  # Set an absolute stock level by variant ID
+  shoplazza products +stock --variant-id v-1 --set 200`,
 	Flags: []common.Flag{
 		{Name: "variant-id", Type: common.FlagString, Description: "Variant ID — the unique, exact target."},
 		{Name: "sku", Type: common.FlagString, Description: "Variant SKU. Resolves to one variant; a multi-match is refused with the candidates listed (there is no --all here: inventory writes target one variant)."},

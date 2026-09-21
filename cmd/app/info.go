@@ -2,7 +2,9 @@ package appcmd
 
 import (
 	"context"
+	"errors"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -24,6 +26,13 @@ func runInfo(ctx context.Context, d *app.Dashboard, p *project.Project, clientID
 	if clientID == "" {
 		cfg, cfgErr := p.ActiveConfig()
 		if cfgErr != nil {
+			// A missing config = run outside an app project; anything else is a
+			// malformed toml. Point the user at 'app init' either way.
+			if errors.Is(cfgErr, os.ErrNotExist) {
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"no app config in this directory",
+					"run 'shoplazza app init' to create an app project, or cd into one (pass --path to point elsewhere)")
+			}
 			return output.ErrValidation("cannot read active config: %v", cfgErr)
 		}
 		if cfg.ClientID == "" {
@@ -83,8 +92,14 @@ func runInfo(ctx context.Context, d *app.Dashboard, p *project.Project, clientID
 func newCmdInfo(f *cmdutil.Factory) *cobra.Command {
 	var path, clientID string
 	cmd := &cobra.Command{
-		Use:     "info",
-		Short:   "Print app and extension info",
+		Use:   "info",
+		Short: "Print app and extension info",
+		Long:  "Print the active app's details plus its local extensions; pass --client-id to inspect another app directly (skips the local project, so extensions are not listed).",
+		Example: `  # Show the active app and its extensions
+  shoplazza app info
+
+  # Inspect a specific app by client_id
+  shoplazza app info --client-id abc123`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {

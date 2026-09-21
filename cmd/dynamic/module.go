@@ -29,13 +29,42 @@ func moduleShort(name string) string {
 	return titleCase(name)
 }
 
-// accessTierLong is appended to every module's Long to explain the three command tiers.
-const accessTierLong = `
+// moduleLongs gives a module a richer multi-line Long (a workflow map) shown at
+// the top of `shoplazza <module> --help`; accessTierLong is still appended.
+// Unlisted modules fall back to their Short.
+var moduleLongs = map[string]string{
+	"themes": `Develop Shoplazza themes locally, and operate the store's themes over the API.
+Development loop: init -> serve -> push.
+
+Prerequisite:
+  shoplazza auth login                      authenticate your account`,
+}
+
+// moduleLong returns a module's full Long: its workflow map (or Short), the
+// schema hint, and — for a flat (non-grouped) module — the access-tier block. A
+// grouped module (see cmdutil.ModuleGroups) already conveys its tiers through
+// the help groups, so it skips that block (which also wouldn't fit modules whose
+// shortcuts are bare-named, like themes).
+func moduleLong(name string) string {
+	base := moduleShort(name)
+	if l, ok := moduleLongs[name]; ok {
+		base = l
+	}
+	if _, grouped := cmdutil.ModuleGroups[name]; grouped {
+		return base + "\n" + schemaHint
+	}
+	return base + "\n" + accessTierBlock + "\n" + schemaHint
+}
+
+// accessTierBlock explains the three command tiers; appended to non-grouped modules.
+const accessTierBlock = `
 Access tiers:
   +<shortcut>   Human and AI-friendly. Named flags, smart defaults, structured errors.
   <command>     Auto-generated from OpenAPI spec. Full parameter control for scripting.
-  api rest      Raw HTTP fallback covering the full platform surface.
+  api rest      Raw HTTP fallback covering the full platform surface.`
 
+// schemaHint points at schema introspection; appended to every module's Long.
+const schemaHint = `
 Run 'shoplazza schema <module>' to list all commands, or 'shoplazza schema <module>.<command>' to view parameters.`
 
 // buildModuleCommand walks mod.Commands and registers each via path[].
@@ -44,7 +73,7 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 	moduleCmd := &cobra.Command{
 		Use:   mod.Name,
 		Short: moduleShort(mod.Name),
-		Long:  moduleShort(mod.Name) + "\n" + accessTierLong,
+		Long:  moduleLong(mod.Name),
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// Discovery nodes (bare group invocation) skip the auth gate.
 			if cmd.Annotations[annotationDiscovery] == "true" {
@@ -53,6 +82,11 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 			// Local shortcuts declare AuthFree (stamped by Mount); all other
 			// leaves stay gated.
 			if cmd.Annotations[cmdutil.AnnotationAuthFree] == "true" {
+				return nil
+			}
+			// --dry-run only prints the request — no network, so previewing must
+			// not require auth (a leaf's own dry-run branch never calls out).
+			if cmdutil.IsDryRun(cmd) {
 				return nil
 			}
 			return cmdutil.RequireAuth(cmd.Context(), factory, cmd)
@@ -64,6 +98,14 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 
 	if len(valid) == 0 {
 		return nil
+	}
+
+	// Opt into help grouping: generated commands are the OpenAPI/store tier;
+	// shortcuts mounted later (RegisterShortcuts) land in the shortcut tier.
+	grouped := false
+	if grps, ok := cmdutil.ModuleGroups[mod.Name]; ok {
+		moduleCmd.AddGroup(grps...)
+		grouped = true
 	}
 
 	nodes := map[string]*cobra.Command{"": moduleCmd}
@@ -82,11 +124,17 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 				Long:        long,
 				Annotations: map[string]string{annotationDiscovery: "true"},
 			}
+			if grouped && parent == moduleCmd {
+				grp.GroupID = cmdutil.GroupAPI
+			}
 			parent.AddCommand(grp)
 			nodes[key] = grp
 			parent = grp
 		}
 		leaf := buildLeafCommand(c, spec, factory, mod.Name)
+		if grouped && parent == moduleCmd {
+			leaf.GroupID = cmdutil.GroupAPI
+		}
 		parent.AddCommand(leaf)
 	}
 	return moduleCmd

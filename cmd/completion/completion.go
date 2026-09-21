@@ -11,9 +11,8 @@ import (
 // NewCmdCompletion generates shell completion scripts.
 func NewCmdCompletion(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:    "completion <shell>",
-		Short:  "Generate shell completion scripts",
-		Hidden: true,
+		Use:   "completion <shell>",
+		Short: "Generate shell completion scripts",
 		// Prints shell scripts, not output envelopes.
 		Annotations: map[string]string{cmdutil.AnnotationNotScannable: "true"},
 		Long: `Generate shell completion scripts for bash, zsh, fish, or powershell.

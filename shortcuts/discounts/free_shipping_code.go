@@ -17,6 +17,12 @@ var freeShippingCodeShortcut = common.Shortcut{
 	Command: "+free-shipping-code",
 	Use:     "+free-shipping-code [--limit-max N] [--limit-user N] [--off <amount>] [--min-amount <amount> | --min-quantity <n>] [--countries <ISO,...|all>] [--code <CODE>] [--combines order,product,shipping] [--customer-segments <ids>]",
 	Short:   "Create a free-shipping discount code",
+	Long:    "Create a free-shipping discount code, optionally gated by minimum spend or country; run --dry-run first to preview the request.",
+	Example: `  # Preview a free-shipping code
+  shoplazza discounts +free-shipping-code --code FREESHIP --dry-run
+
+  # Free shipping over a minimum order amount, US only
+  shoplazza discounts +free-shipping-code --min-amount 50 --countries US`,
 	Flags: []common.Flag{
 		{Name: "off", Type: common.FlagFloat, Description: "Fixed amount off shipping (omit = 100% free shipping)."},
 		{Name: "min-amount", Type: common.FlagFloat, Description: "Minimum order amount (mutex with --min-quantity)."},

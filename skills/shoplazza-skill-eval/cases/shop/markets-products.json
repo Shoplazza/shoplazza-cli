@@ -1,0 +1,49 @@
+[
+  {
+    "case_id": "shop.markets-add-product-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.markets.add-product",
+    "scenario": "把商品加入某市场销售 — 写操作 --dry-run,id 进 --params,product_ids 进 --data",
+    "input": "把商品 1001 和 1002 加到日本市场 mkt_jp01 里卖",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop markets add-product",
+      "flags_must_contain": ["--params", "--data", "--dry-run"],
+      "params_must_contain": ["id", "mkt_jp01", "\"product_ids\"", "1001", "1002"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "market id mkt_jp01 is the required path param id inside --params, not stuffed into the body",
+        "both product ids 1001 and 1002 are sent in the body field product_ids as an array, taken verbatim from the utterance",
+        "a write: runs --dry-run first per the safety protocol and restates which products are being added to which market",
+        "does not fabricate extra product ids the user did not name"
+      ]
+    },
+    "notes": "Grounded: shop markets add-product --help + schema shop.markets.add-product (POST /openapi/2026-01/markets/{id}/products; path param id required; body.product_ids required array). Write → --dry-run first + restate. Body product_ids asserted via params_must_contain (matches --params/--data payloads per case_schema)."
+  },
+  {
+    "case_id": "shop.markets-list-product-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.markets.list-product",
+    "scenario": "查某市场在售商品并按关键词过滤 — 纯读,id + keyword 进 --params",
+    "input": "查一下日本市场 mkt_jp01 里卖的商品,只看名字带 hoodie 的",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop markets list-product",
+      "flags_must_contain": ["--params"],
+      "params_must_contain": ["id", "mkt_jp01", "keyword", "hoodie"],
+      "flags_must_not_contain": ["--dry-run", "--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "market id mkt_jp01 is the required path param id inside --params",
+        "the '带 hoodie' filter maps to the keyword query param with value hoodie, taken from the user's own wording",
+        "a GET read: no --data, no --dry-run",
+        "does not invent is_excluded / collection_id / sort filters the user did not ask for"
+      ]
+    },
+    "notes": "Grounded: shop markets list-product --help + schema shop.markets.list-product (GET /openapi/2026-01/markets/{id}/products; path param id required; optional query keyword, is_excluded, collection_id, sort_by, sort_direction, cursor, page_size). Read → must_ask false, no dry-run."
+  }
+]

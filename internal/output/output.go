@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/itchyny/gojq"
 )
@@ -63,13 +64,20 @@ func PrintAPISuccess(w io.Writer, body any, format, jq string) error {
 	if jq != "" && format != FormatJSON {
 		return ErrValidation("--jq requires --format json")
 	}
-	if format == FormatPretty || format == FormatTable {
+	// pretty/table/ndjson/csv render the raw body without the {ok,data} envelope:
+	// they are human-, stream-, or export-oriented, not the machine envelope.
+	if format == FormatPretty || format == FormatTable || format == FormatNDJSON || format == FormatCSV {
 		return PrintBody(w, body, format, "")
 	}
 	if body == nil {
 		body = map[string]any{}
 	}
 	envelope := map[string]any{"ok": true, "data": body}
+	// Agents parse "_notice" to learn the CLI or its skills are stale, without
+	// it ever touching stdout data or the pretty/table/ndjson paths above.
+	if len(pendingNotice) > 0 {
+		envelope["_notice"] = pendingNotice
+	}
 	if jq != "" {
 		return applyJQ(w, envelope, jq)
 	}
@@ -95,19 +103,59 @@ func applyJQ(w io.Writer, v any, expr string) error {
 	if err != nil {
 		return ErrInternal("jq input marshal: %v", err)
 	}
-	iter := query.Run(normalised)
+	produced, allNull, err := runJQ(w, query, normalised)
+	if err != nil {
+		return err
+	}
+	// A filter that selected nothing (no output, or only null) is the classic
+	// "why is it null?" confusion — e.g. `.request.path` on a real call, where
+	// the envelope is {ok,data} and .request exists only under --dry-run. Nudge
+	// the human on stderr; stdout still carries the raw jq result verbatim, so the
+	// machine contract is untouched and piped/redirected stderr sees no hint.
+	if produced == 0 || allNull {
+		writeJQEmptyHint(os.Stderr, expr)
+	}
+	return nil
+}
+
+// runJQ evaluates query against input, writing each result to w. It reports how
+// many values were produced and whether every one was null.
+func runJQ(w io.Writer, query *gojq.Query, input any) (produced int, allNull bool, err error) {
+	allNull = true
+	iter := query.Run(input)
 	for {
 		out, ok := iter.Next()
 		if !ok {
-			return nil
+			return produced, allNull, nil
 		}
 		if jqErr, isErr := out.(error); isErr {
-			return ErrValidation("jq: %v", jqErr)
+			return produced, allNull, ErrValidation("jq: %v", jqErr)
 		}
-		if err := writeJQResult(w, out); err != nil {
-			return err
+		produced++
+		if out != nil {
+			allNull = false
+		}
+		if werr := writeJQResult(w, out); werr != nil {
+			return produced, allNull, werr
 		}
 	}
+}
+
+// writeJQEmptyHint writes the empty-result hint to w only when w is a terminal,
+// so machine consumers (piped/redirected stderr, CI) never see it.
+func writeJQEmptyHint(w io.Writer, expr string) {
+	if !IsTerminal(w) {
+		return
+	}
+	_, _ = io.WriteString(w, jqEmptyHintLine(expr, colorEnabled(w)))
+}
+
+// jqEmptyHintLine builds the one-line stderr hint shown when --jq selected
+// nothing, pointing at the two common causes: data lives under .data, and
+// .request is a --dry-run-only field.
+func jqEmptyHintLine(expr string, color bool) string {
+	return fmt.Sprintf("%s --jq '%s' matched nothing. Run without --jq to see the shape — response data is under '.data'; '.request' only exists with --dry-run.\n",
+		colorDim("hint:", color), expr)
 }
 
 func normaliseForJQ(v any) (any, error) {

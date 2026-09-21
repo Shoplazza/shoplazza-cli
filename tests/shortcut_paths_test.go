@@ -25,7 +25,6 @@ import (
 	ordershortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/orders"
 	productshortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/products"
 	shopshortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/shop"
-	themeshortcuts "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/themes"
 )
 
 // allGuardedShortcuts is the shortcut set the spec guards in this package run
@@ -38,7 +37,8 @@ func allGuardedShortcuts() []common.Shortcut {
 	all = append(all, ordershortcuts.Shortcuts()...)
 	all = append(all, customershortcuts.Shortcuts()...)
 	all = append(all, shopshortcuts.Shortcuts()...)
-	all = append(all, themeshortcuts.Shortcuts()...)
+	// Theme workflow commands are plain-cobra in cmd/theme (not shortcuts), so
+	// they are not part of the shortcut spec-path guard.
 	return all
 }
 

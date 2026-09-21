@@ -1,6 +1,7 @@
 package appcmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -43,7 +44,9 @@ extensions/<name>/ directory and use the current app's token.
 // would escape the project tree.
 func requireExtensionName(name string) error {
 	if name == "" {
-		return output.ErrValidation("--name is required")
+		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			"--name is required",
+			"the function extension's directory name under extensions/ (see 'shoplazza app info')")
 	}
 	if filepath.Base(name) != name {
 		return output.ErrValidation("invalid --name %q: must be a bare directory name under extensions/, without path separators", name)
@@ -75,14 +78,22 @@ func newCmdFunctionCompile(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "compile",
 		Short: "Compile a single function extension's src/index.js to WASM (javy)",
-		Args:  cobra.NoArgs,
+		Long:  "Compile one function extension's src/index.js to WASM with javy, writing the artifact under app-deploy/; local-only, no publish.",
+		Example: `  # Compile a function extension to WASM
+  shoplazza app function compile --name my-function`,
+		Args: cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			return nil // local-only: no auth gate; --name resolved in RunE
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "name", Title: "Function extension (directory under extensions/)", Picker: localFunctionOptions},
+			); err != nil {
+				return err
+			}
 			if err := requireExtensionName(name); err != nil {
 				return err
 			}
-			return nil // local-only: no auth gate
-		},
-		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			p, err := openProject(path)
 			if err != nil {
@@ -90,7 +101,9 @@ func newCmdFunctionCompile(f *cmdutil.Factory) *cobra.Command {
 			}
 			entry := filepath.Join(p.Root, project.ExtensionsDir, name, "src", "index.js")
 			if _, statErr := os.Stat(entry); statErr != nil {
-				return output.ErrValidation("function entry not found: %s", entry)
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					"function entry not found: "+entry,
+					"check --name matches a directory under extensions/, or scaffold it with 'shoplazza app extension create --type function --name "+name+"'")
 			}
 			// Per-step progress on stderr (javy toolchain fetch + WASM compile
 			// both block) so the result JSON on stdout stays pipe-clean.
@@ -127,14 +140,24 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 		Use:   "release",
 		Short: "Compile + create/commit a single function extension (does not touch theme/checkout)",
 		Long:  "Publishes ONE function extension. For a whole-app publish use `shoplazza app deploy`.",
-		Args:  cobra.NoArgs,
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
+		Example: `  # Release one function extension to the active app
+  shoplazza app function release --name my-function`,
+		Args: cobra.NoArgs,
+		// Login is checked in RunE, AFTER --name, so a missing/invalid name fails
+		// with a validation error regardless of auth state (and a human can be
+		// prompted for it) rather than being forced through the login gate first.
+		RunE: func(cmd *cobra.Command, _ []string) (err error) {
+			if err := cmdutil.ResolveFlags(cmd, f,
+				cmdutil.PromptField{Flag: "name", Title: "Function extension (directory under extensions/)", Picker: localFunctionOptions},
+			); err != nil {
+				return err
+			}
 			if err := requireExtensionName(name); err != nil {
 				return err
 			}
-			return requireLogin(cmd.Context(), f)
-		},
-		RunE: func(cmd *cobra.Command, _ []string) (err error) {
+			if err := requireLogin(cmd.Context(), f); err != nil {
+				return err
+			}
 			ctx := cmd.Context()
 			// Live elapsed timer per phase on a TTY (output.Progress) — release does
 			// several blocking network calls plus a WASM compile. The deferred Fail
@@ -152,7 +175,7 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cfg, ex := activeAppConfig(p)
+			cfg, ex := activeAppConfig(cmd, p)
 			if ex != nil {
 				return ex
 			}
@@ -192,7 +215,9 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 				}
 			}
 			if target == nil || target.Type != "function" {
-				return output.ErrValidation("no function extension %q under extensions/", name)
+				return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+					fmt.Sprintf("no function extension %q under extensions/", name),
+					"run 'shoplazza app function list' to see function extensions, or 'shoplazza app extension create --type function --name "+name+"' to scaffold one")
 			}
 
 			step = prog.Begin("[release] resolving app config")
@@ -252,6 +277,7 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Function extension name under extensions/ (required)")
 	cmd.Flags().StringVar(&clientID, "client-id", "", "App client_id (defaults to active config; partner_id is always read from the active config, so overriding to an app under a different partner will 404)")
 	cmd.Flags().StringVar(&path, "path", ".", "Project root")
+	cmd.Flags().String("config", "", "App config to release under (name segment; overrides the active config for this run only, not persisted)")
 	cmd.Flags().BoolVar(&debug, "debug", false, "(reserved; javy build is not debug-aware)")
 	return cmd
 }
@@ -306,8 +332,11 @@ func digToArray(v any) []any {
 func newCmdFunctionList(f *cmdutil.Factory) *cobra.Command {
 	var path string
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List the current app's function extensions",
+		Use:   "list",
+		Short: "List the current app's function extensions",
+		Long:  "List the current app's function extensions (single page, capped at 1000); source_code is stripped from the output.",
+		Example: `  # List the active app's function extensions
+  shoplazza app function list`,
 		Args:    cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, _ []string) error { return requireLogin(cmd.Context(), f) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -316,7 +345,7 @@ func newCmdFunctionList(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cfg, ex := activeAppConfig(p)
+			cfg, ex := activeAppConfig(cmd, p)
 			if ex != nil {
 				return ex
 			}

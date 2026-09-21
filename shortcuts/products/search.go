@@ -13,6 +13,12 @@ var searchShortcut = common.Shortcut{
 	Command: "+search",
 	Use:     "+search",
 	Short:   "Quickly search products",
+	Long:    "Search the catalog by title, vendor, collection, or published status. Returns one page — set --page-limit and follow has_more/cursor for the rest.",
+	Example: `  # Published products by title, 50 per page
+  shoplazza products +search --keyword shirt --published published --page-limit 50
+
+  # By vendor, print only titles
+  shoplazza products +search --vendor Acme --jq '.data.products[].title'`,
 	Flags: []common.Flag{
 		{Name: "keyword", Type: common.FlagString, Description: "Filter by product title."},
 		{Name: "published", Type: common.FlagString, Description: "Filter by published status: published, unpublished, any (true/false also accepted).", Completions: []string{"published", "unpublished", "any"}},

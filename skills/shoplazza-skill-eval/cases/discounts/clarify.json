@@ -1,0 +1,25 @@
+[
+  {
+    "case_id": "discounts.clarify-01",
+    "type": "behavior",
+    "skill": "shoplazza-discounts",
+    "operation": "discounts.create",
+    "scenario": "只说'建个优惠码'没给类型 — 多种码型并存,必须先问哪种,不擅自选一个默认",
+    "input": "帮我建一个优惠码",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": [
+        "类型|哪种|哪类|percent|百分比|折扣|amount|满减|减价|买赠|bxgy|免运费|free.?shipping|type"
+      ],
+      "flags_must_not_contain": ["--percent", "--amount", "--target"],
+      "semantic_rubric": [
+        "several discount-code types exist (+percent-code / +amount-code / +bxgy-code / +free-shipping-code / +mn-discount / +rebate), and the request names none — asks WHICH type rather than picking one",
+        "does NOT emit any +*-code create command with a guessed type",
+        "does not fabricate a code value, a discount amount, or a validity window"
+      ]
+    },
+    "notes": "Ambiguous-type probe. '优惠码' narrows to the code-bearing shortcuts but not to any single type; the right answer is a clarifying question, not a defaulted type."
+  }
+]

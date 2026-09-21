@@ -186,14 +186,21 @@ export function collectBodyFields(jsonText) {
 export function parseAvailableCommands(helpText) {
   const names = new Set();
   const lines = helpText.split('\n');
+  // Command entries live under cobra's default "Available Commands:" header OR,
+  // at the root, under custom group titles ("Store & business (...):", etc.).
+  // Any top-level line ending in ':' opens a section; these ones are NOT command
+  // lists, so they close the block instead of opening one.
+  const NON_COMMAND = /^(Usage|Aliases|Examples|Flags|Global Flags|Additional Commands|Additional help topics):/;
   let inBlock = false;
   for (const line of lines) {
-    if (/^Available Commands:/.test(line)) { inBlock = true; continue; }
-    if (inBlock) {
-      if (/^\S/.test(line) || line.trim() === '') { if (line.trim() === '' ) { inBlock = false; continue; } inBlock = false; continue; }
-      const m = line.match(/^\s{2}(\+?[a-z0-9][a-z0-9-]*)\s/);
-      if (m) names.add(m[1]);
+    if (/^\S.*:\s*$/.test(line)) { // a top-level section header
+      inBlock = !NON_COMMAND.test(line);
+      continue;
     }
+    if (!inBlock) continue;
+    if (line.trim() === '') { inBlock = false; continue; }
+    const m = line.match(/^\s{2}(\+?[a-z0-9][a-z0-9-]*)\s/);
+    if (m) names.add(m[1]);
   }
   return names;
 }

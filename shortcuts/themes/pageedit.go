@@ -348,16 +348,3 @@ func doctreeRoot(resp map[string]any) map[string]any {
 	}
 	return resp
 }
-
-// themeInfoForDryRun reads the local theme name/version for a dry-run plan,
-// substituting placeholders when the directory carries neither.
-func themeInfoForDryRun(cwd string) (string, string) {
-	name, version, _ := readThemeInfo(cwd)
-	if name == "" {
-		name = "<theme>"
-	}
-	if version == "" {
-		version = "<version>"
-	}
-	return name, version
-}

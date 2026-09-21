@@ -15,7 +15,7 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 - **Agent-Native Design** — Structured JSON output out of the box; AI Agents can operate Shoplazza stores with zero extra setup
 - **Agent Skills Included** — One command installs [skills](#agent-skills) that teach AI agents this CLI's commands, safety rules, and per-domain gotchas
 - **E-Commerce Focused** — Products, Discounts, Orders, Customers with full CRUD and 20+ shortcut commands for high-frequency operations
-- **Full Developer Workflow** — App creation, extension scaffolding (checkout / theme / function), local dev server with HMR, one-command deploy; plus theme init, live reload, and packaging
+- **Full Developer Workflow** — App creation, extension scaffolding (checkout / theme / function), local dev server over an auto tunnel, one-command deploy; plus theme init, live reload, multi-environment, and packaging
 - **Secure & Controllable** — Input injection protection, OS-native keychain credential storage, token auto-refresh
 - **Three-Layer Architecture** — Shortcuts (human & AI friendly) → API Commands (OpenAPI-synced) → Raw API (full coverage)
 - **Up and Running in 3 Minutes** — Interactive login, from install to first API call in 3 steps
@@ -31,7 +31,7 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 | 🏪 Shop | Shop info, blogs & articles, pages, files (`+upload-file`), metafields, markets, languages, redirects, analytics |
 | 💳 Billing | Application charges: one-time, recurring, usage-based |
 | 🔔 Webhooks | Webhook subscription CRUD |
-| 🎨 Themes | `init`, `serve` (live reload), `pull`, `push`, `package`, `share` |
+| 🎨 Themes | `init`, `serve` (live reload), `pull`, `push`, `package`, `share`, `env` (multi-environment) |
 | 🧩 App | Full lifecycle: init → extension create → dev → deploy; extensions: checkout, theme, function |
 
 ## Installation & Quick Start
@@ -150,7 +150,7 @@ shoplazza app extension create --type checkout --name my-checkout
 shoplazza app extension create --type theme --name my-theme --theme-type basic
 shoplazza app extension create --type function --name my-fn
 
-# 3. Local development (dev server + HMR) — store comes from the active app config
+# 3. Local development (auto tunnel; re-run to apply changes) — store from the active app config
 shoplazza app dev
 
 # 4. Deploy all extensions
@@ -166,7 +166,8 @@ shoplazza app versions
 ```bash
 shoplazza app list                              # List apps in your account
 shoplazza app info                              # Print app and extension info
-shoplazza app config use --config alt.toml      # Switch active app config
+shoplazza app config use --config alt.toml      # Switch active app config (persistent)
+shoplazza app dev --config staging              # Run against one config for this invocation only (not persisted); dev/deploy/function too
 shoplazza app config link --client-id <id>      # Link an existing app (pulls its dashboard settings into [dashboard])
 shoplazza app config push                       # Push [dashboard] (name / app_url / redirect_url / embed) to the Partner dashboard
 shoplazza app dev --write-urls                  # Also record the tunnel URLs in [dashboard], then `app config push` them
@@ -203,6 +204,23 @@ shoplazza themes share
 shoplazza themes block +edit --session <oseid> --content card.liquid --template index --target <section_id>.blocks
 shoplazza themes block +get  --session <oseid> --id gen_1a0d523 --section <section_id>
 ```
+
+<details>
+<summary>Theme environments (multi-store / staging)</summary>
+
+Record named environments (store, theme id, path, ignore) in `shoplazza.theme.toml` and target one with `-e`:
+
+```bash
+shoplazza themes env add --name staging     # interactive; validates before writing
+shoplazza themes env list                    # list configured environments
+shoplazza themes env check                   # validate all environments offline
+shoplazza themes push -e staging             # run against that environment (store + theme + path)
+shoplazza themes pull -e staging             # records its resolved target back into staging
+```
+
+A `default` environment is auto-applied when present; `env set` / `env remove` edit and delete entries.
+
+</details>
 
 ## Three-Layer Command System
 
@@ -296,7 +314,8 @@ before use.
 
 | Flag | Scope | Description |
 |------|-------|-------------|
-| `--format json\|pretty\|table` | All commands | Output format (default: `json`) |
+| `--format json\|pretty\|table\|ndjson\|csv` | All commands | Output format. Default auto-detects: `pretty` at a terminal, `json` when piped/CI (or set `SHOPLAZZA_CLI_FORMAT`). `json` is the machine contract; `pretty`/`table` are for humans |
+| `--no-input` | All commands | Never prompt; fail fast on missing input (scripts/agents). Same as `SHOPLAZZA_CLI_NO_INTERACTIVE=1` |
 | `--profile <name>` | All commands | Profile for this invocation (beats `SHOPLAZZA_CLI_PROFILE` and the current profile) |
 | `--dry-run` | API & shortcut commands | Preview request without executing |
 | `--jq "expr"` / `-q` | API & shortcut commands | Filter JSON output with jq expression |
@@ -324,9 +343,22 @@ shoplazza update --check    # report current/latest versions only, no install
 |----------|-------------|
 | `SHOPLAZZA_UAT` | User Access Token for non-interactive login (equivalent to `--uat`) |
 | `SHOPLAZZA_CLI_PROFILE` | Profile to use (overridden by `--profile`) |
+| `SHOPLAZZA_CLI_FORMAT` | Pin the default output format (`json`/`pretty`/`table`/`ndjson`/`csv`), overriding TTY auto-detection; `--format` still overrides it. Use `=json` to force machine output in a pty |
+| `SHOPLAZZA_CLI_NO_INTERACTIVE` | Disable interactive prompts (set it in Agent harnesses that allocate a pty; or pass `--no-input`) |
 | `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | Disable the background new-version check |
 | `SHOPLAZZA_CLI_NO_META_UPDATE` | Disable background API-metadata refreshes |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | Override auth base URL (default: `https://partners.shoplazza.com`) |
+
+Interactive prompts are auto-detected from the terminal and can only be switched **off** — there is no `--interactive` flag to force them on.
+
+### Output & interactivity: humans vs scripts/agents
+
+The CLI auto-detects the audience from where stdout goes (like `gh`/`docker`/`kubectl`):
+
+- **At an interactive terminal → `pretty`** (readable, colored). **Piped, redirected, in CI, or with `--no-input`/`SHOPLAZZA_CLI_NO_INTERACTIVE`/`CI` set → `json`** — the stable, parseable machine contract. So an agent that pipes stdout (the common case), or declares itself, always gets JSON.
+- **Humans** need pass nothing at a terminal. `pretty`/`table` are for reading, **not** a stable contract — don't parse them (they may truncate/collapse nested data). Force JSON anywhere with `--format json`.
+- **Scripts & agents**: piping stdout already yields JSON. If your harness allocates a **pty** for stdout, force it with `--format json` or `SHOPLAZZA_CLI_FORMAT=json`, and pass `--no-input` (or set `SHOPLAZZA_CLI_NO_INTERACTIVE=1` / `CI=1`) so no prompt can block. Don't set `SHOPLAZZA_CLI_FORMAT=pretty` in a shared shell profile — child processes inherit it.
+- **Errors** follow the same split. At a `pretty`/`table` terminal a failure prints a readable `Error:` / `Hint:` line (plus the failing endpoint and request id when the server returned them); piped, in CI, with `--no-input`, or in any `json`/`ndjson`/`csv` mode, stderr carries the `{"ok":false,"error":{…}}` envelope. Both a human format **and** a terminal on stderr are required for the readable line, so a redirected stderr always stays JSON — scripts and agents keep parsing it.
 
 ## Security & Risk Warnings
 

@@ -55,6 +55,26 @@ func (e *ExitError) WithHint(hint string) *ExitError {
 	return e
 }
 
+// WithSubtype sets the stable machine-branchable subtype, returning the
+// receiver for chaining.
+func (e *ExitError) WithSubtype(subtype string) *ExitError {
+	if e.Detail == nil {
+		e.Detail = &ErrDetail{}
+	}
+	e.Detail.Subtype = subtype
+	return e
+}
+
+// WithParam names the offending flag/parameter, returning the receiver for
+// chaining.
+func (e *ExitError) WithParam(param string) *ExitError {
+	if e.Detail == nil {
+		e.Detail = &ErrDetail{}
+	}
+	e.Detail.Param = param
+	return e
+}
+
 // WithEndpoint attaches the failing request's method + path to the error's
 // detail block. A no-op when both are empty; returns the receiver for chaining.
 func (e *ExitError) WithEndpoint(method, path string) *ExitError {
@@ -72,6 +92,21 @@ func (e *ExitError) WithEndpoint(method, path string) *ExitError {
 	return e
 }
 
+// WithRequestID attaches the request id to error.detail; no-op when empty.
+func (e *ExitError) WithRequestID(id string) *ExitError {
+	if id == "" {
+		return e
+	}
+	if e.Detail == nil {
+		e.Detail = &ErrDetail{}
+	}
+	if e.Detail.Detail == nil {
+		e.Detail.Detail = &ErrorContext{}
+	}
+	e.Detail.Detail.RequestID = id
+	return e
+}
+
 // Envelope returns the user-facing fields of the error as a map, for test
 // introspection; production code uses WriteErrorEnvelope for the wire format.
 // Here "code" is the integer exit code (e.Code), distinct from the wire
@@ -83,6 +118,12 @@ func (e *ExitError) Envelope() map[string]any {
 			out[k] = v
 		}
 		out["type"] = e.Detail.Type
+		if e.Detail.Subtype != "" {
+			out["subtype"] = e.Detail.Subtype
+		}
+		if e.Detail.Param != "" {
+			out["param"] = e.Detail.Param
+		}
 		if e.Detail.Message != "" {
 			out["message"] = e.Detail.Message
 		}
@@ -193,7 +234,7 @@ func ErrAPI(statusCode int, body, requestID string) *ExitError {
 // ErrAPIAuthHint builds an auth-class ExitError from a non-2xx auth/token
 // exchange response: like ErrAPI but keeping the auth type and a caller-supplied
 // recovery hint alongside the clean server-parsed message + code + status_code.
-func ErrAPIAuthHint(statusCode int, body, hint string) *ExitError {
+func ErrAPIAuthHint(statusCode int, body, requestID, hint string) *ExitError {
 	code, msg := parseAPIErrorBody(body)
 	if msg == "" {
 		if msg = strings.TrimSpace(body); msg == "" {
@@ -207,7 +248,7 @@ func ErrAPIAuthHint(statusCode int, body, hint string) *ExitError {
 			Code:    code,
 			Message: msg,
 			Hint:    hint,
-			Detail:  newErrorContext(statusCode, ""),
+			Detail:  newErrorContext(statusCode, requestID),
 		},
 	}
 }
@@ -250,6 +291,10 @@ func parseAPIErrorBody(body string) (code, message string) {
 	}
 	return "", ""
 }
+
+// ErrCanceled reports a prompt the user aborted. Detail is nil, so nothing is
+// printed on either stream and only the exit code carries the outcome.
+func ErrCanceled() *ExitError { return &ExitError{Code: ExitCanceled} }
 
 // WriteErrorEnvelope serialises err as a JSON ErrorEnvelope and writes it to w.
 // A trailing newline is always written. No-op when err.Detail is nil.

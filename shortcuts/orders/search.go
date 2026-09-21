@@ -10,6 +10,12 @@ var searchShortcut = common.Shortcut{
 	Command: "+search",
 	Use:     "+search",
 	Short:   "Quickly search orders",
+	Long:    "Search orders by keyword, email, status, or time window. Returns one page — set --page-limit and follow has_more/cursor for the rest.",
+	Example: `  # Paid orders since a date, 50 per page
+  shoplazza orders +search --financial-status paid --since 2026-09-01 --page-limit 50
+
+  # By customer email, print only order numbers
+  shoplazza orders +search --email a@b.com --jq '.data.orders[].number'`,
 	Flags: []common.Flag{
 		{Name: "keyword", Type: common.FlagString, Description: "Fuzzy match on order number, customer name or email. Prefer --email for a known address."},
 		{Name: "email", Type: common.FlagString, Description: "Filter by customer email (exact match)."},

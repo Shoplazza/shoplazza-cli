@@ -11,6 +11,12 @@ var createShortcut = common.Shortcut{
 	Command: "+create",
 	Use:     "+create (--email <e> | --phone <p>)",
 	Short:   "Create a customer",
+	Long:    "Create a customer profile keyed by email or phone; run --dry-run first to preview the request.",
+	Example: `  # Preview creating a customer by email
+  shoplazza customers +create --email a@b.com --first-name Ada --dry-run
+
+  # Create by phone with tags, not subscribed to marketing
+  shoplazza customers +create --phone +14155550100 --tags vip --no-marketing`,
 	Flags: []common.Flag{
 		{Name: "email", Type: common.FlagString, Description: "Email (XOR with --phone)."},
 		{Name: "phone", Type: common.FlagString, Description: "Phone (XOR with --email)."},

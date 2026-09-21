@@ -28,9 +28,18 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 			return err
 		}
 
+		// A human is prompted for any {param} the --params JSON left unset (e.g.
+		// theme_id); non-interactive callers are untouched, so a missing param
+		// stays the structured error below (agents/CI keep fail-fast).
+		if err := fillMissingPathParams(cmd, factory, c.HTTP.Path, params); err != nil {
+			return err
+		}
+
 		resolvedPath, remainingQuery, err := rawapi.ResolveTemplatedPath(c.HTTP.Path, params)
 		if err != nil {
-			return output.ErrValidation("%v", err)
+			schemaPath := strings.Join(strings.Fields(cmd.CommandPath())[1:], ".")
+			return output.ErrValidation("%v", err).
+				WithHint("run 'shoplazza schema " + schemaPath + "' to see required parameters")
 		}
 
 		req := client.RawRequest{
@@ -49,6 +58,16 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 				"dry_run": true,
 				"request": factory.Client.BuildRequestSummary(req.Method, req.Path, req.Params, req.Data),
 			}, format, jq)
+		}
+
+		// Human-only confirmation for irreversible writes (DELETE / cancel / …);
+		// non-interactive callers (agents, pipes, CI) are gated out and proceed
+		// unchanged. --dry-run already returned above, so it never reaches here.
+		if isDestructive(c) {
+			if err := cmdutil.ConfirmDestructive(factory,
+				"Run '"+cmd.CommandPath()+"'? This is a destructive, irreversible write."); err != nil {
+				return err
+			}
 		}
 
 		ctx := context.Background()

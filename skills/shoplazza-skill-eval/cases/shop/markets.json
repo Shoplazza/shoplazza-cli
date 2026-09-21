@@ -1,0 +1,26 @@
+[
+  {
+    "case_id": "shop.markets-create-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.markets.create",
+    "scenario": "国家名→ISO2 + 占用冲突预检 — '日本'必须转 JP,先 confirm=false 看冲突再决定",
+    "input": "新建一个市场叫'日本站',覆盖日本",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop markets create",
+      "flags_must_contain": ["--data"],
+      "params_must_contain": ["\"name\"", "日本站", "\"countries\"", "JP"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "covered country 日本 is sent as its ISO 3166-1 alpha-2 code JP (upper case), NOT the Chinese name 日本 or the English Japan",
+        "market name 日本站 is taken verbatim from the utterance",
+        "a country may belong to only one market: sends confirm=false first so an occupied-country conflict is surfaced (the API returns the markets that would be deleted) rather than silently overwriting",
+        "does NOT set confirm=true until the user agrees to the reported market deletions",
+        "does not fabricate extra countries the user did not name"
+      ]
+    },
+    "notes": "schema shop.markets.create: name (required, ≤50, unique), countries (required, ISO 3166-1 alpha-2 upper), confirm (false default → occupied country rejects with markets-to-delete). ISO conversion + conflict pre-check trap (store-agent market.create)."
+  }
+]

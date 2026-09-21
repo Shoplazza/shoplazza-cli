@@ -33,10 +33,11 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 		args = noPositionalArgs
 	}
 	cmd := &cobra.Command{
-		Use:   s.Use,
-		Short: s.Short,
-		Long:  s.Long,
-		Args:  args,
+		Use:     s.Use,
+		Short:   s.Short,
+		Long:    s.Long,
+		Example: s.Example,
+		Args:    args,
 	}
 	annotations := map[string]string{}
 	if s.AuthFree {
@@ -56,10 +57,11 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 	}
 	cmd.Flags().Bool("dry-run", false, "Print the request that would be sent without executing it")
 	cmd.Flags().StringP("jq", "q", "", "jq expression to filter JSON output (e.g. '.data.products[].id')")
+	// Required flags are NOT marked at the cobra level: the engine resolves them
+	// in RunE (fillRequired) so an interactive terminal can prompt for a missing
+	// one, while non-interactive runs still fail fast. Cobra's own required-flag
+	// check would reject before RunE and leave no room to prompt.
 	for _, f := range s.Flags {
-		if f.Required {
-			_ = cmd.MarkFlagRequired(f.Name)
-		}
 		if len(f.Completions) > 0 {
 			values := append([]string(nil), f.Completions...)
 			_ = cmd.RegisterFlagCompletionFunc(f.Name, func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
@@ -74,7 +76,19 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 	local := s.Local
 
 	cmd.RunE = func(c *cobra.Command, args []string) error {
+		// Resolve required flags first: prompt in an interactive terminal, or
+		// fail fast (never block) with a naming error otherwise.
+		if err := fillRequired(c, s.Flags, factory); err != nil {
+			return err
+		}
 		dryRun := cmdutil.IsDryRun(c)
+		// Human-only confirmation for irreversible writes; skipped in --dry-run
+		// (preview) and for non-interactive callers (agents/pipes proceed).
+		if s.Destructive && !dryRun {
+			if err := confirmDestructive(c, s, factory); err != nil {
+				return err
+			}
+		}
 		format := cmdutil.GetFormat(c)
 		jq := cmdutil.GetJQ(c)
 		flags := NewCobraFlagSet(c)
@@ -131,17 +145,22 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 		return output.PrintAPISuccess(c.OutOrStdout(), resp, format, jq)
 	}
 
+	// When the parent module opts into help grouping, a mounted shortcut is a
+	// dev/shortcut-tier command. Only tag it if the group exists, so modules
+	// without grouping are unaffected (cobra warns on an undefined GroupID).
+	if parent.ContainsGroup(cmdutil.GroupShortcut) {
+		cmd.GroupID = cmdutil.GroupShortcut
+	}
 	parent.AddCommand(cmd)
 }
 
 // classifySendError lifts a raw client error from Send into an output.ExitError
 // so the root error handler emits a clean JSON envelope with the right exit code
-// and 403→auth reclassification. The API envelope omits the request-id because
-// Send discards the response wrapper on error.
+// and 403→auth reclassification.
 func classifySendError(err error) error {
 	var httpErr *client.HTTPError
 	if errors.As(err, &httpErr) {
-		return output.ErrAPI(httpErr.StatusCode, httpErr.Body, "").WithEndpoint(httpErr.Method, httpErr.Path)
+		return output.ErrAPI(httpErr.StatusCode, httpErr.Body, httpErr.RequestID).WithEndpoint(httpErr.Method, httpErr.Path)
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {
@@ -160,7 +179,7 @@ func classifyExecError(err error) error {
 	}
 	var httpErr *client.HTTPError
 	if errors.As(err, &httpErr) {
-		return output.ErrAPI(httpErr.StatusCode, httpErr.Body, "").WithEndpoint(httpErr.Method, httpErr.Path)
+		return output.ErrAPI(httpErr.StatusCode, httpErr.Body, httpErr.RequestID).WithEndpoint(httpErr.Method, httpErr.Path)
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {

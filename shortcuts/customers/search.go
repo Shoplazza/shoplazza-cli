@@ -10,6 +10,12 @@ var searchShortcut = common.Shortcut{
 	Command: "+search",
 	Use:     "+search",
 	Short:   "Quickly search customers",
+	Long:    "Find customers by email, phone, or signup window. Returns one page — set --page-limit and follow has_more/cursor for the rest.",
+	Example: `  # Find a customer by email
+  shoplazza customers +search --email a@b.com
+
+  # Customers created since a date, 50 per page
+  shoplazza customers +search --since 2026-09-01 --page-limit 50`,
 	Flags: []common.Flag{
 		{Name: "email", Type: common.FlagString, Description: "Filter by email."},
 		{Name: "phone", Type: common.FlagString, Description: "Filter by phone (matches the customer's primary contact)."},

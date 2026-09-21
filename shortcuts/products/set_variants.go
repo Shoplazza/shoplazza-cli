@@ -25,6 +25,11 @@ var setVariantsShortcut = common.Shortcut{
 	Command: "+set-variants",
 	Use:     `+set-variants --id <product-id> --action <add|remove|update> --option "Color:Red,Blue" [--option ...] [--price <n>]`,
 	Short:   "Edit a product's option matrix (add/remove/update spec dimensions and values); variants are generated",
+	Example: `  # Preview adding a Size dimension
+  shoplazza products +set-variants --id 12345 --action add --option "Size:S,M,L" --price 24.99 --dry-run
+
+  # Add colors to an existing dimension
+  shoplazza products +set-variants --id 12345 --action add --option "Color:Red,Blue" --price 24.99`,
 	Long: `Edit an existing product's specification matrix; the CLI merges the change into
 the current dimensions, expands the cartesian product into the full variant
 list, and submits it in one request.

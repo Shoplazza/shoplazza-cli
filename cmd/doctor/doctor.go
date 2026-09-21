@@ -22,7 +22,6 @@ func NewCmdDoctor(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "doctor",
 		Short:       "Run diagnostic checks",
-		Hidden:      true,
 		Annotations: map[string]string{cmdutil.AnnotationAuthFree: "true"},
 	}
 
