@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-09-11T08:14:19Z",
+  "generated_at": "2026-09-21T07:14:07Z",
   "modules": [
     {
       "name": "billing",
@@ -2605,7 +2605,7 @@
             "pay"
           ],
           "summary": "Pay order success",
-          "description": "Finalizes payment for an order and updates its status to indicate that payment has been completed.\nUsage:\n1. No params: default test payment (bogus), simulating a completed payment\n2. `payment_line` only: specify a real payment channel\nExample: {\"payment_line\":{\"payment_channel\":\"stripe\",\"payment_method\":\"credit_card\",\"transaction_no\":\"txn_xxx\"}}\n3. `gateway` only: custom payment method (e.g. offline bank transfer)\nExample: {\"gateway\":\"bank_transfer\"}\n4. Both `gateway` and `payment_line`: pay via the real channel in `payment_line`, with a custom display name from `gateway`\nExample: {\"gateway\":\"My Custom Name\",\"payment_line\":{\"payment_channel\":\"stripe\",\"payment_method\":\"credit_card\",\"transaction_no\":\"txn_xxx\"}}",
+          "description": "Finalizes payment for an order and updates its status to indicate that payment has been completed.\nUsage:\n1. No params: default test payment (bogus), simulating a completed payment\n2. `payment_line` only: specify a real payment channel\nExample: {\"payment_line\":{\"payment_channel\":\"stripe\",\"payment_method\":\"credit_card\",\"transaction_no\":\"txn_xxx\"}}\n3. `gateway` only (+ optional `payment_line.transaction_no`): custom payment method (e.g. offline bank transfer)\nExample: {\"gateway\":\"bank_transfer\"}\nExample: {\"gateway\":\"bank_transfer\",\"payment_line\":{\"transaction_no\":\"txn_xxx\"}}\n4. Both `gateway` and `payment_line`: pay via the real channel in `payment_line`, with a custom display name from `gateway`\nExample: {\"gateway\":\"My Custom Name\",\"payment_line\":{\"payment_channel\":\"stripe\",\"payment_method\":\"credit_card\",\"transaction_no\":\"txn_xxx\"}}",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -2627,7 +2627,7 @@
               {
                 "name": "billing_address",
                 "type": "object",
-                "schema": "v202506.BillingAddressParam",
+                "schema": "v202601.BillingAddressParam",
                 "description": "The billing address details. If omitted, the existing billing address remains unchanged"
               },
               {
@@ -2639,7 +2639,7 @@
               {
                 "name": "payment_line",
                 "type": "object",
-                "schema": "v202506.PaymentLineParam",
+                "schema": "v202601.PaymentLineParam",
                 "description": "Payment line of the order. Specifies the actual payment channel, method, and transaction number."
               },
               {
@@ -2647,7 +2647,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "schema": "v202506.PaymentLineParam"
+                  "schema": "v202601.PaymentLineParam"
                 },
                 "description": "List of payment lines"
               }
@@ -10260,7 +10260,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             }
           ],
@@ -10276,7 +10276,7 @@
                 "name": "theme_id",
                 "type": "string",
                 "required": true,
-                "description": "Theme ID (for rendering context url)"
+                "description": "Theme ID whose app switches are updated; also resolves the default document and the rendering context"
               },
               {
                 "name": "category",
@@ -10298,7 +10298,7 @@
               {
                 "name": "template_name",
                 "type": "string",
-                "description": "Template name; defaults to file location without \".liquid\""
+                "description": "Render-context template name; defaults to \"index\""
               },
               {
                 "name": "locale",
@@ -10329,7 +10329,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             }
           ],
@@ -10345,7 +10345,7 @@
                 "name": "theme_id",
                 "type": "string",
                 "required": true,
-                "description": "Theme ID (for rendering context url)"
+                "description": "Theme ID whose app switches are updated; also resolves the default document and the rendering context"
               },
               {
                 "name": "category",
@@ -10367,7 +10367,7 @@
               {
                 "name": "template_name",
                 "type": "string",
-                "description": "Template name; defaults to file location without \".liquid\""
+                "description": "Render-context template name; defaults to \"index\""
               },
               {
                 "name": "locale",
@@ -10427,7 +10427,7 @@
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Optional max number of app-embed blocks to return"
+              "description": "Max number of app-embed blocks to return, default no cap. Does not affect script_tag_apps"
             }
           ],
           "response_schema": "v202601.ListThemeAppsResponse"
@@ -10452,7 +10452,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -10460,7 +10460,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section instance ID",
+              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
               "min_length": 1
             }
           ],
@@ -10485,13 +10485,13 @@
                 "type": "object",
                 "schema": "google.protobuf.Struct",
                 "required": true,
-                "description": "The block object to add, e.g. {type, settings}"
+                "description": "The block object to add, e.g. `{type, settings}`"
               },
               {
                 "name": "index",
                 "type": "integer",
                 "format": "int32",
-                "description": "0-based insert position within the parent's blocks (the section root when parent_path is empty); pass -1 to append to the end"
+                "description": "0-based insert position within the parent's blocks (the section root when parent_path is empty). Pass -1 (or any value past the end) to append. Omitted = 0 = insert at the front"
               },
               {
                 "name": "parent_path",
@@ -10522,8 +10522,8 @@
             "block",
             "create-gen"
           ],
-          "summary": "Create gen block (AI-generated card)",
-          "description": "Create a gen card from liquid content (must contain a schema tag) within an edit session.\nThe response `settings` is the card's full default config whose `type` is already the\ncard_type — pass it straight to the page-arrangement APIs; no second read needed.",
+          "summary": "Create gen block",
+          "description": "Create a gen card (an AI-generated card) from liquid content (must contain a schema tag)\nwithin an edit session.\nThe response `settings` is the card's full default config whose `type` is already the\ncard_type — pass it straight to the page-arrangement APIs; no second read needed.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -10536,7 +10536,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
+              "description": "Edit session ID",
               "min_length": 1
             }
           ],
@@ -10573,7 +10573,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -10605,7 +10605,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -10680,7 +10680,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -10688,7 +10688,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section instance ID",
+              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
               "min_length": 1
             }
           ],
@@ -10743,7 +10743,7 @@
             "block",
             "revert-gen"
           ],
-          "summary": "Revert one gen block write operation",
+          "summary": "Revert gen block operation",
           "description": "Restore every object recorded in the operation snapshot addressed by `revert_id` (from any\ncreate / update / delete / revert response). The returned `revert_id` is new — reverting is\nitself a revertible write, enabling repeated undo / redo.",
           "hidden": false,
           "http": {
@@ -10757,7 +10757,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
+              "description": "Edit session ID",
               "min_length": 1
             }
           ],
@@ -10768,7 +10768,7 @@
                 "name": "revert_id",
                 "type": "string",
                 "required": true,
-                "description": "32-char MD5 taken from any write response (create / update / delete / revert itself); the same id may be used repeatedly"
+                "description": "32-character token taken from any write response (create / update / delete / revert itself); pass it back as-is. The same id may be used repeatedly"
               }
             ]
           },
@@ -10780,7 +10780,7 @@
             "block",
             "set-props"
           ],
-          "summary": "Set/merge properties of a block within a section",
+          "summary": "Set section block properties",
           "description": "Set/merge properties into a specific block's settings within a section.",
           "hidden": false,
           "http": {
@@ -10794,7 +10794,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -10802,7 +10802,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section instance ID",
+              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
               "min_length": 1
             }
           ],
@@ -10878,7 +10878,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
+              "description": "Edit session ID",
               "min_length": 1
             }
           ],
@@ -10931,7 +10931,8 @@
           "command_path": [
             "duplicate"
           ],
-          "summary": "Duplicate a theme within the current store",
+          "summary": "Duplicate theme",
+          "description": "Copy an existing theme within the current store into a new one; sources limits what is copied.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -10995,7 +10996,7 @@
                 "type": "object",
                 "schema": "v202506.CreateThemeFileParam",
                 "required": true,
-                "description": "Document"
+                "description": "The file to create, containing its type, location, and content"
               }
             ]
           },
@@ -11029,14 +11030,14 @@
               {
                 "name": "type",
                 "type": "string",
-                "description": "The type of file to delete (layout, templates, sections, snippets, assets, config, locales etc.). Defaults to assets",
+                "description": "The type of file to delete: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales`, `blocks`. Defaults to `assets`",
                 "default": "assets",
                 "min_length": 1
               },
               {
                 "name": "location",
                 "type": "string",
-                "description": "The location of the file within the theme. Defaults to a.js",
+                "description": "The location of the file within the theme. Always pass it explicitly: when omitted the request falls back to assets/a.js and deletes that file",
                 "default": "a.js",
                 "min_length": 1
               }
@@ -11069,7 +11070,7 @@
               "name": "type",
               "in": "query",
               "type": "string",
-              "description": "The type of file to retrieve(layout, templates, sections, snippets,assets, config, locales etc.). Defaults to layout",
+              "description": "The type of file to retrieve: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales`, `blocks`. Defaults to `layout`",
               "min_length": 1
             },
             {
@@ -11113,7 +11114,7 @@
                 "type": "object",
                 "schema": "v202506.RenameThemeFileParam",
                 "required": true,
-                "description": "Document"
+                "description": "The file to rename, containing its type and the current and new location"
               }
             ]
           },
@@ -11174,7 +11175,7 @@
                 "type": "object",
                 "schema": "v202506.UpdateThemeFileParam",
                 "required": true,
-                "description": "Contains details about the type, location, and content to update"
+                "description": "The file to update, containing its type, location, and new content"
               }
             ]
           },
@@ -11220,7 +11221,7 @@
               "name": "published",
               "in": "query",
               "type": "string",
-              "description": "Filter themes by published status. \"0\" for unpublished, \"1\" for published"
+              "description": "Filter themes by published status: \"0\" for unpublished, \"1\" for published. Omit to return both. With \"1\" at most one theme (the published one) is returned and paging does not apply"
             },
             {
               "name": "cursor",
@@ -11268,20 +11269,21 @@
             "market",
             "install"
           ],
-          "summary": "Install a merchant/market theme (by id) into the current store",
+          "summary": "Install market theme",
+          "description": "Install a theme from the theme market into the current store by its market theme id.\nSupports specifying the theme name and style preset, and setting it as the store default.",
           "hidden": false,
           "http": {
             "method": "POST",
-            "path": "/openapi/2026-01/themes/merchant-themes/{id}/install",
+            "path": "/openapi/2026-01/themes/merchant-themes/{remote_theme_id}/install",
             "body": "*"
           },
           "parameters": [
             {
-              "name": "id",
+              "name": "remote_theme_id",
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Market/merchant theme id to install. Bound to the URL path",
+              "description": "Remote theme id of the market theme to install",
               "min_length": 1
             }
           ],
@@ -11305,22 +11307,22 @@
               {
                 "name": "version",
                 "type": "string",
-                "description": "Git version identifier"
+                "description": "Theme version to install; defaults to the market theme's current version (`c_version`)"
               },
               {
                 "name": "sources",
                 "type": "string",
-                "description": "Business source identifier"
+                "description": "Business source tag recorded on the installed theme. Unrelated to CopyThemeRequest.sources"
               },
               {
                 "name": "admin_hidden",
                 "type": "boolean",
-                "description": "Hide in the B-side admin"
+                "description": "Hide the installed theme in the merchant admin"
               },
               {
                 "name": "ext_suffix",
                 "type": "string",
-                "description": "Extension theme suffix (max 15 chars)"
+                "description": "Suffix appended to the extension theme's name; keep it to 15 characters or fewer"
               },
               {
                 "name": "product_id_map",
@@ -11359,7 +11361,8 @@
             "market",
             "list"
           ],
-          "summary": "List themes in the theme market (installable platform themes); filterable, paginated",
+          "summary": "List market themes",
+          "description": "Retrieve the installable platform themes in the theme market. Supports filtering by price\nband, industry, language, category, and features.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -11370,51 +11373,51 @@
               "name": "price",
               "in": "query",
               "type": "string",
-              "description": "Filter by price band (comma-separated)"
+              "description": "Filter by price band, comma-separated; values come from `MerchantTheme.price`"
             },
             {
               "name": "preset_default",
               "in": "query",
               "type": "string",
-              "description": "Preset-default filter; pass \"1\" to only return preset-default themes"
+              "description": "Preset-default filter: \"1\" returns only preset-default themes. Omit to return all"
             },
             {
               "name": "industry",
               "in": "query",
               "type": "string",
-              "description": "Filter by industry (comma-separated)"
+              "description": "Filter by industry, comma-separated"
             },
             {
               "name": "language",
               "in": "query",
               "type": "string",
-              "description": "Filter by language (comma-separated)"
+              "description": "Filter by language, comma-separated"
             },
             {
               "name": "category",
               "in": "query",
               "type": "string",
-              "description": "Filter by category (comma-separated)"
+              "description": "Filter by category, comma-separated; values come from `MerchantTheme.category`"
             },
             {
               "name": "features",
               "in": "query",
               "type": "string",
-              "description": "Filter by features (comma-separated)"
+              "description": "Filter by features, comma-separated"
             },
             {
               "name": "page",
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Page number, starts at 1. Defaults to 1"
+              "description": "Page number, starts at 1. Omit or pass 0 to use the default (1)"
             },
             {
               "name": "limit",
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Page size, 1-200. Defaults to 200"
+              "description": "Page size, up to 200. Omit or pass 0 to use the default (200)"
             }
           ],
           "response_schema": "v202601.GetMerchantThemesResponse"
@@ -11425,7 +11428,8 @@
             "menu",
             "create"
           ],
-          "summary": "Create a custom menu (category 3)",
+          "summary": "Create menu",
+          "description": "Create a custom menu for the store.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11446,7 +11450,7 @@
                 "name": "category",
                 "type": "integer",
                 "format": "int32",
-                "description": "Menu category; custom menu = 3. Defaults to 3 when omitted"
+                "description": "Menu category. This endpoint creates custom menus only (3); built-in menus are maintained by the platform. Defaults to 3 when omitted"
               },
               {
                 "name": "children",
@@ -11467,7 +11471,8 @@
             "menu",
             "delete"
           ],
-          "summary": "Delete a custom menu (category 3); built-in menus cannot be deleted",
+          "summary": "Delete menu",
+          "description": "Delete a custom menu. Built-in menus cannot be deleted.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -11479,7 +11484,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Menu id to delete (custom category only). Bound to the URL path",
+              "description": "Menu id to delete (custom category only)",
               "min_length": 1
             }
           ],
@@ -11491,7 +11496,8 @@
             "menu",
             "list"
           ],
-          "summary": "List the store's menus (navigation), optionally filtered by ids / hide disabled",
+          "summary": "List menus",
+          "description": "List the store's menus (navigation). Supports filtering by ids and hiding disabled items.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -11518,14 +11524,14 @@
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Page number (1-based). Omit = downstream default (page 1)"
+              "description": "Page number (1-based), defaults to 1"
             },
             {
               "name": "page_size",
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Page size. Omit = downstream default (100)"
+              "description": "Page size, defaults to 100"
             }
           ],
           "response_schema": "v202601.ListMenusResponse"
@@ -11536,7 +11542,8 @@
             "menu",
             "update"
           ],
-          "summary": "Update a menu (name / items). Built-in menus have limited fields",
+          "summary": "Update menu",
+          "description": "Update a menu's name and items. Built-in menus only allow a limited set of fields to change.",
           "hidden": false,
           "http": {
             "method": "PUT",
@@ -11549,7 +11556,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Menu id to update. Bound to the URL path",
+              "description": "Menu id to update",
               "min_length": 1
             }
           ],
@@ -11564,7 +11571,7 @@
                 "name": "category",
                 "type": "integer",
                 "format": "int32",
-                "description": "Menu category. Optional; kept unchanged when omitted"
+                "description": "Menu category (custom menu = 3). Optional; 0 or omitted keeps the current value"
               },
               {
                 "name": "children",
@@ -11573,7 +11580,7 @@
                   "type": "object",
                   "schema": "google.protobuf.Struct"
                 },
-                "description": "Menu items tree. Optional; kept unchanged when omitted"
+                "description": "Menu items tree. Optional; omitted or an empty array both keep the current items — this field cannot be used to clear all menu items"
               }
             ]
           },
@@ -11585,7 +11592,8 @@
             "pb",
             "delete-template"
           ],
-          "summary": "Delete a page-builder custom template by id",
+          "summary": "Delete page-builder custom template",
+          "description": "Delete a page-builder custom template by id.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -11597,7 +11605,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Template id to delete (bound to URL path)",
+              "description": "Template id to delete",
               "min_length": 1
             }
           ],
@@ -11622,7 +11630,7 @@
               "in": "query",
               "type": "string",
               "required": true,
-              "description": "Event type, e.g. \"page-builder\"",
+              "description": "Event type of the blocks to look up; use \"page-builder\" for page-builder blocks",
               "min_length": 1
             },
             {
@@ -11630,7 +11638,7 @@
               "in": "query",
               "type": "string",
               "required": true,
-              "description": "Comma-separated source IDs, e.g. \"global-654263218792825795\"",
+              "description": "Source IDs, comma-separated, e.g. `\"global-654263218792825795\"`",
               "min_length": 1
             }
           ],
@@ -11657,21 +11665,21 @@
                 "name": "event_type",
                 "type": "string",
                 "required": true,
-                "description": "Event type, e.g. \"theme\"",
+                "description": "Event type of the card. \"theme\" = theme card — only then does the response carry type/block; other event types save the card without creating the single-page block",
                 "min_length": 1
               },
               {
                 "name": "origin_template_id",
                 "type": "string",
                 "required": true,
-                "description": "Source template ID to derive from: server-side fetches its schema by this id, and it's the save origin. New card's own id is in the response",
+                "description": "Source template ID the new card derives from. The new card's own id is returned in the response",
                 "min_length": 1
               },
               {
                 "name": "title",
                 "type": "object",
                 "schema": "google.protobuf.Struct",
-                "description": "Block title (i18n map as JSON string)"
+                "description": "Block title as an i18n map, e.g. `{\"en-US\": \"...\", \"zh-CN\": \"...\"}`"
               },
               {
                 "name": "action",
@@ -11707,13 +11715,13 @@
                   "type": "object",
                   "schema": "google.protobuf.Struct"
                 },
-                "description": "Operations (AI output) applied before save"
+                "description": "Operations applied to the base template before saving. At least one op is required; an empty list is rejected with 400"
               },
               {
                 "name": "oseid",
                 "type": "string",
                 "required": true,
-                "description": "Edit session ID (oseid) to insert the new card into",
+                "description": "Edit session ID to insert the new card into",
                 "min_length": 1
               },
               {
@@ -11756,7 +11764,8 @@
             "pb",
             "save-template"
           ],
-          "summary": "Create or edit a page-builder custom template; action controls create (save_as) vs edit (update)",
+          "summary": "Save page-builder custom template",
+          "description": "Create or edit a page-builder custom template; action controls create (save_as) vs edit (update).",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11770,14 +11779,14 @@
                 "name": "action",
                 "type": "string",
                 "required": true,
-                "description": "Action: \"save_as\" = create a copy, \"update\" = edit in place, \"save\" = save (hidden)",
+                "description": "Action. All three create a new template; they differ in whether it is listed: - `save_as`: A new copy, listed - `update`: A new listed version; the template given by `template_id` is taken down - `save`: Saved but not shown in the template list",
                 "min_length": 1
               },
               {
                 "name": "template_id",
                 "type": "string",
                 "required": true,
-                "description": "Source template id (save_as) / target template id (update); used as origin_id and to fetch base editor_data",
+                "description": "Source template id for \"save_as\" / the template to version up for \"update\"",
                 "min_length": 1
               },
               {
@@ -11816,8 +11825,8 @@
             "pb",
             "summary"
           ],
-          "summary": "Render a template into a canvas text snapshot (LLM-friendly)",
-          "description": "Pass a template id (the engine fetches its schema server-side) or a full schema, and get back a\ncanvas text snapshot (with #path ids) for the LLM. Call it once when a conversation starts: later\npb update replies already carry the same text, so editing rounds need no repeat call.",
+          "summary": "Render template canvas snapshot",
+          "description": "Pass a template id or a full schema, and get back a canvas text snapshot (with #path ids).",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11865,7 +11874,7 @@
             "pb",
             "update"
           ],
-          "summary": "Apply ops to a page-builder schema, return the transformed result (stateless)",
+          "summary": "Transform page-builder schema",
           "description": "Apply ops to a schema and return the transformed schema/html/text. Stateless.",
           "hidden": false,
           "http": {
@@ -11890,7 +11899,7 @@
                   "type": "object",
                   "schema": "google.protobuf.Struct"
                 },
-                "description": "Operations to apply; may be empty (empty = pure re-export)"
+                "description": "Operations to apply; defaults to re-export"
               }
             ]
           },
@@ -11924,7 +11933,8 @@
           "command_path": [
             "rename"
           ],
-          "summary": "Rename a theme",
+          "summary": "Rename theme",
+          "description": "Change the display name of a theme in the current store.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -11937,7 +11947,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Theme id (uuid) to rename. Bound to the URL path"
+              "description": "Theme id (uuid) to rename"
             }
           ],
           "body": {
@@ -11960,8 +11970,8 @@
             "section",
             "cards"
           ],
-          "summary": "List addable theme cards (aggregated)",
-          "description": "List all addable cards under the current theme across sources\n(theme / pb / custom / extension / public / gen), de-duplicated, ordered by source and paginated.",
+          "summary": "List addable theme cards",
+          "description": "List all addable cards under the current theme across sources\n(theme / pb / custom / extension / public / gen), de-duplicated and ordered by source.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12000,14 +12010,14 @@
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Page size. Omit = downstream default (10), range 1-100"
+              "description": "Page size, defaults to 10, range 1-100"
             },
             {
               "name": "page",
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Page number (1-based). Omit = downstream default (page 1)"
+              "description": "Page number (1-based), defaults to 1"
             },
             {
               "name": "template",
@@ -12024,7 +12034,8 @@
             "section",
             "get"
           ],
-          "summary": "Get a single card's data by rendering the section with current config",
+          "summary": "Get section card data",
+          "description": "Render the specified section with its current config and return that single card's data.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12036,7 +12047,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session id (oseid). Bound to the URL path",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -12044,7 +12055,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Template file id. Bound to the URL path",
+              "description": "Document (template file) ID",
               "min_length": 1
             },
             {
@@ -12052,7 +12063,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section id (card) to render. Bound to the URL path",
+              "description": "Section (card) ID to render",
               "min_length": 1
             },
             {
@@ -12070,7 +12081,8 @@
             "section",
             "list"
           ],
-          "summary": "List all cards (and global card groups) of a template within an edit session",
+          "summary": "List template cards",
+          "description": "List all cards of a template within an edit session, including the global card groups.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12082,7 +12094,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session id (oseid). Bound to the URL path",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -12090,7 +12102,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Template file id. Bound to the URL path",
+              "description": "Document (template file) ID",
               "min_length": 1
             },
             {
@@ -12122,7 +12134,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -12130,7 +12142,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section instance ID to remove",
+              "description": "Section instance ID to remove. Page-flow mode (area omitted) requires the numeric instance id from content_for_page; with area set, pass the area member's stored id",
               "min_length": 1
             }
           ],
@@ -12147,7 +12159,7 @@
               {
                 "name": "area",
                 "type": "string",
-                "description": "Target area: omit = the page flow; \"header\" / \"footer\" = remove from the header/footer area group (section-group themes only). Mirrors add-section --area."
+                "description": "Target area: omit = the page flow; \"header\" / \"footer\" = remove from the header/footer area group (section-group themes only)"
               }
             ]
           },
@@ -12173,7 +12185,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -12181,7 +12193,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section instance ID",
+              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
               "min_length": 1
             }
           ],
@@ -12216,7 +12228,7 @@
               {
                 "name": "locale",
                 "type": "string",
-                "description": "Locale for the rendering context, e.g. en_US. Defaults to en_US"
+                "description": "Rendering locale; defaults to en_US"
               }
             ]
           },
@@ -12242,7 +12254,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -12291,7 +12303,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid). Bound to the URL path",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -12323,7 +12335,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             }
           ],
@@ -12359,7 +12371,8 @@
             "session",
             "get-config"
           ],
-          "summary": "Get the theme global config (settings values + primary-category schemas) within an edit session",
+          "summary": "Get theme global config",
+          "description": "Retrieve the theme's global config within an edit session: the current settings values plus the\nprimary-category schemas.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12371,7 +12384,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session id (oseid). Bound to the URL path",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -12379,7 +12392,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Template file id. Bound to the URL path",
+              "description": "Document (template file) ID",
               "min_length": 1
             },
             {
@@ -12410,7 +12423,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -12431,7 +12444,7 @@
             "promote"
           ],
           "summary": "Promote edit session",
-          "description": "Save (promote) an edit session into the draft; fails on conflict unless force.",
+          "description": "Save an edit session as the draft.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -12444,7 +12457,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             }
           ],
@@ -12465,8 +12478,8 @@
             "session",
             "update-config"
           ],
-          "summary": "Update the theme global config within an edit session. Partial: pass only the settings to change (one or many)",
-          "description": "Defaults to the global variables (skin); pass section_id to update a global card (header / footer / announcement / cart_drawer).",
+          "summary": "Update theme global config",
+          "description": "Partially update the theme's global config within an edit session: pass only the settings to\nchange (one or many). Defaults to the global variables (skin); pass section_id to update a\nglobal card (header / footer / announcement / cart_drawer).",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -12479,7 +12492,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session id (oseid). Bound to the URL path",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -12487,7 +12500,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Template file id. Bound to the URL path",
+              "description": "Document (template file) ID",
               "min_length": 1
             }
           ],
@@ -12504,7 +12517,7 @@
               {
                 "name": "section_id",
                 "type": "string",
-                "description": "Target: omit or \"skin\" = global variables; or a global card id: header / footer / announcement / cart_drawer"
+                "description": "Target: omit or \"skin\" = global variables; otherwise a global section's type or stored id — the global singletons (header / footer / announcement / cart_drawer) or any member of the header / footer regions. An id that is not in the session returns 400"
               },
               {
                 "name": "template_name",
@@ -12540,7 +12553,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Edit session ID (oseid)",
+              "description": "Edit session ID",
               "min_length": 1
             },
             {
@@ -12561,7 +12574,7 @@
                   "type": "object",
                   "schema": "v202601.EditSessionConfigItem"
                 },
-                "description": "Ordered list of section configs to write"
+                "description": "The file's complete, ordered list of section configs. This is a whole-file write: the list REPLACES the file's current sections and any section omitted here is removed. Array order is the on-page render order. For incremental edits use the batch-operations endpoint"
               },
               {
                 "name": "global_config",
@@ -12579,7 +12592,7 @@
           "response_schema": "v202601.UpdateEditSessionFileResponse"
         },
         {
-          "id": "theme-upload",
+          "id": "theme-task",
           "command_path": [
             "task"
           ],
@@ -12607,7 +12620,7 @@
             "template",
             "create"
           ],
-          "summary": "Create theme custom template (with binding)",
+          "summary": "Create theme custom template",
           "description": "Create a custom template and bind it to objects (products / collections) in one call.",
           "hidden": false,
           "http": {
@@ -12631,7 +12644,7 @@
                 "name": "type",
                 "type": "string",
                 "required": true,
-                "description": "Template type, e.g. product | product_coll",
+                "description": "Template type. One of `product`, `collection`, `product_coll`, `page`",
                 "min_length": 1
               },
               {
@@ -12657,19 +12670,19 @@
               {
                 "name": "oseid",
                 "type": "string",
-                "description": "Edit session ID (oseid) the creation is performed within"
+                "description": "Edit session ID the creation is performed within"
               },
               {
                 "name": "selected_all",
                 "type": "integer",
                 "format": "int32",
-                "description": "Whether to bind all objects matching the filter (0/1)"
+                "description": "Bind every object matching `front_query_params` instead of listing them in `relations`: 0 = no (default), 1 = yes. When 1, the object set comes from `front_query_params`"
               },
               {
                 "name": "front_query_params",
                 "type": "object",
                 "schema": "v202601.CreateThemeTemplateFrontQueryParams",
-                "description": "Front-end query params for selected_all batch binding"
+                "description": "Filter that defines the object set when `selected_all` = 1; ignored otherwise"
               }
             ]
           },
@@ -12732,7 +12745,7 @@
               "name": "type",
               "in": "query",
               "type": "string",
-              "description": "Optional filter by template type: product | collection | page"
+              "description": "Optional filter by template type: `product` | `collection` | `product_coll` | `page`. Empty returns all types"
             },
             {
               "name": "page",
@@ -12757,7 +12770,7 @@
             "template",
             "update"
           ],
-          "summary": "Update theme custom template (with binding)",
+          "summary": "Update theme custom template",
           "description": "Update the binding relations of an existing template (products / collections).",
           "hidden": false,
           "http": {
@@ -12789,7 +12802,7 @@
                 "name": "type",
                 "type": "string",
                 "required": true,
-                "description": "Template type, e.g. product | product_coll",
+                "description": "Template type. One of `product`, `collection`, `product_coll`, `page`",
                 "min_length": 1
               },
               {
@@ -12798,19 +12811,19 @@
                 "items": {
                   "type": "string"
                 },
-                "description": "Bound object IDs (products / collections). Empty = unbind all"
+                "description": "The template's full binding list (product / collection IDs). It REPLACES the current bindings rather than being merged into them. An empty array — or omitting the field entirely — unbinds everything, so always resend the full list when you only mean to keep it"
               },
               {
                 "name": "selected_all",
                 "type": "integer",
                 "format": "int32",
-                "description": "Whether to bind all objects matching the filter (0/1)"
+                "description": "Bind every object matching `front_query_params` instead of listing them in `relations`: 0 = no (default), 1 = yes. When 1, the object set comes from `front_query_params`"
               },
               {
                 "name": "front_query_params",
                 "type": "object",
                 "schema": "v202601.UpdateThemeTemplateFrontQueryParams",
-                "description": "Front-end query params for selected_all batch binding"
+                "description": "Filter that defines the object set when `selected_all` = 1; ignored otherwise"
               }
             ]
           },
@@ -12843,7 +12856,7 @@
               {
                 "name": "name",
                 "type": "string",
-                "description": "Name of the upgraded theme"
+                "description": "Optional new name for the upgraded theme. Leave empty to keep the current name"
               }
             ]
           },
@@ -12855,7 +12868,7 @@
             "version",
             "get"
           ],
-          "summary": "Get theme file version by version ID",
+          "summary": "Get theme file version",
           "description": "Retrieves a specific version of a theme file by its version ID.",
           "hidden": false,
           "http": {
@@ -12886,7 +12899,7 @@
             "version",
             "list"
           ],
-          "summary": "List theme file Versions(Single file)",
+          "summary": "List versions of a theme file",
           "description": "Returns the version history for a single theme file.",
           "hidden": false,
           "http": {
@@ -12905,8 +12918,7 @@
               "name": "type",
               "in": "query",
               "type": "string",
-              "required": true,
-              "description": "The type of file to get version (assets, layout, template, etc.). Defaults to layout",
+              "description": "The type of file to list versions for: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales` (`blocks` is not supported here). Defaults to `layout`",
               "default": "layout",
               "min_length": 1
             },
@@ -12914,7 +12926,6 @@
               "name": "location",
               "in": "query",
               "type": "string",
-              "required": true,
               "description": "The location of the file within the theme. Defaults to theme.liquid",
               "default": "theme.liquid",
               "min_length": 1
@@ -12928,7 +12939,7 @@
             "version",
             "records"
           ],
-          "summary": "List theme file Versions(All file)",
+          "summary": "List versions of all theme files",
           "description": "Returns the version history for all files in the specified theme.",
           "hidden": false,
           "http": {
@@ -13751,86 +13762,6 @@
       ]
     },
     "v202506.BatchUpdateProcurementItemResponse": {},
-    "v202506.BillingAddressParam": {
-      "fields": [
-        {
-          "name": "first_name",
-          "type": "string"
-        },
-        {
-          "name": "last_name",
-          "type": "string"
-        },
-        {
-          "name": "email",
-          "type": "string"
-        },
-        {
-          "name": "country",
-          "type": "string"
-        },
-        {
-          "name": "country_code",
-          "type": "string"
-        },
-        {
-          "name": "province",
-          "type": "string"
-        },
-        {
-          "name": "province_code",
-          "type": "string"
-        },
-        {
-          "name": "area",
-          "type": "string"
-        },
-        {
-          "name": "city",
-          "type": "string"
-        },
-        {
-          "name": "address",
-          "type": "string"
-        },
-        {
-          "name": "address1",
-          "type": "string"
-        },
-        {
-          "name": "company",
-          "type": "string"
-        },
-        {
-          "name": "longitude",
-          "type": "string"
-        },
-        {
-          "name": "latitude",
-          "type": "string"
-        },
-        {
-          "name": "zip",
-          "type": "string"
-        },
-        {
-          "name": "source",
-          "type": "string"
-        },
-        {
-          "name": "tags",
-          "type": "string"
-        },
-        {
-          "name": "phone",
-          "type": "string"
-        },
-        {
-          "name": "phone_area_code",
-          "type": "string"
-        }
-      ]
-    },
     "v202506.Blog": {
       "fields": [
         {
@@ -15063,6 +14994,14 @@
           "name": "cost_price",
           "type": "number",
           "format": "double"
+        },
+        {
+          "name": "wholesale_price",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.WholePrice"
+          }
         },
         {
           "name": "whole_prices",
@@ -19892,32 +19831,6 @@
         }
       ]
     },
-    "v202506.PaymentLineParam": {
-      "fields": [
-        {
-          "name": "payment_method",
-          "type": "string",
-          "required": true,
-          "min_length": 1
-        },
-        {
-          "name": "payment_channel",
-          "type": "string",
-          "required": true,
-          "min_length": 1
-        },
-        {
-          "name": "transaction_no",
-          "type": "string",
-          "required": true,
-          "min_length": 1
-        },
-        {
-          "name": "credit_card_number",
-          "type": "string"
-        }
-      ]
-    },
     "v202506.PostSaleOrder": {
       "fields": [
         {
@@ -22641,6 +22554,14 @@
           "format": "double"
         },
         {
+          "name": "wholesale_price",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.UpdateWholePrice"
+          }
+        },
+        {
           "name": "whole_prices",
           "type": "array",
           "items": {
@@ -23119,6 +23040,14 @@
           "format": "double"
         },
         {
+          "name": "wholesale_price",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.UpdateWholePrice"
+          }
+        },
+        {
           "name": "whole_prices",
           "type": "array",
           "items": {
@@ -23450,6 +23379,14 @@
           "format": "double"
         },
         {
+          "name": "wholesale_price",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.WholePrice"
+          }
+        },
+        {
           "name": "whole_prices",
           "type": "array",
           "items": {
@@ -23660,6 +23597,86 @@
             "type": "object",
             "schema": "v202601.ThemeOperationResult"
           }
+        }
+      ]
+    },
+    "v202601.BillingAddressParam": {
+      "fields": [
+        {
+          "name": "first_name",
+          "type": "string"
+        },
+        {
+          "name": "last_name",
+          "type": "string"
+        },
+        {
+          "name": "email",
+          "type": "string"
+        },
+        {
+          "name": "country",
+          "type": "string"
+        },
+        {
+          "name": "country_code",
+          "type": "string"
+        },
+        {
+          "name": "province",
+          "type": "string"
+        },
+        {
+          "name": "province_code",
+          "type": "string"
+        },
+        {
+          "name": "area",
+          "type": "string"
+        },
+        {
+          "name": "city",
+          "type": "string"
+        },
+        {
+          "name": "address",
+          "type": "string"
+        },
+        {
+          "name": "address1",
+          "type": "string"
+        },
+        {
+          "name": "company",
+          "type": "string"
+        },
+        {
+          "name": "longitude",
+          "type": "string"
+        },
+        {
+          "name": "latitude",
+          "type": "string"
+        },
+        {
+          "name": "zip",
+          "type": "string"
+        },
+        {
+          "name": "source",
+          "type": "string"
+        },
+        {
+          "name": "tags",
+          "type": "string"
+        },
+        {
+          "name": "phone",
+          "type": "string"
+        },
+        {
+          "name": "phone_area_code",
+          "type": "string"
         }
       ]
     },
@@ -24606,6 +24623,14 @@
         },
         {
           "name": "tax_text",
+          "type": "string"
+        },
+        {
+          "name": "id_number",
+          "type": "string"
+        },
+        {
+          "name": "id_number_text",
           "type": "string"
         }
       ]
@@ -26782,6 +26807,28 @@
         },
         {
           "name": "merchant_email",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.PaymentLineParam": {
+      "fields": [
+        {
+          "name": "payment_method",
+          "type": "string"
+        },
+        {
+          "name": "payment_channel",
+          "type": "string"
+        },
+        {
+          "name": "transaction_no",
+          "type": "string",
+          "required": true,
+          "min_length": 1
+        },
+        {
+          "name": "credit_card_number",
           "type": "string"
         }
       ]
