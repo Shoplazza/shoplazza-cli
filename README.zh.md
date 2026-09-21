@@ -341,6 +341,7 @@ shoplazza update --check    # 仅报告当前/最新版本，不安装
 | `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | 关闭后台新版本检测 |
 | `SHOPLAZZA_CLI_NO_META_UPDATE` | 关闭后台 API 元数据刷新 |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | 覆盖认证服务基础 URL（默认：`https://partners.shoplazza.com`） |
+| `SHOPLAZZA_CLI_USER_ID` | 覆盖请求头 `cli-user-id`（审计归属）。默认取登录时记录的用户 id；用 `SHOPLAZZA_ACCESS_TOKEN` 注入 token 时没有登录态，需显式设置 |
 
 交互式提问按终端自动判定，且只能关、不能强开 — 不存在对应的 `--interactive` flag。
 

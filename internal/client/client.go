@@ -130,6 +130,16 @@ func (c *Client) SetBearerToken(token string) {
 	c.Headers["Access-Token"] = token
 }
 
+// SetCliUserID sets the cli-user-id header — the logged-in user behind the
+// call (audit attribution). Lives in c.Headers, which is written last, so a
+// caller cannot forge it through RawRequest.Headers.
+func (c *Client) SetCliUserID(userID string) {
+	if strings.TrimSpace(userID) == "" {
+		return
+	}
+	c.Headers["cli-user-id"] = userID
+}
+
 func encodeQuery(query map[string]any) url.Values {
 	values := url.Values{}
 	for key, raw := range query {

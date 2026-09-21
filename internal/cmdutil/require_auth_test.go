@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -129,6 +130,109 @@ func TestRequireAuth_BypassMatrix(t *testing.T) {
 			}
 			if got := f.Client.ResolveURL("/x"); !strings.HasPrefix(got, tc.wantBase) {
 				t.Fatalf("base URL = %q, want prefix %q", got, tc.wantBase)
+			}
+		})
+	}
+}
+
+// writeAuthMeta seeds the account auth metadata inside the isolated config
+// dir. Call it after tempFactory, which does the isolating.
+func writeAuthMeta(t *testing.T, body string) {
+	t.Helper()
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "shoplazza-cli", "auth.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// loggedInFactory is GATE-04's wiring: a resolvable profile whose store-token
+// exchange succeeds, with a seeded UAT and auth metadata.
+func loggedInFactory(t *testing.T, meta string) *Factory {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/saiga/cli/auth/exchange/store-at" {
+			json.NewEncoder(w).Encode(map[string]any{"code": "Success", "data": map[string]any{
+				"access_token": "at_bearer", "store_id": "1", "store_domain": "shop.com",
+				"granted_scopes": []string{"read_product"}, "at_expires_at": "2099-01-01T00:00:00Z",
+			}})
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	cfg := core.CliConfig{ConfigVersion: 2, CurrentProfile: "us",
+		Profiles: []core.ProfileConfig{{Name: "us", Account: "a@co.com", StoreDomain: "shop.com"}}}
+	f := tempFactory(t, srv.URL, cfg)
+	writeAuthMeta(t, meta)
+	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("a@co.com"), "uat_seed"); err != nil {
+		t.Fatal(err)
+	}
+	return f
+}
+
+// GATE-09: the audit header carries the login user id captured at login.
+func TestRequireAuth_InjectsCliUserID(t *testing.T) {
+	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	t.Setenv(EnvCliUserID, "")
+	f := loggedInFactory(t, `{"account":"a@co.com","user_id":"u_42"}`)
+	if err := RequireAuth(context.Background(), f, newCmdWithProfileFlag()); err != nil {
+		t.Fatalf("RequireAuth: %v", err)
+	}
+	if got := f.Client.Headers["cli-user-id"]; got != "u_42" {
+		t.Errorf("cli-user-id = %q, want u_42", got)
+	}
+}
+
+// GATE-10: the env override beats the persisted id.
+func TestRequireAuth_CliUserIDEnvWins(t *testing.T) {
+	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	t.Setenv(EnvCliUserID, "u_env")
+	f := loggedInFactory(t, `{"account":"a@co.com","user_id":"u_42"}`)
+	if err := RequireAuth(context.Background(), f, newCmdWithProfileFlag()); err != nil {
+		t.Fatalf("RequireAuth: %v", err)
+	}
+	if got := f.Client.Headers["cli-user-id"]; got != "u_env" {
+		t.Errorf("cli-user-id = %q, want u_env", got)
+	}
+}
+
+// GATE-11: an id-less session omits the header rather than failing the command.
+func TestRequireAuth_CliUserIDAbsentIsNotFatal(t *testing.T) {
+	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	t.Setenv(EnvCliUserID, "")
+	f := loggedInFactory(t, `{"account":"a@co.com"}`)
+	if err := RequireAuth(context.Background(), f, newCmdWithProfileFlag()); err != nil {
+		t.Fatalf("RequireAuth: %v", err)
+	}
+	if got, ok := f.Client.Headers["cli-user-id"]; ok {
+		t.Errorf("cli-user-id must be absent, got %q", got)
+	}
+}
+
+// GATE-12: under the injected-token bypass the audit id comes from the env
+// only — a local login must not attribute a CI call to that user.
+func TestRequireAuth_BypassCliUserIDFromEnvOnly(t *testing.T) {
+	for _, tc := range []struct{ name, env, want string }{
+		{"env unset -> omitted", "", ""},
+		{"env set -> injected", "u_ci", "u_ci"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := loggedInFactory(t, `{"account":"a@co.com","user_id":"u_42"}`)
+			t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "tok-ci")
+			t.Setenv("SHOPLAZZA_CLI_API_BASE_URL", "https://ci.myshoplazza.com")
+			t.Setenv(EnvCliUserID, tc.env)
+			if err := RequireAuth(context.Background(), f, newCmdWithProfileFlag()); err != nil {
+				t.Fatalf("RequireAuth: %v", err)
+			}
+			if got := f.Client.Headers["cli-user-id"]; got != tc.want {
+				t.Errorf("cli-user-id = %q, want %q", got, tc.want)
 			}
 		})
 	}

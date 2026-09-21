@@ -194,3 +194,23 @@ func TestDoRaw_MultipartPathAcceptsByteSlice(t *testing.T) {
 		t.Errorf("body raw passthrough failed: %q", gotBody)
 	}
 }
+
+// 8. cli-user-id is audit attribution — c.Headers wins, so a caller cannot
+// forge it through RawRequest.Headers.
+func TestDoRaw_CliUserIDCannotBeForged(t *testing.T) {
+	var gotID string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotID = r.Header.Get("cli-user-id")
+		_, _ = io.WriteString(w, `{"code":"Success"}`)
+	}))
+	defer srv.Close()
+	c := New(srv.URL)
+	c.SetCliUserID("u_42")
+	_, _ = c.DoRaw(context.Background(), RawRequest{
+		Method: "POST", Path: "/x",
+		Headers: map[string]string{"cli-user-id": "u_someone_else"},
+	})
+	if gotID != "u_42" {
+		t.Fatalf("c.Headers must win; got cli-user-id = %q", gotID)
+	}
+}

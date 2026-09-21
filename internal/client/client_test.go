@@ -108,6 +108,38 @@ func TestSetBearerToken_Empty(t *testing.T) {
 	}
 }
 
+// ── SetCliUserID ────────────────────────────────────────────────────────────
+
+func TestSetCliUserID(t *testing.T) {
+	var receivedID string
+	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		receivedID = r.Header.Get("cli-user-id")
+		jsonResp(w, map[string]any{})
+	})
+	c.SetCliUserID("u_42")
+
+	var out map[string]any
+	_ = c.GetJSON(context.Background(), "/", &out)
+	if receivedID != "u_42" {
+		t.Errorf("cli-user-id = %q, want u_42", receivedID)
+	}
+}
+
+func TestSetCliUserID_Empty(t *testing.T) {
+	var receivedID string
+	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		receivedID = r.Header.Get("cli-user-id")
+		jsonResp(w, map[string]any{})
+	})
+	c.SetCliUserID("") // no-op
+
+	var out map[string]any
+	_ = c.GetJSON(context.Background(), "/", &out)
+	if receivedID != "" {
+		t.Errorf("empty id should not set header, got %q", receivedID)
+	}
+}
+
 // ── GetJSON ───────────────────────────────────────────────────────────────────
 
 func TestGetJSON(t *testing.T) {
