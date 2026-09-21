@@ -24,15 +24,18 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 
 | Domain | Capabilities |
 |--------|-------------|
-| 🛍️ Products | CRUD + shortcuts: `+search`, `+count`, `+publish`, `+unpublish`, `+create`, `+set-price`, `+set-variants`, `+stock`, `+tag` |
-| 🏷️ Discounts | CRUD + 8 shortcuts: 7 creators for automatic & code discounts, plus `+search` |
-| 📦 Orders | CRUD + shortcuts: `+search`, `+count`, `+ship`, `+refund`, `+update-tracking` |
-| 👤 Customers | CRUD + shortcuts: `+search`, `+create` |
-| 🏪 Shop | Shop info, blogs & articles, pages, files (`+upload-file`), metafields, markets, languages, redirects, analytics |
+| 🛍️ Products | Catalog, variants, inventory, collections, images, gift cards, reviews |
+| 🏷️ Discounts | Automatic and code discounts, flash sales, coupon campaigns |
+| 📦 Orders | Orders, fulfillment, refunds, transactions, risk, shipping zones |
+| 👤 Customers | Customer profiles, addresses, marketing subscription |
+| 🏪 Shop | Shop info, blogs & articles, pages, files, metafields, markets, languages, redirects, analytics |
 | 💳 Billing | Application charges: one-time, recurring, usage-based |
 | 🔔 Webhooks | Webhook subscription CRUD |
-| 🎨 Themes | `init`, `serve` (live reload), `pull`, `push`, `package`, `share`, `env` (multi-environment) |
+| 🎨 Themes | Local dev loop with live reload, multi-environment targeting, page & block editing |
 | 🧩 App | Full lifecycle: init → extension create → dev → deploy; extensions: checkout, theme, function |
+
+Every domain also carries `+` shortcuts on top of its generated commands — run
+`shoplazza <domain> --help` to see the ones it has.
 
 ## Installation & Quick Start
 
@@ -231,23 +234,13 @@ The CLI provides three levels of granularity, covering everything from quick ope
 Prefixed with `+`, designed to be friendly for both humans and AI, with smart defaults and structured output.
 
 ```bash
-# Products
 shoplazza products +search --keyword "shirt"
-shoplazza products +publish --id <product-id>
-
-# Discounts — automatic
-shoplazza discounts +rebate --title "Summer Sale" --percentage 15 --min-amount 100
-shoplazza discounts +flashsale --title "Flash Sale" --percentage 20 --product-ids "123,456"
-
-# Discounts — code-based
 shoplazza discounts +percent-code --code "SAVE20" --percentage 20
-shoplazza discounts +bxgy-code --code "BUY2GET1" --buy-quantity 2 --get-quantity 1
-
-# Orders
 shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 
-Run `shoplazza <domain> --help` to see all shortcuts for a domain.
+Run `shoplazza <domain> --help` to see the shortcuts a domain has, and
+`shoplazza <domain> +<name> --help` for one shortcut's flags.
 
 ### 2. API Commands
 

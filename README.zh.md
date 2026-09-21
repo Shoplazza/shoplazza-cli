@@ -24,15 +24,17 @@ Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能在终�
 
 | 业务域 | 能力 |
 |--------|------|
-| 🛍️ 商品 | CRUD + 快捷命令：`+search`、`+count`、`+publish`、`+unpublish`、`+create`、`+set-price`、`+set-variants`、`+stock`、`+tag` |
-| 🏷️ 折扣 | CRUD + 8 个快捷命令：7 个创建类（覆盖自动折扣与代码折扣）+ `+search` |
-| 📦 订单 | CRUD + 快捷命令：`+search`、`+count`、`+ship`、`+refund`、`+update-tracking` |
-| 👤 客户 | CRUD + 快捷命令：`+search`、`+create` |
-| 🏪 店铺 | 店铺信息、博客与文章、自定义页面、文件（`+upload-file`）、metafields、市场、多语言、URL 重定向、数据分析 |
+| 🛍️ 商品 | 商品目录、变体、库存、合集、图片、礼品卡、买家评价 |
+| 🏷️ 折扣 | 自动折扣与代码折扣、限时秒杀、优惠券活动 |
+| 📦 订单 | 订单、发货、退款、支付流水、风控、运费区域 |
+| 👤 客户 | 客户资料、收货地址、营销订阅 |
+| 🏪 店铺 | 店铺信息、博客与文章、自定义页面、文件、metafields、市场、多语言、URL 重定向、数据分析 |
 | 💳 计费 | 应用收费：一次性、订阅、按量 |
 | 🔔 Webhook | Webhook 订阅 CRUD |
-| 🎨 主题 | `init`、`serve`（实时热重载）、`pull`、`push`、`package`、`share`、`env`（多环境） |
+| 🎨 主题 | 本地开发循环（实时热重载）、多环境切换、页面与卡片编辑 |
 | 🧩 应用 | 完整生命周期：init → extension create → dev → deploy；扩展类型：checkout、theme、function |
+
+各业务域在生成的命令之外还提供 `+` 快捷命令，运行 `shoplazza <domain> --help` 查看该域有哪些。
 
 ## 安装与快速开始
 
@@ -231,23 +233,12 @@ CLI 提供三种粒度的调用方式，覆盖从快速操作到完全自定义�
 以 `+` 为前缀，对人类与 AI 友好化封装，内置智能默认值和结构化输出。
 
 ```bash
-# 商品
 shoplazza products +search --keyword "衬衫"
-shoplazza products +publish --id <product-id>
-
-# 折扣 — 自动折扣
-shoplazza discounts +rebate --title "夏季满减" --percentage 15 --min-amount 100
-shoplazza discounts +flashsale --title "限时秒杀" --percentage 20 --product-ids "123,456"
-
-# 折扣 — 代码折扣
 shoplazza discounts +percent-code --code "SAVE20" --percentage 20
-shoplazza discounts +bxgy-code --code "BUY2GET1" --buy-quantity 2 --get-quantity 1
-
-# 订单
 shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 
-运行 `shoplazza <domain> --help` 查看某个业务域的所有快捷命令。
+运行 `shoplazza <domain> --help` 查看该域有哪些快捷命令，`shoplazza <domain> +<name> --help` 查看某条快捷命令的参数。
 
 ### 2. API 命令
 
