@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -282,6 +283,8 @@ func recordThemeEnvironment(cwd, target, store, themeID, profile string, confirm
 }
 
 // classifyPullDownloadErr maps a download stream failure to the right envelope.
+// Every branch returns an *output.ExitError: a bare error escaping RunE would
+// be reported as a usage error.
 func classifyPullDownloadErr(err error, themeID string) error {
 	var he *client.HTTPError
 	if errors.As(err, &he) {
@@ -291,10 +294,13 @@ func classifyPullDownloadErr(err error, themeID string) error {
 		case http.StatusUnauthorized, http.StatusForbidden:
 			return theme.ErrAuthExpired(err)
 		default:
-			if he.StatusCode >= 500 {
-				return fmt.Errorf("server error %d during download: %w", he.StatusCode, err)
-			}
+			// status / request id / endpoint ride along for triage.
+			return output.ErrAPI(he.StatusCode, he.Body, he.RequestID).WithEndpoint(he.Method, he.Path)
 		}
 	}
-	return fmt.Errorf("download failed: %w", err)
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return output.ErrNetwork("%v", err)
+	}
+	return theme.ErrLocalIO("download theme zip", err)
 }
