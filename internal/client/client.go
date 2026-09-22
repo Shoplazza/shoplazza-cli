@@ -86,13 +86,14 @@ func (r RawResponse) RequestID() string {
 
 // New creates a minimal API client.
 func New(baseURL string) *Client {
-	return &Client{
+	c := &Client{
 		BaseURL: strings.TrimRight(baseURL, "/"),
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 		Headers: map[string]string{},
 	}
+	return c
 }
 
 // SetBaseURL updates the target base URL (e.g. once the auth gate resolves

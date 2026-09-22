@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-09-11T06:12:21Z",
+  "generated_at": "2026-09-21T07:14:07Z",
   "modules": [
     {
       "name": "billing",
@@ -1521,6 +1521,9 @@
           "summary": "Create and manage fulfillment records for shipped order packages",
           "description": "A fulfillment represents the shipment of items in an order, carrying tracking numbers and\ncarrier details. Merchants and apps use fulfillments to record shipping progress and notify\ncustomers of delivery status.\nProvides endpoints to list, create, retrieve, update, complete, cancel, and count\nfulfillments under an order."
         },
+        "post-sales": {
+          "summary": "Query and manage after-sales records such as returns and exchanges."
+        },
         "refunds": {
           "summary": "Create and query refund records for orders",
           "description": "Refund records track money returned to customers for an order — full or partial,\ncovering products, shipping, tips, and additional fees, across one or more\npayment channels. Merchants create these records after deciding to refund a\ncustomer and the platform settles the money back through the original payment\nchannels.\nProvides endpoints to list all refund records across orders (with filters and\npagination), count refund records matching filters, list refund records for a\nspecific order, create a new refund record on an order, and mark an order's\nin-progress refund records as refunded successfully."
@@ -2602,7 +2605,7 @@
             "pay"
           ],
           "summary": "Pay order success",
-          "description": "Finalizes payment for an order and updates its status to indicate that payment has been completed.\nUsage:\n1. No params: default test payment (bogus), simulating a completed payment\n2. `payment_line` only: specify a real payment channel\nExample: {\"payment_line\":{\"payment_channel\":\"stripe\",\"payment_method\":\"credit_card\",\"transaction_no\":\"txn_xxx\"}}\n3. `gateway` only: custom payment method (e.g. offline bank transfer)\nExample: {\"gateway\":\"bank_transfer\"}\n4. Both `gateway` and `payment_line`: pay via the real channel in `payment_line`, with a custom display name from `gateway`\nExample: {\"gateway\":\"My Custom Name\",\"payment_line\":{\"payment_channel\":\"stripe\",\"payment_method\":\"credit_card\",\"transaction_no\":\"txn_xxx\"}}",
+          "description": "Finalizes payment for an order and updates its status to indicate that payment has been completed.\nUsage:\n1. No params: default test payment (bogus), simulating a completed payment\n2. `payment_line` only: specify a real payment channel\nExample: {\"payment_line\":{\"payment_channel\":\"stripe\",\"payment_method\":\"credit_card\",\"transaction_no\":\"txn_xxx\"}}\n3. `gateway` only (+ optional `payment_line.transaction_no`): custom payment method (e.g. offline bank transfer)\nExample: {\"gateway\":\"bank_transfer\"}\nExample: {\"gateway\":\"bank_transfer\",\"payment_line\":{\"transaction_no\":\"txn_xxx\"}}\n4. Both `gateway` and `payment_line`: pay via the real channel in `payment_line`, with a custom display name from `gateway`\nExample: {\"gateway\":\"My Custom Name\",\"payment_line\":{\"payment_channel\":\"stripe\",\"payment_method\":\"credit_card\",\"transaction_no\":\"txn_xxx\"}}",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -2624,7 +2627,7 @@
               {
                 "name": "billing_address",
                 "type": "object",
-                "schema": "v202506.BillingAddressParam",
+                "schema": "v202601.BillingAddressParam",
                 "description": "The billing address details. If omitted, the existing billing address remains unchanged"
               },
               {
@@ -2636,7 +2639,7 @@
               {
                 "name": "payment_line",
                 "type": "object",
-                "schema": "v202506.PaymentLineParam",
+                "schema": "v202601.PaymentLineParam",
                 "description": "Payment line of the order. Specifies the actual payment channel, method, and transaction number."
               },
               {
@@ -2644,7 +2647,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "schema": "v202506.PaymentLineParam"
+                  "schema": "v202601.PaymentLineParam"
                 },
                 "description": "List of payment lines"
               }
@@ -6635,6 +6638,12 @@
           "summary": "Define and manage metafield schemas that extend resource objects with custom data",
           "description": "Metafield definitions describe the schema of metafields attached to a given owner resource,\nincluding namespace, key, value type, and validation, so that merchants and apps can store\ncustom data in a consistent, typed way.\nProvides endpoints to create, update, get, list, delete metafield definitions, and to count\ndefinitions or their associated metafields by owner resource or group."
         },
+        "metafields-resource": {
+          "summary": "Read and write metafields attached to resource objects such as products, orders, and customers."
+        },
+        "metafields-shop": {
+          "summary": "Read and write metafields attached to the shop itself."
+        },
         "pages": {
           "summary": "Manage custom storefront pages such as About and Policy pages",
           "description": "Custom pages are merchant-authored static pages on the storefront, such as About Us or\npolicy pages. Merchants and apps use them to publish standalone content outside the product\nand blog flows.\nProvides endpoints to list, create, retrieve, update, delete, count, search, and batch\noperate on pages."
@@ -10222,7 +10231,678 @@
     },
     {
       "name": "themes",
+      "groups": {
+        "file": {
+          "summary": "Read, write, and delete individual theme template files."
+        },
+        "version": {
+          "summary": "Manage a theme's version history."
+        }
+      },
       "commands": [
+        {
+          "id": "theme-app-disable",
+          "command_path": [
+            "app",
+            "disable"
+          ],
+          "summary": "Disable theme app",
+          "description": "Disable a specific app-embed block or script tag within the skin section.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/apps/disable",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "doc_id",
+                "type": "string",
+                "description": "Document (template file) ID containing the skin section. Optional; empty -\u003e server resolves index.liquid"
+              },
+              {
+                "name": "theme_id",
+                "type": "string",
+                "required": true,
+                "description": "Theme ID whose app switches are updated; also resolves the default document and the rendering context"
+              },
+              {
+                "name": "category",
+                "type": "string",
+                "description": "Category: \"app_embeds\" or \"script_tags\". Optional; only used to disambiguate when block_id is not unique"
+              },
+              {
+                "name": "app_key",
+                "type": "string",
+                "description": "App grouping key. Optional; empty -\u003e server searches all groups by block_id"
+              },
+              {
+                "name": "block_id",
+                "type": "string",
+                "required": true,
+                "description": "Block identifier: \"type\" field for app_embeds, \"id\" field for script_tags",
+                "min_length": 1
+              },
+              {
+                "name": "template_name",
+                "type": "string",
+                "description": "Render-context template name; defaults to \"index\""
+              },
+              {
+                "name": "locale",
+                "type": "string",
+                "description": "Rendering locale; defaults to en_US"
+              }
+            ]
+          },
+          "response_schema": "v202601.DisableThemeAppResponse"
+        },
+        {
+          "id": "theme-app-enable",
+          "command_path": [
+            "app",
+            "enable"
+          ],
+          "summary": "Enable theme app",
+          "description": "Enable a specific app-embed block or script tag within the skin section.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/apps/enable",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "doc_id",
+                "type": "string",
+                "description": "Document (template file) ID containing the skin section. Optional; empty -\u003e server resolves index.liquid"
+              },
+              {
+                "name": "theme_id",
+                "type": "string",
+                "required": true,
+                "description": "Theme ID whose app switches are updated; also resolves the default document and the rendering context"
+              },
+              {
+                "name": "category",
+                "type": "string",
+                "description": "Category: \"app_embeds\" or \"script_tags\". Optional; only used to disambiguate when block_id is not unique"
+              },
+              {
+                "name": "app_key",
+                "type": "string",
+                "description": "App grouping key. Optional; empty -\u003e server searches all groups by block_id"
+              },
+              {
+                "name": "block_id",
+                "type": "string",
+                "required": true,
+                "description": "Block identifier: \"type\" field for app_embeds, \"id\" field for script_tags",
+                "min_length": 1
+              },
+              {
+                "name": "template_name",
+                "type": "string",
+                "description": "Render-context template name; defaults to \"index\""
+              },
+              {
+                "name": "locale",
+                "type": "string",
+                "description": "Rendering locale; defaults to en_US"
+              }
+            ]
+          },
+          "response_schema": "v202601.EnableThemeAppResponse"
+        },
+        {
+          "id": "theme-extensions-list",
+          "command_path": [
+            "app",
+            "extensions"
+          ],
+          "summary": "List theme installable extensions",
+          "description": "List app-provided installable blocks available for a template.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/extensions"
+          },
+          "parameters": [
+            {
+              "name": "template",
+              "in": "query",
+              "type": "string",
+              "description": "Template name to filter installable blocks, e.g. index"
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Optional max number of results"
+            }
+          ],
+          "response_schema": "v202601.ListThemeExtensionResponse"
+        },
+        {
+          "id": "theme-apps-list",
+          "command_path": [
+            "app",
+            "list"
+          ],
+          "summary": "List theme apps",
+          "description": "List app-embed blocks and injected script tags for the store (merged view).",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/apps"
+          },
+          "parameters": [
+            {
+              "name": "limit",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Max number of app-embed blocks to return, default no cap. Does not affect script_tag_apps"
+            }
+          ],
+          "response_schema": "v202601.ListThemeAppsResponse"
+        },
+        {
+          "id": "theme-section-add-block",
+          "command_path": [
+            "block",
+            "add"
+          ],
+          "summary": "Add section block",
+          "description": "Append/insert a block into a section within an edit session.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/sections/{section_id}/blocks",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "section_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "doc_id",
+                "type": "string",
+                "required": true,
+                "description": "Document (template file) ID",
+                "min_length": 1
+              },
+              {
+                "name": "theme_id",
+                "type": "string",
+                "required": true,
+                "description": "Theme ID (for rendering context url)"
+              },
+              {
+                "name": "block",
+                "type": "object",
+                "schema": "google.protobuf.Struct",
+                "required": true,
+                "description": "The block object to add, e.g. `{type, settings}`"
+              },
+              {
+                "name": "index",
+                "type": "integer",
+                "format": "int32",
+                "description": "0-based insert position within the parent's blocks (the section root when parent_path is empty). Pass -1 (or any value past the end) to append. Omitted = 0 = insert at the front"
+              },
+              {
+                "name": "parent_path",
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "description": "Ancestor index path from the section root to the parent block the new block is inserted into (each element a 0-based index into a blocks array); empty = insert at top-level. e.g. parent_path=[1,0] with index=-1 appends into section.blocks[1].blocks[0].blocks"
+              },
+              {
+                "name": "template_name",
+                "type": "string",
+                "description": "Template name; defaults to file location without \".liquid\""
+              },
+              {
+                "name": "locale",
+                "type": "string",
+                "description": "Rendering locale; defaults to en_US"
+              }
+            ]
+          },
+          "response_schema": "v202601.SetSectionPropsResponse"
+        },
+        {
+          "id": "theme-gen-block-create",
+          "command_path": [
+            "block",
+            "create-gen"
+          ],
+          "summary": "Create gen block",
+          "description": "Create a gen card (an AI-generated card) from liquid content (must contain a schema tag)\nwithin an edit session.\nThe response `settings` is the card's full default config whose `type` is already the\ncard_type — pass it straight to the page-arrangement APIs; no second read needed.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "content",
+                "type": "string",
+                "required": true,
+                "description": "Card liquid source; must contain a schema tag. `schema.name` inside is the merchant-visible display name (no uniqueness requirement)",
+                "min_length": 1
+              }
+            ]
+          },
+          "response_schema": "v202601.CreateGenBlockResponse"
+        },
+        {
+          "id": "theme-gen-block-delete",
+          "command_path": [
+            "block",
+            "delete-gen"
+          ],
+          "summary": "Delete gen block",
+          "description": "Delete a gen card file and remove every instance reference across the theme in one\ntransaction — no ref-count precheck, no force flag, no dangling references left.",
+          "hidden": false,
+          "http": {
+            "method": "DELETE",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "type",
+              "in": "query",
+              "type": "string",
+              "required": true,
+              "description": "The card_type (\"blocks/\" + file name without extension), e.g. blocks/gen_1a0d523"
+            }
+          ],
+          "response_schema": "v202601.DeleteGenBlockResponse"
+        },
+        {
+          "id": "theme-gen-block-detail",
+          "command_path": [
+            "block",
+            "get-gen"
+          ],
+          "summary": "Get gen block detail",
+          "description": "Retrieve a gen card's file attributes (`doc`) and its on-page state (`saved` / `ref_count` /\n`instances`) within an edit session. `content` is returned only when `with_content=true`.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "type",
+              "in": "query",
+              "type": "string",
+              "required": true,
+              "description": "The card_type (\"blocks/\" + file name without extension), e.g. blocks/gen_1a0d523"
+            },
+            {
+              "name": "with_content",
+              "in": "query",
+              "type": "boolean",
+              "description": "When true, the response additionally carries the card source in `doc.content`"
+            }
+          ],
+          "response_schema": "v202601.GetGenBlockResponse"
+        },
+        {
+          "id": "theme-public-blocks-list",
+          "command_path": [
+            "block",
+            "list"
+          ],
+          "summary": "List theme public blocks",
+          "description": "List public blocks available for a template / theme.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/public-blocks"
+          },
+          "parameters": [
+            {
+              "name": "template",
+              "in": "query",
+              "type": "string",
+              "description": "Template name to filter public blocks, e.g. index"
+            },
+            {
+              "name": "theme",
+              "in": "query",
+              "type": "string",
+              "description": "Theme name, e.g. Nova 2023"
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Optional max number of results"
+            }
+          ],
+          "response_schema": "v202601.ListPublicBlockResponse"
+        },
+        {
+          "id": "theme-section-remove-block",
+          "command_path": [
+            "block",
+            "remove"
+          ],
+          "summary": "Remove section block",
+          "description": "Remove a block from a section by index within an edit session.",
+          "hidden": false,
+          "http": {
+            "method": "DELETE",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/sections/{section_id}/blocks",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "section_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "doc_id",
+                "type": "string",
+                "required": true,
+                "description": "Document (template file) ID",
+                "min_length": 1
+              },
+              {
+                "name": "theme_id",
+                "type": "string",
+                "required": true,
+                "description": "Theme ID (for rendering context url)"
+              },
+              {
+                "name": "block_index",
+                "type": "integer",
+                "format": "int32",
+                "description": "0-based index of the block to remove within its parent's blocks (the section root when parent_path is empty)"
+              },
+              {
+                "name": "parent_path",
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "description": "Ancestor index path from the section root to the target block's parent (each element a 0-based index into a blocks array); empty = top-level. e.g. parent_path=[1,0] with block_index=2 removes section.blocks[1].blocks[0].blocks[2]"
+              },
+              {
+                "name": "template_name",
+                "type": "string",
+                "description": "Template name; defaults to file location without \".liquid\""
+              },
+              {
+                "name": "locale",
+                "type": "string",
+                "description": "Rendering locale; defaults to en_US"
+              }
+            ]
+          },
+          "response_schema": "v202601.SetSectionPropsResponse"
+        },
+        {
+          "id": "theme-gen-block-revert",
+          "command_path": [
+            "block",
+            "revert-gen"
+          ],
+          "summary": "Revert gen block operation",
+          "description": "Restore every object recorded in the operation snapshot addressed by `revert_id` (from any\ncreate / update / delete / revert response). The returned `revert_id` is new — reverting is\nitself a revertible write, enabling repeated undo / redo.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks/revert",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "revert_id",
+                "type": "string",
+                "required": true,
+                "description": "32-character token taken from any write response (create / update / delete / revert itself); pass it back as-is. The same id may be used repeatedly"
+              }
+            ]
+          },
+          "response_schema": "v202601.RevertGenBlockResponse"
+        },
+        {
+          "id": "theme-section-set-slot",
+          "command_path": [
+            "block",
+            "set-props"
+          ],
+          "summary": "Set section block properties",
+          "description": "Set/merge properties into a specific block's settings within a section.",
+          "hidden": false,
+          "http": {
+            "method": "PATCH",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/sections/{section_id}/slot",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "section_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "doc_id",
+                "type": "string",
+                "required": true,
+                "description": "Document (template file) ID",
+                "min_length": 1
+              },
+              {
+                "name": "theme_id",
+                "type": "string",
+                "required": true,
+                "description": "Theme ID (for rendering context url)"
+              },
+              {
+                "name": "block_index",
+                "type": "integer",
+                "format": "int32",
+                "description": "0-based index of the target block within its parent's blocks (the section root when parent_path is empty)"
+              },
+              {
+                "name": "parent_path",
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "description": "Ancestor index path from the section root to the target block's parent (each element a 0-based index into a blocks array); empty = top-level. e.g. parent_path=[1,0] with block_index=2 targets section.blocks[1].blocks[0].blocks[2]"
+              },
+              {
+                "name": "props",
+                "type": "object",
+                "schema": "google.protobuf.Struct",
+                "required": true,
+                "description": "Key→value properties to set/merge into the block's settings"
+              },
+              {
+                "name": "template_name",
+                "type": "string",
+                "description": "Template name; defaults to file location without \".liquid\""
+              },
+              {
+                "name": "locale",
+                "type": "string",
+                "description": "Rendering locale; defaults to en_US"
+              }
+            ]
+          },
+          "response_schema": "v202601.SetSectionPropsResponse"
+        },
+        {
+          "id": "theme-gen-block-update",
+          "command_path": [
+            "block",
+            "update-gen"
+          ],
+          "summary": "Update gen block",
+          "description": "Update a gen card by content + full settings (the card to change is read from `settings.type`).\nRef count 0/1 -\u003e overwrite in place (`branched=false`, nothing else to do); \u003e=2 -\u003e a new card\nis created to carry the change (`branched=true`, rewrite the target instance with the returned\n`settings`, whose `type` is the new card's card_type).",
+          "hidden": false,
+          "http": {
+            "method": "PATCH",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/gen-blocks",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "content",
+                "type": "string",
+                "required": true,
+                "description": "New liquid source; must contain a schema tag",
+                "min_length": 1
+              },
+              {
+                "name": "settings",
+                "type": "object",
+                "schema": "google.protobuf.Struct",
+                "required": true,
+                "description": "The card's full config, same shape as the create response's `settings`. Its `type` (blocks/gen_ prefixed) names the card to change; the field values are the merchant's current config"
+              }
+            ]
+          },
+          "response_schema": "v202601.UpdateGenBlockResponse"
+        },
         {
           "id": "theme-delete",
           "command_path": [
@@ -10245,6 +10925,45 @@
             }
           ],
           "response_schema": "v202506.DeleteThemeResponse"
+        },
+        {
+          "id": "theme-duplicate",
+          "command_path": [
+            "duplicate"
+          ],
+          "summary": "Duplicate theme",
+          "description": "Copy an existing theme within the current store into a new one; sources limits what is copied.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/copy",
+            "body": "*"
+          },
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "copy_theme_id",
+                "type": "string",
+                "required": true,
+                "description": "Source theme id to copy from",
+                "min_length": 1
+              },
+              {
+                "name": "copy_theme_name",
+                "type": "string",
+                "required": true,
+                "description": "Name for the new (copied) theme",
+                "min_length": 1
+              },
+              {
+                "name": "sources",
+                "type": "string",
+                "description": "Optional comma-separated source scopes to copy. Defaults to all"
+              }
+            ]
+          },
+          "response_schema": "v202601.CopyThemeResponse"
         },
         {
           "id": "theme-doc-create",
@@ -10277,7 +10996,7 @@
                 "type": "object",
                 "schema": "v202506.CreateThemeFileParam",
                 "required": true,
-                "description": "Document"
+                "description": "The file to create, containing its type, location, and content"
               }
             ]
           },
@@ -10311,14 +11030,14 @@
               {
                 "name": "type",
                 "type": "string",
-                "description": "The type of file to delete (layout, templates, sections, snippets, assets, config, locales etc.). Defaults to assets",
+                "description": "The type of file to delete: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales`, `blocks`. Defaults to `assets`",
                 "default": "assets",
                 "min_length": 1
               },
               {
                 "name": "location",
                 "type": "string",
-                "description": "The location of the file within the theme. Defaults to a.js",
+                "description": "The location of the file within the theme. Always pass it explicitly: when omitted the request falls back to assets/a.js and deletes that file",
                 "default": "a.js",
                 "min_length": 1
               }
@@ -10351,7 +11070,7 @@
               "name": "type",
               "in": "query",
               "type": "string",
-              "description": "The type of file to retrieve(layout, templates, sections, snippets,assets, config, locales etc.). Defaults to layout",
+              "description": "The type of file to retrieve: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales`, `blocks`. Defaults to `layout`",
               "min_length": 1
             },
             {
@@ -10395,7 +11114,7 @@
                 "type": "object",
                 "schema": "v202506.RenameThemeFileParam",
                 "required": true,
-                "description": "Document"
+                "description": "The file to rename, containing its type and the current and new location"
               }
             ]
           },
@@ -10456,7 +11175,7 @@
                 "type": "object",
                 "schema": "v202506.UpdateThemeFileParam",
                 "required": true,
-                "description": "Contains details about the type, location, and content to update"
+                "description": "The file to update, containing its type, location, and new content"
               }
             ]
           },
@@ -10502,7 +11221,7 @@
               "name": "published",
               "in": "query",
               "type": "string",
-              "description": "Filter themes by published status. \"0\" for unpublished, \"1\" for published"
+              "description": "Filter themes by published status: \"0\" for unpublished, \"1\" for published. Omit to return both. With \"1\" at most one theme (the published one) is returned and paging does not apply"
             },
             {
               "name": "cursor",
@@ -10545,6 +11264,648 @@
           "response_schema": "v202506.ListThemeResponse"
         },
         {
+          "id": "theme-install",
+          "command_path": [
+            "market",
+            "install"
+          ],
+          "summary": "Install market theme",
+          "description": "Install a theme from the theme market into the current store by its market theme id.\nSupports specifying the theme name and style preset, and setting it as the store default.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/merchant-themes/{remote_theme_id}/install",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "remote_theme_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Remote theme id of the market theme to install",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "fields": [
+              {
+                "name": "name",
+                "type": "string",
+                "description": "Theme display name"
+              },
+              {
+                "name": "default",
+                "type": "boolean",
+                "description": "Set as the store default theme"
+              },
+              {
+                "name": "preset",
+                "type": "string",
+                "description": "Style/preset name (from the market theme's presets)"
+              },
+              {
+                "name": "version",
+                "type": "string",
+                "description": "Theme version to install; defaults to the market theme's current version (`c_version`)"
+              },
+              {
+                "name": "sources",
+                "type": "string",
+                "description": "Business source tag recorded on the installed theme. Unrelated to CopyThemeRequest.sources"
+              },
+              {
+                "name": "admin_hidden",
+                "type": "boolean",
+                "description": "Hide the installed theme in the merchant admin"
+              },
+              {
+                "name": "ext_suffix",
+                "type": "string",
+                "description": "Suffix appended to the extension theme's name; keep it to 15 characters or fewer"
+              },
+              {
+                "name": "product_id_map",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "google.protobuf.Struct"
+                },
+                "description": "Product id mappings"
+              },
+              {
+                "name": "collection_id_map",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "google.protobuf.Struct"
+                },
+                "description": "Collection id mappings"
+              },
+              {
+                "name": "page_id_map",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "google.protobuf.Struct"
+                },
+                "description": "Custom page id mappings"
+              }
+            ]
+          },
+          "response_schema": "v202601.InstallMerchantThemeResponse"
+        },
+        {
+          "id": "theme-market",
+          "command_path": [
+            "market",
+            "list"
+          ],
+          "summary": "List market themes",
+          "description": "Retrieve the installable platform themes in the theme market. Supports filtering by price\nband, industry, language, category, and features.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/merchant-themes"
+          },
+          "parameters": [
+            {
+              "name": "price",
+              "in": "query",
+              "type": "string",
+              "description": "Filter by price band, comma-separated; values come from `MerchantTheme.price`"
+            },
+            {
+              "name": "preset_default",
+              "in": "query",
+              "type": "string",
+              "description": "Preset-default filter: \"1\" returns only preset-default themes. Omit to return all"
+            },
+            {
+              "name": "industry",
+              "in": "query",
+              "type": "string",
+              "description": "Filter by industry, comma-separated"
+            },
+            {
+              "name": "language",
+              "in": "query",
+              "type": "string",
+              "description": "Filter by language, comma-separated"
+            },
+            {
+              "name": "category",
+              "in": "query",
+              "type": "string",
+              "description": "Filter by category, comma-separated; values come from `MerchantTheme.category`"
+            },
+            {
+              "name": "features",
+              "in": "query",
+              "type": "string",
+              "description": "Filter by features, comma-separated"
+            },
+            {
+              "name": "page",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Page number, starts at 1. Omit or pass 0 to use the default (1)"
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Page size, up to 200. Omit or pass 0 to use the default (200)"
+            }
+          ],
+          "response_schema": "v202601.GetMerchantThemesResponse"
+        },
+        {
+          "id": "theme-menu-create",
+          "command_path": [
+            "menu",
+            "create"
+          ],
+          "summary": "Create menu",
+          "description": "Create a custom menu for the store.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/menus",
+            "body": "*"
+          },
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "title",
+                "type": "string",
+                "required": true,
+                "description": "Menu title",
+                "min_length": 1
+              },
+              {
+                "name": "category",
+                "type": "integer",
+                "format": "int32",
+                "description": "Menu category. This endpoint creates custom menus only (3); built-in menus are maintained by the platform. Defaults to 3 when omitted"
+              },
+              {
+                "name": "children",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "google.protobuf.Struct"
+                },
+                "description": "Menu items tree (each item: title, url/type, children, ...)"
+              }
+            ]
+          },
+          "response_schema": "v202601.CreateMenuResponse"
+        },
+        {
+          "id": "theme-menu-delete",
+          "command_path": [
+            "menu",
+            "delete"
+          ],
+          "summary": "Delete menu",
+          "description": "Delete a custom menu. Built-in menus cannot be deleted.",
+          "hidden": false,
+          "http": {
+            "method": "DELETE",
+            "path": "/openapi/2026-01/themes/menus/{id}"
+          },
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Menu id to delete (custom category only)",
+              "min_length": 1
+            }
+          ],
+          "response_schema": "v202601.DeleteMenuResponse"
+        },
+        {
+          "id": "theme-menus-list",
+          "command_path": [
+            "menu",
+            "list"
+          ],
+          "summary": "List menus",
+          "description": "List the store's menus (navigation). Supports filtering by ids and hiding disabled items.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/menus"
+          },
+          "parameters": [
+            {
+              "name": "ids",
+              "in": "query",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional menu ids to filter; empty = all menus"
+            },
+            {
+              "name": "hide_disabled",
+              "in": "query",
+              "type": "boolean",
+              "description": "When true, hide disabled menu items"
+            },
+            {
+              "name": "page",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Page number (1-based), defaults to 1"
+            },
+            {
+              "name": "page_size",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Page size, defaults to 100"
+            }
+          ],
+          "response_schema": "v202601.ListMenusResponse"
+        },
+        {
+          "id": "theme-menu-update",
+          "command_path": [
+            "menu",
+            "update"
+          ],
+          "summary": "Update menu",
+          "description": "Update a menu's name and items. Built-in menus only allow a limited set of fields to change.",
+          "hidden": false,
+          "http": {
+            "method": "PUT",
+            "path": "/openapi/2026-01/themes/menus/{id}",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Menu id to update",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "fields": [
+              {
+                "name": "title",
+                "type": "string",
+                "description": "New title. Optional; kept unchanged when omitted"
+              },
+              {
+                "name": "category",
+                "type": "integer",
+                "format": "int32",
+                "description": "Menu category (custom menu = 3). Optional; 0 or omitted keeps the current value"
+              },
+              {
+                "name": "children",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "google.protobuf.Struct"
+                },
+                "description": "Menu items tree. Optional; omitted or an empty array both keep the current items — this field cannot be used to clear all menu items"
+              }
+            ]
+          },
+          "response_schema": "v202601.UpdateMenuResponse"
+        },
+        {
+          "id": "theme-pb-template-delete",
+          "command_path": [
+            "pb",
+            "delete-template"
+          ],
+          "summary": "Delete page-builder custom template",
+          "description": "Delete a page-builder custom template by id.",
+          "hidden": false,
+          "http": {
+            "method": "DELETE",
+            "path": "/openapi/2026-01/themes/page-builder/custom-templates/{template_id}"
+          },
+          "parameters": [
+            {
+              "name": "template_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Template id to delete",
+              "min_length": 1
+            }
+          ],
+          "response_schema": "v202601.DeletePbTemplateResponse"
+        },
+        {
+          "id": "theme-pb-single-blocks",
+          "command_path": [
+            "pb",
+            "list-blocks"
+          ],
+          "summary": "List page-builder block definitions by source ids",
+          "description": "Retrieve single-block definitions by source IDs for page-builder.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/page-builder/blocks"
+          },
+          "parameters": [
+            {
+              "name": "event_type",
+              "in": "query",
+              "type": "string",
+              "required": true,
+              "description": "Event type of the blocks to look up; use \"page-builder\" for page-builder blocks",
+              "min_length": 1
+            },
+            {
+              "name": "source_ids",
+              "in": "query",
+              "type": "string",
+              "required": true,
+              "description": "Source IDs, comma-separated, e.g. `\"global-654263218792825795\"`",
+              "min_length": 1
+            }
+          ],
+          "response_schema": "v202601.GetPageBuilderBlocksResponse"
+        },
+        {
+          "id": "theme-pb-block-save",
+          "command_path": [
+            "pb",
+            "save-block"
+          ],
+          "summary": "Save page-builder block",
+          "description": "Create or update a page-builder custom template block: ops are applied to the base template and\nthe card is saved, then written into the target section of the edit session (skipped when the\nbase template's event_type is not \"theme\").",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/page-builder/blocks",
+            "body": "*"
+          },
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "event_type",
+                "type": "string",
+                "required": true,
+                "description": "Event type of the card. \"theme\" = theme card — only then does the response carry type/block; other event types save the card without creating the single-page block",
+                "min_length": 1
+              },
+              {
+                "name": "origin_template_id",
+                "type": "string",
+                "required": true,
+                "description": "Source template ID the new card derives from. The new card's own id is returned in the response",
+                "min_length": 1
+              },
+              {
+                "name": "title",
+                "type": "object",
+                "schema": "google.protobuf.Struct",
+                "description": "Block title as an i18n map, e.g. `{\"en-US\": \"...\", \"zh-CN\": \"...\"}`"
+              },
+              {
+                "name": "action",
+                "type": "string",
+                "required": true,
+                "description": "Save action: save / save_as / update",
+                "min_length": 1
+              },
+              {
+                "name": "category",
+                "type": "string",
+                "description": "Category, e.g. \"image_with_text\""
+              },
+              {
+                "name": "second_category",
+                "type": "string",
+                "description": "Second category, e.g. \"Carousal\""
+              },
+              {
+                "name": "image",
+                "type": "string",
+                "description": "Preview image filename"
+              },
+              {
+                "name": "origin",
+                "type": "string",
+                "description": "Base template scope: \"custom\" or \"global\". Empty looks up custom first, then global; any other value is rejected"
+              },
+              {
+                "name": "ops",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "google.protobuf.Struct"
+                },
+                "description": "Operations applied to the base template before saving. At least one op is required; an empty list is rejected with 400"
+              },
+              {
+                "name": "oseid",
+                "type": "string",
+                "required": true,
+                "description": "Edit session ID to insert the new card into",
+                "min_length": 1
+              },
+              {
+                "name": "doc_id",
+                "type": "string",
+                "required": true,
+                "description": "Document (template file) ID for the session insert",
+                "min_length": 1
+              },
+              {
+                "name": "section_id",
+                "type": "string",
+                "required": true,
+                "description": "Target section ID whose content is replaced with the new card",
+                "min_length": 1
+              },
+              {
+                "name": "theme_id",
+                "type": "string",
+                "required": true,
+                "description": "Theme ID for the render context url of the session insert"
+              },
+              {
+                "name": "template_name",
+                "type": "string",
+                "description": "Template name for the session insert; defaults to file location without \".liquid\""
+              },
+              {
+                "name": "locale",
+                "type": "string",
+                "description": "Rendering locale for the session insert; defaults to en_US"
+              }
+            ]
+          },
+          "response_schema": "v202601.SavePageBuilderBlockResponse"
+        },
+        {
+          "id": "theme-pb-template-save",
+          "command_path": [
+            "pb",
+            "save-template"
+          ],
+          "summary": "Save page-builder custom template",
+          "description": "Create or edit a page-builder custom template; action controls create (save_as) vs edit (update).",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/page-builder/custom-templates",
+            "body": "*"
+          },
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "action",
+                "type": "string",
+                "required": true,
+                "description": "Action. All three create a new template; they differ in whether it is listed: - `save_as`: A new copy, listed - `update`: A new listed version; the template given by `template_id` is taken down - `save`: Saved but not shown in the template list",
+                "min_length": 1
+              },
+              {
+                "name": "template_id",
+                "type": "string",
+                "required": true,
+                "description": "Source template id for \"save_as\" / the template to version up for \"update\"",
+                "min_length": 1
+              },
+              {
+                "name": "title",
+                "type": "object",
+                "schema": "google.protobuf.Struct",
+                "description": "Template title (i18n map). Optional; defaults to the source template's title"
+              },
+              {
+                "name": "category",
+                "type": "string",
+                "description": "First-level category. Optional; defaults to source"
+              },
+              {
+                "name": "second_category",
+                "type": "string",
+                "description": "Second-level category. Optional; defaults to source"
+              },
+              {
+                "name": "image",
+                "type": "string",
+                "description": "Preview image filename. Optional; defaults to source"
+              },
+              {
+                "name": "origin",
+                "type": "string",
+                "description": "Origin type: \"custom\" | \"global\". Optional; defaults to source"
+              }
+            ]
+          },
+          "response_schema": "v202601.SavePbTemplateResponse"
+        },
+        {
+          "id": "theme-pb-summary",
+          "command_path": [
+            "pb",
+            "summary"
+          ],
+          "summary": "Render template canvas snapshot",
+          "description": "Pass a template id or a full schema, and get back a canvas text snapshot (with #path ids).",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/page-builder/summary",
+            "body": "*"
+          },
+          "body": {
+            "fields": [
+              {
+                "name": "schema",
+                "type": "object",
+                "schema": "google.protobuf.Struct",
+                "description": "Full ProjectData schema; either schema or id (prefer id)"
+              },
+              {
+                "name": "detail_level",
+                "type": "string",
+                "description": "Detail level: \"minimal\" | \"tiered\" | \"verbose\". Defaults to minimal"
+              },
+              {
+                "name": "detailed_node_ids",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Node paths to expand details for, e.g. \"0.1.2\""
+              },
+              {
+                "name": "id",
+                "type": "string",
+                "description": "Template id to summarize: the engine fetches its schema server-side. Either id or schema — prefer id so the full schema stays out of the request"
+              },
+              {
+                "name": "type",
+                "type": "string",
+                "description": "Template type when fetching by id: \"custom\" (default, custom-templates) | \"global\" (global-templates). Only honored with id; any other value is rejected. Same custom/global scope that save-block calls \"origin\""
+              }
+            ]
+          },
+          "response_schema": "v202601.PbSummaryResponse"
+        },
+        {
+          "id": "theme-pb-update",
+          "command_path": [
+            "pb",
+            "update"
+          ],
+          "summary": "Transform page-builder schema",
+          "description": "Apply ops to a schema and return the transformed schema/html/text. Stateless.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/page-builder/update",
+            "body": "*"
+          },
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "schema",
+                "type": "object",
+                "schema": "google.protobuf.Struct",
+                "required": true,
+                "description": "Full ProjectData schema"
+              },
+              {
+                "name": "ops",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "google.protobuf.Struct"
+                },
+                "description": "Operations to apply; defaults to re-export"
+              }
+            ]
+          },
+          "response_schema": "v202601.PbUpdateResponse"
+        },
+        {
           "id": "theme-publish",
           "command_path": [
             "publish"
@@ -10568,7 +11929,670 @@
           "response_schema": "v202506.PublishThemeResponse"
         },
         {
-          "id": "theme-upload",
+          "id": "theme-rename",
+          "command_path": [
+            "rename"
+          ],
+          "summary": "Rename theme",
+          "description": "Change the display name of a theme in the current store.",
+          "hidden": false,
+          "http": {
+            "method": "PATCH",
+            "path": "/openapi/2026-01/themes/{theme_id}/name",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "theme_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Theme id (uuid) to rename"
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "name",
+                "type": "string",
+                "required": true,
+                "description": "New theme name",
+                "min_length": 1
+              }
+            ]
+          },
+          "response_schema": "v202601.RenameThemeResponse"
+        },
+        {
+          "id": "theme-cards-list",
+          "command_path": [
+            "section",
+            "cards"
+          ],
+          "summary": "List addable theme cards",
+          "description": "List all addable cards under the current theme across sources\n(theme / pb / custom / extension / public / gen), de-duplicated and ordered by source.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/cards"
+          },
+          "parameters": [
+            {
+              "name": "theme_id",
+              "in": "query",
+              "type": "string",
+              "description": "Theme ID. Optional; only used by the \"theme\" source. Empty -\u003e the theme source returns empty"
+            },
+            {
+              "name": "source",
+              "in": "query",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Data source filter: theme / pb / custom / extension / public / gen (AI-generated cards). Multi-value (repeat the param source=pb\u0026source=public, or comma-join source=pb,public). Empty aggregates every source."
+            },
+            {
+              "name": "category",
+              "in": "query",
+              "type": "string",
+              "description": "Primary category filter. Only applies to the pb source"
+            },
+            {
+              "name": "second_category",
+              "in": "query",
+              "type": "string",
+              "description": "Secondary category filter. Only applies to the pb source"
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Page size, defaults to 10, range 1-100"
+            },
+            {
+              "name": "page",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Page number (1-based), defaults to 1"
+            },
+            {
+              "name": "template",
+              "in": "query",
+              "type": "string",
+              "description": "Template filter. Template name (index / product / collection / cart / page / search, or a custom template name)"
+            }
+          ],
+          "response_schema": "v202601.ListThemeCardsResponse"
+        },
+        {
+          "id": "theme-section-card-detail",
+          "command_path": [
+            "section",
+            "get"
+          ],
+          "summary": "Get section card data",
+          "description": "Render the specified section with its current config and return that single card's data.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/files/{doc_id}/sections/{section_id}"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "doc_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Document (template file) ID",
+              "min_length": 1
+            },
+            {
+              "name": "section_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Section (card) ID to render",
+              "min_length": 1
+            },
+            {
+              "name": "template_name",
+              "in": "query",
+              "type": "string",
+              "description": "Optional current page template name; scopes supported data source types"
+            }
+          ],
+          "response_schema": "v202601.GetSectionCardResponse"
+        },
+        {
+          "id": "theme-section-cards-list",
+          "command_path": [
+            "section",
+            "list"
+          ],
+          "summary": "List template cards",
+          "description": "List all cards of a template within an edit session, including the global card groups.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/files/{doc_id}/sections"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "doc_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Document (template file) ID",
+              "min_length": 1
+            },
+            {
+              "name": "template_name",
+              "in": "query",
+              "type": "string",
+              "description": "Optional current page template name; scopes supported data source types"
+            }
+          ],
+          "response_schema": "v202601.ListSectionCardsResponse"
+        },
+        {
+          "id": "theme-section-remove",
+          "command_path": [
+            "section",
+            "remove"
+          ],
+          "summary": "Remove section",
+          "description": "Remove a section from the page within an edit session.",
+          "hidden": false,
+          "http": {
+            "method": "DELETE",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/sections/{section_id}",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "section_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Section instance ID to remove. Page-flow mode (area omitted) requires the numeric instance id from content_for_page; with area set, pass the area member's stored id",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "doc_id",
+                "type": "string",
+                "required": true,
+                "description": "Document (template file) ID",
+                "min_length": 1
+              },
+              {
+                "name": "area",
+                "type": "string",
+                "description": "Target area: omit = the page flow; \"header\" / \"footer\" = remove from the header/footer area group (section-group themes only)"
+              }
+            ]
+          },
+          "response_schema": "v202601.RemoveSectionResponse"
+        },
+        {
+          "id": "theme-section-set-props",
+          "command_path": [
+            "section",
+            "set-props"
+          ],
+          "summary": "Set section properties",
+          "description": "Set/merge properties into a section's settings within an edit session.",
+          "hidden": false,
+          "http": {
+            "method": "PATCH",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/sections/{section_id}/props",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "section_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "doc_id",
+                "type": "string",
+                "required": true,
+                "description": "Document (template file) ID the section lives in",
+                "min_length": 1
+              },
+              {
+                "name": "theme_id",
+                "type": "string",
+                "required": true,
+                "description": "Theme ID (used to build the rendering context url)"
+              },
+              {
+                "name": "props",
+                "type": "object",
+                "schema": "google.protobuf.Struct",
+                "required": true,
+                "description": "Key→value properties to set/merge into the section's settings"
+              },
+              {
+                "name": "template_name",
+                "type": "string",
+                "description": "Template name, e.g. index. Defaults to the file location without \".liquid\""
+              },
+              {
+                "name": "locale",
+                "type": "string",
+                "description": "Rendering locale; defaults to en_US"
+              }
+            ]
+          },
+          "response_schema": "v202601.SetSectionPropsResponse"
+        },
+        {
+          "id": "theme-edit-session-batch-operations",
+          "command_path": [
+            "session",
+            "batch-ops"
+          ],
+          "summary": "Batch theme operations",
+          "description": "Execute multiple theme edit operations in one request; each op is applied and persisted\nindependently, and a failure on one does not stop the others.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/files/{doc_id}/operations",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "doc_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Document ID of the file within the session",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "operations",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "v202601.ThemeOperation"
+                },
+                "required": true,
+                "description": "Ordered list of theme operations executed in one batch. Each op is applied and persisted independently, and a failure on one does not stop the others. See `ThemeOperation`.",
+                "min_length": 1
+              }
+            ]
+          },
+          "response_schema": "v202601.BatchThemeOperationsResponse"
+        },
+        {
+          "id": "theme-edit-session-card-list",
+          "command_path": [
+            "session",
+            "card-list"
+          ],
+          "summary": "List edit-session cards",
+          "description": "Return published-view regular cards (`card_list` / `block_list`, same structure as the legacy\ncardList API) plus edit-session-view gen cards (`gen_list`, each item carrying `saved`).",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/card-list"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "need_schema",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Pass 1 to additionally return `schema` and `settings` on section cards"
+            }
+          ],
+          "response_schema": "v202601.ListEditSessionCardsResponse"
+        },
+        {
+          "id": "theme-edit-session-conflict",
+          "command_path": [
+            "session",
+            "check"
+          ],
+          "summary": "Check edit session conflict",
+          "description": "Check whether an edit session conflicts with the current draft.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/conflict"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            }
+          ],
+          "response_schema": "v202601.CheckEditSessionResponse"
+        },
+        {
+          "id": "theme-edit-session-create",
+          "command_path": [
+            "session",
+            "create"
+          ],
+          "summary": "Create theme edit session",
+          "description": "Open a temporary edit session (oseid) for the specified theme.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/{theme_id}/edit-sessions"
+          },
+          "parameters": [
+            {
+              "name": "theme_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Theme ID to open an edit session for"
+            }
+          ],
+          "response_schema": "v202601.CreateEditSessionResponse"
+        },
+        {
+          "id": "theme-global-config",
+          "command_path": [
+            "session",
+            "get-config"
+          ],
+          "summary": "Get theme global config",
+          "description": "Retrieve the theme's global config within an edit session: the current settings values plus the\nprimary-category schemas.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/files/{doc_id}/global"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "doc_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Document (template file) ID",
+              "min_length": 1
+            },
+            {
+              "name": "name",
+              "in": "query",
+              "type": "string",
+              "description": "Optional case-insensitive primary-category name filter; empty = all"
+            }
+          ],
+          "response_schema": "v202601.GetThemeGlobalConfigResponse"
+        },
+        {
+          "id": "theme-edit-session-file-get",
+          "command_path": [
+            "session",
+            "get-file"
+          ],
+          "summary": "Get edit session file",
+          "description": "Read a single file within a theme edit session.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/files/{doc_id}"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "doc_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Document ID of the file within the session",
+              "min_length": 1
+            }
+          ],
+          "response_schema": "v202601.GetEditSessionFileResponse"
+        },
+        {
+          "id": "theme-edit-session-promote",
+          "command_path": [
+            "session",
+            "promote"
+          ],
+          "summary": "Promote edit session",
+          "description": "Save an edit session as the draft.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/promote",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "fields": [
+              {
+                "name": "force",
+                "type": "boolean",
+                "description": "Force overwrite even if there is a conflict"
+              }
+            ]
+          },
+          "response_schema": "v202601.PromoteEditSessionResponse"
+        },
+        {
+          "id": "theme-global-config-update",
+          "command_path": [
+            "session",
+            "update-config"
+          ],
+          "summary": "Update theme global config",
+          "description": "Partially update the theme's global config within an edit session: pass only the settings to\nchange (one or many). Defaults to the global variables (skin); pass section_id to update a\nglobal card (header / footer / announcement / cart_drawer).",
+          "hidden": false,
+          "http": {
+            "method": "PATCH",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/files/{doc_id}/global",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "doc_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Document (template file) ID",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "settings",
+                "type": "object",
+                "schema": "google.protobuf.Struct",
+                "required": true,
+                "description": "Settings to change — partial, one or many key/value pairs; other settings stay untouched"
+              },
+              {
+                "name": "section_id",
+                "type": "string",
+                "description": "Target: omit or \"skin\" = global variables; otherwise a global section's type or stored id — the global singletons (header / footer / announcement / cart_drawer) or any member of the header / footer regions. An id that is not in the session returns 400"
+              },
+              {
+                "name": "template_name",
+                "type": "string",
+                "description": "Render-context template name, default \"index\""
+              },
+              {
+                "name": "locale",
+                "type": "string",
+                "description": "Render locale, default \"en_US\""
+              }
+            ]
+          },
+          "response_schema": "v202601.UpdateThemeGlobalConfigResponse"
+        },
+        {
+          "id": "theme-edit-session-file-update",
+          "command_path": [
+            "session",
+            "update-file"
+          ],
+          "summary": "Update edit session file",
+          "description": "Write a whole file (section configs) within a theme edit session.",
+          "hidden": false,
+          "http": {
+            "method": "PATCH",
+            "path": "/openapi/2026-01/themes/edit-sessions/{oseid}/files/{doc_id}",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "oseid",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Edit session ID",
+              "min_length": 1
+            },
+            {
+              "name": "doc_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Document ID of the file within the session",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "fields": [
+              {
+                "name": "config",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "v202601.EditSessionConfigItem"
+                },
+                "description": "The file's complete, ordered list of section configs. This is a whole-file write: the list REPLACES the file's current sections and any section omitted here is removed. Array order is the on-page render order. For incremental edits use the batch-operations endpoint"
+              },
+              {
+                "name": "global_config",
+                "type": "object",
+                "schema": "v202601.EditSessionGlobalConfig",
+                "description": "Global config"
+              },
+              {
+                "name": "layout",
+                "type": "string",
+                "description": "Layout name, e.g. theme"
+              }
+            ]
+          },
+          "response_schema": "v202601.UpdateEditSessionFileResponse"
+        },
+        {
+          "id": "theme-task",
           "command_path": [
             "task"
           ],
@@ -10589,6 +12613,221 @@
             }
           ],
           "response_schema": "v202506.GetThemeTaskResponse"
+        },
+        {
+          "id": "theme-templates-create",
+          "command_path": [
+            "template",
+            "create"
+          ],
+          "summary": "Create theme custom template",
+          "description": "Create a custom template and bind it to objects (products / collections) in one call.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/themes/{theme_id}/theme-templates",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "theme_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Theme ID this template belongs to"
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "type",
+                "type": "string",
+                "required": true,
+                "description": "Template type. One of `product`, `collection`, `product_coll`, `page`",
+                "min_length": 1
+              },
+              {
+                "name": "title",
+                "type": "string",
+                "required": true,
+                "description": "Template display name",
+                "min_length": 1
+              },
+              {
+                "name": "relations",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Bound object IDs (products / collections). Empty = create without binding"
+              },
+              {
+                "name": "from",
+                "type": "string",
+                "description": "Source template suffix to copy from, e.g. default"
+              },
+              {
+                "name": "oseid",
+                "type": "string",
+                "description": "Edit session ID the creation is performed within"
+              },
+              {
+                "name": "selected_all",
+                "type": "integer",
+                "format": "int32",
+                "description": "Bind every object matching `front_query_params` instead of listing them in `relations`: 0 = no (default), 1 = yes. When 1, the object set comes from `front_query_params`"
+              },
+              {
+                "name": "front_query_params",
+                "type": "object",
+                "schema": "v202601.CreateThemeTemplateFrontQueryParams",
+                "description": "Filter that defines the object set when `selected_all` = 1; ignored otherwise"
+              }
+            ]
+          },
+          "response_schema": "v202601.CreateThemeTemplateResponse"
+        },
+        {
+          "id": "theme-templates-delete",
+          "command_path": [
+            "template",
+            "delete"
+          ],
+          "summary": "Delete theme custom template",
+          "description": "Delete a custom template (theme_template) within the specified theme.",
+          "hidden": false,
+          "http": {
+            "method": "DELETE",
+            "path": "/openapi/2026-01/themes/{theme_id}/theme-templates/{template_id}"
+          },
+          "parameters": [
+            {
+              "name": "theme_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Theme ID this template belongs to"
+            },
+            {
+              "name": "template_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Template ID to delete",
+              "min_length": 1
+            }
+          ],
+          "response_schema": "v202601.DeleteThemeTemplateResponse"
+        },
+        {
+          "id": "theme-templates-list",
+          "command_path": [
+            "template",
+            "list"
+          ],
+          "summary": "List theme custom templates",
+          "description": "Retrieve the list of custom templates (theme_templates) bound to products / collections / pages.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/themes/{theme_id}/theme-templates"
+          },
+          "parameters": [
+            {
+              "name": "theme_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Theme ID"
+            },
+            {
+              "name": "type",
+              "in": "query",
+              "type": "string",
+              "description": "Optional filter by template type: `product` | `collection` | `product_coll` | `page`. Empty returns all types"
+            },
+            {
+              "name": "page",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Optional page number for pagination (default: 1)"
+            },
+            {
+              "name": "per_page",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Optional page size for pagination (default: 100)"
+            }
+          ],
+          "response_schema": "v202601.ListThemeTemplateResponse"
+        },
+        {
+          "id": "theme-templates-update",
+          "command_path": [
+            "template",
+            "update"
+          ],
+          "summary": "Update theme custom template",
+          "description": "Update the binding relations of an existing template (products / collections).",
+          "hidden": false,
+          "http": {
+            "method": "PATCH",
+            "path": "/openapi/2026-01/themes/{theme_id}/theme-templates/{template_id}",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "theme_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Theme ID this template belongs to"
+            },
+            {
+              "name": "template_id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Theme template ID to update",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "type",
+                "type": "string",
+                "required": true,
+                "description": "Template type. One of `product`, `collection`, `product_coll`, `page`",
+                "min_length": 1
+              },
+              {
+                "name": "relations",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The template's full binding list (product / collection IDs). It REPLACES the current bindings rather than being merged into them. An empty array — or omitting the field entirely — unbinds everything, so always resend the full list when you only mean to keep it"
+              },
+              {
+                "name": "selected_all",
+                "type": "integer",
+                "format": "int32",
+                "description": "Bind every object matching `front_query_params` instead of listing them in `relations`: 0 = no (default), 1 = yes. When 1, the object set comes from `front_query_params`"
+              },
+              {
+                "name": "front_query_params",
+                "type": "object",
+                "schema": "v202601.UpdateThemeTemplateFrontQueryParams",
+                "description": "Filter that defines the object set when `selected_all` = 1; ignored otherwise"
+              }
+            ]
+          },
+          "response_schema": "v202601.UpdateThemeTemplateResponse"
         },
         {
           "id": "theme-upgrade",
@@ -10617,7 +12856,7 @@
               {
                 "name": "name",
                 "type": "string",
-                "description": "Name of the upgraded theme"
+                "description": "Optional new name for the upgraded theme. Leave empty to keep the current name"
               }
             ]
           },
@@ -10629,7 +12868,7 @@
             "version",
             "get"
           ],
-          "summary": "Get theme file version by version ID",
+          "summary": "Get theme file version",
           "description": "Retrieves a specific version of a theme file by its version ID.",
           "hidden": false,
           "http": {
@@ -10660,7 +12899,7 @@
             "version",
             "list"
           ],
-          "summary": "List theme file Versions(Single file)",
+          "summary": "List versions of a theme file",
           "description": "Returns the version history for a single theme file.",
           "hidden": false,
           "http": {
@@ -10679,8 +12918,7 @@
               "name": "type",
               "in": "query",
               "type": "string",
-              "required": true,
-              "description": "The type of file to get version (assets, layout, template, etc.). Defaults to layout",
+              "description": "The type of file to list versions for: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales` (`blocks` is not supported here). Defaults to `layout`",
               "default": "layout",
               "min_length": 1
             },
@@ -10688,7 +12926,6 @@
               "name": "location",
               "in": "query",
               "type": "string",
-              "required": true,
               "description": "The location of the file within the theme. Defaults to theme.liquid",
               "default": "theme.liquid",
               "min_length": 1
@@ -10702,7 +12939,7 @@
             "version",
             "records"
           ],
-          "summary": "List theme file Versions(All file)",
+          "summary": "List versions of all theme files",
           "description": "Returns the version history for all files in the specified theme.",
           "hidden": false,
           "http": {
@@ -11525,86 +13762,6 @@
       ]
     },
     "v202506.BatchUpdateProcurementItemResponse": {},
-    "v202506.BillingAddressParam": {
-      "fields": [
-        {
-          "name": "first_name",
-          "type": "string"
-        },
-        {
-          "name": "last_name",
-          "type": "string"
-        },
-        {
-          "name": "email",
-          "type": "string"
-        },
-        {
-          "name": "country",
-          "type": "string"
-        },
-        {
-          "name": "country_code",
-          "type": "string"
-        },
-        {
-          "name": "province",
-          "type": "string"
-        },
-        {
-          "name": "province_code",
-          "type": "string"
-        },
-        {
-          "name": "area",
-          "type": "string"
-        },
-        {
-          "name": "city",
-          "type": "string"
-        },
-        {
-          "name": "address",
-          "type": "string"
-        },
-        {
-          "name": "address1",
-          "type": "string"
-        },
-        {
-          "name": "company",
-          "type": "string"
-        },
-        {
-          "name": "longitude",
-          "type": "string"
-        },
-        {
-          "name": "latitude",
-          "type": "string"
-        },
-        {
-          "name": "zip",
-          "type": "string"
-        },
-        {
-          "name": "source",
-          "type": "string"
-        },
-        {
-          "name": "tags",
-          "type": "string"
-        },
-        {
-          "name": "phone",
-          "type": "string"
-        },
-        {
-          "name": "phone_area_code",
-          "type": "string"
-        }
-      ]
-    },
     "v202506.Blog": {
       "fields": [
         {
@@ -12839,6 +14996,14 @@
           "format": "double"
         },
         {
+          "name": "wholesale_price",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.WholePrice"
+          }
+        },
+        {
           "name": "whole_prices",
           "type": "array",
           "items": {
@@ -13173,6 +15338,10 @@
           "type": "string",
           "required": true,
           "min_length": 1
+        },
+        {
+          "name": "content",
+          "type": "string"
         }
       ]
     },
@@ -15542,6 +17711,14 @@
             "type": "object",
             "schema": "v202506.ThemeDocLocation"
           }
+        },
+        {
+          "name": "blocks",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.ThemeDocLocation"
+          }
         }
       ]
     },
@@ -16482,6 +18659,10 @@
         {
           "name": "pre_cursor",
           "type": "string"
+        },
+        {
+          "name": "has_more",
+          "type": "boolean"
         },
         {
           "name": "products",
@@ -17646,32 +19827,6 @@
         },
         {
           "name": "merchant_email",
-          "type": "string"
-        }
-      ]
-    },
-    "v202506.PaymentLineParam": {
-      "fields": [
-        {
-          "name": "payment_method",
-          "type": "string",
-          "required": true,
-          "min_length": 1
-        },
-        {
-          "name": "payment_channel",
-          "type": "string",
-          "required": true,
-          "min_length": 1
-        },
-        {
-          "name": "transaction_no",
-          "type": "string",
-          "required": true,
-          "min_length": 1
-        },
-        {
-          "name": "credit_card_number",
           "type": "string"
         }
       ]
@@ -20399,6 +22554,14 @@
           "format": "double"
         },
         {
+          "name": "wholesale_price",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.UpdateWholePrice"
+          }
+        },
+        {
           "name": "whole_prices",
           "type": "array",
           "items": {
@@ -20877,6 +23040,14 @@
           "format": "double"
         },
         {
+          "name": "wholesale_price",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.UpdateWholePrice"
+          }
+        },
+        {
           "name": "whole_prices",
           "type": "array",
           "items": {
@@ -21208,6 +23379,14 @@
           "format": "double"
         },
         {
+          "name": "wholesale_price",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202506.WholePrice"
+          }
+        },
+        {
           "name": "whole_prices",
           "type": "array",
           "items": {
@@ -21409,6 +23588,98 @@
         }
       ]
     },
+    "v202601.BatchThemeOperationsResponse": {
+      "fields": [
+        {
+          "name": "data",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.ThemeOperationResult"
+          }
+        }
+      ]
+    },
+    "v202601.BillingAddressParam": {
+      "fields": [
+        {
+          "name": "first_name",
+          "type": "string"
+        },
+        {
+          "name": "last_name",
+          "type": "string"
+        },
+        {
+          "name": "email",
+          "type": "string"
+        },
+        {
+          "name": "country",
+          "type": "string"
+        },
+        {
+          "name": "country_code",
+          "type": "string"
+        },
+        {
+          "name": "province",
+          "type": "string"
+        },
+        {
+          "name": "province_code",
+          "type": "string"
+        },
+        {
+          "name": "area",
+          "type": "string"
+        },
+        {
+          "name": "city",
+          "type": "string"
+        },
+        {
+          "name": "address",
+          "type": "string"
+        },
+        {
+          "name": "address1",
+          "type": "string"
+        },
+        {
+          "name": "company",
+          "type": "string"
+        },
+        {
+          "name": "longitude",
+          "type": "string"
+        },
+        {
+          "name": "latitude",
+          "type": "string"
+        },
+        {
+          "name": "zip",
+          "type": "string"
+        },
+        {
+          "name": "source",
+          "type": "string"
+        },
+        {
+          "name": "tags",
+          "type": "string"
+        },
+        {
+          "name": "phone",
+          "type": "string"
+        },
+        {
+          "name": "phone_area_code",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.Blog": {
       "fields": [
         {
@@ -21467,6 +23738,84 @@
           "name": "fulfillment",
           "type": "object",
           "schema": "v202601.FulfillmentSummary"
+        }
+      ]
+    },
+    "v202601.Card": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "source",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "object",
+          "schema": "google.protobuf.Value"
+        },
+        {
+          "name": "category",
+          "type": "string"
+        },
+        {
+          "name": "second_category",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "preview_image",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        },
+        {
+          "name": "templates",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "format": "int32"
+        }
+      ]
+    },
+    "v202601.CardGroup": {
+      "fields": [
+        {
+          "name": "group_key",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "group_name",
+          "type": "string"
+        },
+        {
+          "name": "groups",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
+        }
+      ]
+    },
+    "v202601.CheckEditSessionResponse": {
+      "fields": [
+        {
+          "name": "conflict",
+          "type": "boolean"
         }
       ]
     },
@@ -21621,6 +23970,15 @@
         }
       ]
     },
+    "v202601.CopyThemeResponse": {
+      "fields": [
+        {
+          "name": "data",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
     "v202601.CreateCollectionParam": {
       "fields": [
         {
@@ -21697,6 +24055,14 @@
         }
       ]
     },
+    "v202601.CreateEditSessionResponse": {
+      "fields": [
+        {
+          "name": "oseid",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.CreateFulfillmentResponse": {
       "fields": [
         {
@@ -21706,12 +24072,34 @@
         }
       ]
     },
+    "v202601.CreateGenBlockResponse": {
+      "fields": [
+        {
+          "name": "revert_id",
+          "type": "string"
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
     "v202601.CreateMarketResponse": {
       "fields": [
         {
           "name": "market",
           "type": "object",
           "schema": "v202601.Market"
+        }
+      ]
+    },
+    "v202601.CreateMenuResponse": {
+      "fields": [
+        {
+          "name": "menu",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
         }
       ]
     },
@@ -21974,6 +24362,27 @@
         }
       ]
     },
+    "v202601.CreateThemeTemplateFrontQueryParams": {
+      "fields": [
+        {
+          "name": "search_keyword",
+          "type": "string"
+        },
+        {
+          "name": "collection_id",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.CreateThemeTemplateResponse": {
+      "fields": [
+        {
+          "name": "theme_template",
+          "type": "object",
+          "schema": "v202601.ThemeTemplate"
+        }
+      ]
+    },
     "v202601.CurrencySymbol": {
       "fields": [
         {
@@ -22094,10 +24503,42 @@
       ]
     },
     "v202601.DeleteCollectionResponse": {},
+    "v202601.DeleteGenBlockResponse": {
+      "fields": [
+        {
+          "name": "revert_id",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.DeleteLanguageResponse": {},
     "v202601.DeleteMarketProductsResponse": {},
     "v202601.DeleteMarketResponse": {},
+    "v202601.DeleteMenuResponse": {
+      "fields": [
+        {
+          "name": "state",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "msg",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.DeletePbTemplateResponse": {
+      "fields": [
+        {
+          "name": "data",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
+    "v202601.DeleteThemeTemplateResponse": {},
     "v202601.DisableLanguageResponse": {},
+    "v202601.DisableThemeAppResponse": {},
     "v202601.DiscountApplication": {
       "fields": [
         {
@@ -22110,7 +24551,62 @@
         }
       ]
     },
+    "v202601.EditSessionConfigItem": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "with_hook_set",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.EditSessionFile": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "theme_id",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "location",
+          "type": "string"
+        },
+        {
+          "name": "content",
+          "type": "string"
+        },
+        {
+          "name": "oseid",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.EditSessionGlobalConfig": {
+      "fields": [
+        {
+          "name": "libs",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.EnableLanguageResponse": {},
+    "v202601.EnableThemeAppResponse": {},
     "v202601.ExtraInfo": {
       "fields": [
         {
@@ -22127,6 +24623,14 @@
         },
         {
           "name": "tax_text",
+          "type": "string"
+        },
+        {
+          "name": "id_number",
+          "type": "string"
+        },
+        {
+          "name": "id_number_text",
           "type": "string"
         }
       ]
@@ -22260,6 +24764,38 @@
         }
       ]
     },
+    "v202601.GenBlockDoc": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "location",
+          "type": "string"
+        },
+        {
+          "name": "hash",
+          "type": "string"
+        },
+        {
+          "name": "content",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.GetCollectionAsyncTaskResponse": {
       "fields": [
         {
@@ -22358,6 +24894,15 @@
         }
       ]
     },
+    "v202601.GetEditSessionFileResponse": {
+      "fields": [
+        {
+          "name": "template",
+          "type": "object",
+          "schema": "v202601.EditSessionFile"
+        }
+      ]
+    },
     "v202601.GetFulfillmentResponse": {
       "fields": [
         {
@@ -22367,12 +24912,67 @@
         }
       ]
     },
+    "v202601.GetGenBlockResponse": {
+      "fields": [
+        {
+          "name": "doc",
+          "type": "object",
+          "schema": "v202601.GenBlockDoc"
+        },
+        {
+          "name": "saved",
+          "type": "boolean"
+        },
+        {
+          "name": "ref_count",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "instances",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
     "v202601.GetMarketResponse": {
       "fields": [
         {
           "name": "market",
           "type": "object",
           "schema": "v202601.Market"
+        }
+      ]
+    },
+    "v202601.GetMerchantThemesResponse": {
+      "fields": [
+        {
+          "name": "merchant_themes",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.MerchantTheme"
+          }
+        },
+        {
+          "name": "total",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "total_pages",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "current_page",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "format": "int32"
         }
       ]
     },
@@ -22403,6 +25003,33 @@
         }
       ]
     },
+    "v202601.GetPageBuilderBlocksResponse": {
+      "fields": [
+        {
+          "name": "blocks",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
+    "v202601.GetSectionCardResponse": {
+      "fields": [
+        {
+          "name": "data",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
+    "v202601.GetThemeGlobalConfigResponse": {
+      "fields": [
+        {
+          "name": "data",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
     "v202601.Image": {
       "fields": [
         {
@@ -22422,6 +25049,15 @@
         {
           "name": "alt",
           "type": "string"
+        }
+      ]
+    },
+    "v202601.InstallMerchantThemeResponse": {
+      "fields": [
+        {
+          "name": "data",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
         }
       ]
     },
@@ -22533,6 +25169,34 @@
           "name": "total",
           "type": "integer",
           "format": "int32"
+        }
+      ]
+    },
+    "v202601.ListEditSessionCardsResponse": {
+      "fields": [
+        {
+          "name": "card_list",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.CardGroup"
+          }
+        },
+        {
+          "name": "block_list",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.CardGroup"
+          }
+        },
+        {
+          "name": "gen_list",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.CardGroup"
+          }
         }
       ]
     },
@@ -22648,6 +25312,37 @@
         }
       ]
     },
+    "v202601.ListMenusResponse": {
+      "fields": [
+        {
+          "name": "menus",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
+        },
+        {
+          "name": "total",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "page",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "has_more",
+          "type": "boolean"
+        }
+      ]
+    },
     "v202601.ListOrderResponse": {
       "fields": [
         {
@@ -22668,6 +25363,27 @@
         }
       ]
     },
+    "v202601.ListPublicBlockResponse": {
+      "fields": [
+        {
+          "name": "apps",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.PublicBlockApp"
+          }
+        }
+      ]
+    },
+    "v202601.ListSectionCardsResponse": {
+      "fields": [
+        {
+          "name": "data",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
     "v202601.ListSupportedLanguagesResponse": {
       "fields": [
         {
@@ -22676,6 +25392,86 @@
           "items": {
             "type": "object",
             "schema": "v202601.SupportedLanguage"
+          }
+        }
+      ]
+    },
+    "v202601.ListThemeAppsResponse": {
+      "fields": [
+        {
+          "name": "app_embeds",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
+        },
+        {
+          "name": "script_tag_apps",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.ScriptTagGroup"
+          }
+        }
+      ]
+    },
+    "v202601.ListThemeCardsResponse": {
+      "fields": [
+        {
+          "name": "items",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.Card"
+          }
+        },
+        {
+          "name": "total",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "page",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "has_more",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.ListThemeExtensionResponse": {
+      "fields": [
+        {
+          "name": "apps",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.ThemeExtensionApp"
+          }
+        }
+      ]
+    },
+    "v202601.ListThemeTemplateResponse": {
+      "fields": [
+        {
+          "name": "count",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "theme_templates",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.ThemeTemplate"
           }
         }
       ]
@@ -23268,6 +26064,93 @@
             "type": "object",
             "schema": "v202601.RuleModuleParam"
           }
+        }
+      ]
+    },
+    "v202601.MerchantTheme": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "remote_theme_id",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "category",
+          "type": "string"
+        },
+        {
+          "name": "desc",
+          "type": "string"
+        },
+        {
+          "name": "preset_name",
+          "type": "string"
+        },
+        {
+          "name": "c_version",
+          "type": "string"
+        },
+        {
+          "name": "version_publish_time",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "default",
+          "type": "string"
+        },
+        {
+          "name": "is_paid",
+          "type": "boolean"
+        },
+        {
+          "name": "pc_cover_url",
+          "type": "string"
+        },
+        {
+          "name": "mobile_cover_url",
+          "type": "string"
+        },
+        {
+          "name": "preview_url",
+          "type": "string"
+        },
+        {
+          "name": "change_log",
+          "type": "string"
+        },
+        {
+          "name": "exts",
+          "type": "string"
+        },
+        {
+          "name": "preset_data",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "presets",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "price",
+          "type": "object",
+          "schema": "google.protobuf.ListValue"
         }
       ]
     },
@@ -23928,6 +26811,79 @@
         }
       ]
     },
+    "v202601.PaymentLineParam": {
+      "fields": [
+        {
+          "name": "payment_method",
+          "type": "string"
+        },
+        {
+          "name": "payment_channel",
+          "type": "string"
+        },
+        {
+          "name": "transaction_no",
+          "type": "string",
+          "required": true,
+          "min_length": 1
+        },
+        {
+          "name": "credit_card_number",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.PbSummaryResponse": {
+      "fields": [
+        {
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "name": "timings",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
+    "v202601.PbUpdateResponse": {
+      "fields": [
+        {
+          "name": "schema",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "name": "html",
+          "type": "string"
+        },
+        {
+          "name": "translation",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
+        },
+        {
+          "name": "failures",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
+        },
+        {
+          "name": "timings",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
     "v202601.PreviewMarketResponse": {
       "fields": [
         {
@@ -23941,6 +26897,34 @@
           "items": {
             "type": "object",
             "schema": "v202601.MarketDeletionItem"
+          }
+        }
+      ]
+    },
+    "v202601.PromoteEditSessionResponse": {
+      "fields": [
+        {
+          "name": "promoted",
+          "type": "boolean"
+        },
+        {
+          "name": "conflict",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.PublicBlockApp": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "blocks",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
           }
         }
       ]
@@ -24020,6 +27004,35 @@
         }
       ]
     },
+    "v202601.RemoveSectionResponse": {
+      "fields": [
+        {
+          "name": "content_for_page",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ]
+    },
+    "v202601.RenameThemeResponse": {
+      "fields": [
+        {
+          "name": "data",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
+    "v202601.RevertGenBlockResponse": {
+      "fields": [
+        {
+          "name": "revert_id",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.Rule": {
       "fields": [
         {
@@ -24084,6 +27097,200 @@
         }
       ]
     },
+    "v202601.SavePageBuilderBlockResponse": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "series_id",
+          "type": "string"
+        },
+        {
+          "name": "show_templates",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "block",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
+    "v202601.SavePbTemplateResponse": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "series_id",
+          "type": "string"
+        },
+        {
+          "name": "show_templates",
+          "type": "integer",
+          "format": "int32"
+        }
+      ]
+    },
+    "v202601.ScriptTagAppInfo": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "name": "icon",
+          "type": "string"
+        },
+        {
+          "name": "uid",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "link",
+          "type": "string"
+        },
+        {
+          "name": "subtitle",
+          "type": "string"
+        },
+        {
+          "name": "installed_at",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.ScriptTagGroup": {
+      "fields": [
+        {
+          "name": "app_info",
+          "type": "object",
+          "schema": "v202601.ScriptTagAppInfo"
+        },
+        {
+          "name": "script_tags",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.ScriptTagInfo"
+          }
+        }
+      ]
+    },
+    "v202601.ScriptTagInfo": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "app_id",
+          "type": "string"
+        },
+        {
+          "name": "source",
+          "type": "string"
+        },
+        {
+          "name": "device",
+          "type": "string"
+        },
+        {
+          "name": "display_scope",
+          "type": "string"
+        },
+        {
+          "name": "event_type",
+          "type": "string"
+        },
+        {
+          "name": "src",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "position",
+          "type": "string"
+        },
+        {
+          "name": "store_id",
+          "type": "string"
+        },
+        {
+          "name": "store_domain",
+          "type": "string"
+        },
+        {
+          "name": "event_period",
+          "type": "string"
+        },
+        {
+          "name": "env",
+          "type": "string"
+        },
+        {
+          "name": "exclude_ids",
+          "type": "string"
+        },
+        {
+          "name": "weight",
+          "type": "string"
+        },
+        {
+          "name": "started_at",
+          "type": "string"
+        },
+        {
+          "name": "ended_at",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.SetSectionPropsResponse": {
+      "fields": [
+        {
+          "name": "section",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "html",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.ShippingLine": {
       "fields": [
         {
@@ -24113,6 +27320,137 @@
         },
         {
           "name": "name",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.ThemeExtensionApp": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "blocks",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "google.protobuf.Struct"
+          }
+        }
+      ]
+    },
+    "v202601.ThemeOperation": {
+      "fields": [
+        {
+          "name": "op",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "target",
+          "type": "string"
+        },
+        {
+          "name": "value",
+          "type": "object",
+          "schema": "google.protobuf.Value"
+        },
+        {
+          "name": "props",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "visible",
+          "type": "boolean"
+        },
+        {
+          "name": "position",
+          "type": "string"
+        },
+        {
+          "name": "move_target",
+          "type": "string"
+        },
+        {
+          "name": "section_id",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.ThemeOperationResult": {
+      "fields": [
+        {
+          "name": "op",
+          "type": "string"
+        },
+        {
+          "name": "result",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.ThemeTemplate": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "theme_id",
+          "type": "string"
+        },
+        {
+          "name": "store_id",
+          "type": "string"
+        },
+        {
+          "name": "doc_id",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "suffix",
+          "type": "string"
+        },
+        {
+          "name": "from",
+          "type": "string"
+        },
+        {
+          "name": "obj_id",
+          "type": "string"
+        },
+        {
+          "name": "obj_title",
+          "type": "string"
+        },
+        {
+          "name": "source",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        },
+        {
+          "name": "icon",
+          "type": "string"
+        },
+        {
+          "name": "count",
           "type": "string"
         }
       ]
@@ -24258,12 +27596,38 @@
         }
       ]
     },
+    "v202601.UpdateEditSessionFileResponse": {
+      "fields": [
+        {
+          "name": "template_data",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
     "v202601.UpdateFulfillmentResponse": {
       "fields": [
         {
           "name": "fulfillment",
           "type": "object",
           "schema": "v202601.FulfillmentSummary"
+        }
+      ]
+    },
+    "v202601.UpdateGenBlockResponse": {
+      "fields": [
+        {
+          "name": "revert_id",
+          "type": "string"
+        },
+        {
+          "name": "branched",
+          "type": "boolean"
+        },
+        {
+          "name": "settings",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
         }
       ]
     },
@@ -24274,6 +27638,15 @@
     "v202601.UpdateMarketResponse": {},
     "v202601.UpdateMarketStatusResponse": {},
     "v202601.UpdateMarketTaxResponse": {},
+    "v202601.UpdateMenuResponse": {
+      "fields": [
+        {
+          "name": "menu",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
     "v202601.UpdateOrderParam": {
       "fields": [
         {
@@ -24468,6 +27841,32 @@
         }
       ]
     },
+    "v202601.UpdateThemeGlobalConfigResponse": {
+      "fields": [
+        {
+          "name": "section",
+          "type": "object",
+          "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "html",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.UpdateThemeTemplateFrontQueryParams": {
+      "fields": [
+        {
+          "name": "search_keyword",
+          "type": "string"
+        },
+        {
+          "name": "collection_id",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.UpdateThemeTemplateResponse": {},
     "v202601.V202601RefundRecord": {
       "fields": [
         {
