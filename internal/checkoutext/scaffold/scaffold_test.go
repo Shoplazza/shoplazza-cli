@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 func TestProject_WritesTreeWithoutConfigJS(t *testing.T) {
@@ -91,19 +93,6 @@ func TestProject_FailureKeepsPreexistingDir(t *testing.T) {
 	}
 }
 
-// skipIfDirWritable skips the test when a write into dir still succeeds despite a
-// prior chmod 0o555 (running as root, or a filesystem that ignores directory
-// permissions), since the write-failure path can't be induced in that case.
-func skipIfDirWritable(t *testing.T, dir string) {
-	t.Helper()
-	probe := filepath.Join(dir, ".write-probe")
-	if f, err := os.Create(probe); err == nil {
-		_ = f.Close()
-		_ = os.Remove(probe)
-		t.Skipf("%s is writable despite chmod 0o555 (root or a permissive filesystem); cannot exercise the write-failure path", dir)
-	}
-}
-
 // TestExtension_FailureKeepsPreexistingDir: same contract at the extension
 // level — Extension only removes the target dir if it created it.
 func TestExtension_FailureKeepsPreexistingDir(t *testing.T) {
@@ -116,7 +105,7 @@ func TestExtension_FailureKeepsPreexistingDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(dstExtDir, 0o755) })
-	skipIfDirWritable(t, dstExtDir)
+	testenv.SkipIfDirWritable(t, dstExtDir)
 	if err := Extension(root, "second"); err == nil {
 		t.Fatal("expected Extension to fail in a read-only target dir")
 	}

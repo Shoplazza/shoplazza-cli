@@ -29,3 +29,6 @@ CLAUDE.md
 
 # Internal docs are kept local, not published
 /docs/
+
+# End-to-end scripts run against a real dev store, kept local
+/tests/e2e/

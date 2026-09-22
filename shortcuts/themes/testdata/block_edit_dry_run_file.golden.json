@@ -1,0 +1,12 @@
+{
+  "plans": [
+    {
+      "body": {
+        "content": "{% schema %}{}{% endschema %}"
+      },
+      "method": "POST",
+      "path": "/openapi/2026-01/themes/edit-sessions/ose_x/gen-blocks",
+      "query": null
+    }
+  ]
+}
