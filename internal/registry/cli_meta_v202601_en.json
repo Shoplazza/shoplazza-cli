@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-09-22T07:12:46Z",
+  "generated_at": "2026-09-22T08:35:35Z",
   "modules": [
     {
       "name": "billing",
@@ -6634,6 +6634,10 @@
           "summary": "Manage a store's markets: their lifecycle, domain, pricing, tax, status, default language, and product assignment",
           "description": "A market represents a set of countries a merchant sells to, with its own currency, pricing,\ndomain and language configuration. Each country belongs to exactly one market, and the primary\nmarket is protected: it cannot be deleted and, except for its tax-inclusive setting, cannot be\nmodified.\nProvides endpoints to list and retrieve markets, create and update them, change domain, price,\ntax and status settings, set the default language, delete a market, and manage which products\na market sells along with market-specific fixed prices."
         },
+        "menu": {
+          "summary": "Manage the store's menus (navigation)",
+          "description": "A menu is a navigation entry point on the storefront, such as the main menu or the footer\nmenu. Each menu holds a tree of menu items, and built-in menus are maintained by the platform.\nProvides endpoints to list menus, create a custom menu, update a menu's title and items, and\ndelete a custom menu."
+        },
         "metafields-definition": {
           "summary": "Define and manage metafield schemas that extend resource objects with custom data",
           "description": "Metafield definitions describe the schema of metafields attached to a given owner resource,\nincluding namespace, key, value type, and validation, so that merchants and apps can store\ncustom data in a consistent, typed way.\nProvides endpoints to create, update, get, list, delete metafield definitions, and to count\ndefinitions or their associated metafields by owner resource or group."
@@ -8946,6 +8950,170 @@
           "response_schema": "v202601.UpdateMarketTaxResponse"
         },
         {
+          "id": "menu-create",
+          "command_path": [
+            "menu",
+            "create"
+          ],
+          "summary": "Create menu",
+          "description": "Create a custom menu for the store.",
+          "hidden": false,
+          "http": {
+            "method": "POST",
+            "path": "/openapi/2026-01/menus",
+            "body": "*"
+          },
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "title",
+                "type": "string",
+                "required": true,
+                "description": "Menu title",
+                "min_length": 1
+              },
+              {
+                "name": "category",
+                "type": "integer",
+                "format": "int32",
+                "description": "Menu category. This endpoint creates custom menus only (`3`); built-in menus are maintained by the platform. Defaults to `3` when omitted"
+              },
+              {
+                "name": "children",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "google.protobuf.Struct"
+                },
+                "description": "Menu items tree (each item: title, url/type, children, ...)"
+              }
+            ]
+          },
+          "response_schema": "v202601.CreateMenuResponse"
+        },
+        {
+          "id": "menu-delete",
+          "command_path": [
+            "menu",
+            "delete"
+          ],
+          "summary": "Delete menu",
+          "description": "Delete a custom menu. Built-in menus cannot be deleted.",
+          "hidden": false,
+          "http": {
+            "method": "DELETE",
+            "path": "/openapi/2026-01/menus/{id}"
+          },
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Menu id to delete (custom category only)",
+              "min_length": 1
+            }
+          ],
+          "response_schema": "v202601.DeleteMenuResponse"
+        },
+        {
+          "id": "menus-list",
+          "command_path": [
+            "menu",
+            "list"
+          ],
+          "summary": "List menus",
+          "description": "List the store's menus (navigation). Supports filtering by ids and hiding disabled items.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/menus"
+          },
+          "parameters": [
+            {
+              "name": "ids",
+              "in": "query",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional menu ids to filter; empty = all menus"
+            },
+            {
+              "name": "hide_disabled",
+              "in": "query",
+              "type": "boolean",
+              "description": "When true, hide disabled menu items"
+            },
+            {
+              "name": "page",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Page number"
+            },
+            {
+              "name": "page_size",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Page size, defaults to 100"
+            }
+          ],
+          "response_schema": "v202601.ListMenusResponse"
+        },
+        {
+          "id": "menu-update",
+          "command_path": [
+            "menu",
+            "update"
+          ],
+          "summary": "Update menu",
+          "description": "Update a menu's name and items. Built-in menus only allow a limited set of fields to change.",
+          "hidden": false,
+          "http": {
+            "method": "PUT",
+            "path": "/openapi/2026-01/menus/{id}",
+            "body": "*"
+          },
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "type": "string",
+              "required": true,
+              "description": "Menu id to update",
+              "min_length": 1
+            }
+          ],
+          "body": {
+            "fields": [
+              {
+                "name": "title",
+                "type": "string",
+                "description": "New title. Optional; kept unchanged when omitted"
+              },
+              {
+                "name": "category",
+                "type": "integer",
+                "format": "int32",
+                "description": "Menu category (custom menu = `3`). Optional; `0` or omitted keeps the current value"
+              },
+              {
+                "name": "children",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "schema": "google.protobuf.Struct"
+                },
+                "description": "Menu items tree. Omitted or an empty array both keep the current items"
+              }
+            ]
+          },
+          "response_schema": "v202601.UpdateMenuResponse"
+        },
+        {
           "id": "metafield-definition-count",
           "command_path": [
             "metafields-definition",
@@ -10244,9 +10412,6 @@
         "market": {
           "summary": "Browse the theme market and install a theme into the store."
         },
-        "menu": {
-          "summary": "Manage the store's menus (navigation)."
-        },
         "pb": {
           "summary": "Page-builder operations: render a canvas snapshot, transform a schema, and save blocks and templates."
         },
@@ -11445,170 +11610,6 @@
             }
           ],
           "response_schema": "v202601.GetMerchantThemesResponse"
-        },
-        {
-          "id": "theme-menu-create",
-          "command_path": [
-            "menu",
-            "create"
-          ],
-          "summary": "Create menu",
-          "description": "Create a custom menu for the store.",
-          "hidden": false,
-          "http": {
-            "method": "POST",
-            "path": "/openapi/2026-01/themes/menus",
-            "body": "*"
-          },
-          "body": {
-            "required": true,
-            "fields": [
-              {
-                "name": "title",
-                "type": "string",
-                "required": true,
-                "description": "Menu title",
-                "min_length": 1
-              },
-              {
-                "name": "category",
-                "type": "integer",
-                "format": "int32",
-                "description": "Menu category. This endpoint creates custom menus only (`3`); built-in menus are maintained by the platform. Defaults to `3` when omitted"
-              },
-              {
-                "name": "children",
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "schema": "google.protobuf.Struct"
-                },
-                "description": "Menu items tree (each item: title, url/type, children, ...)"
-              }
-            ]
-          },
-          "response_schema": "v202601.CreateMenuResponse"
-        },
-        {
-          "id": "theme-menu-delete",
-          "command_path": [
-            "menu",
-            "delete"
-          ],
-          "summary": "Delete menu",
-          "description": "Delete a custom menu. Built-in menus cannot be deleted.",
-          "hidden": false,
-          "http": {
-            "method": "DELETE",
-            "path": "/openapi/2026-01/themes/menus/{id}"
-          },
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Menu id to delete (custom category only)",
-              "min_length": 1
-            }
-          ],
-          "response_schema": "v202601.DeleteMenuResponse"
-        },
-        {
-          "id": "theme-menus-list",
-          "command_path": [
-            "menu",
-            "list"
-          ],
-          "summary": "List menus",
-          "description": "List the store's menus (navigation). Supports filtering by ids and hiding disabled items.",
-          "hidden": false,
-          "http": {
-            "method": "GET",
-            "path": "/openapi/2026-01/themes/menus"
-          },
-          "parameters": [
-            {
-              "name": "ids",
-              "in": "query",
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Optional menu ids to filter; empty = all menus"
-            },
-            {
-              "name": "hide_disabled",
-              "in": "query",
-              "type": "boolean",
-              "description": "When true, hide disabled menu items"
-            },
-            {
-              "name": "page",
-              "in": "query",
-              "type": "integer",
-              "format": "int32",
-              "description": "Page number"
-            },
-            {
-              "name": "page_size",
-              "in": "query",
-              "type": "integer",
-              "format": "int32",
-              "description": "Page size, defaults to 100"
-            }
-          ],
-          "response_schema": "v202601.ListMenusResponse"
-        },
-        {
-          "id": "theme-menu-update",
-          "command_path": [
-            "menu",
-            "update"
-          ],
-          "summary": "Update menu",
-          "description": "Update a menu's name and items. Built-in menus only allow a limited set of fields to change.",
-          "hidden": false,
-          "http": {
-            "method": "PUT",
-            "path": "/openapi/2026-01/themes/menus/{id}",
-            "body": "*"
-          },
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "type": "string",
-              "required": true,
-              "description": "Menu id to update",
-              "min_length": 1
-            }
-          ],
-          "body": {
-            "fields": [
-              {
-                "name": "title",
-                "type": "string",
-                "description": "New title. Optional; kept unchanged when omitted"
-              },
-              {
-                "name": "category",
-                "type": "integer",
-                "format": "int32",
-                "description": "Menu category (custom menu = `3`). Optional; `0` or omitted keeps the current value"
-              },
-              {
-                "name": "children",
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "schema": "google.protobuf.Struct"
-                },
-                "description": "Menu items tree. Omitted or an empty array both keep the current items"
-              }
-            ]
-          },
-          "response_schema": "v202601.UpdateMenuResponse"
         },
         {
           "id": "theme-pb-template-delete",
