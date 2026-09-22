@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-09-21T07:14:07Z",
+  "generated_at": "2026-09-22T07:12:46Z",
   "modules": [
     {
       "name": "billing",
@@ -10232,8 +10232,32 @@
     {
       "name": "themes",
       "groups": {
+        "app": {
+          "summary": "Manage app-embed blocks and injected script tags on the storefront."
+        },
+        "block": {
+          "summary": "Manage blocks inside a section, including AI-generated (gen) cards."
+        },
         "file": {
           "summary": "Read, write, and delete individual theme template files."
+        },
+        "market": {
+          "summary": "Browse the theme market and install a theme into the store."
+        },
+        "menu": {
+          "summary": "Manage the store's menus (navigation)."
+        },
+        "pb": {
+          "summary": "Page-builder operations: render a canvas snapshot, transform a schema, and save blocks and templates."
+        },
+        "section": {
+          "summary": "Arrange a page's sections: list them, read one, set its properties, and remove it."
+        },
+        "session": {
+          "summary": "Work on a theme inside an edit session: read and write files, batch edits, check conflicts, and save to the draft."
+        },
+        "template": {
+          "summary": "Manage custom templates bound to products, collections, and pages."
         },
         "version": {
           "summary": "Manage a theme's version history."
@@ -10281,7 +10305,7 @@
               {
                 "name": "category",
                 "type": "string",
-                "description": "Category: \"app_embeds\" or \"script_tags\". Optional; only used to disambiguate when block_id is not unique"
+                "description": "Category: `app_embeds` or `script_tags`. Optional; only used to disambiguate when block_id is not unique"
               },
               {
                 "name": "app_key",
@@ -10292,13 +10316,13 @@
                 "name": "block_id",
                 "type": "string",
                 "required": true,
-                "description": "Block identifier: \"type\" field for app_embeds, \"id\" field for script_tags",
+                "description": "Block identifier: `type` field for app_embeds, `id` field for script_tags",
                 "min_length": 1
               },
               {
                 "name": "template_name",
                 "type": "string",
-                "description": "Render-context template name; defaults to \"index\""
+                "description": "Render-context template name; defaults to `index`"
               },
               {
                 "name": "locale",
@@ -10350,7 +10374,7 @@
               {
                 "name": "category",
                 "type": "string",
-                "description": "Category: \"app_embeds\" or \"script_tags\". Optional; only used to disambiguate when block_id is not unique"
+                "description": "Category: `app_embeds` or `script_tags`. Optional; only used to disambiguate when block_id is not unique"
               },
               {
                 "name": "app_key",
@@ -10361,13 +10385,13 @@
                 "name": "block_id",
                 "type": "string",
                 "required": true,
-                "description": "Block identifier: \"type\" field for app_embeds, \"id\" field for script_tags",
+                "description": "Block identifier: `type` field for app_embeds, `id` field for script_tags",
                 "min_length": 1
               },
               {
                 "name": "template_name",
                 "type": "string",
-                "description": "Render-context template name; defaults to \"index\""
+                "description": "Render-context template name; defaults to `index`"
               },
               {
                 "name": "locale",
@@ -10505,7 +10529,7 @@
               {
                 "name": "template_name",
                 "type": "string",
-                "description": "Template name; defaults to file location without \".liquid\""
+                "description": "Template name; defaults to file location without `.liquid`"
               },
               {
                 "name": "locale",
@@ -10581,7 +10605,7 @@
               "in": "query",
               "type": "string",
               "required": true,
-              "description": "The card_type (\"blocks/\" + file name without extension), e.g. blocks/gen_1a0d523"
+              "description": "The card_type (`blocks/` + file name without extension), e.g. blocks/gen_1a0d523"
             }
           ],
           "response_schema": "v202601.DeleteGenBlockResponse"
@@ -10593,7 +10617,7 @@
             "get-gen"
           ],
           "summary": "Get gen block detail",
-          "description": "Retrieve a gen card's file attributes (`doc`) and its on-page state (`saved` / `ref_count` /\n`instances`) within an edit session. `content` is returned only when `with_content=true`.",
+          "description": "Retrieve a gen card's file attributes (`doc`) and its on-page state (`saved`, `ref_count`,\n`instances`) within an edit session. `content` is returned only when `with_content=true`.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -10613,7 +10637,7 @@
               "in": "query",
               "type": "string",
               "required": true,
-              "description": "The card_type (\"blocks/\" + file name without extension), e.g. blocks/gen_1a0d523"
+              "description": "The card_type (`blocks/` + file name without extension), e.g. blocks/gen_1a0d523"
             },
             {
               "name": "with_content",
@@ -10726,7 +10750,7 @@
               {
                 "name": "template_name",
                 "type": "string",
-                "description": "Template name; defaults to file location without \".liquid\""
+                "description": "Template name; defaults to file location without `.liquid`"
               },
               {
                 "name": "locale",
@@ -10847,7 +10871,7 @@
               {
                 "name": "template_name",
                 "type": "string",
-                "description": "Template name; defaults to file location without \".liquid\""
+                "description": "Template name; defaults to file location without `.liquid`"
               },
               {
                 "name": "locale",
@@ -11221,7 +11245,7 @@
               "name": "published",
               "in": "query",
               "type": "string",
-              "description": "Filter themes by published status: \"0\" for unpublished, \"1\" for published. Omit to return both. With \"1\" at most one theme (the published one) is returned and paging does not apply"
+              "description": "Filter themes by published status: `0` for unpublished, `1` for published. Omit to return both. With `1` at most one theme (the published one) is returned and paging does not apply"
             },
             {
               "name": "cursor",
@@ -11379,7 +11403,7 @@
               "name": "preset_default",
               "in": "query",
               "type": "string",
-              "description": "Preset-default filter: \"1\" returns only preset-default themes. Omit to return all"
+              "description": "Preset-default filter: `1` returns only preset-default themes. Omit to return all"
             },
             {
               "name": "industry",
@@ -11450,7 +11474,7 @@
                 "name": "category",
                 "type": "integer",
                 "format": "int32",
-                "description": "Menu category. This endpoint creates custom menus only (3); built-in menus are maintained by the platform. Defaults to 3 when omitted"
+                "description": "Menu category. This endpoint creates custom menus only (`3`); built-in menus are maintained by the platform. Defaults to `3` when omitted"
               },
               {
                 "name": "children",
@@ -11524,7 +11548,7 @@
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Page number (1-based), defaults to 1"
+              "description": "Page number"
             },
             {
               "name": "page_size",
@@ -11571,7 +11595,7 @@
                 "name": "category",
                 "type": "integer",
                 "format": "int32",
-                "description": "Menu category (custom menu = 3). Optional; 0 or omitted keeps the current value"
+                "description": "Menu category (custom menu = `3`). Optional; `0` or omitted keeps the current value"
               },
               {
                 "name": "children",
@@ -11580,7 +11604,7 @@
                   "type": "object",
                   "schema": "google.protobuf.Struct"
                 },
-                "description": "Menu items tree. Optional; omitted or an empty array both keep the current items — this field cannot be used to clear all menu items"
+                "description": "Menu items tree. Omitted or an empty array both keep the current items"
               }
             ]
           },
@@ -11630,7 +11654,7 @@
               "in": "query",
               "type": "string",
               "required": true,
-              "description": "Event type of the blocks to look up; use \"page-builder\" for page-builder blocks",
+              "description": "Event type of the blocks to look up; use `page-builder` for page-builder blocks",
               "min_length": 1
             },
             {
@@ -11651,7 +11675,7 @@
             "save-block"
           ],
           "summary": "Save page-builder block",
-          "description": "Create or update a page-builder custom template block: ops are applied to the base template and\nthe card is saved, then written into the target section of the edit session (skipped when the\nbase template's event_type is not \"theme\").",
+          "description": "Create or update a page-builder custom template block: `ops` are applied to the base template and\nthe card is saved, then written into the target section of the edit session (skipped when the\nbase template's `event_type` is not `theme`).",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11665,7 +11689,7 @@
                 "name": "event_type",
                 "type": "string",
                 "required": true,
-                "description": "Event type of the card. \"theme\" = theme card — only then does the response carry type/block; other event types save the card without creating the single-page block",
+                "description": "Event type of the card. With `theme`, the response also carries `type` and `block`; other event types only save the card and do not create the single-page block",
                 "min_length": 1
               },
               {
@@ -11691,12 +11715,12 @@
               {
                 "name": "category",
                 "type": "string",
-                "description": "Category, e.g. \"image_with_text\""
+                "description": "Category, e.g. `image_with_text`"
               },
               {
                 "name": "second_category",
                 "type": "string",
-                "description": "Second category, e.g. \"Carousal\""
+                "description": "Second category, e.g. `Carousal`"
               },
               {
                 "name": "image",
@@ -11706,7 +11730,7 @@
               {
                 "name": "origin",
                 "type": "string",
-                "description": "Base template scope: \"custom\" or \"global\". Empty looks up custom first, then global; any other value is rejected"
+                "description": "Base template scope: `custom` or `global`. Empty looks up `custom` first, then `global`"
               },
               {
                 "name": "ops",
@@ -11747,7 +11771,7 @@
               {
                 "name": "template_name",
                 "type": "string",
-                "description": "Template name for the session insert; defaults to file location without \".liquid\""
+                "description": "Template name for the session insert; defaults to file location without `.liquid`"
               },
               {
                 "name": "locale",
@@ -11786,7 +11810,7 @@
                 "name": "template_id",
                 "type": "string",
                 "required": true,
-                "description": "Source template id for \"save_as\" / the template to version up for \"update\"",
+                "description": "Source template id for `save_as` / the template to version up for `update`",
                 "min_length": 1
               },
               {
@@ -11813,7 +11837,7 @@
               {
                 "name": "origin",
                 "type": "string",
-                "description": "Origin type: \"custom\" | \"global\". Optional; defaults to source"
+                "description": "Origin type: `custom`, `global`. Optional; defaults to source"
               }
             ]
           },
@@ -11844,7 +11868,7 @@
               {
                 "name": "detail_level",
                 "type": "string",
-                "description": "Detail level: \"minimal\" | \"tiered\" | \"verbose\". Defaults to minimal"
+                "description": "Detail level: `minimal`, `tiered`, `verbose`. Defaults to `minimal`"
               },
               {
                 "name": "detailed_node_ids",
@@ -11852,7 +11876,7 @@
                 "items": {
                   "type": "string"
                 },
-                "description": "Node paths to expand details for, e.g. \"0.1.2\""
+                "description": "Node paths to expand details for, e.g. `0.1.2`"
               },
               {
                 "name": "id",
@@ -11862,7 +11886,7 @@
               {
                 "name": "type",
                 "type": "string",
-                "description": "Template type when fetching by id: \"custom\" (default, custom-templates) | \"global\" (global-templates). Only honored with id; any other value is rejected. Same custom/global scope that save-block calls \"origin\""
+                "description": "Template type when fetching by id: `custom` (default, custom-templates) | `global` (global-templates). Only honored with id; any other value is rejected. Same custom/global scope that save-block calls `origin`"
               }
             ]
           },
@@ -11982,7 +12006,7 @@
               "name": "theme_id",
               "in": "query",
               "type": "string",
-              "description": "Theme ID. Optional; only used by the \"theme\" source. Empty -\u003e the theme source returns empty"
+              "description": "Theme ID. Optional; only used by the `theme` source. Empty -\u003e the theme source returns empty"
             },
             {
               "name": "source",
@@ -11991,7 +12015,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Data source filter: theme / pb / custom / extension / public / gen (AI-generated cards). Multi-value (repeat the param source=pb\u0026source=public, or comma-join source=pb,public). Empty aggregates every source."
+              "description": "Data source filter: `theme`, `pb`, `custom`, `extension`, `public`, `gen` (AI-generated cards). Multi-value (repeat the param `source=pb\u0026source=public`, or comma-join `source=pb,public`). Empty aggregates every source."
             },
             {
               "name": "category",
@@ -12017,7 +12041,7 @@
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Page number (1-based), defaults to 1"
+              "description": "Page number"
             },
             {
               "name": "template",
@@ -12159,7 +12183,7 @@
               {
                 "name": "area",
                 "type": "string",
-                "description": "Target area: omit = the page flow; \"header\" / \"footer\" = remove from the header/footer area group (section-group themes only)"
+                "description": "Target area: omit = the page flow; `header`, `footer` = remove from the header/footer area group (section-group themes only)"
               }
             ]
           },
@@ -12223,7 +12247,7 @@
               {
                 "name": "template_name",
                 "type": "string",
-                "description": "Template name, e.g. index. Defaults to the file location without \".liquid\""
+                "description": "Template name, e.g. index. Defaults to the file location without `.liquid`"
               },
               {
                 "name": "locale",
@@ -12291,7 +12315,7 @@
             "card-list"
           ],
           "summary": "List edit-session cards",
-          "description": "Return published-view regular cards (`card_list` / `block_list`, same structure as the legacy\ncardList API) plus edit-session-view gen cards (`gen_list`, each item carrying `saved`).",
+          "description": "Return published-view regular cards (`card_list`, `block_list`, same structure as the legacy\ncardList API) plus edit-session-view gen cards (`gen_list`, each item carrying `saved`).",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12517,17 +12541,17 @@
               {
                 "name": "section_id",
                 "type": "string",
-                "description": "Target: omit or \"skin\" = global variables; otherwise a global section's type or stored id — the global singletons (header / footer / announcement / cart_drawer) or any member of the header / footer regions. An id that is not in the session returns 400"
+                "description": "Target: omit or `skin` = global variables; otherwise a global section's type or stored id — the global singletons (header / footer / announcement / cart_drawer) or any member of the header / footer regions. An id that is not in the session returns 400"
               },
               {
                 "name": "template_name",
                 "type": "string",
-                "description": "Render-context template name, default \"index\""
+                "description": "Render-context template name, default `index`"
               },
               {
                 "name": "locale",
                 "type": "string",
-                "description": "Render locale, default \"en_US\""
+                "description": "Render locale, default `en_US`"
               }
             ]
           },
@@ -12745,7 +12769,7 @@
               "name": "type",
               "in": "query",
               "type": "string",
-              "description": "Optional filter by template type: `product` | `collection` | `product_coll` | `page`. Empty returns all types"
+              "description": "Optional filter by template type: `product`, `collection`, `product_coll`, `page`. Empty returns all types"
             },
             {
               "name": "page",
