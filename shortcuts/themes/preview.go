@@ -14,10 +14,11 @@ import (
 // edit session). The domain comes from the resolved client base URL, so it
 // makes no API call; uploading is +share's job.
 var previewShortcut = common.Shortcut{
-	Service: "themes",
-	Command: "+preview",
-	Use:     "+preview",
-	Short:   "Print a storefront preview URL for a theme (optionally an edit session)",
+	Service:   "themes",
+	Command:   "+preview",
+	StoreTier: true,
+	Use:       "+preview",
+	Short:     "Print a storefront preview URL for a theme (optionally an edit session)",
 	Flags: []common.Flag{
 		{
 			Name:        "theme-id",

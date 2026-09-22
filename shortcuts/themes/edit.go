@@ -18,10 +18,11 @@ import (
 // share one edit-draft snapshot; omitting --session creates a fresh one.
 
 var editShortcut = common.Shortcut{
-	Service: "themes",
-	Command: "+edit",
-	Use:     "+edit",
-	Short:   "Apply a batch of edit ops to a template page inside one edit session",
+	Service:   "themes",
+	Command:   "+edit",
+	StoreTier: true,
+	Use:       "+edit",
+	Short:     "Apply a batch of edit ops to a template page inside one edit session",
 	Long: `Apply a batch of edit operations to one template page: session handling,
 one batch-operations request for the whole array (theme cards and
 page-builder cards can mix) and a ready-to-share preview URL — one call.

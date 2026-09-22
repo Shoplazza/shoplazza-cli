@@ -55,10 +55,11 @@ var standardPageTitles = map[string]string{
 }
 
 var pageShortcut = common.Shortcut{
-	Service: "themes",
-	Command: "+page",
-	Use:     "+page",
-	Short:   "Read a template page: sections in render order, flattened blocks with ready-to-copy targets",
+	Service:   "themes",
+	Command:   "+page",
+	StoreTier: true,
+	Use:       "+page",
+	Short:     "Read a template page: sections in render order, flattened blocks with ready-to-copy targets",
 	Long: `Read one template page of a theme in a single call: sections in render
 order with current settings, plus a depth-first flattened block list where
 every row carries its "cname" display name and a pre-built "target" path —

@@ -52,10 +52,11 @@ func extractSchema(content string) (map[string]any, error) {
 }
 
 var cardSchemaShortcut = common.Shortcut{
-	Service: "themes",
-	Command: "+card-schema",
-	Use:     "+card-schema",
-	Short:   "Batch-read the settings/blocks schema of addable theme cards by id",
+	Service:   "themes",
+	Command:   "+card-schema",
+	StoreTier: true,
+	Use:       "+card-schema",
+	Short:     "Batch-read the settings/blocks schema of addable theme cards by id",
 	Long: `Read the configuration schema (settings and blocks) of up to 10 addable
 theme cards in one call. Card ids come from "themes section cards" /
 "themes +cards".

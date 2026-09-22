@@ -145,11 +145,15 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 		return output.PrintAPISuccess(c.OutOrStdout(), resp, format, jq)
 	}
 
-	// When the parent module opts into help grouping, a mounted shortcut is a
-	// dev/shortcut-tier command. Only tag it if the group exists, so modules
-	// without grouping are unaffected (cobra warns on an undefined GroupID).
+	// When the parent module opts into help grouping, a mounted shortcut lands in
+	// the dev tier unless it declares itself a store operation. Only tag it if the
+	// group exists, so modules without grouping are unaffected (cobra warns on an
+	// undefined GroupID).
 	if parent.ContainsGroup(cmdutil.GroupShortcut) {
 		cmd.GroupID = cmdutil.GroupShortcut
+	}
+	if s.StoreTier && parent.ContainsGroup(cmdutil.GroupAPI) {
+		cmd.GroupID = cmdutil.GroupAPI
 	}
 	parent.AddCommand(cmd)
 }

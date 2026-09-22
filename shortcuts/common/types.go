@@ -51,4 +51,9 @@ type Shortcut struct {
 	// value to confirm" — the stronger gate for high-risk money ops (e.g. +refund
 	// asks the user to type the order id). Falls back to y/N if the flag is empty.
 	ConfirmPhraseFlag string
+
+	// StoreTier lists the command in the module's store-operations help group
+	// rather than the dev-tier one, for a shortcut that works on the store over
+	// the API instead of on local files. Help rendering only.
+	StoreTier bool
 }
