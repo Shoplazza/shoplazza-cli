@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -265,5 +266,60 @@ func TestUnpack_CorruptZipReturnsError(t *testing.T) {
 	err := Unpack(bad, t.TempDir(), UnpackOptions{})
 	if err == nil || !errors.Is(err, zip.ErrFormat) && !strings.Contains(err.Error(), "zip") {
 		t.Fatalf("expected zip format error, got: %v", err)
+	}
+}
+
+// TestPlanPackMatchesPack is the contract behind the dry-run preview: what
+// PlanPack reports must be exactly what Pack archives, or a preview would lie
+// about the upload it is previewing.
+func TestPlanPackMatchesPack(t *testing.T) {
+	dir := t.TempDir()
+	write := func(rel, body string) {
+		full := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("templates/index.liquid", "aaaa")
+	write("sections/header.liquid", "bb")
+	write("assets/app.js", "cccccc")
+	write("assets/app.js.map", "dropped by the ignore file")
+	write("assets/.cache/tmp", "dropped as a dot-path")
+	write("not-a-theme-dir/x.liquid", "outside the theme dirs")
+	write(".themeignore", "*.js.map\n")
+
+	plan, err := PlanPack(dir, PackOptions{})
+	if err != nil {
+		t.Fatalf("PlanPack: %v", err)
+	}
+	if plan.Ignored != 1 || plan.Hidden != 1 {
+		t.Errorf("ignored/hidden = %d/%d, want 1/1", plan.Ignored, plan.Hidden)
+	}
+
+	zipPath, err := Pack(dir, filepath.Join(t.TempDir(), "out.zip"), PackOptions{})
+	if err != nil {
+		t.Fatalf("Pack: %v", err)
+	}
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer zr.Close()
+
+	var archived []string
+	var archivedBytes int64
+	for _, f := range zr.File {
+		archived = append(archived, f.Name)
+		archivedBytes += int64(f.UncompressedSize64)
+	}
+	sort.Strings(archived)
+	if !reflect.DeepEqual(plan.Files, archived) {
+		t.Errorf("planned %v, archived %v", plan.Files, archived)
+	}
+	if plan.TotalBytes != archivedBytes {
+		t.Errorf("planned %d bytes, archived %d", plan.TotalBytes, archivedBytes)
 	}
 }

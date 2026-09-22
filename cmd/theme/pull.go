@@ -42,11 +42,15 @@ func newCmdPull(f *cmdutil.Factory) *cobra.Command {
 		Annotations: map[string]string{cmdutil.AnnotationAuthFree: "true"},
 		Args:        cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cmdutil.IsDryRun(cmd) {
+				return pullDryRun(cmd, f, themeID)
+			}
 			return runPull(cmd, f, themeID)
 		},
 	}
 	cmd.Flags().StringVarP(&themeID, "theme-id", "t", "", "Theme ID (required unless -e provides it). Run 'shoplazza themes list' to discover")
 	cmd.Flags().StringVarP(&environment, "environment", "e", "", "Environment from shoplazza.theme.toml (store/profile/theme); see 'themes env list'")
+	cmd.Flags().Bool("dry-run", false, "Print what would be downloaded and what it can overwrite, without sending anything")
 	return cmd
 }
 

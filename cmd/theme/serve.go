@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -30,7 +31,7 @@ const shopV202601 = "/openapi/2026-01/shop"
 func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 	var themeIDFlag, taskID, environment string
 	var skipPush bool
-	var port int
+	var port, timeoutSec int
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Upload to a development theme (or --theme-id), watch the current theme, and live-reload browsers",
@@ -38,6 +39,11 @@ func newCmdServe(f *cmdutil.Factory) *cobra.Command {
 files to a remote theme, then watch the directory and push every change,
 live-reloading connected browsers. Run it from a theme directory (one containing
 config/settings_schema.json).
+
+Runs in the foreground until interrupted (Ctrl-C or SIGTERM), printing progress
+to stderr and its result only on exit. A caller that waits for the command to
+finish — a script, a CI step, an agent — will block until it is killed. Pass
+--timeout to bound the watch instead: it stops and exits 0 on its own.
 
 Development theme (default): the first run creates "Development - <name>" and
 records its id in .shoplazza/theme-state.json (one per store); later runs reuse
@@ -55,7 +61,7 @@ serve uploads to and continuously overwrites that theme. Syncing is one-way
 		},
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runServe(cmd, f, serveOpts{themeID: themeIDFlag, taskID: taskID, skipPush: skipPush, port: port})
+			return runServe(cmd, f, serveOpts{themeID: themeIDFlag, taskID: taskID, skipPush: skipPush, port: port, timeoutSec: timeoutSec})
 		},
 	}
 	cmd.Flags().StringVarP(&themeIDFlag, "theme-id", "t", "", "Theme ID to serve and overwrite (optional; omit for a per-directory development theme)")
@@ -63,6 +69,8 @@ serve uploads to and continuously overwrites that theme. Syncing is one-way
 	cmd.Flags().StringVarP(&environment, "environment", "e", "", "Environment from shoplazza.theme.toml (store/profile/theme); see 'themes env list'")
 	cmd.Flags().BoolVar(&skipPush, "skip-push", false, "Skip the startup full upload and watch right away (one-way sync of changed files only)")
 	cmd.Flags().IntVar(&port, "port", 21647, "LiveReload server port")
+	cmd.Flags().IntVar(&timeoutSec, "timeout", 0,
+		"Stop watching after this many seconds and exit cleanly (0 = watch until interrupted). Bounds the watch, not the startup upload")
 	return cmd
 }
 
@@ -73,6 +81,9 @@ type serveOpts struct {
 	taskID   string
 	skipPush bool
 	port     int
+	// timeoutSec bounds the watch phase only: the startup upload must not be
+	// cut mid-flight, and its own task poll already caps it.
+	timeoutSec int
 }
 
 // runServe is `themes serve`'s body, out of the cobra closure: validate ->
@@ -179,7 +190,7 @@ func runServe(cmd *cobra.Command, f *cmdutil.Factory, o serveOpts) error {
 	printV1ServeBanner(stderr, extractStoreDomainBest(ctx, c), themeID)
 	_, _ = fmt.Fprintln(stderr, "Listening for file changes ...")
 
-	if aerr := awaitServeStop(ctx, watchErrCh); aerr != nil {
+	if aerr := awaitServeStop(ctx, watchErrCh, time.Duration(o.timeoutSec)*time.Second); aerr != nil {
 		return aerr
 	}
 	return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{"status": "stopped"}, cmdutil.GetFormat(cmd), "")
@@ -263,15 +274,23 @@ func resolveServeTheme(ctx context.Context, c *client.Client, prog *output.Progr
 	}
 }
 
-// awaitServeStop blocks until the context is canceled, the user interrupts, or
-// the watcher dies. Only the last is an error.
-func awaitServeStop(ctx context.Context, watchErrCh <-chan error) error {
+// awaitServeStop blocks until the context is canceled, the user interrupts, the
+// timeout elapses, or the watcher dies. Only the last is an error. A zero
+// timeout leaves its channel nil, which never fires.
+func awaitServeStop(ctx context.Context, watchErrCh <-chan error, timeout time.Duration) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(sigCh)
+	var expired <-chan time.Time
+	if timeout > 0 {
+		t := time.NewTimer(timeout)
+		defer t.Stop()
+		expired = t.C
+	}
 	select {
 	case <-ctx.Done():
 	case <-sigCh:
+	case <-expired:
 	case e := <-watchErrCh:
 		return theme.ErrWatcherFatal(e)
 	}
