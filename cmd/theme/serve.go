@@ -55,185 +55,7 @@ serve uploads to and continuously overwrites that theme. Syncing is one-way
 		},
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := cmd.Context()
-			if port < 1 || port > 65535 {
-				return theme.ErrValidation("invalid --port %d: must be between 1 and 65535", port)
-			}
-			rs, err := resolveStore(ctx, f, cmd)
-			if err != nil {
-				return err
-			}
-			// -e's theme= seeds explicit mode when --theme-id is omitted.
-			explicitID := themeIDFlag
-			if explicitID == "" {
-				explicitID = rs.Env.Theme
-			}
-			if err := theme.ValidateThemeID(explicitID); err != nil {
-				return err
-			}
-			if skipPush && taskID != "" {
-				return theme.ErrValidation(
-					"--skip-push conflicts with --task-id: the task it waits for is itself a full upload; pass only one")
-			}
-
-			c := rs.Client
-			stderr := cmd.ErrOrStderr()
-			prog := output.NewProgress(stderr)
-			storeKey := devstate.StoreKey(c.BaseURL)
-
-			cwd, err := os.Getwd()
-			if err != nil {
-				return theme.ErrLocalIO("getwd", err)
-			}
-
-			// Resolve the target theme (explicit / task-resume / dev-theme).
-			themeID := explicitID
-			initialPushDone := false
-			switch {
-			case taskID != "":
-				var name string
-				if themeID != "" {
-					if _, derr := c.DoRaw(ctx, detailReq(themeID)); derr != nil {
-						return classifyHTTPErr(derr, themeID)
-					}
-					prog.Begin("[serve] target theme: " + themeID).Done()
-				} else {
-					if name, _, err = theme.ReadInfo(cwd); err != nil {
-						return err
-					}
-				}
-				_, _ = fmt.Fprintf(stderr, "[serve] resuming upload task %s\n", taskID)
-				step := prog.Begin("[serve] waiting for the server to process the theme")
-				payload, werr := waitUploadTask(ctx, c, taskID)
-				if werr != nil {
-					step.Fail()
-					return werr
-				}
-				step.Done()
-				if themeID == "" {
-					if themeID = themeIDFromTask(payload); themeID == "" {
-						return theme.ErrValidation("task %s did not report a theme id; re-run with --theme-id <id>", taskID)
-					}
-					if aerr := adoptDevTheme(ctx, c, prog, cwd, storeKey, themeID, devThemeName(name)); aerr != nil {
-						return aerr
-					}
-				}
-				initialPushDone = true
-
-			case themeID == "":
-				if savedID, ok := devstate.Load(cwd, storeKey); ok {
-					if _, derr := c.DoRaw(ctx, detailReq(savedID)); derr == nil {
-						themeID = savedID
-						prog.Begin(fmt.Sprintf("[serve] development theme: %s (reused from %s)",
-							savedID, filepath.ToSlash(filepath.Join(".shoplazza", "theme-state.json")))).Done()
-					} else if !isHTTPNotFound(derr) {
-						return classifyHTTPErr(derr, savedID)
-					}
-				}
-				if themeID == "" {
-					if skipPush {
-						return errSkipPushNoDevTheme()
-					}
-					name, version, rerr := theme.ReadInfo(cwd)
-					if rerr != nil {
-						return rerr
-					}
-					newID, cerr := createDevTheme(ctx, c, prog, cwd, devThemeName(name), version)
-					if cerr != nil {
-						return cerr
-					}
-					if aerr := adoptDevTheme(ctx, c, prog, cwd, storeKey, newID, devThemeName(name)); aerr != nil {
-						return aerr
-					}
-					themeID = newID
-					initialPushDone = true // the create upload already pushed the cwd tree
-				}
-
-			default:
-				if skipPush {
-					if _, derr := c.DoRaw(ctx, detailReq(themeID)); derr != nil {
-						return classifyHTTPErr(derr, themeID)
-					}
-				}
-				prog.Begin("[serve] target theme: " + themeID).Done()
-			}
-
-			// Step 1: initial push (unless dev-theme creation already uploaded, or
-			// --skip-push). Reuses the shared push core.
-			if skipPush {
-				prog.Begin("[serve] skipping the startup upload (--skip-push)").Done()
-			} else if !initialPushDone {
-				if _, perr := pushTheme(ctx, prog, stderr, c, themeID, ""); perr != nil {
-					return perr
-				}
-			}
-
-			// Step 2: doctree snapshot decides PATCH vs POST-then-PATCH per file.
-			dtStep := prog.Begin("[serve] syncing doctree")
-			dtResp, err := c.DoRaw(ctx, client.RawRequest{Method: "GET", Path: themeBaseV202601 + "/" + themeID + "/doctree"})
-			if err != nil {
-				dtStep.Fail()
-				return classifyHTTPErr(err, themeID)
-			}
-			snap := doc.FromDocTreeResponse(asMap(dtResp.Body))
-			dtStep.Done()
-
-			// Step 3: LiveReload server (bind failure is fatal).
-			lr := watch.NewLiveReloadServer(port)
-			lrCtx, lrCancel := context.WithCancel(ctx)
-			defer lrCancel()
-			if err := lr.Start(lrCtx); err != nil {
-				return theme.ErrLiveReloadBindFailed(port, err)
-			}
-			defer func() { _ = lr.Close() }()
-			prog.Begin(fmt.Sprintf("[serve] livereload server: ws://localhost:%d", lr.Port())).Done()
-
-			// Step 4: file watcher + dedup seeding.
-			pending := newPendingFailures()
-			watchErrCh := make(chan error, 1)
-			ignorer, ierr := pack.LoadThemeIgnorer(cwd, "")
-			if ierr != nil {
-				return theme.ErrLocalIO("load .themeignore", ierr)
-			}
-			watchFilter := buildWatchFilter(ignorer)
-
-			dedup := doc.NewDeduper()
-			localRel := seedDedup(cwd, watchFilter, dedup)
-			if skipPush {
-				printDriftSummary(stderr, snap, localRel)
-			}
-
-			stop, werr := watch.Watch(cwd, watch.WatchOptions{Filter: watchFilter}, watch.Callback{
-				OnCreate: func(rel string) { handleSync(ctx, c, themeID, "create", rel, &snap, dedup, pending, lr, stderr) },
-				OnUpdate: func(rel string) { handleSync(ctx, c, themeID, "update", rel, &snap, dedup, pending, lr, stderr) },
-				OnDelete: func(rel string) { handleSync(ctx, c, themeID, "delete", rel, &snap, dedup, pending, lr, stderr) },
-				OnError: func(e error) {
-					select {
-					case watchErrCh <- e:
-					default:
-					}
-				},
-			})
-			if werr != nil {
-				return theme.ErrWatcherFatal(werr)
-			}
-			defer stop()
-
-			// Step 5: banner (best-effort shop domain).
-			printV1ServeBanner(stderr, extractStoreDomainBest(ctx, c), themeID)
-			_, _ = fmt.Fprintln(stderr, "Listening for file changes ...")
-
-			// Step 6: block until ctx cancel, SIGINT/SIGTERM, or a fatal watcher error.
-			sigCh := make(chan os.Signal, 1)
-			signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-			defer signal.Stop(sigCh)
-			select {
-			case <-ctx.Done():
-			case <-sigCh:
-			case e := <-watchErrCh:
-				return theme.ErrWatcherFatal(e)
-			}
-			return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{"status": "stopped"}, cmdutil.GetFormat(cmd), "")
+			return runServe(cmd, f, serveOpts{themeID: themeIDFlag, taskID: taskID, skipPush: skipPush, port: port})
 		},
 	}
 	cmd.Flags().StringVarP(&themeIDFlag, "theme-id", "t", "", "Theme ID to serve and overwrite (optional; omit for a per-directory development theme)")
@@ -242,6 +64,218 @@ serve uploads to and continuously overwrites that theme. Syncing is one-way
 	cmd.Flags().BoolVar(&skipPush, "skip-push", false, "Skip the startup full upload and watch right away (one-way sync of changed files only)")
 	cmd.Flags().IntVar(&port, "port", 21647, "LiveReload server port")
 	return cmd
+}
+
+// serveOpts carries `themes serve`'s flags into the body. -e is read off the
+// command by resolveStore, so it is not repeated here.
+type serveOpts struct {
+	themeID  string
+	taskID   string
+	skipPush bool
+	port     int
+}
+
+// runServe is `themes serve`'s body, out of the cobra closure: validate ->
+// resolve the target theme -> initial push -> doctree -> livereload -> watch.
+func runServe(cmd *cobra.Command, f *cmdutil.Factory, o serveOpts) error {
+	ctx := cmd.Context()
+	if o.port < 1 || o.port > 65535 {
+		return theme.ErrValidation("invalid --port %d: must be between 1 and 65535", o.port)
+	}
+	rs, err := resolveStore(ctx, f, cmd)
+	if err != nil {
+		return err
+	}
+	// -e's theme= seeds explicit mode when --theme-id is omitted.
+	explicitID := o.themeID
+	if explicitID == "" {
+		explicitID = rs.Env.Theme
+	}
+	if err := theme.ValidateThemeID(explicitID); err != nil {
+		return err
+	}
+	if o.skipPush && o.taskID != "" {
+		return theme.ErrValidation(
+			"--skip-push conflicts with --task-id: the task it waits for is itself a full upload; pass only one")
+	}
+
+	c := rs.Client
+	stderr := cmd.ErrOrStderr()
+	prog := output.NewProgress(stderr)
+	storeKey := devstate.StoreKey(c.BaseURL)
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return theme.ErrLocalIO("getwd", err)
+	}
+
+	themeID, initialPushDone, rerr := resolveServeTheme(ctx, c, prog, stderr, cwd, storeKey, explicitID, o)
+	if rerr != nil {
+		return rerr
+	}
+
+	// Step 1: initial push (unless dev-theme creation already uploaded, or
+	// --skip-push). Reuses the shared push core.
+	if o.skipPush {
+		prog.Begin("[serve] skipping the startup upload (--skip-push)").Done()
+	} else if !initialPushDone {
+		if _, perr := pushTheme(ctx, prog, stderr, c, themeID, ""); perr != nil {
+			return perr
+		}
+	}
+
+	// Step 2: doctree snapshot decides PATCH vs POST-then-PATCH per file.
+	dtStep := prog.Begin("[serve] syncing doctree")
+	dtResp, err := c.DoRaw(ctx, client.RawRequest{Method: "GET", Path: themeBaseV202601 + "/" + themeID + "/doctree"})
+	if err != nil {
+		dtStep.Fail()
+		return classifyHTTPErr(err, themeID)
+	}
+	snap := doc.FromDocTreeResponse(asMap(dtResp.Body))
+	dtStep.Done()
+
+	// Step 3: LiveReload server (bind failure is fatal).
+	lr := watch.NewLiveReloadServer(o.port)
+	lrCtx, lrCancel := context.WithCancel(ctx)
+	defer lrCancel()
+	if err := lr.Start(lrCtx); err != nil {
+		return theme.ErrLiveReloadBindFailed(o.port, err)
+	}
+	defer func() { _ = lr.Close() }()
+	prog.Begin(fmt.Sprintf("[serve] livereload server: ws://localhost:%d", lr.Port())).Done()
+
+	// Step 4: file watcher + dedup seeding.
+	pending := newPendingFailures()
+	watchErrCh := make(chan error, 1)
+	ignorer, ierr := pack.LoadThemeIgnorer(cwd, "")
+	if ierr != nil {
+		return theme.ErrLocalIO("load .themeignore", ierr)
+	}
+	watchFilter := buildWatchFilter(ignorer)
+
+	dedup := doc.NewDeduper()
+	localRel := seedDedup(cwd, watchFilter, dedup)
+	if o.skipPush {
+		printDriftSummary(stderr, snap, localRel)
+	}
+
+	stop, werr := watch.Watch(cwd, watch.WatchOptions{Filter: watchFilter}, watch.Callback{
+		OnCreate: func(rel string) { handleSync(ctx, c, themeID, "create", rel, &snap, dedup, pending, lr, stderr) },
+		OnUpdate: func(rel string) { handleSync(ctx, c, themeID, "update", rel, &snap, dedup, pending, lr, stderr) },
+		OnDelete: func(rel string) { handleSync(ctx, c, themeID, "delete", rel, &snap, dedup, pending, lr, stderr) },
+		OnError: func(e error) {
+			select {
+			case watchErrCh <- e:
+			default:
+			}
+		},
+	})
+	if werr != nil {
+		return theme.ErrWatcherFatal(werr)
+	}
+	defer stop()
+
+	// Step 5: banner (best-effort shop domain).
+	printV1ServeBanner(stderr, extractStoreDomainBest(ctx, c), themeID)
+	_, _ = fmt.Fprintln(stderr, "Listening for file changes ...")
+
+	if aerr := awaitServeStop(ctx, watchErrCh); aerr != nil {
+		return aerr
+	}
+	return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{"status": "stopped"}, cmdutil.GetFormat(cmd), "")
+}
+
+// resolveServeTheme picks the theme to serve: an explicit id, the theme a
+// resumed task uploaded to, or the per-directory development theme (reused,
+// else created). The bool reports whether that already pushed the cwd tree.
+func resolveServeTheme(ctx context.Context, c *client.Client, prog *output.Progress, stderr io.Writer,
+	cwd, storeKey, explicitID string, o serveOpts) (string, bool, error) {
+	themeID := explicitID
+	switch {
+	case o.taskID != "":
+		var name string
+		if themeID != "" {
+			if _, derr := c.DoRaw(ctx, detailReq(themeID)); derr != nil {
+				return "", false, classifyHTTPErr(derr, themeID)
+			}
+			prog.Begin("[serve] target theme: " + themeID).Done()
+		} else {
+			var err error
+			if name, _, err = theme.ReadInfo(cwd); err != nil {
+				return "", false, err
+			}
+		}
+		_, _ = fmt.Fprintf(stderr, "[serve] resuming upload task %s\n", o.taskID)
+		step := prog.Begin("[serve] waiting for the server to process the theme")
+		payload, werr := waitUploadTask(ctx, c, o.taskID)
+		if werr != nil {
+			step.Fail()
+			return "", false, werr
+		}
+		step.Done()
+		if themeID == "" {
+			if themeID = themeIDFromTask(payload); themeID == "" {
+				return "", false, theme.ErrValidation("task %s did not report a theme id; re-run with --theme-id <id>", o.taskID)
+			}
+			if aerr := adoptDevTheme(ctx, c, prog, cwd, storeKey, themeID, devThemeName(name)); aerr != nil {
+				return "", false, aerr
+			}
+		}
+		return themeID, true, nil
+
+	case themeID == "":
+		if savedID, ok := devstate.Load(cwd, storeKey); ok {
+			if _, derr := c.DoRaw(ctx, detailReq(savedID)); derr == nil {
+				themeID = savedID
+				prog.Begin(fmt.Sprintf("[serve] development theme: %s (reused from %s)",
+					savedID, filepath.ToSlash(filepath.Join(".shoplazza", "theme-state.json")))).Done()
+			} else if !isHTTPNotFound(derr) {
+				return "", false, classifyHTTPErr(derr, savedID)
+			}
+		}
+		if themeID != "" {
+			return themeID, false, nil
+		}
+		if o.skipPush {
+			return "", false, errSkipPushNoDevTheme()
+		}
+		name, version, rerr := theme.ReadInfo(cwd)
+		if rerr != nil {
+			return "", false, rerr
+		}
+		newID, cerr := createDevTheme(ctx, c, prog, cwd, devThemeName(name), version)
+		if cerr != nil {
+			return "", false, cerr
+		}
+		if aerr := adoptDevTheme(ctx, c, prog, cwd, storeKey, newID, devThemeName(name)); aerr != nil {
+			return "", false, aerr
+		}
+		return newID, true, nil // the create upload already pushed the cwd tree
+
+	default:
+		if o.skipPush {
+			if _, derr := c.DoRaw(ctx, detailReq(themeID)); derr != nil {
+				return "", false, classifyHTTPErr(derr, themeID)
+			}
+		}
+		prog.Begin("[serve] target theme: " + themeID).Done()
+		return themeID, false, nil
+	}
+}
+
+// awaitServeStop blocks until the context is canceled, the user interrupts, or
+// the watcher dies. Only the last is an error.
+func awaitServeStop(ctx context.Context, watchErrCh <-chan error) error {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	select {
+	case <-ctx.Done():
+	case <-sigCh:
+	case e := <-watchErrCh:
+		return theme.ErrWatcherFatal(e)
+	}
+	return nil
 }
 
 // detailReq is the theme-detail existence check (GET /themes/{id}).

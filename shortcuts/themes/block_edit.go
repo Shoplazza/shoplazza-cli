@@ -2,6 +2,7 @@ package themes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -56,7 +57,25 @@ Saving and publishing stay with the shared session:
 	Execute: blockEditExecute,
 }
 
-func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
+// blockEditInput is themes block +edit's parsed, network-free-validated input.
+type blockEditInput struct {
+	themeID        string
+	oseid          string
+	id             string
+	template       string
+	target         string
+	sectionName    string
+	cardType       string
+	content        string
+	ref            targetRef
+	settings       map[string]any
+	ops            map[string]any
+	containerProps map[string]any
+}
+
+// parseBlockEditInput reads the flags and runs every check that needs no
+// request, so nothing past it can fail before the first side effect.
+func parseBlockEditInput(in common.ExecInput) (blockEditInput, error) {
 	themeID := in.Flags.GetString("theme")
 	oseid := in.Flags.GetString("session")
 	id := in.Flags.GetString("id")
@@ -69,49 +88,49 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 
 	// Network-free validation first.
 	if oseid == "" {
-		return common.ExecResult{}, output.ErrValidation("--session is required").
+		return blockEditInput{}, output.ErrValidation("--session is required").
 			WithHint("create an edit session with `themes +page --template <name>` and pass its oseid")
 	}
 	if contentArg == "" {
-		return common.ExecResult{}, output.ErrValidation("--content is required").
+		return blockEditInput{}, output.ErrValidation("--content is required").
 			WithHint("pass the liquid source as a file path, or '-' to read it from stdin")
 	}
 	if target != "" && template == "" {
-		return common.ExecResult{}, output.ErrValidation("--target requires --template")
+		return blockEditInput{}, output.ErrValidation("--target requires --template")
 	}
 	if opsArg != "" && (template == "" || target == "") {
-		return common.ExecResult{}, output.ErrValidation("--ops requires --template and --target").
+		return blockEditInput{}, output.ErrValidation("--ops requires --template and --target").
 			WithHint("--ops changes settings on the placed instance, so the placement must be addressed")
 	}
 	if sectionName != "" && template == "" {
-		return common.ExecResult{}, output.ErrValidation("--section-name requires --template").
+		return blockEditInput{}, output.ErrValidation("--section-name requires --template").
 			WithHint("--section-name names the container section the block lands in, so the placement must be addressed")
 	}
 	containerProps, err := containerCName(sectionName)
 	if err != nil {
-		return common.ExecResult{}, err
+		return blockEditInput{}, err
 	}
 	if id != "" && template != "" && target == "" {
-		return common.ExecResult{}, output.ErrValidation("updating with --template requires --target").
+		return blockEditInput{}, output.ErrValidation("updating with --template requires --target").
 			WithHint("pass the instance path to repoint, e.g. --target <section_id>.blocks[N] from `themes block +get --section`; omit --template to only rewrite the file")
 	}
 	if settingsArg != "" && id == "" {
-		return common.ExecResult{}, output.ErrValidation("--settings only applies with --id").
+		return blockEditInput{}, output.ErrValidation("--settings only applies with --id").
 			WithHint("a new block starts from its schema defaults; use --ops to change values on the placed instance")
 	}
 	if countStdin(contentArg, settingsArg, opsArg) > 1 {
-		return common.ExecResult{}, output.ErrValidation("only one of --content / --settings / --ops can read stdin ('-')")
+		return blockEditInput{}, output.ErrValidation("only one of --content / --settings / --ops can read stdin ('-')")
 	}
 	var cardType string
 	if id != "" {
 		var err error
 		if cardType, _, err = normalizeGenType(id); err != nil {
-			return common.ExecResult{}, err
+			return blockEditInput{}, err
 		}
 	}
 	if template != "" {
 		if _, _, err := templateLocation(template, ""); err != nil {
-			return common.ExecResult{}, err
+			return blockEditInput{}, err
 		}
 	}
 	var ref targetRef
@@ -119,99 +138,146 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		target = normalizeBlockTarget(target)
 		var err error
 		if ref, err = parseTarget(target); err != nil {
-			return common.ExecResult{}, err
+			return blockEditInput{}, err
 		}
 		switch {
 		case id == "" && ref.Kind != targetContainer:
-			return common.ExecResult{}, output.ErrValidation("--target %q must be a container path when creating a block", target).
+			return blockEditInput{}, output.ErrValidation("--target %q must be a container path when creating a block", target).
 				WithHint("end the target with .blocks (e.g. <section_id>.blocks); to update an existing instance pass --id")
 		case id != "" && ref.Kind != targetBlock:
-			return common.ExecResult{}, output.ErrValidation("--target %q must be an instance path when updating --id %s", target, id).
+			return blockEditInput{}, output.ErrValidation("--target %q must be an instance path when updating --id %s", target, id).
 				WithHint("copy the target from `themes block +get --id <id> --section <section_id>` (e.g. <section_id>.blocks[0])")
 		}
 	}
 	content, err := readContentInput(contentArg)
 	if err != nil {
-		return common.ExecResult{}, err
+		return blockEditInput{}, err
 	}
 	settings, err := readJSONObjectInput("--settings", settingsArg)
 	if err != nil {
-		return common.ExecResult{}, err
+		return blockEditInput{}, err
 	}
 	if t := getString(settings, "type"); t != "" && t != cardType {
-		return common.ExecResult{}, output.ErrValidation("--settings.type %q does not match --id %s", t, id).
+		return blockEditInput{}, output.ErrValidation("--settings.type %q does not match --id %s", t, id).
 			WithHint("the server picks the block to update from settings.type; pass the target instance's own settings")
 	}
 	ops, err := readJSONObjectInput("--ops", opsArg)
 	if err != nil {
+		return blockEditInput{}, err
+	}
+	return blockEditInput{
+		themeID: themeID, oseid: oseid, id: id, template: template, target: target,
+		sectionName: sectionName, cardType: cardType, content: content, ref: ref,
+		settings: settings, ops: ops, containerProps: containerProps,
+	}, nil
+}
+
+// resolveBlockPageContext reads the page the block lands on: the resolved theme
+// and doc, the section tree, the target container's size and, when updating,
+// the targeted instance's current settings. Without --template there is no page
+// to read and only the theme id comes back.
+func resolveBlockPageContext(ctx context.Context, c *client.Client, b blockEditInput) (
+	themeID, docID string, current map[string]any, containerLen int, err error) {
+	fail := func(err error) (string, string, map[string]any, int, error) {
+		return "", "", nil, 0, err
+	}
+	if b.template == "" {
+		return b.themeID, "", nil, 0, nil
+	}
+	themeID, docID, err = resolveThemeAndDoc(ctx, c, b.themeID, b.template, "")
+	if err != nil {
+		return fail(err)
+	}
+	inner, ferr := fetchSections(ctx, c, b.oseid, docID)
+	if ferr != nil {
+		return fail(ferr)
+	}
+	if b.target == "" {
+		return themeID, docID, nil, 0, nil
+	}
+	section := findSectionByID(inner, b.ref.SectionID)
+	if section == nil {
+		return fail(output.ErrValidation("section %q not found on template %s", b.ref.SectionID, b.template).
+			WithHint("run `themes +page --template " + b.template + " --session " + b.oseid + "` and copy a target from its output"))
+	}
+	_, children, cerr := containerAt(section, b.ref.ParentPath)
+	if cerr != nil {
+		return fail(output.ErrValidation("invalid --target %q: %v", b.target, cerr))
+	}
+	containerLen = len(children)
+	if b.id == "" {
+		return themeID, docID, nil, containerLen, nil
+	}
+	if b.ref.BlockIndex >= len(children) {
+		return fail(output.ErrValidation("--target %q is out of range: the container holds %d blocks", b.target, len(children)).
+			WithHint("indexes shift after structural edits; re-read with `themes block +get --id " + b.id + " --section " + b.ref.SectionID + "`"))
+	}
+	blk := asMap(children[b.ref.BlockIndex])
+	if got := getString(blk, "type"); got != b.cardType {
+		return fail(output.ErrValidation("the block at %q is %q, not %s", b.target, got, b.cardType).
+			WithHint("re-read the instance with `themes block +get --id " + b.id + " --section " + b.ref.SectionID + "`"))
+	}
+	return themeID, docID, mapField(blk, "settings"), containerLen, nil
+}
+
+// writeGenBlock writes the block's liquid source: a create, or an update that
+// carries the instance's current settings onto the new schema. It returns the
+// settings the update was based on — a bare --settings values object stands in
+// for the page read — and whether it fell back to schema defaults.
+func writeGenBlock(ctx context.Context, c *client.Client, b blockEditInput, current map[string]any) (
+	map[string]any, map[string]any, bool, error) {
+	if b.id == "" {
+		resp, err := common.Send(ctx, c, PlanCreateGenBlock(b.oseid, b.content))
+		if err != nil {
+			return nil, nil, false, blockStageErr(err, "write", b.oseid)
+		}
+		return resp, current, false, nil
+	}
+	defaulted := false
+	body := b.settings
+	switch {
+	case body == nil && current == nil:
+		defaulted = true
+		body = map[string]any{"type": b.cardType}
+	case body == nil:
+		body = map[string]any{"type": b.cardType, "settings": current}
+	default:
+		if _, ok := body["type"]; !ok {
+			current = body // a bare values object stands in for the page read
+			body = map[string]any{"type": b.cardType, "settings": body}
+		}
+	}
+	resp, err := common.Send(ctx, c, PlanUpdateGenBlock(b.oseid, b.content, body))
+	if err != nil {
+		return nil, nil, false, blockStageErr(err, "write", b.oseid)
+	}
+	return resp, current, defaulted, nil
+}
+
+func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
+	b, err := parseBlockEditInput(in)
+	if err != nil {
 		return common.ExecResult{}, err
 	}
-
+	themeID, oseid, id, template, target := b.themeID, b.oseid, b.id, b.template, b.target
+	cardType, ref, content, settings, ops := b.cardType, b.ref, b.content, b.settings, b.ops
+	containerProps, sectionName := b.containerProps, b.sectionName
 	if in.DryRun {
 		return common.ExecResult{Plans: blockEditDryRunPlans(themeID, oseid, cardType, template, containerProps, ref, content, settings, ops)}, nil
 	}
 
 	// Page context: only when placing.
 	var docID string
-	var inner map[string]any
-	var current map[string]any // the targeted instance's current settings (update)
-	var containerLen int       // children in the target container (create)
-	if template != "" {
-		themeID, docID, err = resolveThemeAndDoc(ctx, in.Client, themeID, template, "")
-		if err != nil {
-			return common.ExecResult{}, err
-		}
-		if inner, err = fetchSections(ctx, in.Client, oseid, docID); err != nil {
-			return common.ExecResult{}, err
-		}
-		if target != "" {
-			section := findSectionByID(inner, ref.SectionID)
-			if section == nil {
-				return common.ExecResult{}, output.ErrValidation("section %q not found on template %s", ref.SectionID, template).
-					WithHint("run `themes +page --template " + template + " --session " + oseid + "` and copy a target from its output")
-			}
-			_, children, cerr := containerAt(section, ref.ParentPath)
-			if cerr != nil {
-				return common.ExecResult{}, output.ErrValidation("invalid --target %q: %v", target, cerr)
-			}
-			containerLen = len(children)
-			if id != "" {
-				if ref.BlockIndex >= len(children) {
-					return common.ExecResult{}, output.ErrValidation("--target %q is out of range: the container holds %d blocks", target, len(children)).
-						WithHint("indexes shift after structural edits; re-read with `themes block +get --id " + id + " --section " + ref.SectionID + "`")
-				}
-				blk := asMap(children[ref.BlockIndex])
-				if got := getString(blk, "type"); got != cardType {
-					return common.ExecResult{}, output.ErrValidation("the block at %q is %q, not %s", target, got, cardType).
-						WithHint("re-read the instance with `themes block +get --id " + id + " --section " + ref.SectionID + "`")
-				}
-				current = mapField(blk, "settings")
-			}
-		}
-	}
-
-	// Write the block file.
-	var resp map[string]any
-	settingsDefaulted := false
-	if id == "" {
-		resp, err = common.Send(ctx, in.Client, PlanCreateGenBlock(oseid, content))
-	} else {
-		body := settings
-		if body == nil {
-			if current == nil {
-				settingsDefaulted = true
-				body = map[string]any{"type": cardType}
-			} else {
-				body = map[string]any{"type": cardType, "settings": current}
-			}
-		} else if _, ok := body["type"]; !ok {
-			current = body // a bare values object stands in for the page read
-			body = map[string]any{"type": cardType, "settings": body}
-		}
-		resp, err = common.Send(ctx, in.Client, PlanUpdateGenBlock(oseid, content, body))
-	}
+	var current map[string]any
+	var containerLen int
+	themeID, docID, current, containerLen, err = resolveBlockPageContext(ctx, in.Client, b)
 	if err != nil {
-		return common.ExecResult{}, blockStageErr(err, "write", oseid)
+		return common.ExecResult{}, err
+	}
+	// Write the block file.
+	resp, current, settingsDefaulted, err := writeGenBlock(ctx, in.Client, b, current)
+	if err != nil {
+		return common.ExecResult{}, err
 	}
 	gen := unwrapData(resp)
 	schema := mapField(gen, "settings")
@@ -308,7 +374,8 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	results, err := runOps(ctx, in.Client, oseid, docID, operations, names, &applied)
 	if err != nil {
 		e := blockStageErr(err, "place", oseid)
-		if exitErr, ok := e.(*output.ExitError); ok {
+		var exitErr *output.ExitError
+		if errors.As(e, &exitErr) {
 			exitErr.WithField("block_type", newType).WithField("revert_id", revertID)
 		}
 		return common.ExecResult{}, e

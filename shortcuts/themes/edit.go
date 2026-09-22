@@ -81,132 +81,108 @@ and --promote [--publish] skips the batch request entirely.`,
 	Execute: editExecute,
 }
 
-func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
-	themeID := in.Flags.GetString("theme")
-	template := in.Flags.GetString("template")
-	file := in.Flags.GetString("file")
-	session := in.Flags.GetString("session")
-	promote := in.Flags.GetBool("promote")
-	publish := in.Flags.GetBool("publish")
+// editInput is themes +edit's parsed, network-free-validated input.
+type editInput struct {
+	themeID  string
+	template string
+	file     string
+	session  string
+	promote  bool
+	publish  bool
+	ops      []editOp
+}
 
-	// All network-free checks run before any request (or side effect).
-	if _, _, err := templateLocation(template, file); err != nil {
-		return common.ExecResult{}, err
+// parseEditInput reads the flags and runs every check that needs no request, so
+// nothing past it can fail before the first side effect.
+func parseEditInput(in common.ExecInput) (editInput, error) {
+	e := editInput{
+		themeID:  in.Flags.GetString("theme"),
+		template: in.Flags.GetString("template"),
+		file:     in.Flags.GetString("file"),
+		session:  in.Flags.GetString("session"),
+		promote:  in.Flags.GetBool("promote"),
+		publish:  in.Flags.GetBool("publish"),
+	}
+	if _, _, err := templateLocation(e.template, e.file); err != nil {
+		return editInput{}, err
 	}
 	raw, err := readOpsInput(in.Flags.GetString("ops"))
 	if err != nil {
-		return common.ExecResult{}, err
+		return editInput{}, err
 	}
-	ops, err := parseOps(raw)
-	if err != nil {
-		return common.ExecResult{}, err
+	if e.ops, err = parseOps(raw); err != nil {
+		return editInput{}, err
 	}
-	if err := validateOps(ops); err != nil {
-		return common.ExecResult{}, err
+	if err := validateOps(e.ops); err != nil {
+		return editInput{}, err
 	}
 	// Publishing rides on --promote so the agent-side high-risk gate, which
 	// keys off --promote, always covers it.
-	if publish && !promote {
-		return common.ExecResult{}, output.ErrValidation("--publish requires --promote").
+	if e.publish && !e.promote {
+		return editInput{}, output.ErrValidation("--publish requires --promote").
 			WithHint("publishing goes live from the theme draft, so the edit has to be promoted first")
 	}
 	// An empty batch is the "already previewed, now ship it" path: nothing to
 	// apply, so it only makes sense against an existing session being promoted.
-	if len(ops) == 0 {
+	if len(e.ops) == 0 {
 		switch {
-		case !promote:
-			return common.ExecResult{}, output.ErrValidation("--ops is empty and nothing else was requested").
+		case !e.promote:
+			return editInput{}, output.ErrValidation("--ops is empty and nothing else was requested").
 				WithHint("pass ops to apply, or add --promote [--publish] to save the session as it stands")
-		case session == "":
-			return common.ExecResult{}, output.ErrValidation("--ops is empty, so --session is required").
+		case e.session == "":
+			return editInput{}, output.ErrValidation("--ops is empty, so --session is required").
 				WithHint("an empty batch promotes an existing session; a fresh session would have nothing in it")
 		}
 	}
+	return e, nil
+}
 
-	if in.DryRun {
-		return common.ExecResult{Plans: editDryRunPlans(themeID, session, ops, promote, publish)}, nil
+// openEditSession reuses the caller's oseid, or creates a fresh edit draft and
+// reports that it did so.
+func openEditSession(ctx context.Context, c *client.Client, themeID, session string) (string, bool, error) {
+	if session != "" {
+		return session, false, nil
 	}
-
-	themeID, docID, err := resolveThemeAndDoc(ctx, in.Client, themeID, template, file)
+	resp, err := common.Send(ctx, c, PlanCreateSession(themeID))
 	if err != nil {
-		return common.ExecResult{}, err
+		return "", false, err
 	}
-	oseid, created := session, false
+	oseid := extractOseid(resp)
 	if oseid == "" {
-		resp, err := common.Send(ctx, in.Client, PlanCreateSession(themeID))
-		if err != nil {
-			return common.ExecResult{}, err
-		}
-		if oseid = extractOseid(resp); oseid == "" {
-			return common.ExecResult{}, output.ErrInternal("create-session returned no oseid")
-		}
-		created = true
+		return "", false, output.ErrInternal("create-session returned no oseid")
 	}
+	return oseid, true, nil
+}
 
-	// Implicit read only when the batch needs page data (custom_id lookup,
-	// append validation, or section placement/area).
-	var inner map[string]any
-	if opsNeedImplicitRead(ops) {
-		if inner, err = fetchSections(ctx, in.Client, oseid, docID); err != nil {
-			return common.ExecResult{}, err
-		}
-	}
-	// pb pre-flights: update_pb regenerates its card via pb-block-save,
-	// add_section pb resolves the template via pb-single-blocks.
+// preflightCards runs the pb pre-flights the batch needs: update_pb regenerates
+// its card via pb-block-save, add_section pb resolves the template via
+// pb-single-blocks. Keyed by op index.
+func preflightCards(ctx context.Context, c *client.Client, ops []editOp, inner map[string]any,
+	oseid, docID, themeID string) (map[int]map[string]any, error) {
 	cards := map[int]map[string]any{}
 	for i := range ops {
 		var card map[string]any
-		var cerr error
+		var err error
 		switch {
 		case ops[i].Op == "update_pb":
-			card, cerr = generateThemeCard(ctx, in.Client, ops[i], inner, oseid, docID, themeID)
+			card, err = generateThemeCard(ctx, c, ops[i], inner, oseid, docID, themeID)
 		case ops[i].Op == "add_section" && ops[i].Pb:
-			card, cerr = resolvePbSectionValue(ctx, in.Client, ops[i].TemplateID)
+			card, err = resolvePbSectionValue(ctx, c, ops[i].TemplateID)
 		default:
 			continue
 		}
-		if cerr != nil {
-			if exitErr, ok := cerr.(*output.ExitError); ok {
-				exitErr.WithField("oseid", oseid).WithField("session_created", created)
-			}
-			return common.ExecResult{}, cerr
+		if err != nil {
+			return nil, err
 		}
 		cards[i] = card
 	}
-	entries, moves, newTargets, err := translateOps(ops, inner, cards)
-	if err != nil {
-		if exitErr, ok := err.(*output.ExitError); ok {
-			exitErr.WithField("oseid", oseid).WithField("session_created", created)
-		}
-		return common.ExecResult{}, err
-	}
+	return cards, nil
+}
 
-	// Prefetch the preview-URL inputs concurrently with the batch.
-	previewURLFor := previewURLLater(ctx, in.Client, themeID, template, file)
-
-	// One request for the whole batch: ops apply and persist independently
-	// server-side — no abort, no rollback.
-	preIDs := sectionIDSet(inner)
-	operations := make([]map[string]any, len(entries))
-	for i, e := range entries {
-		operations[i] = e.entry
-	}
-	// An empty batch (the promote/publish-only path) sends no request at all.
-	var resp map[string]any
-	if len(operations) > 0 {
-		resp, err = common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
-	}
-	if err != nil {
-		// An invalid --session passes through verbatim — never auto-recreated.
-		// Any other request-level error applied nothing.
-		if !created && isSessionNotFound(err) {
-			return common.ExecResult{}, err
-		}
-		if exitErr, ok := err.(*output.ExitError); ok {
-			exitErr.WithField("oseid", oseid).WithField("session_created", created)
-		}
-		return common.ExecResult{}, err
-	}
+// foldBatchResults folds the server's per-entry results back onto the source
+// ops, returning the applied list and the indexes that did not succeed.
+func foldBatchResults(ops []editOp, entries []serverOp, newTargets map[int]string,
+	resp map[string]any) ([]map[string]any, []int) {
 	perOp := mapBatchResults(len(ops), entries, resp)
 	applied := make([]map[string]any, 0, len(ops))
 	var failedIdx []int
@@ -223,6 +199,108 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		}
 		applied = append(applied, entry)
 	}
+	return applied, failedIdx
+}
+
+// promoteAndPublish saves the edit draft onto the theme draft and, when asked,
+// takes it live. It records what happened on body.
+func promoteAndPublish(ctx context.Context, c *client.Client, e editInput, oseid, themeID string,
+	applied []map[string]any, previewURL string, body map[string]any) error {
+	if e.promote {
+		resp, err := common.Send(ctx, c, PlanPromoteSession(oseid, map[string]any{"force": false}))
+		if err != nil {
+			if isPromoteConflict(err) {
+				return promoteConflictErr(oseid, applied, previewURL)
+			}
+			return err
+		}
+		if promoteConflicted(resp) { // registry documents a {promoted, conflict} body; tolerate both shapes
+			return promoteConflictErr(oseid, applied, previewURL)
+		}
+		body["promoted"] = true
+	}
+	// Publish strictly after a clean promote: a conflict returns above, so it
+	// can never go live on top of someone else's draft.
+	if e.publish {
+		resp, err := common.Send(ctx, c, PlanPublish(themeID))
+		if err != nil {
+			return publishFailedErr(oseid, themeID, applied, previewURL, err)
+		}
+		body["published"] = true
+		if id := revokePublishID(resp); id != "" {
+			body["revoke_publish_id"] = id // the theme this one replaced
+		}
+	}
+	return nil
+}
+
+func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
+	e, err := parseEditInput(in)
+	if err != nil {
+		return common.ExecResult{}, err
+	}
+	if in.DryRun {
+		return common.ExecResult{Plans: editDryRunPlans(e.themeID, e.session, e.ops, e.promote, e.publish)}, nil
+	}
+
+	themeID, docID, err := resolveThemeAndDoc(ctx, in.Client, e.themeID, e.template, e.file)
+	if err != nil {
+		return common.ExecResult{}, err
+	}
+	oseid, created, err := openEditSession(ctx, in.Client, themeID, e.session)
+	if err != nil {
+		return common.ExecResult{}, err
+	}
+	// Past this point the session is the retry handle, so every error carries it.
+	fail := func(err error) (common.ExecResult, error) {
+		var exitErr *output.ExitError
+		if errors.As(err, &exitErr) {
+			exitErr.WithField("oseid", oseid).WithField("session_created", created)
+		}
+		return common.ExecResult{}, err
+	}
+
+	// Implicit read only when the batch needs page data (custom_id lookup,
+	// append validation, or section placement/area).
+	var inner map[string]any
+	if opsNeedImplicitRead(e.ops) {
+		if inner, err = fetchSections(ctx, in.Client, oseid, docID); err != nil {
+			return common.ExecResult{}, err
+		}
+	}
+	cards, err := preflightCards(ctx, in.Client, e.ops, inner, oseid, docID, themeID)
+	if err != nil {
+		return fail(err)
+	}
+	entries, moves, newTargets, err := translateOps(e.ops, inner, cards)
+	if err != nil {
+		return fail(err)
+	}
+
+	// Prefetch the preview-URL inputs concurrently with the batch.
+	previewURLFor := previewURLLater(ctx, in.Client, themeID, e.template, e.file)
+
+	// One request for the whole batch: ops apply and persist independently
+	// server-side — no abort, no rollback.
+	preIDs := sectionIDSet(inner)
+	operations := make([]map[string]any, len(entries))
+	for i, en := range entries {
+		operations[i] = en.entry
+	}
+	// An empty batch (the promote/publish-only path) sends no request at all.
+	var resp map[string]any
+	if len(operations) > 0 {
+		resp, err = common.Send(ctx, in.Client, PlanBatchOps(oseid, docID, operations))
+	}
+	if err != nil {
+		// An invalid --session passes through verbatim — never auto-recreated.
+		// Any other request-level error applied nothing.
+		if !created && isSessionNotFound(err) {
+			return common.ExecResult{}, err
+		}
+		return fail(err)
+	}
+	applied, failedIdx := foldBatchResults(e.ops, entries, newTargets, resp)
 	if len(failedIdx) > 0 {
 		return common.ExecResult{}, batchFailErr(oseid, created, applied, failedIdx)
 	}
@@ -243,30 +321,8 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	if placementWarning != "" {
 		body["placement_warning"] = placementWarning
 	}
-	if promote {
-		resp, err := common.Send(ctx, in.Client, PlanPromoteSession(oseid, map[string]any{"force": false}))
-		if err != nil {
-			if isPromoteConflict(err) {
-				return common.ExecResult{}, promoteConflictErr(oseid, applied, previewURL)
-			}
-			return common.ExecResult{}, err
-		}
-		if promoteConflicted(resp) { // registry documents a {promoted, conflict} body; tolerate both shapes
-			return common.ExecResult{}, promoteConflictErr(oseid, applied, previewURL)
-		}
-		body["promoted"] = true
-	}
-	// Publish strictly after a clean promote: a conflict returns above, so it
-	// can never go live on top of someone else's draft.
-	if publish {
-		resp, err := common.Send(ctx, in.Client, PlanPublish(themeID))
-		if err != nil {
-			return common.ExecResult{}, publishFailedErr(oseid, themeID, applied, previewURL, err)
-		}
-		body["published"] = true
-		if id := revokePublishID(resp); id != "" {
-			body["revoke_publish_id"] = id // the theme this one replaced
-		}
+	if perr := promoteAndPublish(ctx, in.Client, e, oseid, themeID, applied, previewURL, body); perr != nil {
+		return common.ExecResult{}, perr
 	}
 	return common.ExecResult{Body: body}, nil
 }
