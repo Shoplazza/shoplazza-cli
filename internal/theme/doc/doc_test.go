@@ -5,27 +5,13 @@ import (
 	"testing"
 )
 
-// The type is the first path segment that names a theme directory, and the
-// location is everything after it with forward slashes.
-func TestParseThemeFile_Accepted(t *testing.T) {
-	cases := []struct {
-		in       string
-		typ, loc string
-	}{
-		{"assets/main.css", "assets", "main.css"},
-		{"assets\\sub\\img.png", "assets", "sub/img.png"},
-		{"foo/assets/x.css", "assets", "x.css"},
+func TestParseThemeFile_SingleLevel(t *testing.T) {
+	typ, loc, err := ParseThemeFile("assets/main.css")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
 	}
-	for _, c := range cases {
-		t.Run(c.in, func(t *testing.T) {
-			typ, loc, err := ParseThemeFile(c.in)
-			if err != nil {
-				t.Fatalf("unexpected err: %v", err)
-			}
-			if typ != c.typ || loc != c.loc {
-				t.Fatalf("got (%q,%q), want (%q,%q)", typ, loc, c.typ, c.loc)
-			}
-		})
+	if typ != "assets" || loc != "main.css" {
+		t.Fatalf("got (%q,%q), want (assets,main.css)", typ, loc)
 	}
 }
 
@@ -56,6 +42,16 @@ func TestParseThemeFile_DirectoryItself(t *testing.T) {
 		if !errors.Is(err, ErrNotInThemeTree) {
 			t.Errorf("for %q: expected ErrNotInThemeTree, got %v", in, err)
 		}
+	}
+}
+
+func TestParseThemeFile_WindowsBackslashes(t *testing.T) {
+	typ, loc, err := ParseThemeFile("assets\\sub\\img.png")
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if typ != "assets" || loc != "sub/img.png" {
+		t.Fatalf("got (%q,%q), want (assets,sub/img.png)", typ, loc)
 	}
 }
 
@@ -178,6 +174,17 @@ func TestFileSnapshot_AddDedupes(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("Add should dedup; got %d copies", count)
+	}
+}
+
+func TestParseThemeFile_NestedNonThemeDir(t *testing.T) {
+	// foo/assets/x.css should parse as (assets, x.css) because we find first matching segment
+	typ, loc, err := ParseThemeFile("foo/assets/x.css")
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if typ != "assets" || loc != "x.css" {
+		t.Fatalf("got (%q,%q)", typ, loc)
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 func TestRequireThemeID_NonEmptyPassesThrough(t *testing.T) {
@@ -28,7 +27,7 @@ func TestRequireThemeID_EmptyReturnsMissingFlagError(t *testing.T) {
 
 func TestRequireThemeID_ErrorEnvelopeShape(t *testing.T) {
 	_, err := RequireThemeID("")
-	env := testenv.ErrEnvelope(t, err)
+	env := extractEnvelope(t, err)
 	if env["type"] != "validation" || env["code"] != 2 {
 		t.Errorf("envelope: %v", env)
 	}
@@ -75,7 +74,7 @@ func TestValidateThemeID_RejectsUnsafeIDs(t *testing.T) {
 			t.Errorf("ValidateThemeID(%q) = nil, want validation error", id)
 			continue
 		}
-		env := testenv.ErrEnvelope(t, err)
+		env := extractEnvelope(t, err)
 		if env["type"] != "validation" || env["code"] != 2 {
 			t.Errorf("ValidateThemeID(%q) envelope: %v", id, env)
 		}
@@ -89,7 +88,7 @@ func TestRequireThemeID_ValidatesCharset(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected validation error for malformed theme id")
 	}
-	env := testenv.ErrEnvelope(t, err)
+	env := extractEnvelope(t, err)
 	if env["type"] != "validation" {
 		t.Errorf("type: %v", env["type"])
 	}

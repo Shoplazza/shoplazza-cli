@@ -113,20 +113,10 @@ func TestTemplateTypeFor(t *testing.T) {
 
 // ── runGenerateExtension validation ──────────────────────────────────────────
 
-func TestRunGenerateExtension_Refusals(t *testing.T) {
-	cases := []struct{ name, extType, extName, themeType string }{
-		{"empty --name", "theme", "", "basic"},
-		{"invalid extension type", "widget", "myext", ""},
-		{"invalid --theme-type for a theme extension", "theme", "myext", "invalid"},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			err := runGenerateExtension(context.Background(), nil, t.TempDir(),
-				c.extType, c.extName, c.themeType, nil, io.Discard, "json", "")
-			if err == nil {
-				t.Error("expected a refusal")
-			}
-		})
+func TestRunGenerateExtension_EmptyNameErrors(t *testing.T) {
+	err := runGenerateExtension(context.Background(), nil, t.TempDir(), "theme", "", "basic", nil, io.Discard, "json", "")
+	if err == nil {
+		t.Error("expected error when --name is empty")
 	}
 }
 
@@ -154,6 +144,20 @@ func TestRunGenerateExtension_ValidNamePassesValidation(t *testing.T) {
 		if err := runGenerateExtension(context.Background(), d, t.TempDir(), "theme", name, "embed", &buf, io.Discard, "json", ""); err != nil {
 			t.Errorf("name %q should be accepted: %v", name, err)
 		}
+	}
+}
+
+func TestRunGenerateExtension_InvalidTypeErrors(t *testing.T) {
+	err := runGenerateExtension(context.Background(), nil, t.TempDir(), "widget", "myext", "", nil, io.Discard, "json", "")
+	if err == nil {
+		t.Error("expected error for invalid extension type")
+	}
+}
+
+func TestRunGenerateExtension_ThemeRequiresThemeType(t *testing.T) {
+	err := runGenerateExtension(context.Background(), nil, t.TempDir(), "theme", "myext", "invalid", nil, io.Discard, "json", "")
+	if err == nil {
+		t.Error("expected error when --theme-type is invalid for theme extension")
 	}
 }
 

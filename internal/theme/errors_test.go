@@ -5,13 +5,26 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
+
+func extractEnvelope(t *testing.T, err error) map[string]any {
+	t.Helper()
+	if err == nil {
+		t.Fatal("err is nil")
+	}
+	type enveloper interface {
+		Envelope() map[string]any
+	}
+	if e, ok := err.(enveloper); ok {
+		return e.Envelope()
+	}
+	t.Fatalf("err does not expose Envelope(): %T", err)
+	return nil
+}
 
 func TestErrAuthExpired_Shape(t *testing.T) {
 	e := ErrAuthExpired(errors.New("token revoked"))
-	env := testenv.ErrEnvelope(t, e)
+	env := extractEnvelope(t, e)
 	if env["type"] != "auth" {
 		t.Errorf("type = %v, want auth", env["type"])
 	}
@@ -25,7 +38,7 @@ func TestErrAuthExpired_Shape(t *testing.T) {
 
 func TestErrValidation_Shape(t *testing.T) {
 	e := ErrValidation("invalid: %s", "x")
-	env := testenv.ErrEnvelope(t, e)
+	env := extractEnvelope(t, e)
 	if env["type"] != "validation" || env["code"] != 2 {
 		t.Errorf("envelope: %v", env)
 	}
@@ -37,7 +50,7 @@ func TestErrValidation_Shape(t *testing.T) {
 func TestErrTaskBusinessFailure_PassthroughPayload(t *testing.T) {
 	task := map[string]any{"task_id": "t1", "status": 2, "message": "structure invalid", "progress": 0.5}
 	e := ErrTaskBusinessFailure(task)
-	env := testenv.ErrEnvelope(t, e)
+	env := extractEnvelope(t, e)
 	if env["type"] != "api" {
 		t.Errorf("type: %v", env["type"])
 	}
@@ -51,7 +64,7 @@ func TestErrTaskBusinessFailure_PassthroughPayload(t *testing.T) {
 // (not the 3-minute default) must appear in the message verbatim.
 func TestErrTaskTimeout_NonDefaultCapInterpolated(t *testing.T) {
 	e := ErrTaskTimeout(9*time.Second, 10*time.Second, "t1", nil)
-	env := testenv.ErrEnvelope(t, e)
+	env := extractEnvelope(t, e)
 	msg, _ := env["message"].(string)
 	if !strings.Contains(msg, "10s") {
 		t.Errorf("message must carry the configured 10s cap: %v", msg)
@@ -64,7 +77,7 @@ func TestErrTaskTimeout_NonDefaultCapInterpolated(t *testing.T) {
 func TestErrTaskTimeout_Shape(t *testing.T) {
 	task := map[string]any{"task_id": "t1", "status": 0, "info": "compressing"}
 	e := ErrTaskTimeout(180*time.Second+200*time.Millisecond, 3*time.Minute, "t1", task)
-	env := testenv.ErrEnvelope(t, e)
+	env := extractEnvelope(t, e)
 	if env["type"] != "network" || env["code"] != 4 {
 		t.Errorf("envelope: %v", env)
 	}
@@ -93,7 +106,7 @@ func TestErrTaskTimeout_Shape(t *testing.T) {
 
 func TestErrLiveReloadBindFailed_Shape(t *testing.T) {
 	e := ErrLiveReloadBindFailed(21647, errors.New("address in use"))
-	env := testenv.ErrEnvelope(t, e)
+	env := extractEnvelope(t, e)
 	if env["type"] != "network" || env["code"] != 4 {
 		t.Errorf("envelope: %v", env)
 	}
@@ -107,7 +120,7 @@ func TestErrLiveReloadBindFailed_Shape(t *testing.T) {
 
 func TestErrWatcherFatal_Shape(t *testing.T) {
 	e := ErrWatcherFatal(errors.New("EMFILE: too many open files"))
-	env := testenv.ErrEnvelope(t, e)
+	env := extractEnvelope(t, e)
 	if env["type"] != "internal" || env["code"] != 5 {
 		t.Errorf("envelope: %v", env)
 	}
@@ -119,7 +132,7 @@ func TestErrWatcherFatal_Shape(t *testing.T) {
 
 func TestErrLocalIO_Shape(t *testing.T) {
 	e := ErrLocalIO("write tmp zip", errors.New("disk full"))
-	env := testenv.ErrEnvelope(t, e)
+	env := extractEnvelope(t, e)
 	if env["type"] != "internal" || env["code"] != 5 {
 		t.Errorf("envelope: %v", env)
 	}
@@ -130,7 +143,7 @@ func TestErrLocalIO_Shape(t *testing.T) {
 
 func TestErrCloneNetwork_Shape(t *testing.T) {
 	e := ErrCloneNetwork(errors.New("dial tcp: i/o timeout"))
-	env := testenv.ErrEnvelope(t, e)
+	env := extractEnvelope(t, e)
 	if env["type"] != "network" || env["code"] != 4 {
 		t.Errorf("envelope: %v", env)
 	}
@@ -146,7 +159,7 @@ func TestErrCloneNetwork_Shape(t *testing.T) {
 }
 
 func TestErrTaskInterrupted_Shape(t *testing.T) {
-	env := testenv.ErrEnvelope(t, ErrTaskInterrupted("t1"))
+	env := extractEnvelope(t, ErrTaskInterrupted("t1"))
 	if env["type"] != "network" {
 		t.Errorf("type = %v, want network", env["type"])
 	}

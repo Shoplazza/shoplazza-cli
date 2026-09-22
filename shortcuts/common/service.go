@@ -48,13 +48,10 @@ func Send(ctx context.Context, c *client.Client, p PlannedRequest) (map[string]a
 	case "PATCH":
 		err = c.PatchJSON(ctx, p.Path, p.Body, &out)
 	case "DELETE":
-		switch {
-		case p.Body != nil:
-			err = c.DeleteJSONWithBody(ctx, p.Path, p.Body, &out)
-		case len(p.Query) > 0:
-			err = c.DeleteJSONWithQuery(ctx, p.Path, p.Query, &out)
-		default:
+		if len(p.Query) == 0 {
 			err = c.DeleteJSON(ctx, p.Path, &out)
+		} else {
+			err = c.DeleteJSONWithQuery(ctx, p.Path, p.Query, &out)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported HTTP method %q", p.Method)
