@@ -1,11 +1,11 @@
 package discounts
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
-
 	"github.com/spf13/cobra"
 )
 
@@ -254,27 +254,24 @@ func TestBuildCodeDiscountPayload_ProductTarget(t *testing.T) {
 	}
 }
 
-func TestBuildCodeDiscountPayload_InvalidTargetErrors(t *testing.T) {
-	in := newPlanInput(t, "percent-code", discountCodeFlags(), map[string]string{"target": "store"})
-	_, err := buildCodeDiscountPayload(in, "code_percent", "percent", 10)
-	if err == nil {
-		t.Error("expected error for invalid --target")
+// --target picks the payload shape, so it and its dependent flags are checked
+// before the payload is assembled.
+func TestBuildCodeDiscountPayload_Refusals(t *testing.T) {
+	cases := []struct {
+		name  string
+		flags map[string]string
+	}{
+		{"invalid --target", map[string]string{"target": "store"}},
+		{"--exclude on an order target", map[string]string{"target": "order", "exclude": "true"}},
+		{"product target without a scope", map[string]string{"target": "product"}},
 	}
-}
-
-func TestBuildCodeDiscountPayload_ExcludeOnOrderErrors(t *testing.T) {
-	in := newPlanInput(t, "percent-code", discountCodeFlags(), map[string]string{"target": "order", "exclude": "true"})
-	_, err := buildCodeDiscountPayload(in, "code_percent", "percent", 10)
-	if err == nil {
-		t.Error("expected error: --exclude only applies to --target=product")
-	}
-}
-
-func TestBuildCodeDiscountPayload_ProductTargetNoScopeErrors(t *testing.T) {
-	in := newPlanInput(t, "percent-code", discountCodeFlags(), map[string]string{"target": "product"})
-	_, err := buildCodeDiscountPayload(in, "code_percent", "percent", 10)
-	if err == nil {
-		t.Error("expected error: product target requires one of --products/--variants/--collections")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			in := newPlanInput(t, "percent-code", discountCodeFlags(), c.flags)
+			if _, err := buildCodeDiscountPayload(in, "code_percent", "percent", 10); err == nil {
+				t.Error("expected a refusal")
+			}
+		})
 	}
 }
 
@@ -374,5 +371,129 @@ func TestCodeRuleFromFlags_InvalidCombinesErrors(t *testing.T) {
 	_, err := codeRuleFromFlags(in)
 	if err == nil {
 		t.Error("expected error for invalid combines")
+	}
+}
+
+func TestResolveScope(t *testing.T) {
+	cases := []struct {
+		name         string
+		products     []string
+		collections  []string
+		variants     []string
+		exclude      bool
+		requireScope bool
+		names        scopeNames
+		want         map[string]any
+		wantErr      string // substring; "" = no error
+	}{
+		{
+			name:     "products entitled",
+			products: []string{"p1", "p2"},
+			names:    defaultScopeNames(),
+			want:     map[string]any{"selection": "entitled", "product_ids": []string{"p1", "p2"}},
+		},
+		{
+			name:        "collections exclude",
+			collections: []string{"c1"},
+			exclude:     true,
+			names:       defaultScopeNames(),
+			want:        map[string]any{"selection": "exclude", "collection_ids": []string{"c1"}},
+		},
+		{
+			name:     "variants entitled",
+			variants: []string{"v1"},
+			names:    defaultScopeNames(),
+			want:     map[string]any{"selection": "entitled", "variant_ids": []string{"v1"}},
+		},
+		{
+			name:  "empty optional scope -> all",
+			names: defaultScopeNames(),
+			want:  map[string]any{"selection": "all"},
+		},
+		{
+			name:         "empty required scope -> error",
+			requireScope: true,
+			names:        defaultScopeNames(),
+			wantErr:      "is required",
+		},
+		{
+			name:    "exclude with empty scope -> error",
+			exclude: true,
+			names:   defaultScopeNames(),
+			wantErr: "needs a scope",
+		},
+		{
+			name:        "two lists set -> mutex error",
+			products:    []string{"p1"},
+			collections: []string{"c1"},
+			names:       defaultScopeNames(),
+			wantErr:     "mutually exclusive",
+		},
+		{
+			name:        "flashsale names omit --products in mutex error",
+			collections: []string{"c1"},
+			variants:    []string{"v1"},
+			names:       scopeNames{collections: "collections", variants: "variants", exclude: "exclude"},
+			wantErr:     "--collections",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := resolveScope(tc.products, tc.collections, tc.variants, tc.exclude, tc.requireScope, tc.names)
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil (result=%v)", tc.wantErr, got)
+				}
+				if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("error = %q, want substring %q", err.Error(), tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("resolveScope = %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
+// Flashsale names must never name --products (it has no such flag).
+func TestResolveScope_FlashsaleNamesNoProducts(t *testing.T) {
+	names := scopeNames{collections: "collections", variants: "variants", exclude: "exclude"}
+	_, err := resolveScope(nil, []string{"c1"}, []string{"v1"}, false, false, names)
+	if err == nil {
+		t.Fatal("expected mutex error")
+	}
+	if strings.Contains(err.Error(), "products") {
+		t.Fatalf("flashsale mutex error must not mention --products: %q", err.Error())
+	}
+}
+
+func TestValidateLayerObtainValues(t *testing.T) {
+	cases := []struct {
+		name      string
+		layers    []common.Layer
+		isPercent bool
+		wantErr   bool
+	}{
+		{"percent ok", []common.Layer{{ConditionValue: 2, ObtainValue: 30}, {ConditionValue: 3, ObtainValue: 50}}, true, false},
+		{"percent boundary 1", []common.Layer{{ConditionValue: 2, ObtainValue: 1}}, true, false},
+		{"percent boundary 99", []common.Layer{{ConditionValue: 2, ObtainValue: 99}}, true, false},
+		{"percent over", []common.Layer{{ConditionValue: 2, ObtainValue: 30}, {ConditionValue: 3, ObtainValue: 120}}, true, true},
+		{"percent zero", []common.Layer{{ConditionValue: 2, ObtainValue: 0}}, true, true},
+		{"percent negative", []common.Layer{{ConditionValue: 2, ObtainValue: -5}}, true, true},
+		{"amount ok", []common.Layer{{ConditionValue: 100, ObtainValue: 10}, {ConditionValue: 200, ObtainValue: 25}}, false, false},
+		{"amount zero", []common.Layer{{ConditionValue: 100, ObtainValue: 0}}, false, true},
+		{"amount negative", []common.Layer{{ConditionValue: 100, ObtainValue: -5}}, false, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateLayerObtainValues(tc.layers, tc.isPercent)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err=%v wantErr=%v", err, tc.wantErr)
+			}
+		})
 	}
 }

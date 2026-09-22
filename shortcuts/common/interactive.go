@@ -57,12 +57,27 @@ func fillRequiredWith(c *cobra.Command, flags []Flag, interactive bool, prompt f
 	return nil
 }
 
-// confirmDestructive gates a Destructive command behind a confirmation in an
+func confirmTitle(s Shortcut, flags FlagSet) string {
+	if s.DestructiveIf != nil {
+		if title := s.DestructiveIf(flags); title != "" {
+			return title
+		}
+	}
+	if !s.Destructive {
+		return ""
+	}
+	if s.ConfirmPrompt != "" {
+		return s.ConfirmPrompt
+	}
+	return "Run '" + s.Command + "'? This cannot be undone."
+}
+
+// confirmDestructive gates a destructive invocation behind a confirmation in an
 // interactive terminal. Non-interactive runs (agents, pipes, CI) return nil
 // immediately — this is a human-only safety net and never blocks automation.
 // Callers skip it in --dry-run (a preview does not execute).
-func confirmDestructive(c *cobra.Command, s Shortcut, factory *cmdutil.Factory) error {
-	return confirmDestructiveWith(c, s, cmdutil.Interactive(factory), interact.Confirm, interact.ConfirmTyped)
+func confirmDestructive(c *cobra.Command, s Shortcut, title string, factory *cmdutil.Factory) error {
+	return confirmDestructiveWith(c, s, title, cmdutil.Interactive(factory), interact.Confirm, interact.ConfirmTyped)
 }
 
 // confirmDestructiveWith is confirmDestructive with the gate and the confirm
@@ -70,16 +85,12 @@ func confirmDestructive(c *cobra.Command, s Shortcut, factory *cmdutil.Factory) 
 // type-the-value gate is used when the command names a ConfirmPhraseFlag and it
 // is set (high-risk money ops); otherwise a plain y/N.
 func confirmDestructiveWith(
-	c *cobra.Command, s Shortcut, interactive bool,
+	c *cobra.Command, s Shortcut, title string, interactive bool,
 	confirm func(title string) (bool, error),
 	confirmTyped func(title, phrase string) (bool, error),
 ) error {
 	if !interactive {
 		return nil // human-only gate: agents/pipes/CI proceed unchanged
-	}
-	title := s.ConfirmPrompt
-	if title == "" {
-		title = "Run '" + s.Command + "'? This cannot be undone."
 	}
 	var (
 		ok  bool

@@ -16,6 +16,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/multipartx"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/env"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/pack"
 )
 
@@ -50,6 +51,9 @@ func newCmdPush(f *cmdutil.Factory) *cobra.Command {
 		Annotations: map[string]string{cmdutil.AnnotationAuthFree: "true"},
 		Args:        cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cmdutil.IsDryRun(cmd) {
+				return pushDryRun(cmd, f, themeID)
+			}
 			ctx := cmd.Context()
 			// resolveStore owns auth: it resolves the (env-aware) profile and mints
 			// its store token, so an unauthenticated target surfaces as a precise,
@@ -82,8 +86,12 @@ func newCmdPush(f *cmdutil.Factory) *cobra.Command {
 			// Record the resolved target into the default environment, same rules as
 			// pull (create if absent; confirm before overwriting an existing default;
 			// skipped under -e). A one-off push declines that overwrite prompt.
-			cwd, _ := os.Getwd()
-			maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID, "push")
+			cwd, gerr := os.Getwd()
+			if gerr != nil {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "[push] left %s untouched: %v\n", env.FileName, gerr)
+			} else {
+				maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID, "push")
+			}
 
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "✓ pushed to theme %s on %s\n", resolvedID, rs.Domain)
 			return output.PrintAPISuccess(cmd.OutOrStdout(),
@@ -93,6 +101,7 @@ func newCmdPush(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVarP(&themeID, "theme-id", "t", "", "Theme ID (required unless -e provides it). Run 'shoplazza themes list' to discover")
 	cmd.Flags().StringVar(&taskID, "task-id", "", "Resume waiting for an earlier upload task instead of uploading again (task_id from a timeout error)")
 	cmd.Flags().StringVarP(&environment, "environment", "e", "", "Environment from shoplazza.theme.toml (store/profile/theme); see 'themes env list'")
+	cmd.Flags().Bool("dry-run", false, "Print what would be uploaded and where, without packaging or sending anything")
 	return cmd
 }
 

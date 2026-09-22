@@ -33,11 +33,24 @@ func (r *recorder) cb() Callback {
 	}
 }
 
+// waitUntil polls cond until it holds, failing the test once timeout elapses.
+func waitUntil(t *testing.T, timeout time.Duration, what string, cond func() bool) {
+	t.Helper()
+	for deadline := time.Now().Add(timeout); ; time.Sleep(20 * time.Millisecond) {
+		if cond() {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("did not observe %s within %v", what, timeout)
+		}
+	}
+}
+
 func (r *recorder) waitFor(t *testing.T, kind string, want string, timeout time.Duration) {
 	t.Helper()
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
+	waitUntil(t, timeout, kind+" event for "+want, func() bool {
 		r.mu.Lock()
+		defer r.mu.Unlock()
 		var list []string
 		switch kind {
 		case "create":
@@ -49,14 +62,11 @@ func (r *recorder) waitFor(t *testing.T, kind string, want string, timeout time.
 		}
 		for _, e := range list {
 			if e == want {
-				r.mu.Unlock()
-				return
+				return true
 			}
 		}
-		r.mu.Unlock()
-		time.Sleep(20 * time.Millisecond)
-	}
-	t.Fatalf("did not observe %s event for %q within %v", kind, want, timeout)
+		return false
+	})
 }
 
 // eventWait is how long to wait for a filesystem event. Generous by default so

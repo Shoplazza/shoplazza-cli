@@ -29,6 +29,7 @@ const (
 type Flag struct {
 	Name        string
 	Short       string // optional one-char short alias (e.g. "t" for -t)
+	Aliases     []string
 	Type        FlagType
 	Default     any
 	Description string

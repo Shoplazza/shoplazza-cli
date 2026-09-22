@@ -42,7 +42,8 @@ type Shortcut struct {
 	// confirm before it executes; agents and piped/CI runs are UNAFFECTED — they
 	// proceed exactly as before, relying on --dry-run + skill discipline.
 	// --dry-run always skips the prompt (it previews, it does not execute).
-	Destructive bool
+	Destructive   bool
+	DestructiveIf func(FlagSet) string
 
 	// ConfirmPrompt overrides the y/N question shown for a Destructive command.
 	ConfirmPrompt string
@@ -51,4 +52,9 @@ type Shortcut struct {
 	// value to confirm" — the stronger gate for high-risk money ops (e.g. +refund
 	// asks the user to type the order id). Falls back to y/N if the flag is empty.
 	ConfirmPhraseFlag string
+
+	// StoreTier lists the command in the module's store-operations help group
+	// rather than the dev-tier one, for a shortcut that works on the store over
+	// the API instead of on local files. Help rendering only.
+	StoreTier bool
 }

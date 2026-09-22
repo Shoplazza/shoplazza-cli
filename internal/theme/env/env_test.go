@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -148,5 +149,44 @@ func TestSave_RoundTripOmitsEmptyFields(t *testing.T) {
 func TestLoad_MissingFileIsNotFound(t *testing.T) {
 	if _, err := Load(filepath.Join(t.TempDir(), FileName)); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Load of a missing file = %v, want ErrNotFound", err)
+	}
+}
+
+// TestSave_LeavesNoTempAndKeepsPerm guards the two things the temp-plus-rename
+// write can get wrong: a temp left behind in a git-committed project dir, and a
+// mode other than the one Save asks for (CreateTemp opens 0600). Atomicity
+// itself is not asserted — it needs an interrupted write, which has no seam here.
+// The mode half is POSIX-only: Windows has no permission bits, so a writable
+// file always reports 0666 there.
+func TestSave_LeavesNoTempAndKeepsPerm(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, FileName)
+	in := File{Environments: map[string]Environment{"staging": {Store: "s.myshoplaza.com"}}}
+	if err := Save(path, in); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if err := Save(path, in); err != nil { // overwrite an existing file too
+		t.Fatalf("Save over an existing file: %v", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != FileName {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Fatalf("expected only %s, got %v", FileName, names)
+	}
+	if runtime.GOOS == "windows" {
+		return
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o644 {
+		t.Errorf("mode = %v, want 0644", perm)
 	}
 }

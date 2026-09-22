@@ -1,9 +1,8 @@
 package completion
 
 import (
-	"fmt"
-
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -45,7 +44,8 @@ Installation:
 			case "powershell":
 				return root.GenPowerShellCompletionWithDesc(out)
 			default:
-				return fmt.Errorf("unsupported shell: %s (supported: bash, zsh, fish, powershell)", args[0])
+				return output.ErrValidation("unsupported shell: %s (supported: bash, zsh, fish, powershell)", args[0]).
+					WithSubtype(output.SubtypeInvalidArgument)
 			}
 		},
 	}

@@ -53,6 +53,58 @@ type UnpackOptions struct {
 
 const defaultMaxUnpackSize = 200 * 1024 * 1024
 
+// PackPlan is the selection Pack would archive: the files it picks, in its own
+// order, with what the filters dropped. Sizes are read with os.Stat.
+type PackPlan struct {
+	Files      []string // forward-slash relative paths, sorted
+	TotalBytes int64
+	Ignored    int // dropped by the ignore file
+	Hidden     int // dropped as dot-paths
+}
+
+// PlanPack runs Pack's selection without writing an archive, so an upload can
+// be previewed (how many files, how many bytes) before it is sent.
+func PlanPack(srcDir string, opts PackOptions) (PackPlan, error) {
+	return selectPackFiles(srcDir, opts)
+}
+
+// selectPackFiles is the one owner of "what goes into a theme archive": the 8
+// theme dirs, minus the ignore file's matches, minus dot-paths. Pack and
+// PlanPack both go through it so a preview cannot drift from the upload.
+func selectPackFiles(srcDir string, opts PackOptions) (PackPlan, error) {
+	ignorer, err := loadIgnorer(srcDir, opts.IgnoreFile)
+	if err != nil {
+		return PackPlan{}, err
+	}
+	rels, err := EnumerateThemeFiles(srcDir)
+	if err != nil {
+		return PackPlan{}, err
+	}
+	sort.Strings(rels)
+
+	plan := PackPlan{}
+	for _, rel := range rels {
+		if rel == ".themeignore" {
+			continue
+		}
+		if ignorer != nil && ignorer.MatchesPath(rel) {
+			plan.Ignored++
+			continue
+		}
+		if !opts.IncludeHidden && isHidden(rel) {
+			plan.Hidden++
+			continue
+		}
+		info, serr := os.Stat(filepath.Join(srcDir, filepath.FromSlash(rel)))
+		if serr != nil {
+			return PackPlan{}, fmt.Errorf("stat %s: %w", rel, serr)
+		}
+		plan.Files = append(plan.Files, rel)
+		plan.TotalBytes += info.Size()
+	}
+	return plan, nil
+}
+
 // Pack writes a zip archive containing all files under srcDir that belong to a
 // theme directory (per ThemeDirs) and are not excluded by .themeignore.
 // Returns the absolute path to the produced zip.
@@ -74,27 +126,12 @@ func Pack(srcDir, outputName string, opts PackOptions) (string, error) {
 	zw := zip.NewWriter(f)
 	defer zw.Close()
 
-	ignorer, err := loadIgnorer(srcDir, opts.IgnoreFile)
+	sel, err := selectPackFiles(srcDir, opts)
 	if err != nil {
 		return "", err
 	}
 
-	rels, err := EnumerateThemeFiles(srcDir)
-	if err != nil {
-		return "", err
-	}
-	sort.Strings(rels)
-
-	for _, rel := range rels {
-		if rel == ".themeignore" {
-			continue
-		}
-		if ignorer != nil && ignorer.MatchesPath(rel) {
-			continue
-		}
-		if !opts.IncludeHidden && isHidden(rel) {
-			continue
-		}
+	for _, rel := range sel.Files {
 		full := filepath.Join(srcDir, filepath.FromSlash(rel))
 		info, err := os.Stat(full)
 		if err != nil {

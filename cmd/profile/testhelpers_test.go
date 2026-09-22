@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -94,21 +93,6 @@ func seedTwoProfiles(t *testing.T, a, b string) *cmdutil.Factory {
 		t.Fatalf("seed profiles: %v", err)
 	}
 	return f
-}
-
-// seedProfileToken persists a profile's cached store access token: the
-// keychain entry plus its ProfileMeta (expiry), matching what a real
-// exchange would have written.
-func seedProfileToken(t *testing.T, authDir, name, token string, expiresAt time.Time) {
-	t.Helper()
-	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey(name), token); err != nil {
-		t.Fatalf("seed profile token: %v", err)
-	}
-	if err := internalauth.SaveProfileMeta(authDir, strings.ToLower(name), internalauth.ProfileMeta{
-		ExpiresAt: expiresAt.Format(time.RFC3339),
-	}); err != nil {
-		t.Fatalf("seed profile meta: %v", err)
-	}
 }
 
 // setPreviousProfile overrides the persisted previousProfile pointer for
