@@ -64,6 +64,20 @@ and --promote [--publish] skips the batch request entirely.`,
 		{Name: "promote", Type: common.FlagBool, Description: "Promote the edit draft onto the theme draft after all ops apply (needs explicit user intent)."},
 		{Name: "publish", Type: common.FlagBool, Description: "Publish the theme live after a clean promote. Requires --promote; only when the user explicitly asked to go live."},
 	},
+	// Only --promote/--publish leave the edit session, so only they confirm.
+	DestructiveIf: func(f common.FlagSet) string {
+		target := "live theme"
+		if id := f.GetString("theme"); id != "" {
+			target = "theme " + id
+		}
+		switch {
+		case f.GetBool("publish"):
+			return "Publish " + target + "?"
+		case f.GetBool("promote"):
+			return "Save onto " + target + "'s draft? It ships with the next publish."
+		}
+		return ""
+	},
 	Execute: editExecute,
 }
 

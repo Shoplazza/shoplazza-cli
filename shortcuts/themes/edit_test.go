@@ -1167,3 +1167,27 @@ func TestHelp_Edit(t *testing.T) {
 		}
 	}
 }
+
+// The confirmation is per-invocation: only --promote/--publish arm it, and the
+// prompt names the theme this run actually targets.
+func TestEditDestructiveIf_OnlyPromoteAndPublishConfirm(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		vals map[string]any
+		want string
+	}{
+		{"plain edit stays in the session", map[string]any{"ops": "[]"}, ""},
+		{"promote", map[string]any{"ops": "[]", "promote": true},
+			"Save onto live theme's draft? It ships with the next publish."},
+		{"publish", map[string]any{"ops": "[]", "promote": true, "publish": true},
+			"Publish live theme?"},
+		{"explicit theme is named", map[string]any{"ops": "[]", "promote": true, "theme": "t_123"},
+			"Save onto theme t_123's draft? It ships with the next publish."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := editShortcut.DestructiveIf(editFlags(t, tc.vals)); got != tc.want {
+				t.Errorf("DestructiveIf = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

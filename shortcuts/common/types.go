@@ -42,7 +42,8 @@ type Shortcut struct {
 	// confirm before it executes; agents and piped/CI runs are UNAFFECTED — they
 	// proceed exactly as before, relying on --dry-run + skill discipline.
 	// --dry-run always skips the prompt (it previews, it does not execute).
-	Destructive bool
+	Destructive   bool
+	DestructiveIf func(FlagSet) string
 
 	// ConfirmPrompt overrides the y/N question shown for a Destructive command.
 	ConfirmPrompt string
