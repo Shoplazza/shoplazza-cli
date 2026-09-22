@@ -19,6 +19,11 @@ var previewShortcut = common.Shortcut{
 	StoreTier: true,
 	Use:       "+preview",
 	Short:     "Print a storefront preview URL for a theme (optionally an edit session)",
+	Example: `  # Preview URL for a theme's home page
+  shoplazza themes +preview -t <theme_id>
+
+  # Preview a product page as an edit session has it
+  shoplazza themes +preview -t <theme_id> --oseid <oseid> --path /products/my-product`,
 	Flags: []common.Flag{
 		{
 			Name:        "theme-id",

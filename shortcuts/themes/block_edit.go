@@ -43,6 +43,11 @@ CLI adds, and renames the one addressed by --target.
 
 Saving and publishing stay with the shared session:
 "themes +edit --session <oseid> --ops '[]' --promote [--publish]".`,
+	Example: `  # Write a generated block and place it on the index page
+  shoplazza themes block +edit --session <oseid> --content ./card.liquid --template index
+
+  # Rewrite that block's source, carrying the instance's settings onto the new schema
+  shoplazza themes block +edit --session <oseid> --id gen_1a0d523 --content ./card.liquid --template index --target <section_id>.blocks[0]`,
 	Flags: []common.Flag{
 		{Name: "theme", Type: common.FlagString, Description: "Theme ID. Defaults to the published theme; required when the session is on another theme."},
 		{Name: "session", Type: common.FlagString, Required: true, Description: "Edit session id (oseid) from 'themes +page'."},

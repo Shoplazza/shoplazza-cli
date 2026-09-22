@@ -75,6 +75,11 @@ without failing the rest of the batch.
 
 Presets are omitted by default (bulky, not needed for recommendation);
 pass --include-presets to keep them.`,
+	Example: `  # Settings and blocks schema of two addable cards
+  shoplazza themes +card-schema --theme <theme_id> --ids rich_text,collection_list
+
+  # The verbatim bilingual schema, presets included
+  shoplazza themes +card-schema --theme <theme_id> --ids rich_text --full --include-presets`,
 	Flags: []common.Flag{
 		{Name: "theme", Type: common.FlagString, Required: true, Description: "Theme ID (same value as themes section cards)."},
 		{Name: "ids", Type: common.FlagStringSlice, Required: true, Description: "Card ids, comma-separated, at most 10."},

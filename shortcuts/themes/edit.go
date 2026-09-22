@@ -55,6 +55,11 @@ it also stops --publish before anything goes live.
 
 "Already previewed, now ship it" is an empty batch: --ops '[]' with --session
 and --promote [--publish] skips the batch request entirely.`,
+	Example: `  # Change one block setting, reusing the session +page echoed
+  shoplazza themes +edit --template index --session <oseid> --ops '[{"op":"update_slot","target":"<section_id>.blocks[0]","props":{"heading":"Summer sale"}}]'
+
+  # Save a previewed session onto the theme draft
+  shoplazza themes +edit --template index --session <oseid> --ops '[]' --promote`,
 	Flags: []common.Flag{
 		{Name: "template", Type: common.FlagString, Description: "Template name, e.g. index / product. Mutually exclusive with --file."},
 		{Name: "file", Type: common.FlagString, Description: "Theme file path, e.g. templates/index.liquid. Mutually exclusive with --template."},

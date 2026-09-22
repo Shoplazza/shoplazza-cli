@@ -69,6 +69,11 @@ Omitting --session creates a fresh edit session (an edit draft copied from
 the theme draft) and echoes its oseid; pass that oseid to the follow-up
 "themes +edit --session" so read and write share one snapshot. Pass --session
 to re-read an existing edit session instead.`,
+	Example: `  # Read the index page: sections in render order, blocks with ready-to-copy targets
+  shoplazza themes +page --template index
+
+  # List the templates a theme has, standard and custom
+  shoplazza themes +page --list`,
 	Flags: []common.Flag{
 		{Name: "template", Type: common.FlagString, Description: "Template name, e.g. index / product. Mutually exclusive with --file."},
 		{Name: "file", Type: common.FlagString, Description: "Theme file path, e.g. templates/index.liquid. Mutually exclusive with --template."},
@@ -218,9 +223,7 @@ func pageExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	}
 
 	if inc.Pb {
-		if err := expandPbCanvas(ctx, in, selected); err != nil {
-			return common.ExecResult{}, err
-		}
+		expandPbCanvas(ctx, in, selected)
 	}
 	if inc.Schema {
 		types := map[string]bool{}
@@ -392,7 +395,7 @@ func findSectionRow(rows []map[string]any, sectionID string) map[string]any {
 
 // expandPbCanvas fetches canvas text for every kind:"pb" row concurrently;
 // per-card failures degrade to canvas_error (theme-baked PB templates can 404).
-func expandPbCanvas(ctx context.Context, in common.ExecInput, rows []map[string]any) error {
+func expandPbCanvas(ctx context.Context, in common.ExecInput, rows []map[string]any) {
 	sem := make(chan struct{}, 4)
 	var wg sync.WaitGroup
 	for _, row := range rows {
@@ -417,7 +420,6 @@ func expandPbCanvas(ctx context.Context, in common.ExecInput, rows []map[string]
 		}(row, templateID, scope)
 	}
 	wg.Wait()
-	return nil
 }
 
 // projectSchemas trims the bilingual card schemas down to a zh-CN projection

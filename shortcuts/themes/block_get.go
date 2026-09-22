@@ -23,6 +23,11 @@ settings), the three values "themes block +edit" takes; two placements in one
 section yield an array instead.
 
 --with-content also brings the display name parsed from the source.`,
+	Example: `  # Every placement of a block, with its ref_count — the impact surface before an edit
+  shoplazza themes block +get --session <oseid> --id gen_1a0d523
+
+  # Narrow to one section's instance, the values "block +edit" takes
+  shoplazza themes block +get --session <oseid> --id gen_1a0d523 --section <section_id>`,
 	Flags: []common.Flag{
 		{Name: "theme", Type: common.FlagString, Description: "Theme ID. Defaults to the published theme; required when the session is on another theme."},
 		{Name: "session", Type: common.FlagString, Required: true, Description: "Edit session id (oseid) from 'themes +page'."},
