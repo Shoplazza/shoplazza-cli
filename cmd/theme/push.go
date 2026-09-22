@@ -16,6 +16,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/multipartx"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/env"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/pack"
 )
 
@@ -82,8 +83,12 @@ func newCmdPush(f *cmdutil.Factory) *cobra.Command {
 			// Record the resolved target into the default environment, same rules as
 			// pull (create if absent; confirm before overwriting an existing default;
 			// skipped under -e). A one-off push declines that overwrite prompt.
-			cwd, _ := os.Getwd()
-			maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID, "push")
+			cwd, gerr := os.Getwd()
+			if gerr != nil {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "[push] left %s untouched: %v\n", env.FileName, gerr)
+			} else {
+				maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID, "push")
+			}
 
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "✓ pushed to theme %s on %s\n", resolvedID, rs.Domain)
 			return output.PrintAPISuccess(cmd.OutOrStdout(),
