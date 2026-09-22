@@ -10,6 +10,7 @@ import (
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/app/project"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
@@ -30,13 +31,6 @@ type extInfo struct {
 // checkout extension via store-openapi, returning the extension_id + version id.
 // Mirrors cmd/checkout/push.go's create/commit. inner is the pre-built
 // {resource_url, version, name, ...} payload (built by the deploy orchestrator).
-//
-// PostJSON is used rather than DoRaw: doJSON calls unmarshalUnwrapped, which
-// only strips the Shoplazza envelope when code=="Success" or ok==true. The
-// checkout_extensions response {data:{extension:{...}}, status:"ok"} has no
-// such field, so the full body lands in resp — meaning resp.Data.Extension is
-// populated. The dual-shape struct covers both that case and any future
-// envelope-unwrapped variant where resp.Extension would be populated instead.
 func upsertCheckout(ctx context.Context, c *client.Client, inner map[string]any, existingID string) (string, string, *output.ExitError) {
 	path := "/openapi/checkout_extensions/create"
 	if existingID != "" {
@@ -116,7 +110,7 @@ func writeBackExtensionJSONID(projectRoot, dir, id string, cfg map[string]any) e
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(extensionJSONPath(projectRoot, dir), append(b, '\n'), 0o644)
+	return fsx.WriteFileAtomic(extensionJSONPath(projectRoot, dir), append(b, '\n'), 0o644)
 }
 
 func extensionJSONPath(projectRoot, dir string) string {

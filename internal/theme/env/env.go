@@ -19,6 +19,8 @@ import (
 	"sort"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 )
 
 // FileName is the project-level theme environment file, discovered by walking up
@@ -154,7 +156,7 @@ func Save(path string, f File) error {
 	if err := toml.NewEncoder(&buf).Encode(root); err != nil {
 		return fmt.Errorf("encode %s: %w", FileName, err)
 	}
-	return os.WriteFile(path, buf.Bytes(), 0o644)
+	return fsx.WriteFileAtomic(path, buf.Bytes(), 0o644)
 }
 
 // Names returns the defined environment names in sorted order, for `env list`
