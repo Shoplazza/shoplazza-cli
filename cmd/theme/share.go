@@ -35,6 +35,9 @@ func newCmdShare(f *cmdutil.Factory) *cobra.Command {
 		Annotations: map[string]string{cmdutil.AnnotationAuthFree: "true"},
 		Args:        cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cmdutil.IsDryRun(cmd) {
+				return shareDryRun(cmd, f)
+			}
 			ctx := cmd.Context()
 			rs, err := resolveStore(ctx, f, cmd)
 			if err != nil {
@@ -91,5 +94,6 @@ func newCmdShare(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&environment, "environment", "e", "", "Environment from shoplazza.theme.toml (store/profile); see 'themes env list'")
+	cmd.Flags().Bool("dry-run", false, "Print what would be uploaded as a new preview, without packaging or sending anything")
 	return cmd
 }

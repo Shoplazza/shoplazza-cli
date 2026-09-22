@@ -6,6 +6,7 @@ import (
 	"time"
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdtest"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/core"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
 )
@@ -34,7 +35,7 @@ func TestUse_PreviousEmpty_Errors(t *testing.T) {
 
 func TestUpdate_ScopeChange_ClearsToken(t *testing.T) {
 	f := seedTwoProfiles(t, "us", "cn")
-	seedProfileToken(t, internalauth.AuthDir(f.ConfigPath), "us", "at-old", time.Now().Add(time.Hour))
+	cmdtest.SeedProfileToken(t, internalauth.AuthDir(f.ConfigPath), "us", "at-old", time.Now().Add(time.Hour))
 	runCmd(t, f, "update", "--name", "us", "--scope", "read_product")
 	if v, err := keychain.Get(keychain.ShoplazzaCliService, internalauth.ProfileStoreKey("us")); err != nil || v != "" {
 		t.Fatalf("old AT must be cleared, got v=%q err=%v", v, err)
@@ -80,7 +81,7 @@ func TestUse_FlagConflictAndRemoveMissing(t *testing.T) {
 
 func TestRename_MovesEverything(t *testing.T) {
 	f := seedTwoProfiles(t, "us", "cn") // current=us
-	seedProfileToken(t, internalauth.AuthDir(f.ConfigPath), "us", "at-1", time.Now().Add(time.Hour))
+	cmdtest.SeedProfileToken(t, internalauth.AuthDir(f.ConfigPath), "us", "at-1", time.Now().Add(time.Hour))
 	runCmd(t, f, "rename", "--from", "us", "--to", "prod-us")
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if cfg.FindProfile("prod-us") == nil || cfg.CurrentProfile != "prod-us" {
@@ -110,7 +111,7 @@ func TestRename_CaseOnly_Allowed(t *testing.T) {
 // blind Set-then-Remove would delete what was just written.
 func TestRename_CaseOnly_PreservesToken(t *testing.T) {
 	f := seedTwoProfiles(t, "us", "cn")
-	seedProfileToken(t, internalauth.AuthDir(f.ConfigPath), "us", "at-1", time.Now().Add(time.Hour))
+	cmdtest.SeedProfileToken(t, internalauth.AuthDir(f.ConfigPath), "us", "at-1", time.Now().Add(time.Hour))
 	runCmd(t, f, "rename", "--from", "us", "--to", "US")
 	cfg, _ := core.LoadConfig(f.ConfigPath)
 	if cfg.FindProfile("US").Name != "US" {

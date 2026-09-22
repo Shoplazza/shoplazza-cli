@@ -30,6 +30,14 @@ func cmdWithFlags(names ...string) *cobra.Command {
 	return c
 }
 
+func cmdWithBoolFlags(names ...string) *cobra.Command {
+	c := &cobra.Command{Use: "demo"}
+	for _, n := range names {
+		c.Flags().Bool(n, false, "")
+	}
+	return c
+}
+
 func TestFillRequired_NonInteractive_NamesMissing(t *testing.T) {
 	c := cmdWithFlags("title", "price", "note")
 	flags := []Flag{
@@ -130,7 +138,7 @@ func TestConfirmDestructive_NonInteractive_Proceeds(t *testing.T) {
 	called := false
 	confirm := func(string) (bool, error) { called = true; return false, nil }
 	s := Shortcut{Command: "+refund", Destructive: true}
-	if err := confirmDestructiveWith(c, s, false, confirm, nil); err != nil {
+	if err := confirmDestructiveWith(c, s, confirmTitle(s, NewCobraFlagSet(c)), false, confirm, nil); err != nil {
 		t.Errorf("non-interactive must proceed unchanged, got %v", err)
 	}
 	if called {
@@ -141,10 +149,10 @@ func TestConfirmDestructive_NonInteractive_Proceeds(t *testing.T) {
 func TestConfirmDestructive_Interactive_YesProceeds_NoCancels(t *testing.T) {
 	c := cmdWithFlags("id")
 	s := Shortcut{Command: "+unpublish", Destructive: true}
-	if err := confirmDestructiveWith(c, s, true, func(string) (bool, error) { return true, nil }, nil); err != nil {
+	if err := confirmDestructiveWith(c, s, confirmTitle(s, NewCobraFlagSet(c)), true, func(string) (bool, error) { return true, nil }, nil); err != nil {
 		t.Errorf("confirmed → proceed, got %v", err)
 	}
-	if err := confirmDestructiveWith(c, s, true, func(string) (bool, error) { return false, nil }, nil); err == nil {
+	if err := confirmDestructiveWith(c, s, confirmTitle(s, NewCobraFlagSet(c)), true, func(string) (bool, error) { return false, nil }, nil); err == nil {
 		t.Error("declining must cancel, not proceed")
 	}
 }
@@ -157,7 +165,7 @@ func TestConfirmDestructive_TypedGate_RequiresPhraseFlagValue(t *testing.T) {
 	ynCalled := false
 	confirm := func(string) (bool, error) { ynCalled = true; return true, nil }
 	s := Shortcut{Command: "+refund", Destructive: true, ConfirmPrompt: "Refund?", ConfirmPhraseFlag: "order-id"}
-	if err := confirmDestructiveWith(c, s, true, confirm, confirmTyped); err != nil {
+	if err := confirmDestructiveWith(c, s, confirmTitle(s, NewCobraFlagSet(c)), true, confirm, confirmTyped); err != nil {
 		t.Fatal(err)
 	}
 	if ynCalled {
@@ -174,10 +182,59 @@ func TestConfirmDestructive_TypedGate_EmptyPhraseFallsBackToYN(t *testing.T) {
 	confirm := func(string) (bool, error) { ynCalled = true; return true, nil }
 	confirmTyped := func(_, _ string) (bool, error) { typedCalled = true; return true, nil }
 	s := Shortcut{Command: "+refund", Destructive: true, ConfirmPhraseFlag: "order-id"}
-	if err := confirmDestructiveWith(c, s, true, confirm, confirmTyped); err != nil {
+	if err := confirmDestructiveWith(c, s, confirmTitle(s, NewCobraFlagSet(c)), true, confirm, confirmTyped); err != nil {
 		t.Fatal(err)
 	}
 	if typedCalled || !ynCalled {
 		t.Error("an empty phrase flag must fall back to y/N")
+	}
+}
+
+// Per-invocation confirmation (DestructiveIf): a command that is safe by
+// default and only irreversible with certain flags.
+
+func TestConfirmTitle_DestructiveIf_SilentUntilFlagSet(t *testing.T) {
+	s := Shortcut{Command: "+edit", DestructiveIf: func(f FlagSet) string {
+		if f.GetBool("promote") {
+			return "Save onto live theme's draft?"
+		}
+		return ""
+	}}
+	c := cmdWithBoolFlags("promote")
+	if title := confirmTitle(s, NewCobraFlagSet(c)); title != "" {
+		t.Errorf("a safe invocation must not confirm, got %q", title)
+	}
+	_ = c.Flags().Set("promote", "true")
+	if title := confirmTitle(s, NewCobraFlagSet(c)); title != "Save onto live theme's draft?" {
+		t.Errorf("the hook owns its wording, got %q", title)
+	}
+}
+
+func TestConfirmTitle_StaticGatesUnchanged(t *testing.T) {
+	flags := NewCobraFlagSet(cmdWithFlags("id"))
+	if title := confirmTitle(Shortcut{Command: "+get"}, flags); title != "" {
+		t.Errorf("a plain command must not confirm, got %q", title)
+	}
+	s := Shortcut{Command: "+refund", Destructive: true, ConfirmPrompt: "Refund?"}
+	if title := confirmTitle(s, flags); title != "Refund?" {
+		t.Errorf("ConfirmPrompt still wins, got %q", title)
+	}
+	want := "Run '+unpublish'? This cannot be undone."
+	if title := confirmTitle(Shortcut{Command: "+unpublish", Destructive: true}, flags); title != want {
+		t.Errorf("fallback = %q, want %q", title, want)
+	}
+}
+
+func TestConfirmDestructive_DestructiveIf_NonInteractive_NeverPrompts(t *testing.T) {
+	c := cmdWithBoolFlags("promote")
+	_ = c.Flags().Set("promote", "true")
+	s := Shortcut{Command: "+edit", DestructiveIf: func(FlagSet) string { return "Go live?" }}
+	called := false
+	confirm := func(string) (bool, error) { called = true; return false, nil }
+	if err := confirmDestructiveWith(c, s, confirmTitle(s, NewCobraFlagSet(c)), false, confirm, nil); err != nil {
+		t.Errorf("agents/pipes/CI must proceed unchanged, got %v", err)
+	}
+	if called {
+		t.Error("the per-invocation gate must never prompt non-interactively")
 	}
 }

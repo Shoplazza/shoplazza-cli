@@ -10,25 +10,26 @@ import "github.com/spf13/cobra"
 //
 // There are two independent grouping models:
 //   - Module grouping: within one dynamic module's --help, split subcommands by
-//     source — shortcut/dev tier vs OpenAPI store tier (GroupShortcut/GroupAPI).
+//     what they act on — the local project vs the store (GroupShortcut/GroupAPI).
 //   - Root grouping: the top-level `shoplazza --help`, by domain (business / dev
 //     / tooling), keyed by command name.
 
 // ── Module-level grouping (within a dynamic module) ──────────────────────────
 
 const (
-	GroupShortcut = "shortcut" // shortcut-tier commands mounted from shortcuts/
-	GroupAPI      = "api"      // OpenAPI-generated commands operating on the store
+	GroupShortcut = "shortcut" // dev-tier commands working on the local project
+	GroupAPI      = "api"      // commands operating on the store over the API
 )
 
 // ModuleGroups lists the help groups a dynamic module opts into, keyed by module
 // name (render order = slice order). A generated leaf is tagged GroupAPI; a
-// mounted shortcut is tagged GroupShortcut. Unlisted modules render a single
-// flat "Available Commands" list.
+// mounted shortcut is tagged GroupShortcut unless it sets StoreTier, which puts
+// it with the store operations. Unlisted modules render a single flat
+// "Available Commands" list.
 var ModuleGroups = map[string][]*cobra.Group{
 	"themes": {
 		{ID: GroupShortcut, Title: "Theme development (local files <-> a theme on your store):"},
-		{ID: GroupAPI, Title: "Store theme operations (OpenAPI - manage themes in the store):"},
+		{ID: GroupAPI, Title: "Store theme operations (manage the themes on your store):"},
 	},
 }
 

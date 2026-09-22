@@ -34,7 +34,8 @@ func moduleShort(name string) string {
 // Unlisted modules fall back to their Short.
 var moduleLongs = map[string]string{
 	"themes": `Develop Shoplazza themes locally, and operate the store's themes over the API.
-Development loop: init -> serve -> push.
+Local files:  init -> serve -> push
+Page editing: +page (read, echoes a session) -> +edit / block +edit (write) -> +edit --promote (save)
 
 Prerequisite:
   shoplazza auth login                      authenticate your account`,

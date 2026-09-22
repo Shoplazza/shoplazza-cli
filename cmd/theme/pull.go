@@ -1,9 +1,11 @@
 package themecmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -40,90 +42,121 @@ func newCmdPull(f *cmdutil.Factory) *cobra.Command {
 		Annotations: map[string]string{cmdutil.AnnotationAuthFree: "true"},
 		Args:        cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := cmd.Context()
-			rs, err := resolveStore(ctx, f, cmd)
-			if err != nil {
-				return err
+			if cmdutil.IsDryRun(cmd) {
+				return pullDryRun(cmd, f, themeID)
 			}
-			resolvedID, err := resolveThemeID(ctx, f, rs, themeID)
-			if err != nil {
-				return err
-			}
-			resolvedID, verr := theme.RequireThemeID(resolvedID)
-			if verr != nil {
-				return verr
-			}
-			start := time.Now()
-			prog := output.NewProgress(cmd.ErrOrStderr())
-
-			// Best-effort theme name for the header label; a detail-endpoint blip
-			// must not abort the pull (the download gives the authoritative answer).
-			var themeName string
-			if resp, derr := rs.Client.DoRaw(ctx, client.RawRequest{Method: "GET", Path: themeBaseV202601 + "/" + resolvedID}); derr == nil {
-				themeName = extractStringField(asMap(resp.Body), "name")
-			}
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "[pull] target theme: %s\n", themeLabel(themeName, resolvedID))
-
-			dlStep := prog.Begin("[pull] downloading theme files")
-			reader, err := rs.Client.SendStream(ctx, client.RawRequest{Method: "GET", Path: themeBaseV1 + "/" + resolvedID + "/download"})
-			if err != nil {
-				dlStep.Fail()
-				return classifyPullDownloadErr(err, resolvedID)
-			}
-			defer func() { _ = reader.Close() }()
-			outFile, err := createTempZip(resolvedID)
-			if err != nil {
-				dlStep.Fail()
-				return theme.ErrLocalIO("create tmp zip", err)
-			}
-			tmpZip := outFile.Name()
-			written, copyErr := io.Copy(outFile, reader)
-			if cerr := outFile.Close(); copyErr == nil {
-				copyErr = cerr
-			}
-			if copyErr != nil {
-				dlStep.Fail()
-				return theme.ErrLocalIO(fmt.Sprintf("write tmp zip (preserved at %s)", tmpZip), copyErr)
-			}
-			dlStep.Done()
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "[pull] downloaded %d bytes to %s\n", written, tmpZip)
-
-			exStep := prog.Begin("[pull] extracting to ./")
-			cwd, gerr := os.Getwd()
-			if gerr != nil {
-				exStep.Fail()
-				return theme.ErrLocalIO(fmt.Sprintf("getwd (tmp zip preserved at %s)", tmpZip), gerr)
-			}
-			if uerr := pack.Unpack(tmpZip, cwd, pack.UnpackOptions{StripTopDir: true, MaxTotalSize: pullMaxUnpackSize, PathTraversalCheck: true}); uerr != nil {
-				exStep.Fail()
-				switch {
-				case errors.Is(uerr, pack.ErrUnsafeArchivePath):
-					return theme.ErrValidation("%v (tmp zip preserved at %s)", uerr, tmpZip)
-				case errors.Is(uerr, pack.ErrSizeLimit):
-					return theme.ErrValidation("theme archive exceeds 200MB extracted size limit (tmp at %s)", tmpZip)
-				default:
-					return theme.ErrLocalIO(fmt.Sprintf("unpack theme zip (tmp preserved at %s)", tmpZip), uerr)
-				}
-			}
-			_ = os.Remove(tmpZip)
-			exStep.Done()
-
-			// Bridge pull -> environments: record what we just pulled so the theme
-			// dir is immediately -e aware (best-effort; never fails the pull).
-			maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID, "pull")
-
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "✓ pulled %s into ./\n", themeLabel(themeName, resolvedID))
-			return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{
-				"theme_id":   resolvedID,
-				"theme_name": themeName,
-				"target":     "./",
-				"elapsed_s":  roundedElapsed(start),
-			}, cmdutil.GetFormat(cmd), "")
+			return runPull(cmd, f, themeID)
 		},
 	}
 	cmd.Flags().StringVarP(&themeID, "theme-id", "t", "", "Theme ID (required unless -e provides it). Run 'shoplazza themes list' to discover")
 	cmd.Flags().StringVarP(&environment, "environment", "e", "", "Environment from shoplazza.theme.toml (store/profile/theme); see 'themes env list'")
+	cmd.Flags().Bool("dry-run", false, "Print what would be downloaded and what it can overwrite, without sending anything")
 	return cmd
+}
+
+// runPull is `themes pull`'s body, out of the cobra closure so each phase is a
+// named step: resolve -> download -> unpack -> record the environment.
+func runPull(cmd *cobra.Command, f *cmdutil.Factory, themeID string) error {
+	ctx := cmd.Context()
+	rs, err := resolveStore(ctx, f, cmd)
+	if err != nil {
+		return err
+	}
+	resolvedID, err := resolveThemeID(ctx, f, rs, themeID)
+	if err != nil {
+		return err
+	}
+	resolvedID, verr := theme.RequireThemeID(resolvedID)
+	if verr != nil {
+		return verr
+	}
+	start := time.Now()
+	prog := output.NewProgress(cmd.ErrOrStderr())
+	themeName := bestEffortThemeName(ctx, rs, resolvedID)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "[pull] target theme: %s\n", themeLabel(themeName, resolvedID))
+
+	dlStep := prog.Begin("[pull] downloading theme files")
+	tmpZip, written, derr := downloadThemeZip(ctx, rs, resolvedID)
+	if derr != nil {
+		dlStep.Fail()
+		return derr
+	}
+	dlStep.Done()
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "[pull] downloaded %d bytes to %s\n", written, tmpZip)
+
+	exStep := prog.Begin("[pull] extracting to ./")
+	cwd, gerr := os.Getwd()
+	if gerr != nil {
+		exStep.Fail()
+		return theme.ErrLocalIO(fmt.Sprintf("getwd (tmp zip preserved at %s)", tmpZip), gerr)
+	}
+	if uerr := unpackThemeZip(tmpZip, cwd); uerr != nil {
+		exStep.Fail()
+		return uerr
+	}
+	_ = os.Remove(tmpZip)
+	exStep.Done()
+
+	// Bridge pull -> environments: record what we just pulled so the theme
+	// dir is immediately -e aware (best-effort; never fails the pull).
+	maybeWriteThemeEnv(cmd, f, cwd, rs, resolvedID, "pull")
+
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\u2713 pulled %s into ./\n", themeLabel(themeName, resolvedID))
+	return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{
+		"theme_id":   resolvedID,
+		"theme_name": themeName,
+		"target":     "./",
+		"elapsed_s":  roundedElapsed(start),
+	}, cmdutil.GetFormat(cmd), "")
+}
+
+// bestEffortThemeName labels the progress header; a detail-endpoint blip must
+// not abort the pull (the download gives the authoritative answer).
+func bestEffortThemeName(ctx context.Context, rs resolvedStore, themeID string) string {
+	resp, err := rs.Client.DoRaw(ctx, client.RawRequest{Method: "GET", Path: themeBaseV202601 + "/" + themeID})
+	if err != nil {
+		return ""
+	}
+	return extractStringField(asMap(resp.Body), "name")
+}
+
+// downloadThemeZip streams the theme archive into a tmp file, which is left in
+// place on failure so the caller can retry the unpack by hand.
+func downloadThemeZip(ctx context.Context, rs resolvedStore, themeID string) (string, int64, error) {
+	reader, err := rs.Client.SendStream(ctx, client.RawRequest{Method: "GET", Path: themeBaseV1 + "/" + themeID + "/download"})
+	if err != nil {
+		return "", 0, classifyPullDownloadErr(err, themeID)
+	}
+	defer func() { _ = reader.Close() }()
+	outFile, err := createTempZip(themeID)
+	if err != nil {
+		return "", 0, theme.ErrLocalIO("create tmp zip", err)
+	}
+	tmpZip := outFile.Name()
+	written, copyErr := io.Copy(outFile, reader)
+	if cerr := outFile.Close(); copyErr == nil {
+		copyErr = cerr
+	}
+	if copyErr != nil {
+		return "", 0, theme.ErrLocalIO(fmt.Sprintf("write tmp zip (preserved at %s)", tmpZip), copyErr)
+	}
+	return tmpZip, written, nil
+}
+
+// unpackThemeZip extracts into dest, mapping the archive guards onto the
+// envelope: a rejected path or an oversized archive is the caller's, not ours.
+func unpackThemeZip(tmpZip, dest string) error {
+	uerr := pack.Unpack(tmpZip, dest, pack.UnpackOptions{StripTopDir: true, MaxTotalSize: pullMaxUnpackSize, PathTraversalCheck: true})
+	switch {
+	case uerr == nil:
+		return nil
+	case errors.Is(uerr, pack.ErrUnsafeArchivePath):
+		return theme.ErrValidation("%v (tmp zip preserved at %s)", uerr, tmpZip)
+	case errors.Is(uerr, pack.ErrSizeLimit):
+		return theme.ErrValidation("theme archive exceeds 200MB extracted size limit (tmp at %s)", tmpZip)
+	default:
+		return theme.ErrLocalIO(fmt.Sprintf("unpack theme zip (tmp preserved at %s)", tmpZip), uerr)
+	}
 }
 
 // createTempZip makes a uniquely-named tmp file for the streamed download; the id
@@ -282,6 +315,8 @@ func recordThemeEnvironment(cwd, target, store, themeID, profile string, confirm
 }
 
 // classifyPullDownloadErr maps a download stream failure to the right envelope.
+// Every branch returns an *output.ExitError: a bare error escaping RunE would
+// be reported as a usage error.
 func classifyPullDownloadErr(err error, themeID string) error {
 	var he *client.HTTPError
 	if errors.As(err, &he) {
@@ -291,10 +326,13 @@ func classifyPullDownloadErr(err error, themeID string) error {
 		case http.StatusUnauthorized, http.StatusForbidden:
 			return theme.ErrAuthExpired(err)
 		default:
-			if he.StatusCode >= 500 {
-				return fmt.Errorf("server error %d during download: %w", he.StatusCode, err)
-			}
+			// status / request id / endpoint ride along for triage.
+			return output.ErrAPI(he.StatusCode, he.Body, he.RequestID).WithEndpoint(he.Method, he.Path)
 		}
 	}
-	return fmt.Errorf("download failed: %w", err)
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return output.ErrNetwork("%v", err)
+	}
+	return theme.ErrLocalIO("download theme zip", err)
 }

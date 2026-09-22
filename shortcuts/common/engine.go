@@ -11,6 +11,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // noPositionalArgs rejects stray positional args with a comma-separation hint —
@@ -55,6 +56,16 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 	for _, f := range s.Flags {
 		bindFlag(cmd, f)
 	}
+	// Older flag spellings normalize onto the canonical name before parsing, so
+	// a rename keeps existing callers working without a second --help entry.
+	if aliases := flagAliases(s.Flags); len(aliases) > 0 {
+		cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+			if canonical, ok := aliases[name]; ok {
+				return pflag.NormalizedName(canonical)
+			}
+			return pflag.NormalizedName(name)
+		})
+	}
 	cmd.Flags().Bool("dry-run", false, "Print the request that would be sent without executing it")
 	cmd.Flags().StringP("jq", "q", "", "jq expression to filter JSON output (e.g. '.data.products[].id')")
 	// Required flags are NOT marked at the cobra level: the engine resolves them
@@ -82,16 +93,16 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 			return err
 		}
 		dryRun := cmdutil.IsDryRun(c)
+		flags := NewCobraFlagSet(c)
 		// Human-only confirmation for irreversible writes; skipped in --dry-run
 		// (preview) and for non-interactive callers (agents/pipes proceed).
-		if s.Destructive && !dryRun {
-			if err := confirmDestructive(c, s, factory); err != nil {
+		if title := confirmTitle(s, flags); title != "" && !dryRun {
+			if err := confirmDestructive(c, s, title, factory); err != nil {
 				return err
 			}
 		}
 		format := cmdutil.GetFormat(c)
 		jq := cmdutil.GetJQ(c)
-		flags := NewCobraFlagSet(c)
 
 		if exec != nil {
 			in := ExecInput{
@@ -145,11 +156,15 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 		return output.PrintAPISuccess(c.OutOrStdout(), resp, format, jq)
 	}
 
-	// When the parent module opts into help grouping, a mounted shortcut is a
-	// dev/shortcut-tier command. Only tag it if the group exists, so modules
-	// without grouping are unaffected (cobra warns on an undefined GroupID).
+	// When the parent module opts into help grouping, a mounted shortcut lands in
+	// the dev tier unless it declares itself a store operation. Only tag it if the
+	// group exists, so modules without grouping are unaffected (cobra warns on an
+	// undefined GroupID).
 	if parent.ContainsGroup(cmdutil.GroupShortcut) {
 		cmd.GroupID = cmdutil.GroupShortcut
+	}
+	if s.StoreTier && parent.ContainsGroup(cmdutil.GroupAPI) {
+		cmd.GroupID = cmdutil.GroupAPI
 	}
 	parent.AddCommand(cmd)
 }
@@ -306,4 +321,18 @@ func defaultStringArray(f Flag) []string {
 		panic(fmt.Errorf("shortcuts: flag %q has Type=FlagStringArray but Default is %T", f.Name, f.Default))
 	}
 	return v
+}
+
+// flagAliases maps every declared alias to the canonical flag name it stands for.
+func flagAliases(flags []Flag) map[string]string {
+	var out map[string]string
+	for _, f := range flags {
+		for _, a := range f.Aliases {
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[a] = f.Name
+		}
+	}
+	return out
 }

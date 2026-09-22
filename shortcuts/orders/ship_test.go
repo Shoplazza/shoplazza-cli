@@ -1,6 +1,7 @@
 package orders
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -233,5 +234,36 @@ func TestParseLineItemsArg_ZeroQty(t *testing.T) {
 	_, err := parseLineItemsArg("li-1:0")
 	if err == nil {
 		t.Error("expected error for qty=0")
+	}
+}
+
+var shipExecFlags = map[string]string{
+	"order-id": "string", "tracking": "string", "company": "string",
+	"company-code": "string", "line-items": "string", "notify": "bool",
+}
+
+func TestShipExecute_DryRunReturnsTwoPlans(t *testing.T) {
+	in := newOrderExecInput(t, shipExecFlags, map[string]string{
+		"order-id": "ord-1", "tracking": "TRK123",
+	}, true)
+	result, err := shipShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(result.Plans) != 2 {
+		t.Errorf("expected 2 plans (GET + POST), got %d", len(result.Plans))
+	}
+}
+
+func TestShipExecute_DryRunWithNotify(t *testing.T) {
+	in := newOrderExecInput(t, shipExecFlags, map[string]string{
+		"order-id": "ord-1", "tracking": "TRK123", "notify": "true",
+	}, true)
+	result, err := shipShortcut.Execute(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(result.Plans) != 2 {
+		t.Errorf("expected 2 plans, got %d", len(result.Plans))
 	}
 }
