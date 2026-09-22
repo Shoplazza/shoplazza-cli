@@ -11,6 +11,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // noPositionalArgs rejects stray positional args with a comma-separation hint —
@@ -54,6 +55,16 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 
 	for _, f := range s.Flags {
 		bindFlag(cmd, f)
+	}
+	// Older flag spellings normalize onto the canonical name before parsing, so
+	// a rename keeps existing callers working without a second --help entry.
+	if aliases := flagAliases(s.Flags); len(aliases) > 0 {
+		cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+			if canonical, ok := aliases[name]; ok {
+				return pflag.NormalizedName(canonical)
+			}
+			return pflag.NormalizedName(name)
+		})
 	}
 	cmd.Flags().Bool("dry-run", false, "Print the request that would be sent without executing it")
 	cmd.Flags().StringP("jq", "q", "", "jq expression to filter JSON output (e.g. '.data.products[].id')")
@@ -310,4 +321,18 @@ func defaultStringArray(f Flag) []string {
 		panic(fmt.Errorf("shortcuts: flag %q has Type=FlagStringArray but Default is %T", f.Name, f.Default))
 	}
 	return v
+}
+
+// flagAliases maps every declared alias to the canonical flag name it stands for.
+func flagAliases(flags []Flag) map[string]string {
+	var out map[string]string
+	for _, f := range flags {
+		for _, a := range f.Aliases {
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[a] = f.Name
+		}
+	}
+	return out
 }

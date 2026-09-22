@@ -76,12 +76,12 @@ without failing the rest of the batch.
 Presets are omitted by default (bulky, not needed for recommendation);
 pass --include-presets to keep them.`,
 	Example: `  # Settings and blocks schema of two addable cards
-  shoplazza themes +card-schema --theme <theme_id> --ids rich_text,collection_list
+  shoplazza themes +card-schema -t <theme_id> --ids rich_text,collection_list
 
   # The verbatim bilingual schema, presets included
-  shoplazza themes +card-schema --theme <theme_id> --ids rich_text --full --include-presets`,
+  shoplazza themes +card-schema -t <theme_id> --ids rich_text --full --include-presets`,
 	Flags: []common.Flag{
-		{Name: "theme", Type: common.FlagString, Required: true, Description: "Theme ID (same value as themes section cards)."},
+		{Name: "theme-id", Short: "t", Aliases: []string{"theme"}, Type: common.FlagString, Required: true, Description: "Theme ID. Card ids come from this theme."},
 		{Name: "ids", Type: common.FlagStringSlice, Required: true, Description: "Card ids, comma-separated, at most 10."},
 		{Name: "full", Type: common.FlagBool, Description: "Return the verbatim bilingual schema instead of the compact zh-CN projection."},
 		{Name: "include-presets", Type: common.FlagBool, Description: "Include the schema presets block (omitted by default)."},
@@ -90,9 +90,9 @@ pass --include-presets to keep them.`,
 }
 
 func cardSchemaExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
-	themeID := in.Flags.GetString("theme")
+	themeID := in.Flags.GetString("theme-id")
 	if themeID == "" {
-		return common.ExecResult{}, output.ErrValidation("--theme is required")
+		return common.ExecResult{}, output.ErrValidation("--theme-id is required")
 	}
 	ids := in.Flags.GetStringSlice("ids")
 	if len(ids) == 0 {

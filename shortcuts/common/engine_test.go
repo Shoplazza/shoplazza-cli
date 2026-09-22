@@ -356,3 +356,47 @@ func TestEngine_FlagDescriptionBackticksStayProse(t *testing.T) {
 		t.Errorf("backticks should render as quotes:\n%s", usage)
 	}
 }
+
+// A renamed flag keeps its old spelling working: Flag.Aliases normalizes onto
+// the canonical name before parsing, so --help shows one entry, Required sees
+// the value, and existing callers do not break.
+func TestMount_FlagAliasResolvesToCanonicalName(t *testing.T) {
+	newShortcut := func(got *string) common.Shortcut {
+		return common.Shortcut{
+			Service: "svc", Command: "+probe", Use: "+probe",
+			Flags: []common.Flag{{
+				Name: "theme-id", Short: "t", Aliases: []string{"theme"},
+				Type: common.FlagString, Required: true, Description: "Theme ID.",
+			}},
+			Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
+				*got = in.Flags.GetString("theme-id")
+				return common.PlannedRequest{Method: "GET", Path: "/x"}, nil
+			},
+		}
+	}
+	for _, spelling := range []string{"--theme-id", "--theme", "-t"} {
+		var got string
+		parent := &cobra.Command{Use: "svc"}
+		common.Mount(newShortcut(&got), parent, newFakeFactory(t))
+		parent.SetOut(&bytes.Buffer{})
+		parent.SetErr(&bytes.Buffer{})
+		parent.SetArgs([]string{"+probe", spelling, "t_123", "--dry-run"})
+		if err := parent.Execute(); err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		if got != "t_123" {
+			t.Errorf("%s reached the shortcut as %q, want t_123", spelling, got)
+		}
+	}
+	// The alias must not show up as a second flag.
+	var sink string
+	parent := &cobra.Command{Use: "svc"}
+	common.Mount(newShortcut(&sink), parent, newFakeFactory(t))
+	usage := parent.Commands()[0].LocalFlags().FlagUsages()
+	if !strings.Contains(usage, "--theme-id") {
+		t.Fatalf("the canonical flag is missing from --help:\n%s", usage)
+	}
+	if strings.Contains(usage, "--theme string") {
+		t.Errorf("the alias leaked into --help:\n%s", usage)
+	}
+}

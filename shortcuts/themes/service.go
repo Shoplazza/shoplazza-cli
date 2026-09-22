@@ -154,7 +154,7 @@ func editSessionBase(oseid string) string {
 }
 
 // PlanThemesList describes GET /themes (themes list). +page/+edit resolve the
-// published theme through it when --theme is omitted.
+// published theme through it when --theme-id is omitted.
 func PlanThemesList(query map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601, Query: query}
 }

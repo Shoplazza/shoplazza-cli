@@ -77,7 +77,7 @@ to re-read an existing edit session instead.`,
 	Flags: []common.Flag{
 		{Name: "template", Type: common.FlagString, Description: "Template name, e.g. index / product. Mutually exclusive with --file."},
 		{Name: "file", Type: common.FlagString, Description: "Theme file path, e.g. templates/index.liquid. Mutually exclusive with --template."},
-		{Name: "theme", Type: common.FlagString, Description: "Theme ID. Defaults to the published theme."},
+		{Name: "theme-id", Short: "t", Aliases: []string{"theme"}, Type: common.FlagString, Description: "Theme ID. Defaults to the published theme."},
 		{Name: "session", Type: common.FlagString, Description: "Edit session id (oseid) to read. Omit to create a fresh session (echoed in the response)."},
 		{Name: "area", Type: common.FlagString, Default: "all", Description: "Card area to read: all (default, every area with each section tagged by its own) | page | header | footer | global.", Completions: []string{"all", "page", "header", "footer", "global"}},
 		{Name: "section", Type: common.FlagString, Description: "Focus on a single section id (a page-builder card auto-expands its canvas)."},
@@ -113,7 +113,7 @@ func parseInclude(raw string) (pageInclude, error) {
 }
 
 func pageExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
-	themeID := in.Flags.GetString("theme")
+	themeID := in.Flags.GetString("theme-id")
 	template := in.Flags.GetString("template")
 	file := in.Flags.GetString("file")
 	session := in.Flags.GetString("session")
@@ -271,7 +271,7 @@ func pageList(ctx context.Context, in common.ExecInput, themeID string) (common.
 		}
 		if themeID = publishedThemeID(resp); themeID == "" {
 			return common.ExecResult{}, output.ErrValidation("no published theme found").
-				WithHint("pass --theme <theme_id> explicitly (see `themes list`)")
+				WithHint("pass --theme-id <theme_id> explicitly (see `themes list`)")
 		}
 	}
 

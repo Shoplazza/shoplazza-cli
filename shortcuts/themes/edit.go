@@ -63,7 +63,7 @@ and --promote [--publish] skips the batch request entirely.`,
 	Flags: []common.Flag{
 		{Name: "template", Type: common.FlagString, Description: "Template name, e.g. index / product. Mutually exclusive with --file."},
 		{Name: "file", Type: common.FlagString, Description: "Theme file path, e.g. templates/index.liquid. Mutually exclusive with --template."},
-		{Name: "theme", Type: common.FlagString, Description: "Theme ID. Defaults to the published theme."},
+		{Name: "theme-id", Short: "t", Aliases: []string{"theme"}, Type: common.FlagString, Description: "Theme ID. Defaults to the published theme."},
 		{Name: "session", Type: common.FlagString, Description: "Edit session id (oseid) — pass the one echoed by `themes +page`. Omit to create a fresh session."},
 		{Name: "ops", Type: common.FlagString, Required: true, Description: "Edit operations: a file path, '-' for stdin, or an inline JSON array."},
 		{Name: "promote", Type: common.FlagBool, Description: "Promote the edit draft onto the theme draft after all ops apply (needs explicit user intent)."},
@@ -72,7 +72,7 @@ and --promote [--publish] skips the batch request entirely.`,
 	// Only --promote/--publish leave the edit session, so only they confirm.
 	DestructiveIf: func(f common.FlagSet) string {
 		target := "live theme"
-		if id := f.GetString("theme"); id != "" {
+		if id := f.GetString("theme-id"); id != "" {
 			target = "theme " + id
 		}
 		switch {
@@ -101,7 +101,7 @@ type editInput struct {
 // nothing past it can fail before the first side effect.
 func parseEditInput(in common.ExecInput) (editInput, error) {
 	e := editInput{
-		themeID:  in.Flags.GetString("theme"),
+		themeID:  in.Flags.GetString("theme-id"),
 		template: in.Flags.GetString("template"),
 		file:     in.Flags.GetString("file"),
 		session:  in.Flags.GetString("session"),

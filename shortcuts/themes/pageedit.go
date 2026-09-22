@@ -28,7 +28,7 @@ func resolveThemeAndDoc(ctx context.Context, c *client.Client, themeID, template
 		themeID = publishedThemeID(resp)
 		if themeID == "" {
 			return "", "", output.ErrValidation("no published theme found").
-				WithHint("pass --theme <theme_id> explicitly (see `themes list`)")
+				WithHint("pass --theme-id <theme_id> explicitly (see `themes list`)")
 		}
 	}
 	group, location, err := templateLocation(template, file)

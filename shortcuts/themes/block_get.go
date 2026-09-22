@@ -29,7 +29,7 @@ section yield an array instead.
   # Narrow to one section's instance, the values "block +edit" takes
   shoplazza themes block +get --session <oseid> --id gen_1a0d523 --section <section_id>`,
 	Flags: []common.Flag{
-		{Name: "theme", Type: common.FlagString, Description: "Theme ID. Defaults to the published theme; required when the session is on another theme."},
+		{Name: "theme-id", Short: "t", Aliases: []string{"theme"}, Type: common.FlagString, Description: "Theme ID. Defaults to the published theme; required when the session is on another theme."},
 		{Name: "session", Type: common.FlagString, Required: true, Description: "Edit session id (oseid) from 'themes +page'."},
 		{Name: "id", Type: common.FlagString, Required: true, Description: "Block id (file name without extension, e.g. gen_1a0d523)."},
 		{Name: "section", Type: common.FlagString, Description: "Section id holding the instance to read; returns that instance with its settings."},
@@ -40,7 +40,7 @@ section yield an array instead.
 }
 
 func blockGetExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
-	themeID := in.Flags.GetString("theme")
+	themeID := in.Flags.GetString("theme-id")
 	oseid := in.Flags.GetString("session")
 	section := in.Flags.GetString("section")
 	template := in.Flags.GetString("template")

@@ -49,7 +49,7 @@ Saving and publishing stay with the shared session:
   # Rewrite that block's source, carrying the instance's settings onto the new schema
   shoplazza themes block +edit --session <oseid> --id gen_1a0d523 --content ./card.liquid --template index --target <section_id>.blocks[0]`,
 	Flags: []common.Flag{
-		{Name: "theme", Type: common.FlagString, Description: "Theme ID. Defaults to the published theme; required when the session is on another theme."},
+		{Name: "theme-id", Short: "t", Aliases: []string{"theme"}, Type: common.FlagString, Description: "Theme ID. Defaults to the published theme; required when the session is on another theme."},
 		{Name: "session", Type: common.FlagString, Required: true, Description: "Edit session id (oseid) from 'themes +page'."},
 		{Name: "id", Type: common.FlagString, Description: "Block id to update (file name without extension, e.g. gen_1a0d523). Omit to create."},
 		{Name: "template", Type: common.FlagString, Description: "Template page to place the block on, e.g. index / product. Omit to write the file only."},
@@ -81,7 +81,7 @@ type blockEditInput struct {
 // parseBlockEditInput reads the flags and runs every check that needs no
 // request, so nothing past it can fail before the first side effect.
 func parseBlockEditInput(in common.ExecInput) (blockEditInput, error) {
-	themeID := in.Flags.GetString("theme")
+	themeID := in.Flags.GetString("theme-id")
 	oseid := in.Flags.GetString("session")
 	id := in.Flags.GetString("id")
 	template := in.Flags.GetString("template")

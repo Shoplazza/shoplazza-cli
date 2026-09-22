@@ -56,7 +56,7 @@ func TestExtractSchema(t *testing.T) {
 
 func cardSchemaFlags(theme string, ids []string, presets bool) common.FlagSet {
 	cmd := &cobra.Command{Use: "+card-schema"}
-	cmd.Flags().String("theme", theme, "")
+	cmd.Flags().String("theme-id", theme, "")
 	cmd.Flags().StringSlice("ids", ids, "")
 	cmd.Flags().Bool("include-presets", presets, "")
 	return common.NewCobraFlagSet(cmd)
