@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -155,6 +156,8 @@ func TestLoad_MissingFileIsNotFound(t *testing.T) {
 // write can get wrong: a temp left behind in a git-committed project dir, and a
 // mode other than the one Save asks for (CreateTemp opens 0600). Atomicity
 // itself is not asserted — it needs an interrupted write, which has no seam here.
+// The mode half is POSIX-only: Windows has no permission bits, so a writable
+// file always reports 0666 there.
 func TestSave_LeavesNoTempAndKeepsPerm(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, FileName)
@@ -175,6 +178,9 @@ func TestSave_LeavesNoTempAndKeepsPerm(t *testing.T) {
 			names = append(names, e.Name())
 		}
 		t.Fatalf("expected only %s, got %v", FileName, names)
+	}
+	if runtime.GOOS == "windows" {
+		return
 	}
 	info, err := os.Stat(path)
 	if err != nil {
