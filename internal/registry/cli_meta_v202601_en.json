@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-09-22T08:35:35Z",
+  "generated_at": "2026-09-23T08:21:02Z",
   "modules": [
     {
       "name": "billing",
@@ -8986,7 +8986,7 @@
                   "type": "object",
                   "schema": "google.protobuf.Struct"
                 },
-                "description": "Menu items tree (each item: title, url/type, children, ...)"
+                "description": "Menu items tree. Each item has `title`, `type` (required, e.g. `home`, `collection`, `page`), `url`, `children`, etc."
               }
             ]
           },
@@ -10401,25 +10401,25 @@
       "name": "themes",
       "groups": {
         "app": {
-          "summary": "Manage app-embed blocks and injected script tags on the storefront."
+          "summary": "Manage app embeds and injected script tags on the storefront, and list app extension cards."
         },
         "block": {
-          "summary": "Manage blocks inside a section, including AI-generated (gen) cards."
+          "summary": "Manage blocks inside a card and AI cards, and list public cards."
         },
         "file": {
-          "summary": "Read, write, and delete individual theme template files."
+          "summary": "View the file tree, and read, write, rename, and delete theme files."
         },
         "market": {
           "summary": "Browse the theme market and install a theme into the store."
         },
         "pb": {
-          "summary": "Page-builder operations: render a canvas snapshot, transform a schema, and save blocks and templates."
+          "summary": "Page-builder operations: get and save page-builder blocks, save and delete custom card templates, render a canvas snapshot, and preview canvas edits."
         },
         "section": {
-          "summary": "Arrange a page's sections: list them, read one, set its properties, and remove it."
+          "summary": "Arrange the cards on a page: list addable cards and the cards on a page, get a card's details, set its properties, and remove it from the page."
         },
         "session": {
-          "summary": "Work on a theme inside an edit session: read and write files, batch edits, check conflicts, and save to the draft."
+          "summary": "Work on a theme inside an edit session: read and write files, batch edits, read and update the global config, list the card library, check conflicts, and save to the draft."
         },
         "template": {
           "summary": "Manage custom templates bound to products, collections, and pages."
@@ -10435,8 +10435,8 @@
             "app",
             "disable"
           ],
-          "summary": "Disable theme app",
-          "description": "Disable a specific app-embed block or script tag within the skin section.",
+          "summary": "Disable app embed",
+          "description": "Disable a specific app-embed block or script tag within an edit session.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -10470,18 +10470,18 @@
               {
                 "name": "category",
                 "type": "string",
-                "description": "Category: `app_embeds` or `script_tags`. Optional; only used to disambiguate when block_id is not unique"
+                "description": "Category: `app_embeds` or `script_tags`. Optional; only used to disambiguate when `block_id` is not unique"
               },
               {
                 "name": "app_key",
                 "type": "string",
-                "description": "App grouping key. Optional; empty -\u003e server searches all groups by block_id"
+                "description": "App grouping key. Optional; empty -\u003e server searches all groups by `block_id`"
               },
               {
                 "name": "block_id",
                 "type": "string",
                 "required": true,
-                "description": "Block identifier: `type` field for app_embeds, `id` field for script_tags",
+                "description": "Block identifier: `type` field for `app_embeds`, `id` field for `script_tags`",
                 "min_length": 1
               },
               {
@@ -10504,8 +10504,8 @@
             "app",
             "enable"
           ],
-          "summary": "Enable theme app",
-          "description": "Enable a specific app-embed block or script tag within the skin section.",
+          "summary": "Enable app embed",
+          "description": "Enable a specific app-embed block or script tag within an edit session.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -10539,18 +10539,18 @@
               {
                 "name": "category",
                 "type": "string",
-                "description": "Category: `app_embeds` or `script_tags`. Optional; only used to disambiguate when block_id is not unique"
+                "description": "Category: `app_embeds` or `script_tags`. Optional; only used to disambiguate when `block_id` is not unique"
               },
               {
                 "name": "app_key",
                 "type": "string",
-                "description": "App grouping key. Optional; empty -\u003e server searches all groups by block_id"
+                "description": "App grouping key. Optional; empty -\u003e server searches all groups by `block_id`"
               },
               {
                 "name": "block_id",
                 "type": "string",
                 "required": true,
-                "description": "Block identifier: `type` field for app_embeds, `id` field for script_tags",
+                "description": "Block identifier: `type` field for `app_embeds`, `id` field for `script_tags`",
                 "min_length": 1
               },
               {
@@ -10573,8 +10573,8 @@
             "app",
             "extensions"
           ],
-          "summary": "List theme installable extensions",
-          "description": "List app-provided installable blocks available for a template.",
+          "summary": "List app extension cards",
+          "description": "List the app extension cards that can be added to a template, grouped by app.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -10603,8 +10603,8 @@
             "app",
             "list"
           ],
-          "summary": "List theme apps",
-          "description": "List app-embed blocks and injected script tags for the store (merged view).",
+          "summary": "List app embeds",
+          "description": "List the embed cards (app embeds) provided by the store's installed apps, plus injected script\ntags.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -10616,7 +10616,7 @@
               "in": "query",
               "type": "integer",
               "format": "int32",
-              "description": "Max number of app-embed blocks to return, default no cap. Does not affect script_tag_apps"
+              "description": "Max number of app-embed blocks to return, default no cap. Does not affect `script_tag_apps`"
             }
           ],
           "response_schema": "v202601.ListThemeAppsResponse"
@@ -10627,8 +10627,8 @@
             "block",
             "add"
           ],
-          "summary": "Add section block",
-          "description": "Append/insert a block into a section within an edit session.",
+          "summary": "Add block to a card",
+          "description": "Append/insert a block into a card within an edit session.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -10649,7 +10649,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
+              "description": "Section instance ID inside the document; a global card id (`header`, `footer`, `announcement`, `cart_drawer`) also works",
               "min_length": 1
             }
           ],
@@ -10680,7 +10680,7 @@
                 "name": "index",
                 "type": "integer",
                 "format": "int32",
-                "description": "0-based insert position within the parent's blocks (the section root when parent_path is empty). Pass -1 (or any value past the end) to append. Omitted = 0 = insert at the front"
+                "description": "0-based insert position within the parent's blocks (the section root when `parent_path` is empty). Pass -1 (or any value past the end) to append. Omitted = 0 = insert at the front"
               },
               {
                 "name": "parent_path",
@@ -10689,7 +10689,7 @@
                   "type": "integer",
                   "format": "int32"
                 },
-                "description": "Ancestor index path from the section root to the parent block the new block is inserted into (each element a 0-based index into a blocks array); empty = insert at top-level. e.g. parent_path=[1,0] with index=-1 appends into section.blocks[1].blocks[0].blocks"
+                "description": "Ancestor index path from the section root to the parent block the new block is inserted into (each element a 0-based index into a blocks array); empty = insert at top-level. e.g. `parent_path=[1,0]` with `index=-1` appends into `section.blocks[1].blocks[0].blocks`"
               },
               {
                 "name": "template_name",
@@ -10711,8 +10711,8 @@
             "block",
             "create-gen"
           ],
-          "summary": "Create gen block",
-          "description": "Create a gen card (an AI-generated card) from liquid content (must contain a schema tag)\nwithin an edit session.\nThe response `settings` is the card's full default config whose `type` is already the\ncard_type — pass it straight to the page-arrangement APIs; no second read needed.",
+          "summary": "Create AI card",
+          "description": "Create an AI card from liquid code (must contain a `{% schema %}` tag) within an edit session.\nThe response `settings` is the card's full default config and can be used directly to place the\ncard on a page.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -10749,8 +10749,8 @@
             "block",
             "delete-gen"
           ],
-          "summary": "Delete gen block",
-          "description": "Delete a gen card file and remove every instance reference across the theme in one\ntransaction — no ref-count precheck, no force flag, no dangling references left.",
+          "summary": "Delete AI card",
+          "description": "Delete an AI card and remove it from every page of the theme.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -10770,7 +10770,7 @@
               "in": "query",
               "type": "string",
               "required": true,
-              "description": "The card_type (`blocks/` + file name without extension), e.g. blocks/gen_1a0d523"
+              "description": "The `card_type` (`blocks/` + file name without extension), e.g. `blocks/gen_1a0d523`"
             }
           ],
           "response_schema": "v202601.DeleteGenBlockResponse"
@@ -10781,8 +10781,8 @@
             "block",
             "get-gen"
           ],
-          "summary": "Get gen block detail",
-          "description": "Retrieve a gen card's file attributes (`doc`) and its on-page state (`saved`, `ref_count`,\n`instances`) within an edit session. `content` is returned only when `with_content=true`.",
+          "summary": "Get AI card details",
+          "description": "Get an AI card's file info and its usage in the current session (whether it is saved, how many\ntimes it is used, etc.); pass `with_content=true` to include the card's source code.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -10802,7 +10802,7 @@
               "in": "query",
               "type": "string",
               "required": true,
-              "description": "The card_type (`blocks/` + file name without extension), e.g. blocks/gen_1a0d523"
+              "description": "The `card_type` (`blocks/` + file name without extension), e.g. `blocks/gen_1a0d523`"
             },
             {
               "name": "with_content",
@@ -10819,8 +10819,8 @@
             "block",
             "list"
           ],
-          "summary": "List theme public blocks",
-          "description": "List public blocks available for a template / theme.",
+          "summary": "List public cards",
+          "description": "List public cards available for a template or theme.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -10855,8 +10855,8 @@
             "block",
             "remove"
           ],
-          "summary": "Remove section block",
-          "description": "Remove a block from a section by index within an edit session.",
+          "summary": "Remove block from a card",
+          "description": "Remove a block from a card by index within an edit session.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -10877,7 +10877,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
+              "description": "Section instance ID inside the document; a global card id (`header`, `footer`, `announcement`, `cart_drawer`) also works",
               "min_length": 1
             }
           ],
@@ -10901,7 +10901,7 @@
                 "name": "block_index",
                 "type": "integer",
                 "format": "int32",
-                "description": "0-based index of the block to remove within its parent's blocks (the section root when parent_path is empty)"
+                "description": "0-based index of the block to remove within its parent's blocks (the section root when `parent_path` is empty)"
               },
               {
                 "name": "parent_path",
@@ -10910,7 +10910,7 @@
                   "type": "integer",
                   "format": "int32"
                 },
-                "description": "Ancestor index path from the section root to the target block's parent (each element a 0-based index into a blocks array); empty = top-level. e.g. parent_path=[1,0] with block_index=2 removes section.blocks[1].blocks[0].blocks[2]"
+                "description": "Ancestor index path from the section root to the target block's parent (each element a 0-based index into a blocks array); empty = top-level. e.g. `parent_path=[1,0]` with `block_index=2` removes `section.blocks[1].blocks[0].blocks[2]`"
               },
               {
                 "name": "template_name",
@@ -10932,8 +10932,8 @@
             "block",
             "revert-gen"
           ],
-          "summary": "Revert gen block operation",
-          "description": "Restore every object recorded in the operation snapshot addressed by `revert_id` (from any\ncreate / update / delete / revert response). The returned `revert_id` is new — reverting is\nitself a revertible write, enabling repeated undo / redo.",
+          "summary": "Revert AI card operation",
+          "description": "Restore the card to its state before the operation identified by `revert_id` (returned by any\ncreate, update, delete, or revert). Reverting also returns a new `revert_id`, so you can undo\nand redo repeatedly.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -10969,8 +10969,8 @@
             "block",
             "set-props"
           ],
-          "summary": "Set section block properties",
-          "description": "Set/merge properties into a specific block's settings within a section.",
+          "summary": "Set block properties in a card",
+          "description": "Set/merge properties into a specific block's settings within a card.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -10991,7 +10991,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
+              "description": "Section instance ID inside the document; a global card id (`header`, `footer`, `announcement`, `cart_drawer`) also works",
               "min_length": 1
             }
           ],
@@ -11015,7 +11015,7 @@
                 "name": "block_index",
                 "type": "integer",
                 "format": "int32",
-                "description": "0-based index of the target block within its parent's blocks (the section root when parent_path is empty)"
+                "description": "0-based index of the target block within its parent's blocks (the section root when `parent_path` is empty)"
               },
               {
                 "name": "parent_path",
@@ -11024,7 +11024,7 @@
                   "type": "integer",
                   "format": "int32"
                 },
-                "description": "Ancestor index path from the section root to the target block's parent (each element a 0-based index into a blocks array); empty = top-level. e.g. parent_path=[1,0] with block_index=2 targets section.blocks[1].blocks[0].blocks[2]"
+                "description": "Ancestor index path from the section root to the target block's parent (each element a 0-based index into a blocks array); empty = top-level. e.g. `parent_path=[1,0]` with `block_index=2` targets `section.blocks[1].blocks[0].blocks[2]`"
               },
               {
                 "name": "props",
@@ -11053,8 +11053,8 @@
             "block",
             "update-gen"
           ],
-          "summary": "Update gen block",
-          "description": "Update a gen card by content + full settings (the card to change is read from `settings.type`).\nRef count 0/1 -\u003e overwrite in place (`branched=false`, nothing else to do); \u003e=2 -\u003e a new card\nis created to carry the change (`branched=true`, rewrite the target instance with the returned\n`settings`, whose `type` is the new card's card_type).",
+          "summary": "Update AI card",
+          "description": "Update an AI card with new source code and its full settings. If the card is unused or used in\nonly one place, it is changed in place (`branched=false`); if it is used in several places, a\nnew card is created to carry this change (`branched=true`), and you need to replace the card at\nthe target position with the returned `settings`.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -11098,7 +11098,7 @@
             "delete"
           ],
           "summary": "Delete theme",
-          "description": "Delete a specific theme using its unique identifier.",
+          "description": "Delete a specific theme using its unique identifier. The default theme cannot be deleted.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -11121,7 +11121,7 @@
             "duplicate"
           ],
           "summary": "Duplicate theme",
-          "description": "Copy an existing theme within the current store into a new one; sources limits what is copied.",
+          "description": "Copy an existing theme within the current store into a new one and return the new theme ID;\n`sources` limits what is copied.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11198,7 +11198,7 @@
             "delete"
           ],
           "summary": "Delete theme file",
-          "description": "Delete a specific theme file by theme ID, file type, and file location.",
+          "description": "Delete a specific theme file by theme ID, file type, and file location. `assets/theme.css` and\n`layout/theme.layout` cannot be deleted. Deleting a card file that is still used on a page does\nnot fail; that card simply stops showing on the page.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -11315,8 +11315,8 @@
             "file",
             "tree"
           ],
-          "summary": "Get theme DocTree",
-          "description": "Retrieve details of a specific theme's doc-tree using its unique identifier.",
+          "summary": "Get theme file tree",
+          "description": "Get the file tree of the specified theme.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -11340,7 +11340,7 @@
             "update"
           ],
           "summary": "Update theme file",
-          "description": "Update the content of a specific theme file in the selected theme.",
+          "description": "Replace the whole content of the specified file. Changes to the default theme's files take\neffect on the storefront immediately; every change is recorded in the file's version history.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -11399,7 +11399,7 @@
             "list"
           ],
           "summary": "List themes",
-          "description": "Retrieve a list of all themes.",
+          "description": "List the store's themes; filter by `published` or `ids`.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -11459,7 +11459,7 @@
             "install"
           ],
           "summary": "Install market theme",
-          "description": "Install a theme from the theme market into the current store by its market theme id.\nSupports specifying the theme name and style preset, and setting it as the store default.",
+          "description": "Install a theme from the theme market into the current store by its market theme id. Supports\nspecifying the theme name and style preset, and setting it as the store's default theme; if the\nstore has no default theme yet, the installed theme becomes the default automatically.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11642,8 +11642,8 @@
             "pb",
             "list-blocks"
           ],
-          "summary": "List page-builder block definitions by source ids",
-          "description": "Retrieve single-block definitions by source IDs for page-builder.",
+          "summary": "Get page-builder block details",
+          "description": "Batch-fetch page-builder blocks by `source_ids`: each returns its name, full block `type`, and\ndefault `settings` — what you need to place the card on a page.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -11676,7 +11676,7 @@
             "save-block"
           ],
           "summary": "Save page-builder block",
-          "description": "Create or update a page-builder custom template block: `ops` are applied to the base template and\nthe card is saved, then written into the target section of the edit session (skipped when the\nbase template's `event_type` is not `theme`).",
+          "description": "Apply edit operations (`ops`) to a page-builder template and save the result as a new card,\nthen place it at the target position in the edit session; when `event_type` is not `theme`, the\ncard is only saved and not placed on the page.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11710,7 +11710,7 @@
                 "name": "action",
                 "type": "string",
                 "required": true,
-                "description": "Save action: save / save_as / update",
+                "description": "Save action: `save`, `save_as`, `update`",
                 "min_length": 1
               },
               {
@@ -11790,7 +11790,7 @@
             "save-template"
           ],
           "summary": "Save page-builder custom template",
-          "description": "Create or edit a page-builder custom template; action controls create (save_as) vs edit (update).",
+          "description": "Save a custom card template based on an existing template; `action` decides how it is saved.\nAll three actions produce a new template id, and `update` takes the original template down.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11851,7 +11851,7 @@
             "summary"
           ],
           "summary": "Render template canvas snapshot",
-          "description": "Pass a template id or a full schema, and get back a canvas text snapshot (with #path ids).",
+          "description": "Pass a template id or full canvas data, and get back a text snapshot of the canvas; each node\ncarries a `#path` number that can be used to target it in edit operations.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11864,7 +11864,7 @@
                 "name": "schema",
                 "type": "object",
                 "schema": "google.protobuf.Struct",
-                "description": "Full ProjectData schema; either schema or id (prefer id)"
+                "description": "Full canvas data (page-builder ProjectData); either `schema` or `id` (prefer `id`)"
               },
               {
                 "name": "detail_level",
@@ -11882,12 +11882,12 @@
               {
                 "name": "id",
                 "type": "string",
-                "description": "Template id to summarize: the engine fetches its schema server-side. Either id or schema — prefer id so the full schema stays out of the request"
+                "description": "Template id to summarize; the server loads its canvas data. Either `id` or `schema` — prefer `id` so the full canvas data stays out of the request"
               },
               {
                 "name": "type",
                 "type": "string",
-                "description": "Template type when fetching by id: `custom` (default, custom-templates) | `global` (global-templates). Only honored with id; any other value is rejected. Same custom/global scope that save-block calls `origin`"
+                "description": "Template type when fetching by id: `custom` (default, custom card templates), `global` (public templates). Only honored with id; any other value is rejected. Same values as `origin` when saving a page-builder block"
               }
             ]
           },
@@ -11899,8 +11899,8 @@
             "pb",
             "update"
           ],
-          "summary": "Transform page-builder schema",
-          "description": "Apply ops to a schema and return the transformed schema/html/text. Stateless.",
+          "summary": "Preview page-builder canvas edits",
+          "description": "Apply edit operations (`ops`) to the given canvas data and return the edited canvas data, the\nrendered HTML, the canvas text snapshot, and translations. Nothing is saved.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -11915,7 +11915,7 @@
                 "type": "object",
                 "schema": "google.protobuf.Struct",
                 "required": true,
-                "description": "Full ProjectData schema"
+                "description": "Full canvas data (page-builder ProjectData)"
               },
               {
                 "name": "ops",
@@ -11995,8 +11995,8 @@
             "section",
             "cards"
           ],
-          "summary": "List addable theme cards",
-          "description": "List all addable cards under the current theme across sources\n(theme / pb / custom / extension / public / gen), de-duplicated and ordered by source.",
+          "summary": "List addable cards",
+          "description": "List all addable cards under the current theme across sources (`theme`, `pb`, `custom`,\n`extension`, `public`, `gen`), de-duplicated, ordered by source, and paginated.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12016,7 +12016,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Data source filter: `theme`, `pb`, `custom`, `extension`, `public`, `gen` (AI-generated cards). Multi-value (repeat the param `source=pb\u0026source=public`, or comma-join `source=pb,public`). Empty aggregates every source."
+              "description": "Data source filter. Multi-value (repeat the param `source=pb\u0026source=public`, or comma-join `source=pb,public`); empty aggregates every source: - `theme`: cards bundled with the theme - `pb`: page-builder cards from public templates - `custom`: page-builder cards from the merchant's custom card templates - `extension`: app extension cards - `public`: public cards - `gen`: AI cards"
             },
             {
               "name": "category",
@@ -12048,7 +12048,7 @@
               "name": "template",
               "in": "query",
               "type": "string",
-              "description": "Template filter. Template name (index / product / collection / cart / page / search, or a custom template name)"
+              "description": "Template filter. Template name (`index`, `product`, `collection`, `cart`, `page`, `search`, or a custom template name)"
             }
           ],
           "response_schema": "v202601.ListThemeCardsResponse"
@@ -12059,8 +12059,8 @@
             "section",
             "get"
           ],
-          "summary": "Get section card data",
-          "description": "Render the specified section with its current config and return that single card's data.",
+          "summary": "Get card details",
+          "description": "Render the specified card with its current config and return the rendered HTML, the card\nconfig, and its configuration definitions, without changing any data. Global cards such as the\nheader and footer are also supported.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12106,8 +12106,8 @@
             "section",
             "list"
           ],
-          "summary": "List template cards",
-          "description": "List all cards of a template within an edit session, including the global card groups.",
+          "summary": "List cards added to a template",
+          "description": "List all cards added to a template within an edit session, including global card groups such\nas the header and footer.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12145,8 +12145,8 @@
             "section",
             "remove"
           ],
-          "summary": "Remove section",
-          "description": "Remove a section from the page within an edit session.",
+          "summary": "Remove card from page",
+          "description": "Remove a card from the page within an edit session.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -12167,7 +12167,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section instance ID to remove. Page-flow mode (area omitted) requires the numeric instance id from content_for_page; with area set, pass the area member's stored id",
+              "description": "Section instance ID to remove. Page-flow mode (`area` omitted) requires the numeric instance id from `content_for_page`; with `area` set, pass the area member's stored id",
               "min_length": 1
             }
           ],
@@ -12196,8 +12196,8 @@
             "section",
             "set-props"
           ],
-          "summary": "Set section properties",
-          "description": "Set/merge properties into a section's settings within an edit session.",
+          "summary": "Set card properties",
+          "description": "Set/merge properties into a card's settings within an edit session.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -12218,7 +12218,7 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Section instance ID inside the document; a global card id (header / footer / announcement / cart_drawer) also works",
+              "description": "Section instance ID inside the document; a global card id (`header`, `footer`, `announcement`, `cart_drawer`) also works",
               "min_length": 1
             }
           ],
@@ -12265,8 +12265,8 @@
             "session",
             "batch-ops"
           ],
-          "summary": "Batch theme operations",
-          "description": "Execute multiple theme edit operations in one request; each op is applied and persisted\nindependently, and a failure on one does not stop the others.",
+          "summary": "Batch edit operations",
+          "description": "Execute multiple edit operations in one request; each operation runs and is saved\nindependently, and a failure on one does not stop the others.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -12315,8 +12315,8 @@
             "session",
             "card-list"
           ],
-          "summary": "List edit-session cards",
-          "description": "Return published-view regular cards (`card_list`, `block_list`, same structure as the legacy\ncardList API) plus edit-session-view gen cards (`gen_list`, each item carrying `saved`).",
+          "summary": "List edit-session card library",
+          "description": "List the cards available in the theme: regular cards (`card_list`, `block_list`) come from the\npublished version; AI cards are listed separately in `gen_list`, including ones created in this\nsession that are not yet placed or saved, each carrying `saved` to indicate whether it has been\nsaved to the draft.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12348,7 +12348,7 @@
             "check"
           ],
           "summary": "Check edit session conflict",
-          "description": "Check whether an edit session conflicts with the current draft.",
+          "description": "Check whether the draft has been changed by another session since this edit session started.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12397,7 +12397,7 @@
             "get-config"
           ],
           "summary": "Get theme global config",
-          "description": "Retrieve the theme's global config within an edit session: the current settings values plus the\nprimary-category schemas.",
+          "description": "Get the current values of the theme settings within an edit session, plus the configuration\ndefinitions of each primary category.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12468,7 +12468,7 @@
             "session",
             "promote"
           ],
-          "summary": "Promote edit session",
+          "summary": "Save edit session as draft",
           "description": "Save an edit session as the draft.",
           "hidden": false,
           "http": {
@@ -12504,7 +12504,7 @@
             "update-config"
           ],
           "summary": "Update theme global config",
-          "description": "Partially update the theme's global config within an edit session: pass only the settings to\nchange (one or many). Defaults to the global variables (skin); pass section_id to update a\nglobal card (header / footer / announcement / cart_drawer).",
+          "description": "Partially update the theme's global config within an edit session: pass only the settings to\nchange (one or many). Updates the theme settings by default; pass `section_id` to update a\nglobal card such as the header, footer, announcement bar, or cart drawer.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -12542,7 +12542,7 @@
               {
                 "name": "section_id",
                 "type": "string",
-                "description": "Target: omit or `skin` = global variables; otherwise a global section's type or stored id — the global singletons (header / footer / announcement / cart_drawer) or any member of the header / footer regions. An id that is not in the session returns 400"
+                "description": "Target: omit or `skin` = global variables; otherwise a global section's type or stored id — the global singletons (`header`, `footer`, `announcement`, `cart_drawer`) or any member of the header / footer regions. An id that is not in the session returns 400"
               },
               {
                 "name": "template_name",
@@ -12565,7 +12565,7 @@
             "update-file"
           ],
           "summary": "Update edit session file",
-          "description": "Write a whole file (section configs) within a theme edit session.",
+          "description": "Overwrite a template file in the edit session with the given card configs; cards missing from\nthe list are removed. For partial changes, use Batch edit operations.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -12622,7 +12622,7 @@
             "task"
           ],
           "summary": "Get theme task",
-          "description": "Retrieves the status and details of a background task for the specified theme.",
+          "description": "Get the status and details of a theme background task, such as a theme upload or upgrade.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12646,7 +12646,7 @@
             "create"
           ],
           "summary": "Create theme custom template",
-          "description": "Create a custom template and bind it to objects (products / collections) in one call.",
+          "description": "Create a custom template and bind it to objects (products, collections) in one call; with empty\n`relations` the template is created without bindings.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -12720,7 +12720,7 @@
             "delete"
           ],
           "summary": "Delete theme custom template",
-          "description": "Delete a custom template (theme_template) within the specified theme.",
+          "description": "Delete a custom template within the specified theme.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -12752,7 +12752,7 @@
             "list"
           ],
           "summary": "List theme custom templates",
-          "description": "Retrieve the list of custom templates (theme_templates) bound to products / collections / pages.",
+          "description": "List the custom templates bound to products, collections, or custom pages.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -12796,7 +12796,7 @@
             "update"
           ],
           "summary": "Update theme custom template",
-          "description": "Update the binding relations of an existing template (products / collections).",
+          "description": "Update the bindings (products, collections) of an existing template. `relations` replaces the\ncurrent bindings as a whole; an empty array or omitting it removes all bindings.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -12859,8 +12859,8 @@
           "command_path": [
             "upgrade"
           ],
-          "summary": "Upgrade specific theme",
-          "description": "Upgrades the specified theme to a newer version.",
+          "summary": "Upgrade theme",
+          "description": "Create a new theme upgraded to the latest version from the specified theme, carrying over its\nconfiguration; the original theme is left unchanged. Returns the new theme ID.",
           "hidden": false,
           "http": {
             "method": "POST",
