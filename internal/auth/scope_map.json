@@ -66,7 +66,8 @@
       "analytics":             { "scope": null },
       "carrier-services":      { "scope": "product" },
       "markets":               { "scope": "shop" },
-      "languages":             { "scope": "shop" }
+      "languages":             { "scope": "shop" },
+      "menu":                  { "scope": "shop" }
     }
   },
 
