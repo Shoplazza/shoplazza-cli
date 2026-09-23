@@ -32,6 +32,11 @@ type Shortcut struct {
 	// cmdutil.AnnotationNotScannable so the contract smoke suite discovers it.
 	NotScannable bool
 
+	// DryRunReads marks a command whose --dry-run still sends read-only
+	// requests (the preview depends on current state); Mount stamps
+	// cmdutil.AnnotationDryRunReads so the auth gate stays on under --dry-run.
+	DryRunReads bool
+
 	// Local marks a command whose live result is a local artifact report (file
 	// paths, counts), not an API response. The engine prints it via
 	// output.PrintBody (raw body) instead of the {ok,data} success envelope.

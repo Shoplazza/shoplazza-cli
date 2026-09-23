@@ -60,7 +60,11 @@ func (c *Client) SendStream(ctx context.Context, request RawRequest) (io.ReadClo
 		}
 		body = bytes.NewReader(data)
 	}
-	req, err := http.NewRequestWithContext(ctx, strings.ToUpper(request.Method), c.ResolveURL(request.Path), body)
+	u, err := c.sendURL(request.Method, request.Path)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, strings.ToUpper(request.Method), u, body)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +126,11 @@ func (c *Client) DoRaw(ctx context.Context, request RawRequest) (RawResponse, er
 		contentType = "application/json"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, strings.ToUpper(request.Method), c.ResolveURL(request.Path), body)
+	u, err := c.sendURL(request.Method, request.Path)
+	if err != nil {
+		return RawResponse{}, err
+	}
+	req, err := http.NewRequestWithContext(ctx, strings.ToUpper(request.Method), u, body)
 	if err != nil {
 		return RawResponse{}, err
 	}
@@ -203,7 +211,11 @@ func (c *Client) doJSON(ctx context.Context, method, rawPath string, query map[s
 		body = bytes.NewReader(data)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, c.ResolveURL(rawPath), body)
+	u, err := c.sendURL(method, rawPath)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u, body)
 	if err != nil {
 		return err
 	}
@@ -256,4 +268,13 @@ func (c *Client) doJSON(ctx context.Context, method, rawPath string, query map[s
 		return nil
 	}
 	return unmarshalUnwrapped(respBody, out)
+}
+
+// sendURL resolves rawPath for sending; an empty base URL means no store was resolved.
+func (c *Client) sendURL(method, rawPath string) (string, error) {
+	if c.BaseURL == "" {
+		return "", fmt.Errorf("%s %s: no store target resolved (not logged in, or the command skipped the auth gate)",
+			strings.ToUpper(method), rawPath)
+	}
+	return c.ResolveURL(rawPath), nil
 }

@@ -52,6 +52,23 @@ func TestResolveURL_EmptyBase(t *testing.T) {
 	}
 }
 
+// TestSend_EmptyBaseURLFails: sending with no store target fails with a clear
+// error instead of net/http's "unsupported protocol scheme".
+func TestSend_EmptyBaseURLFails(t *testing.T) {
+	c := client.New("")
+	var out map[string]any
+	err := c.GetJSON(context.Background(), "/openapi/2026-01/products/1", &out)
+	if err == nil || !strings.Contains(err.Error(), "no store target resolved") {
+		t.Fatalf("GetJSON with empty base URL: err = %v", err)
+	}
+	if _, err := c.DoRaw(context.Background(), client.RawRequest{Method: "GET", Path: "/x"}); err == nil {
+		t.Fatal("DoRaw with empty base URL must fail")
+	}
+	if _, err := c.SendStream(context.Background(), client.RawRequest{Method: "GET", Path: "/x"}); err == nil {
+		t.Fatal("SendStream with empty base URL must fail")
+	}
+}
+
 func TestResolveURL_NoLeadingSlash(t *testing.T) {
 	c := client.New("http://api.example.com")
 	got := c.ResolveURL("foo/bar")

@@ -290,6 +290,22 @@ func TestEngine_AuthFreeSetsAnnotation(t *testing.T) {
 	}
 }
 
+// TestEngine_DryRunReadsSetsAnnotation: Mount must stamp the DryRunReads
+// annotation (consumed by the dynamic module's auth gate).
+func TestEngine_DryRunReadsSetsAnnotation(t *testing.T) {
+	parent := &cobra.Command{Use: "svc"}
+	s := common.Shortcut{
+		Service: "svc", Command: "+reads", Use: "+reads", Short: "reads", DryRunReads: true,
+		Execute: func(_ context.Context, _ common.ExecInput) (common.ExecResult, error) {
+			return common.ExecResult{}, nil
+		},
+	}
+	common.Mount(s, parent, newFakeFactory(t))
+	if got := parent.Commands()[0].Annotations[cmdutil.AnnotationDryRunReads]; got != "true" {
+		t.Errorf("+reads must carry the DryRunReads annotation; got %q", got)
+	}
+}
+
 func TestEngine_RequiredFlagEnforced(t *testing.T) {
 	parent := &cobra.Command{Use: "svc"}
 	parent.PersistentFlags().Bool("dry-run", false, "")
