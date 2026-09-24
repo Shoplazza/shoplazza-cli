@@ -201,7 +201,7 @@ func validateOps(ops []editOp) error {
 			if op.Pb {
 				if op.TemplateID == "" {
 					return fail("template_id is required when pb=true").
-						WithHint(`discover addable pb template ids: themes list-card --params '{"source":"pb,custom"}'`)
+						WithHint(`discover addable pb template ids: themes section cards --params '{"source":["pb","custom"]}'`)
 				}
 				if op.Value != nil {
 					return fail("value is not accepted with pb=true (the card content comes from the template)")
