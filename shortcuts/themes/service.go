@@ -159,24 +159,24 @@ func PlanThemesList(query map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601, Query: query}
 }
 
-// PlanListTemplates describes GET /themes/{id}/theme-templates (themes list-templates).
+// PlanListTemplates describes GET /themes/{id}/theme-templates (themes template list).
 func PlanListTemplates(themeID string, query map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: themeBaseV202601 + "/" + themeID + "/theme-templates", Query: query}
 }
 
-// PlanCreateSession describes POST /themes/{id}/edit-sessions (themes create-session).
+// PlanCreateSession describes POST /themes/{id}/edit-sessions (themes session create).
 // NOT idempotent: every call creates a fresh edit draft copied from the theme draft.
 func PlanCreateSession(themeID string) common.PlannedRequest {
 	return common.PlannedRequest{Method: "POST", Path: themeBaseV202601 + "/" + themeID + "/edit-sessions"}
 }
 
 // PlanSchemasList describes GET /themes/edit-sessions/{oseid}/files/{doc}/sections
-// (themes schemas-list): all cards of a template plus the full card schemas.
+// (themes section list): all cards of a template plus the full card schemas.
 func PlanSchemasList(oseid, docID string) common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: editSessionBase(oseid) + "/files/" + docID + "/sections"}
 }
 
-// PlanSchemasGet describes GET .../files/{doc}/sections/{section} (themes schemas-get):
+// PlanSchemasGet describes GET .../files/{doc}/sections/{section} (themes section get):
 // renders a single card with its current config.
 func PlanSchemasGet(oseid, docID, sectionID string) common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: editSessionBase(oseid) + "/files/" + docID + "/sections/" + sectionID}
@@ -195,7 +195,7 @@ func PlanPbSummary(templateID, scope string) common.PlannedRequest {
 }
 
 // PlanPbSingleBlocks describes GET /themes/page-builder/blocks (themes pb
-// single-blocks): resolve a pb template id (global-N / custom-N) to its full
+// list-blocks): resolve a pb template id (global-N / custom-N) to its full
 // hash-suffixed type URI and display name.
 func PlanPbSingleBlocks(sourceID string) common.PlannedRequest {
 	return common.PlannedRequest{
@@ -205,7 +205,7 @@ func PlanPbSingleBlocks(sourceID string) common.PlannedRequest {
 	}
 }
 
-// PlanPbBlockSave describes POST /themes/page-builder/blocks (themes pb-block-save).
+// PlanPbBlockSave describes POST /themes/page-builder/blocks (themes pb save-block).
 // The 7 required body fields are backfilled by the CLI, never by the model.
 func PlanPbBlockSave(body map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "POST", Path: themeBaseV202601 + "/page-builder/blocks", Body: body}
@@ -221,7 +221,7 @@ func PlanBatchOps(oseid, docID string, operations []map[string]any) common.Plann
 	}
 }
 
-// PlanPromoteSession describes POST .../promote (themes promote-session):
+// PlanPromoteSession describes POST .../promote (themes session promote):
 // save the edit draft back onto the theme draft.
 func PlanPromoteSession(oseid string, body map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "POST", Path: editSessionBase(oseid) + "/promote", Body: body}

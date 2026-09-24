@@ -575,5 +575,5 @@ func promoteConflictErr(oseid string, applied []map[string]any, previewURL strin
 		WithField("oseid", oseid).
 		WithField("applied", applied).
 		WithField("preview_url", previewURL).
-		WithHint(fmt.Sprintf("review the preview, then promote explicitly after user confirmation: themes promote-session --params '{\"oseid\":\"%s\"}' --data '{\"force\":true}'", oseid))
+		WithHint(fmt.Sprintf("review the preview, then promote explicitly after user confirmation: themes session promote --params '{\"oseid\":\"%s\"}' --data '{\"force\":true}'", oseid))
 }
