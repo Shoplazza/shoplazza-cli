@@ -92,5 +92,4 @@ works.
 | 404 `b_record_not_found` / 422 `request_param_error` / 500 with `doc_id:"index"` | Use the template file id (see `doc_id`) |
 | `batch-ops` exit 0 but a `result` isn't `success` | That op failed; the others are saved (no rollback) |
 | `session promote` → 409 `edit session has conflict with draft, retry with force=true to overwrite` | The draft changed since the session opened → tell the user; force only with consent |
-| `+edit` promote-conflict hint names `themes promote-session` | That command doesn't exist → `themes session promote --params '{"oseid":"<oseid>"}' --data '{"force":true}'` (consent) |
 | `block set-props` → 400 `block_index 9 out of range (parent has 2 blocks)` | Re-read the card's blocks and use a valid index |

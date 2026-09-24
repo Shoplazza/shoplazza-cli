@@ -114,7 +114,7 @@ components used).
 | Self-check still failing after 3 rounds | Don't write. Find the closest addable cards ([card-add.md](../card-add.md)); tell the user why generation failed and suggest up to 3 of them (name + one line on how each differs). Let the user choose one of them or drop it. Never force a card in or pass one off as what they asked for. |
 | Error with `stage:"write"` | The server rejected the file (a liquid parse error, invalid or missing `{% schema %}`); nothing was written. Fix the file and send the same command again. |
 | `stage:"place"` with `reverted:true` | Rolled back; send the same command again. |
-| `stage:"place"` with `revert_failed:true` | Don't resend — that writes a second file. Report the failure with `block_type` and `revert_id`. |
+| `stage:"place"` with `revert_failed:true` | Don't resend blindly. The hint carries a `themes block revert-gen` command → run it, then retry once the failed op (`results` / `failed`) is fixed; no such command in the hint → report the failure with `block_type` and `revert_id` (details: [block-cli.md](block-cli.md)). |
 | `degraded` in the output | The card is placed; the listed extras (`section_name`, `ops`) didn't land. Redo them with `themes +edit` ([card-edit.md](../card-edit.md)) or tell the user. |
 | Page is `order` / `order_verify` | Not supported (those pages can't be previewed); say so and send nothing. |
 

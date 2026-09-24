@@ -150,7 +150,7 @@ re-read shows (field `label`s, old → new), not what was sent. `success` but th
 | ↳ `invalid_value:<key>` | Out of range, off `step`, or not in `options` | User's value → state the range; your own pick → choose a legal one |
 | ↳ `target_not_found` | Stale block index or unknown section | Re-read, copy the target again |
 | `placement_warning` on success | Card added but not placed | `move_section` with `before:` / `after:` |
-| `promote conflict: the theme draft changed since this edit session was created`, `conflict:true` | Ops applied (previewable); the theme draft changed since the session opened | Ask. Forcing overwrites those draft changes. With consent (dry-run → restate → wait): `themes session promote --params '{"oseid":"<oseid>"}' --data '{"force":true}'`. The error's hint names `themes promote-session`, which doesn't exist |
+| `promote conflict: the theme draft changed since this edit session was created`, `conflict:true` | Ops applied (previewable); the theme draft changed since the session opened | Ask. Forcing overwrites those draft changes. With consent (dry-run → restate → wait): `themes session promote --params '{"oseid":"<oseid>"}' --data '{"force":true}'`. |
 | `the edit was promoted to the theme draft but publishing failed: …`, `promoted:true, published:false` | Saved, not live | Don't redo ops; resend `+edit … --session <oseid> --ops '[]' --promote --publish` once (same consent) |
 | `b_invalid_themeid` (404) | `-t` isn't the theme the session was opened on | Pass that theme's id |
 | `b_invalid_request` (403, hint says log in again) or `SESSION_NOT_FOUND` | Session unknown or expired — not an auth problem | Tell the user its drafts are gone; with their OK, open a new session (`+page` without `--session`) and redo the changes |

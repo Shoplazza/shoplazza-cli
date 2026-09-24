@@ -125,7 +125,8 @@ Updating a card that is placed in 2+ places forks it: the server writes a new fi
 | `validation` | A local check or the page read failed; nothing was written. | Fix the flags or re-read the `target`, then resend. |
 | `stage:"write"` | The server rejected the file (liquid parse error, invalid or missing `{% schema %}`); nothing was written. | Fix the file, resend. |
 | `stage:"place"` + `reverted:true` | A required page op failed; the CLI rolled back its page changes and the file write, so the session is where it was. | Send the same command again. |
-| `stage:"place"` + `revert_failed:true` | The rollback didn't complete; the file stayed in the session (`block_type`, `revert_id`, `revert_error`). | Don't resend — that writes a second file. Report the failure with `block_type` and `revert_id` (undo is `block revert-gen`). |
+| `stage:"place"` + `revert_failed:true`, hint gives a `themes block revert-gen` command | The page was put back, but the file stayed in the session (`block_type`, `revert_id`). | Don't resend yet. Run the hint's `revert-gen` command as given (it removes only the leftover file; the page no longer points at it), then retry only after fixing what made the placement fail (`results` / `failed`). |
+| `stage:"place"` + `revert_failed:true`, no `revert-gen` in the hint | The page could not be put back either; it may still point at the new file. | Don't resend and don't revert the file (that would leave the page pointing at nothing). Report the failure with `block_type`, `revert_id` and `revert_error`. |
 | `stage:"place"`, neither flag | The placement request itself failed; the file was written (`block_type`, `revert_id`), and whether it got placed is unknown. | `block +get --id <block_type>`: placed → carry on; not placed → undo with `block revert-gen` and resend, or place it with `add_section` ([card-add.md](../card-add.md)). Never resend a create without checking. |
 
 ## block +get — read a card and its placements

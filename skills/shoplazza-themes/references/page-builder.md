@@ -82,7 +82,6 @@ Before `save-template` with `action:"update"`, tell the user the original templa
 | `pb list-blocks` → `{"blocks":{}}` | A bare id was sent → use `global-<n>` / `custom-<n>` |
 | A pb row shows `canvas_error` instead of `canvas` | Its source template can't be loaded; don't guess paths — say the card's canvas can't be read |
 | `update_pb: section "<sid>" is not a page-builder card` | Target isn't `kind:"pb"` → use `replace_props` / `update_slot` ([card-edit.md](card-edit.md)) |
-| `template_id is required when pb=true` hint names `themes list-card` | That command doesn't exist → `themes section cards` |
 | `section cards` → 400 `invalid source: gen` | Drop `gen` from `source` |
 
 ## Output
