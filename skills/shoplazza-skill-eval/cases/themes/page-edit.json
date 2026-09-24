@@ -21,9 +21,9 @@
       ],
       "must_ask": false,
       "semantic_rubric": [
-        "the first read is themes +page on that theme's index template (which returns the oseid), followed by a single-card read with --session <oseid> --section <sid> --include schema",
-        "the planned write is themes +edit with update_slot on the block-row target copied from the read (<sid>.blocks[0] form), writing only the heading field with Summer Sale verbatim",
-        "the same --session and -t are used on every call; the plan stops at the preview (no --promote / --publish) and re-reads to confirm"
+        "the first read is themes +page -t <that id> --template index (it returns the oseid)",
+        "if later steps are shown (placeholders allowed): a single-card read with --session <oseid> --section <sid> --include schema, then themes +edit update_slot on the copied block-row target (<sid>.blocks[0] form) writing only the heading, Summer Sale verbatim",
+        "no --promote / --publish anywhere; if later calls are shown they reuse the same --session and -t"
       ]
     }
   },
@@ -40,10 +40,9 @@
       "command_prefix": "themes section cards",
       "must_ask": false,
       "semantic_rubric": [
-        "discovers candidates with themes section cards (theme_id, template index) before writing",
-        "the planned add_section uses a returned items[].id as name, not an invented card type, via themes +edit in the task's session",
-        "if several returned cards fit (e.g. testimonials vs customer reviews), lists them and asks instead of guessing",
-        "does not jump to generating an AI card while an existing card fits"
+        "discovers candidates with themes section cards (theme_id, template index) before any write",
+        "if the add is shown, it is add_section via themes +edit in the task's session with a returned items[].id as name — never an invented card type",
+        "does not jump to generating an AI card while an existing card might fit"
       ],
       "params_must_contain": [
         "\"theme_id\":\"3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b\"",
@@ -64,9 +63,9 @@
       "command_prefix": "themes +page",
       "must_ask": false,
       "semantic_rubric": [
-        "opens / reuses a session with themes +page on that theme, then reads themes session get-config (doc_id index, filtered to the button category) and locates the field by its label, not a guessed key",
-        "the planned write is themes session update-config with only that one setting in --data settings, checked against the schema first; no theme_id in --params",
-        "stops at the preview; if no such setting exists, says the theme doesn't support it instead of writing"
+        "the first step opens / reuses a session with themes +page on that theme",
+        "if later steps are shown: themes session get-config (doc_id index, button category) to find the field by label, then themes session update-config writing only that setting; no theme_id in --params",
+        "no --promote / --publish; does not guess a setting key before reading the schema"
       ],
       "flags_must_contain": [
         "3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b"

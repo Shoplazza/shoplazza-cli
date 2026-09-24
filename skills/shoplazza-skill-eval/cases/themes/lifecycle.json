@@ -40,8 +40,9 @@
       "command_prefix": "themes list",
       "must_ask": false,
       "semantic_rubric": [
-        "looks the theme up with themes list and matches 'Reformia' (name / merchant_theme_name), never by searching for the new name",
-        "plans themes rename for the matched id with the new name 'Reformia 双11大促' verbatim in --data, without asking for confirmation"
+        "looks the theme up with themes list and matches 'Reformia' (name / merchant_theme_name) itself, never by searching for the new name",
+        "if the rename is shown: themes rename for the matched id with the new name 'Reformia 双11大促' verbatim in --data",
+        "does not ask for confirmation"
       ]
     }
   },
@@ -93,20 +94,20 @@
     "type": "behavior",
     "skill": "shoplazza-themes",
     "operation": "themes.create",
-    "scenario": "复制当前主题 — default name, no questions",
+    "scenario": "复制当前主题 — look up the live theme first; default name, no questions",
     "input": "把当前在用的主题复制一份",
     "expected": {
       "route_to_skill": "shoplazza-themes",
       "access_tier": "leaf",
-      "command_prefix": "themes duplicate",
+      "command_prefix": "themes list",
       "params_must_contain": [
-        "copy_theme_id",
-        "copy_theme_name"
+        "\"published\":\"1\""
       ],
       "must_ask": false,
       "semantic_rubric": [
         "resolves the live theme with themes list --params '{\"published\":\"1\"}'",
-        "names the copy '<source name> copy' (or similar) without asking; notes the copy is a new, unpublished theme with its own id"
+        "if the duplicate is shown: copy_theme_id = that id and copy_theme_name '<source name> copy' (or similar) in --data",
+        "does not ask for a name or for confirmation"
       ]
     }
   },
@@ -143,9 +144,9 @@
       "command_prefix": "themes market list",
       "must_ask": false,
       "semantic_rubric": [
-        "finds the Nova entry's remote_theme_id with themes market list first (not an installed theme id)",
-        "plans themes market install with the Default preset unless another style was named, passing preset in --data (not --params), and says so",
-        "does not ask for an install name; states the new theme is unpublished and doesn't affect the live store"
+        "finds the Nova entry's remote_theme_id with themes market list first (not an installed theme id), matching the name loosely rather than guessing an exact market name",
+        "if the install is shown: themes market install with remote_theme_id in --params and the preset (Default unless another style was named) in --data",
+        "does not ask for an install name or for confirmation"
       ]
     }
   }

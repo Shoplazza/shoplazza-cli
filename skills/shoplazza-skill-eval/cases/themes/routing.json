@@ -7,8 +7,13 @@
     "input": "帮我把首页轮播图的第二张换成新文案",
     "expected": {
       "route_to_skill": "shoplazza-themes",
-      "must_not_route_to": ["shoplazza-products", "shoplazza-shop"],
-      "semantic_rubric": ["If a command is named, it is themes +page then themes +edit"]
+      "must_not_route_to": [
+        "shoplazza-products",
+        "shoplazza-shop"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes +page then themes +edit"
+      ]
     }
   },
   {
@@ -19,8 +24,12 @@
     "input": "Change my store theme's button color to black everywhere",
     "expected": {
       "route_to_skill": "shoplazza-themes",
-      "must_not_route_to": ["shoplazza-shop"],
-      "semantic_rubric": ["If a command is named, it is themes session get-config / update-config"]
+      "must_not_route_to": [
+        "shoplazza-shop"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes session get-config / update-config"
+      ]
     }
   },
   {
@@ -31,20 +40,29 @@
     "input": "给店铺装一个适合女装的新主题",
     "expected": {
       "route_to_skill": "shoplazza-themes",
-      "must_not_route_to": ["shoplazza-shop"],
-      "semantic_rubric": ["If a command is named, it is themes market list, then themes market install"]
+      "must_not_route_to": [
+        "shoplazza-shop"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes market list, then themes market install"
+      ]
     }
   },
   {
     "case_id": "routing.themes-04",
     "type": "routing",
     "skill": "shoplazza-themes",
-    "scenario": "生成 AI 卡片 routes to themes",
+    "scenario": "显式要求生成 AI 卡片 routes to themes",
     "input": "生成一个带倒计时的促销卡片，放到商品详情页",
     "expected": {
       "route_to_skill": "shoplazza-themes",
-      "must_not_route_to": ["shoplazza-discounts", "shoplazza-products"],
-      "semantic_rubric": ["Checks the theme's addable cards first (themes section cards); generates an AI card with themes block +edit only if none fits"]
+      "must_not_route_to": [
+        "shoplazza-discounts",
+        "shoplazza-products"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes block +edit (an explicit ask to generate goes straight to the AI-card flow), not a discounts or products command"
+      ]
     }
   },
   {
@@ -55,8 +73,12 @@
     "input": "Which theme is currently live on my store?",
     "expected": {
       "route_to_skill": "shoplazza-themes",
-      "must_not_route_to": ["shoplazza-shop"],
-      "semantic_rubric": ["If a command is named, it is themes list with published=1"]
+      "must_not_route_to": [
+        "shoplazza-shop"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes list with published=1"
+      ]
     }
   },
   {
@@ -67,8 +89,12 @@
     "input": "把店铺里的满赠弹窗 app 关掉",
     "expected": {
       "route_to_skill": "shoplazza-themes",
-      "must_not_route_to": ["shoplazza-discounts"],
-      "semantic_rubric": ["If a command is named, it is themes app list, then themes app disable"]
+      "must_not_route_to": [
+        "shoplazza-discounts"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes app list, then themes app disable"
+      ]
     }
   },
   {
@@ -79,8 +105,12 @@
     "input": "帮我在博客里发一篇新品上市的文章",
     "expected": {
       "route_to_skill": "shoplazza-shop",
-      "must_not_route_to": ["shoplazza-themes"],
-      "semantic_rubric": ["If a command is named, it is shop articles create"]
+      "must_not_route_to": [
+        "shoplazza-themes"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is shop articles create"
+      ]
     }
   },
   {
@@ -91,8 +121,13 @@
     "input": "给这款连衣裙单独做一个商品详情页模板",
     "expected": {
       "route_to_skill": "shoplazza-themes",
-      "must_not_route_to": ["shoplazza-products", "shoplazza-shop"],
-      "semantic_rubric": ["If a command is named, it is themes template create with type product"]
+      "must_not_route_to": [
+        "shoplazza-products",
+        "shoplazza-shop"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes template create with type product"
+      ]
     }
   }
 ]

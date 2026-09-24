@@ -258,7 +258,7 @@
     "expected": {
       "route_to_skill": "shoplazza-themes",
       "must_not_route_to": ["shoplazza-discounts"],
-      "semantic_rubric": ["Looks the activity up (discounts +search) only to fill the card's source-type field via themes +edit; does not create a flash sale"]
+      "semantic_rubric": ["Treats it as editing a theme card (binding an existing activity), not as creating a flash sale; if a command is named, it is a themes command or a discounts lookup, never discounts +flashsale"]
     }
   },
   {

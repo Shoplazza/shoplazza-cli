@@ -159,7 +159,12 @@ function parseReply(text) {
   for (let line of cmdBlock.split(/\r?\n/)) {
     line = line.trim().replace(/^\$\s+/, '');
     if (!line || /^NONE$/i.test(line)) continue;
-    if (/^[A-Za-z_]\w*=/.test(line)) continue; // skip shell var assignments (e.g. ID=$(…))
+    if (/^[A-Za-z_]\w*=/.test(line)) {
+      // resolve-first step: keep the command inside ID=$(shoplazza …)
+      const sub = line.match(/^[A-Za-z_]\w*=\$\(\s*(shoplazza\s[\s\S]*)\)\s*$/);
+      if (sub) commands.push(sub[1].trim());
+      continue;
+    }
     if (/^(shoplazza\s|[a-z-]+\s+\+|[a-z-]+\s+[a-z-]+)/.test(line) || line.includes('shoplazza')) commands.push(line);
   }
   return {
@@ -350,6 +355,17 @@ function shellTokenize(s) {
   });
 }
 
+// A dry-run prints the planned request, not the response, so a --jq aimed at .data only errors.
+function stripJq(argv) {
+  const out = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--jq' || argv[i] === '-q') { i++; continue; }
+    if (argv[i].startsWith('--jq=') || argv[i].startsWith('-q=')) continue;
+    out.push(argv[i]);
+  }
+  return out;
+}
+
 function execDryRun(cmd, bin) {
   const line = cmd.replace(/^\s*shoplazza\s+/, '').trim();
   const [svc0 = '', sub0 = ''] = line.split(/\s+/);
@@ -360,7 +376,7 @@ function execDryRun(cmd, bin) {
   if (/^themes?$/.test(svc0) && /^(init|serve|push|pull|package|share|env)$/.test(sub0)) {
     return { skipped: 'refused: local theme development commands are never executed by the harness' };
   }
-  let argv = shellTokenize(line);
+  let argv = stripJq(shellTokenize(line));
   const hadDryRun = argv.includes('--dry-run');
   if (!hadDryRun) argv = [...argv, '--dry-run'];
   try {
