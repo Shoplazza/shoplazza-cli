@@ -37,9 +37,8 @@ filtered list).
 | `url` | Depends | Ask which kind of resource to link, then use that row | — |
 
 For products, use the default `+search` output: it carries `id`, `title`, `handle`, `url`,
-`price_min`, `price_max`, `published`, `inventory_quantity`, `primary_image`. Don't narrow it with
-`--fields` — `primary_image` does not come back through it. Keys that are empty or false are left
-out of responses.
+`price_min`, `price_max`, `published`, `inventory_quantity`, `primary_image`. To narrow it, pass
+those response key names to `--fields`. Keys that are empty or false are left out of responses.
 
 ## Field mapping
 
