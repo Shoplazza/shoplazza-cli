@@ -1,8 +1,15 @@
 package products
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/internal/shortcuttest"
 )
 
@@ -63,5 +70,58 @@ func TestProductSearchPlan_PublishedInvalidErrors(t *testing.T) {
 	in := shortcuttest.PlanInput(t, "search", productSearchFlags, map[string]string{"published": "yes"})
 	if _, err := searchShortcut.Plan(in); err == nil {
 		t.Error("expected error for an invalid --published value")
+	}
+}
+
+func TestListFieldSelectors(t *testing.T) {
+	got := listFieldSelectors([]string{"id", " title ", "primary_image", "image", "origin_price_min", "price_min", ""})
+	want := []string{"id", "title", "image", "price_min"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("listFieldSelectors = %v, want %v", got, want)
+	}
+	if got := listFieldSelectors(nil); got != nil {
+		t.Errorf("listFieldSelectors(nil) = %v, want nil", got)
+	}
+}
+
+// fieldsListServer mimics the list API: it only returns primary_image for the `image` selector.
+func fieldsListServer(t *testing.T, gotFields *[]string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*gotFields = r.URL.Query()["fields"]
+		p := map[string]any{"id": "p-1", "title": "Shirt", "created_at": "2026-01-01T00:00:00Z"}
+		for _, f := range *gotFields {
+			if f == "image" {
+				p["primary_image"] = map[string]any{"src": "//img.example/a.png"}
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"products": []any{p}, "has_more": false})
+	}))
+}
+
+func TestProductSearch_FieldsPrimaryImageReturned(t *testing.T) {
+	var gotFields []string
+	srv := fieldsListServer(t, &gotFields)
+	defer srv.Close()
+
+	in := shortcuttest.PlanInput(t, "search", productSearchFlags, map[string]string{"fields": "id,title,primary_image"})
+	p, err := searchShortcut.Plan(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := common.Send(context.Background(), client.New(srv.URL), p)
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if want := []string{"id", "title", "image"}; !reflect.DeepEqual(gotFields, want) {
+		t.Errorf("sent fields = %v, want %v", gotFields, want)
+	}
+	products, _ := out["products"].([]any)
+	if len(products) != 1 {
+		t.Fatalf("products = %v", out["products"])
+	}
+	if _, ok := products[0].(map[string]any)["primary_image"]; !ok {
+		t.Errorf("primary_image missing from response: %v", products[0])
 	}
 }

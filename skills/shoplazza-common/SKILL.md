@@ -57,7 +57,7 @@ read fields directly (e.g. `logged_in`).
 |---|---|
 | `--dry-run` | Print the request that would be sent, **without sending it**. **Always `--dry-run` first** for destructive / batch / money-spending writes. Read commands and shortcuts support it too. |
 | `-q, --jq <expr>` | Filter JSON output with a jq expression. **Outputs raw scalars by default** (no surrounding quotes, just a trailing newline) — **do not add `-r`**: cobra parses `-r` as a separate flag and rejects the command. It is a single-string flag. |
-| `--fields <f1,f2,…>` | Response field projection on **a few shortcuts only** — verified: `products +search` (comma-separated: `products +search --fields id,title`). **Not universal** — most commands have no `--fields`; check `<shortcut> --help` before using it. The server may still return extra base fields. |
+| `--fields <f1,f2,…>` | Response field projection on **a few shortcuts only** — verified: `products +search` (comma-separated: `products +search --fields id,title`). **Not universal** — most commands have no `--fields`; check `<shortcut> --help` before using it. Names are response keys; the server may still return extra base fields and silently ignores unknown names. |
 | `--page-limit <n>` | Page size, 1–250, on list shortcuts. **The API default is 10** — see "Reading a filtered list" below. |
 | `--format json\|pretty\|table` | Output format, default `json`. Use `json` for scripts/jq, `pretty`/`table` for humans. Global flag. |
 | `--profile <name>` | Profile to use for this invocation (see "Profiles"). Global flag. |

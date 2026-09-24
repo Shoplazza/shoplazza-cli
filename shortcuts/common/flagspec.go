@@ -64,15 +64,6 @@ func UntilFlag() Flag {
 	}
 }
 
-// FieldsFlag returns the standardized --fields []string flag for response field projection.
-func FieldsFlag() Flag {
-	return Flag{
-		Name:        "fields",
-		Type:        FlagStringSlice,
-		Description: "Response fields to include (comma-separated).",
-	}
-}
-
 // StartTimeFlag returns the standardized --start string flag for
 // activity/campaign start. Values are parsed by ParseTime.
 func StartTimeFlag() Flag {
