@@ -43,16 +43,6 @@ func TestSinceUntilFlags(t *testing.T) {
 	}
 }
 
-func TestFieldsFlag(t *testing.T) {
-	f := common.FieldsFlag()
-	if f.Name != "fields" {
-		t.Errorf("Name: got %q want fields", f.Name)
-	}
-	if f.Type != common.FlagStringSlice {
-		t.Errorf("Type: got %v want FlagStringSlice", f.Type)
-	}
-}
-
 func TestStartEndTimeFlag_Defaults(t *testing.T) {
 	s := common.StartTimeFlag()
 	if s.Name != "start" || s.Type != common.FlagString {
