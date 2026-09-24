@@ -13,7 +13,7 @@ import (
 // deliberately excluded — they are tooling, not agent-facing content. New domain
 // skills must be added to this list.
 //
-//go:embed skills/shoplazza-billing skills/shoplazza-common skills/shoplazza-customers skills/shoplazza-discounts skills/shoplazza-orders skills/shoplazza-products skills/shoplazza-shop skills/shoplazza-webhook
+//go:embed skills/shoplazza-billing skills/shoplazza-common skills/shoplazza-customers skills/shoplazza-discounts skills/shoplazza-orders skills/shoplazza-products skills/shoplazza-shop skills/shoplazza-themes skills/shoplazza-webhook
 var skillsFS embed.FS
 
 func init() {

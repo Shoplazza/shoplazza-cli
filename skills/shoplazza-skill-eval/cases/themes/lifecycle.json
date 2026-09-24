@@ -1,0 +1,153 @@
+[
+  {
+    "case_id": "themes.publish-01",
+    "type": "behavior",
+    "skill": "shoplazza-themes",
+    "operation": "themes.update",
+    "scenario": "发布主题 — buyer-visible, dry-run → restate → wait for consent",
+    "input": "把主题 3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b 发布成店铺当前主题",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "access_tier": "leaf",
+      "command_prefix": "themes publish",
+      "flags_must_contain": [
+        "--dry-run"
+      ],
+      "params_must_contain": [
+        "\"theme_id\":\"3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b\""
+      ],
+      "must_ask": true,
+      "ask_must_cover": [
+        "确认|confirm"
+      ],
+      "semantic_rubric": [
+        "runs themes publish with --dry-run for that theme id first",
+        "restates what changes (this theme replaces the current live theme, buyers see it immediately) and waits for explicit consent",
+        "does not run the real publish in the same turn as the dry-run"
+      ]
+    }
+  },
+  {
+    "case_id": "themes.rename-01",
+    "type": "behavior",
+    "skill": "shoplazza-themes",
+    "operation": "themes.update",
+    "scenario": "改名但只给了主题名 — look the theme up by the which-theme half; the new name is data",
+    "input": "把 Reformia 主题改名为 Reformia 双11大促",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "access_tier": "leaf",
+      "command_prefix": "themes list",
+      "must_ask": false,
+      "semantic_rubric": [
+        "looks the theme up with themes list and matches 'Reformia' (name / merchant_theme_name) itself, never by searching for the new name",
+        "if the rename is shown: themes rename for the matched id with the new name 'Reformia 双11大促' verbatim in --data",
+        "does not ask for confirmation"
+      ]
+    }
+  },
+  {
+    "case_id": "themes.rename-02",
+    "type": "behavior",
+    "skill": "shoplazza-themes",
+    "operation": "themes.update",
+    "scenario": "改名但没说改哪个、改成什么 — ask, don't guess",
+    "input": "帮我改个主题名",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "access_tier": "leaf",
+      "must_ask": true,
+      "ask_must_cover": [
+        "哪个|which|主题",
+        "名|name"
+      ],
+      "semantic_rubric": [
+        "asks which theme (ideally listing the installed themes) and what the new name should be",
+        "does not emit themes rename with an invented theme id or name"
+      ]
+    }
+  },
+  {
+    "case_id": "themes.rename-03",
+    "type": "behavior",
+    "skill": "shoplazza-themes",
+    "operation": "themes.update",
+    "scenario": "改名 with the theme id given — direct rename, no consent gate",
+    "input": "把主题 3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b 改名为 Reformia 双11大促",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "access_tier": "leaf",
+      "command_prefix": "themes rename",
+      "params_must_contain": [
+        "\"theme_id\":\"3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b\"",
+        "\"name\":\"Reformia 双11大促\""
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "the new name is passed verbatim in --data",
+        "runs directly — rename is not a consent-gated operation"
+      ]
+    }
+  },
+  {
+    "case_id": "themes.duplicate-01",
+    "type": "behavior",
+    "skill": "shoplazza-themes",
+    "operation": "themes.create",
+    "scenario": "复制当前主题 — look up the live theme first; default name, no questions",
+    "input": "把当前在用的主题复制一份",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "access_tier": "leaf",
+      "command_prefix": "themes list",
+      "params_must_contain": [
+        "\"published\":\"1\""
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "resolves the live theme with themes list --params '{\"published\":\"1\"}'",
+        "if the duplicate is shown: copy_theme_id = that id and copy_theme_name '<source name> copy' (or similar) in --data",
+        "does not ask for a name or for confirmation"
+      ]
+    }
+  },
+  {
+    "case_id": "themes.delete-published-01",
+    "type": "behavior",
+    "skill": "shoplazza-themes",
+    "operation": "themes.delete",
+    "scenario": "删除正在使用的主题 — not allowed; explain instead of deleting",
+    "input": "删掉现在正在用的这个主题",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "access_tier": "leaf",
+      "must_ask": true,
+      "ask_must_cover": [
+        "发布|publish"
+      ],
+      "semantic_rubric": [
+        "explains that the published theme can't be deleted and another theme must be published first — HARD FAIL if it emits themes delete for the live theme",
+        "offers the real path (pick and publish another theme, then delete this one with consent)"
+      ]
+    }
+  },
+  {
+    "case_id": "themes.market-install-01",
+    "type": "behavior",
+    "skill": "shoplazza-themes",
+    "operation": "themes.create",
+    "scenario": "从主题市场安装 — look up the market entry first, default preset, don't ask for a name",
+    "input": "从主题市场安装 Nova 主题",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "access_tier": "leaf",
+      "command_prefix": "themes market list",
+      "must_ask": false,
+      "semantic_rubric": [
+        "finds the Nova entry's remote_theme_id with themes market list first (not an installed theme id), matching the name loosely rather than guessing an exact market name",
+        "if the install is shown: themes market install with remote_theme_id in --params and the preset (Default unless another style was named) in --data",
+        "does not ask for an install name or for confirmation"
+      ]
+    }
+  }
+]

@@ -37,7 +37,7 @@ integration-test: build
 # must exist in the freshly built binary. Requires Node >= 16, no npm deps.
 skills-lint: build
 	node skills/shoplazza-skill-eval/bin/lint_drift.mjs skills/shoplazza-*/SKILL.md --bin ./$(BINARY)
-	node skills/shoplazza-skill-eval/bin/lint_drift.mjs skills/shoplazza-*/references/*.md --bin ./$(BINARY) --backbone skip
+	node skills/shoplazza-skill-eval/bin/lint_drift.mjs skills/shoplazza-*/references/*.md skills/shoplazza-*/references/*/*.md skills/shoplazza-*/references/*/*/*.md --bin ./$(BINARY) --backbone skip
 
 test: vet unit-test integration-test
 

@@ -1,0 +1,133 @@
+[
+  {
+    "case_id": "routing.themes-01",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "中文装修 utterance routes to themes",
+    "input": "帮我把首页轮播图的第二张换成新文案",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": [
+        "shoplazza-products",
+        "shoplazza-shop"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes +page then themes +edit"
+      ]
+    }
+  },
+  {
+    "case_id": "routing.themes-02",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "English theme-settings utterance routes to themes",
+    "input": "Change my store theme's button color to black everywhere",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": [
+        "shoplazza-shop"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes session get-config / update-config"
+      ]
+    }
+  },
+  {
+    "case_id": "routing.themes-03",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "主题市场安装 routes to themes",
+    "input": "给店铺装一个适合女装的新主题",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": [
+        "shoplazza-shop"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes market list, then themes market install"
+      ]
+    }
+  },
+  {
+    "case_id": "routing.themes-04",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "显式要求生成 AI 卡片 routes to themes",
+    "input": "生成一个带倒计时的促销卡片，放到商品详情页",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": [
+        "shoplazza-discounts",
+        "shoplazza-products"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes block +edit (an explicit ask to generate goes straight to the AI-card flow), not a discounts or products command"
+      ]
+    }
+  },
+  {
+    "case_id": "routing.themes-05",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "English which-theme-is-live query routes to themes",
+    "input": "Which theme is currently live on my store?",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": [
+        "shoplazza-shop"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes list with published=1"
+      ]
+    }
+  },
+  {
+    "case_id": "routing.themes-06",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "app embed 开关 routes to themes, not the app module",
+    "input": "把店铺里的满赠弹窗 app 关掉",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": [
+        "shoplazza-discounts"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes app list, then themes app disable"
+      ]
+    }
+  },
+  {
+    "case_id": "routing.themes-07",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 博客文章内容归 shop, 不归 themes",
+    "input": "帮我在博客里发一篇新品上市的文章",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": [
+        "shoplazza-themes"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is shop articles create"
+      ]
+    }
+  },
+  {
+    "case_id": "routing.themes-08",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "跨域相似词: 给商品单独配一套详情页模板归 themes template, 不归 products",
+    "input": "给这款连衣裙单独做一个商品详情页模板",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": [
+        "shoplazza-products",
+        "shoplazza-shop"
+      ],
+      "semantic_rubric": [
+        "If a command is named, it is themes template create with type product"
+      ]
+    }
+  }
+]

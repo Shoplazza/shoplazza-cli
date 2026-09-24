@@ -73,7 +73,7 @@ Flags with a default or omit-to-disable — they never appear as a question:
 
 <!-- ============================================================
 OPTIONAL — Workflow  (WORKFLOW-type skills only)
-No in-scope skill uses this round (app / themes deferred — master-plan §5). Delete for action/config skills.
+Used by shoplazza-themes (the edit-session flow). Delete for action/config skills.
 ============================================================ -->
 ## Workflow
 

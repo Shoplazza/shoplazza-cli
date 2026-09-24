@@ -185,14 +185,14 @@
     "case_id": "collision.custom-page",
     "type": "routing",
     "skill": "shoplazza-shop",
-    "scenario": "跨域相似词: 自定义店铺页面归 shop pages, 不是主题编辑(themes 本轮不做)",
+    "scenario": "跨域相似词: 自定义店铺页面归 shop pages, 不是主题编辑",
     "input": "建一个'关于我们'页面",
     "expected": {
       "route_to_skill": "shoplazza-shop",
-      "must_not_route_to": [],
+      "must_not_route_to": ["shoplazza-themes"],
       "semantic_rubric": ["If a command is named, it is shop pages (custom storefront page), not a theme asset edit"]
     },
-    "notes": "themes is out of scope (no skill). shop unbuilt — routing hit skipped; semantic rubric matters once built."
+    "notes": "页面 collides with themes page templates; a page template only changes layout, the page itself is shop content."
   },
   {
     "case_id": "collision.customer-by-email",
@@ -235,5 +235,42 @@
       ]
     },
     "notes": "Keyword-vs-intent trap complementing collision.shipping-zone-rate: '市场' is a distractor; 运费方案 owns the intent → orders shipping-schemas."
+    },
+  {
+    "case_id": "collision.theme-card-image",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "跨域相似词: 首页卡片配图归 themes, 不归 products images",
+    "input": "首页轮播图换一张新图片",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": ["shoplazza-products", "shoplazza-shop"],
+      "semantic_rubric": ["If a command is named, it is themes +page then themes +edit writing the card's image field, not products images or shop files"]
+    },
+    "notes": "Reverse of collision.upload-product-image."
+  },
+  {
+    "case_id": "collision.flash-sale-card",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "跨域相似词: 卡片绑定进行中的闪购活动归 themes; 创建闪购活动本身归 discounts",
+    "input": "首页的限时促销卡片改成展示正在进行的那个闪购活动",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": ["shoplazza-discounts"],
+      "semantic_rubric": ["Treats it as editing a theme card (binding an existing activity), not as creating a flash sale; if a command is named, it is a themes command or a discounts lookup, never discounts +flashsale"]
+    }
+  },
+  {
+    "case_id": "collision.create-flash-sale",
+    "type": "routing",
+    "skill": "shoplazza-discounts",
+    "scenario": "跨域相似词: 创建闪购活动归 discounts, 不归 themes",
+    "input": "创建一个限时闪购活动，全场 8 折",
+    "expected": {
+      "route_to_skill": "shoplazza-discounts",
+      "must_not_route_to": ["shoplazza-themes"],
+      "semantic_rubric": ["If a command is named, it is discounts +flashsale"]
+    }
   }
 ]

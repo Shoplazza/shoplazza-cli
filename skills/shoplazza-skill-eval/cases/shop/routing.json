@@ -34,7 +34,7 @@
       "must_not_route_to": ["shoplazza-themes"],
       "semantic_rubric": ["If a command is named, it is shop pages create — 自定义页面 is content, not theme/template editing"]
     },
-    "notes": "页面 collides with theme templates. Candidate for _routing/collisions.json (themes is deferred, so today pass = not routing to a themes skill)."
+    "notes": "页面 collides with themes page templates (see collision.custom-page)."
   },
   {
     "case_id": "routing.shop-04",
