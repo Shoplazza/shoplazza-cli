@@ -1,6 +1,6 @@
 ---
 name: shoplazza-discounts
-description: Use when the user wants to manage discount activities on a shoplazza store through the CLI — promotional campaigns, coupon codes, flash sales, buy-X-get-Y offers, rebates / tiered satisfy-N-get-M discounts, free-shipping codes, M-for-N (Nth-item-off) discounts, discount stacking / combination rules, or coupon (voucher) campaigns. Triggers include 满减 / 折扣码 / 优惠码 / 闪购 / 满X减Y. NOT gift cards (redeemable store credit → shoplazza-products `gift-cards`).
+description: Use when the user wants to manage discount activities on a shoplazza store through the CLI — promotional campaigns, coupon codes, flash sales, buy-X-get-Y offers, rebates / tiered satisfy-N-get-M discounts, free-shipping codes, M-for-N (Nth-item-off) discounts, discount stacking / combination rules, or coupon (voucher) campaigns. Triggers include 满减 / 折扣码 / 优惠码 / 闪购 / 满X减Y. NOT gift cards (redeemable store credit → shoplazza-products `gift-cards`). NOT showing a sale inside a theme card / 首页促销卡片 (→ shoplazza-themes).
 ---
 
 # shoplazza CLI — discounts module
@@ -275,6 +275,7 @@ Reads like discounts, actually belongs elsewhere:
 | Sounds like discounts | Actually belongs to | Command |
 |---|---|---|
 | 礼品卡 / 储值卡 / gift card (redeemable as store credit at checkout) | `shoplazza-products` | `products gift-cards` |
+| 首页限时促销卡片展示某个活动 / show a flash sale in a theme card | `shoplazza-themes` (creating the flash sale itself stays HERE) | `themes +edit` |
 
 **Coupon (voucher) vs discount code — both live in this module, don't confuse them:**
 - **Discount codes** (the `+*-code` shortcuts): public codes shoppers type at checkout.

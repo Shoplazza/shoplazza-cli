@@ -13,7 +13,7 @@ description: >-
   发布到日本市场); store languages (语言 / 多语言 / 翻译 / 开通日语); real-time
   shipping-rate carrier services (实时运费报价 / 承运商 / carrier service). NOT product
   catalog / 商品图片 (→ shoplazza-products); NOT 优惠码 (→ shoplazza-discounts); NOT
-  order search / 订单统计 / 物流查询 (→ orders domain); NOT theme editing (→ themes).
+  order search / 订单统计 / 物流查询 (→ orders domain); NOT theme editing / 装修 / page templates (→ shoplazza-themes).
 ---
 
 # shoplazza CLI — shop module
@@ -97,7 +97,7 @@ Reads like another domain (or another domain reads like shop):
 | 实时运费报价承运商 / rate-quoting carrier at checkout | **HERE** | `shop carrier-services …` |
 | 物流商查询 / 运单追踪 / fulfillment tracking carriers, shipping zones | orders domain | `orders tracking-carriers` / `orders shipping-schemas` |
 | 自定义页面 / 关于我们 / brand-story page | **HERE** (content, not theming) | `shop pages create` |
-| 改模板 / 装修 / theme & template editing | `themes` module (no skill yet) | `themes …` |
+| 改模板 / 装修 / theme & template editing, layout of a custom page | `shoplazza-themes` | `themes +page` / `themes +edit` / `themes template …` |
 | 博客/文章 blog & articles | **HERE** (not product reviews) | `shop blogs` / `shop articles` |
 | 买家评价 / product reviews | `shoplazza-products` | `products comments …` |
 | 优惠码 / 折扣 / discount codes | `shoplazza-discounts` | `discounts +*` |

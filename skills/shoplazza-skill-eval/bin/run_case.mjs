@@ -352,9 +352,13 @@ function shellTokenize(s) {
 
 function execDryRun(cmd, bin) {
   const line = cmd.replace(/^\s*shoplazza\s+/, '').trim();
-  const svc0 = line.split(/\s+/)[0] || '';
-  if (/^(auth|profile|update|app|themes?)$/.test(svc0)) {
-    return { skipped: 'refused: auth/profile/update/app/theme commands are never executed by the harness' };
+  const [svc0 = '', sub0 = ''] = line.split(/\s+/);
+  if (/^(auth|profile|update|app)$/.test(svc0)) {
+    return { skipped: 'refused: auth/profile/update/app commands are never executed by the harness' };
+  }
+  // Local theme development touches the filesystem or starts a server; store theme ops dry-run cleanly.
+  if (/^themes?$/.test(svc0) && /^(init|serve|push|pull|package|share|env)$/.test(sub0)) {
+    return { skipped: 'refused: local theme development commands are never executed by the harness' };
   }
   let argv = shellTokenize(line);
   const hadDryRun = argv.includes('--dry-run');

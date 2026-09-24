@@ -77,7 +77,7 @@ type needs; each is an OPTIONAL block in the template.
 |---|---|---|
 | **action** (CRUD / do-a-thing) | discounts, products, orders, customers, billing, webhook | **Acting on a request** (trigger→shortcut + required-vs-ask matrix + never-ask list); **Boundaries** if it has cross-domain lookalikes; **Recipes** optional |
 | **config** (broad, shallow read/set) | shop | **Boundaries** (config domains collide a lot — metafields/files/carriers); a light trigger table only if useful; **Recipes** optional. Usually **no** full ask-matrix |
-| **workflow** (ordered, stateful) | app, themes — **deferred this round** | **Workflow** (ordered steps + state + data hand-off). No consumer yet; the section is dormant |
+| **workflow** (ordered, stateful) | themes (app — deferred) | **Workflow** (ordered steps + state + data hand-off). Reference: [`../shoplazza-themes/SKILL.md`](../shoplazza-themes/SKILL.md) |
 
 Rules of thumb:
 - **Boundaries is added by any skill with cross-domain lookalikes**, regardless of type.

@@ -11,7 +11,8 @@ description: >-
   / product reviews), warehouse locations (仓库 / 库位), suppliers and procurement (供应商 /
   采购单 / 进货). NOT discount codes / coupons / 优惠码 / 折扣码 / 满减 (→
   shoplazza-discounts); NOT the store media library / file uploads / 媒体库文件 and NOT
-  metafields / 元字段 (→ shoplazza-shop); NOT order fulfillment / 发货 (→ orders domain).
+  metafields / 元字段 (→ shoplazza-shop); NOT order fulfillment / 发货 (→ orders domain); NOT theme card images / 装修配图 /
+  商品详情页模板 (→ shoplazza-themes).
 ---
 
 # shoplazza CLI — products module
@@ -182,6 +183,8 @@ Reads like products, actually belongs elsewhere (and lookalikes this domain owns
 | 礼品卡 / 储值卡 / gift card (redeemable store credit) | **HERE** (not discounts, not billing) | `products gift-cards …` |
 | 上传文件到媒体库 / store media library asset | `shoplazza-shop` | `shop files` / `shop +upload-file` |
 | 给商品挂图 / image attached to a product | **HERE** | `products images create` |
+| 首页轮播图 / 卡片配图 / image inside a theme card | `shoplazza-themes` | `themes +page` → `themes +edit` |
+| 商品详情页模板 / custom product-page template | `shoplazza-themes` | `themes template create` |
 | 商品元字段 / metafields on products or shop | `shoplazza-shop` | `shop metafields-resource` / `metafields-definition` |
 | 库存同步 / 补货 / inventory & warehouse stock | **HERE** (not orders/fulfillment) | `products +stock` / `products inventory` |
 | 买家评价 / 评论 / product reviews | **HERE** (not shop blogs/pages content) | `products comments …` |
