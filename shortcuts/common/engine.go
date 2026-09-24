@@ -49,6 +49,9 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 		// Interactive/long-running/local-write: blind CLI scans skip it.
 		annotations[cmdutil.AnnotationNotScannable] = "true"
 	}
+	if s.DryRunReads {
+		annotations[cmdutil.AnnotationDryRunReads] = "true"
+	}
 	if len(annotations) > 0 {
 		cmd.Annotations = annotations
 	}

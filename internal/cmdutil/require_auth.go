@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 
 	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -42,11 +43,17 @@ func translateAuthErr(err error) error {
 // store target is still required: SHOPLAZZA_CLI_API_BASE_URL wins outright
 // (even over a configured profile); otherwise the profile resolves the store
 // domain. Neither available is a loud error, not a silent no-op.
+//
+// It also injects the cli-user-id header (audit attribution) when one is
+// resolvable — see CliUserID.
 func RequireAuth(ctx context.Context, f *Factory, cmd *cobra.Command) error {
 	if token := os.Getenv("SHOPLAZZA_ACCESS_TOKEN"); token != "" {
+		// An injected token skips login state, so the audit id must be injected
+		// too: a stale local login would attribute the call to the wrong user.
 		if u := os.Getenv("SHOPLAZZA_CLI_API_BASE_URL"); u != "" {
 			f.Client.SetBaseURL(u)
 			f.Client.SetBearerToken(token)
+			f.Client.SetCliUserID(CliUserIDEnv())
 			return nil
 		}
 		p, err := ResolveProfile(f, cmd)
@@ -57,6 +64,7 @@ func RequireAuth(ctx context.Context, f *Factory, cmd *cobra.Command) error {
 		}
 		f.Client.SetBaseURL("https://" + p.StoreDomain)
 		f.Client.SetBearerToken(token)
+		f.Client.SetCliUserID(CliUserIDEnv())
 		return nil
 	}
 
@@ -71,5 +79,33 @@ func RequireAuth(ctx context.Context, f *Factory, cmd *cobra.Command) error {
 	}
 	f.Client.SetBaseURL("https://" + p.StoreDomain)
 	f.Client.SetBearerToken(tok)
+	f.Client.SetCliUserID(cliUserIDFrom(mgr))
 	return nil
+}
+
+// EnvCliUserID overrides the cli-user-id header value.
+const EnvCliUserID = "SHOPLAZZA_CLI_USER_ID"
+
+// CliUserIDEnv returns the env override, or "" when unset.
+func CliUserIDEnv() string { return strings.TrimSpace(os.Getenv(EnvCliUserID)) }
+
+// cliUserIDFrom resolves the cli-user-id header value (audit attribution):
+// the env override first, else the login user id captured at login time.
+// Best-effort — an unresolvable id omits the header rather than failing the
+// command, and no network call is made on this path.
+func cliUserIDFrom(mgr *internalauth.Manager) string {
+	if v := CliUserIDEnv(); v != "" {
+		return v
+	}
+	state, err := mgr.LoadState()
+	if err != nil {
+		return ""
+	}
+	return state.UserID
+}
+
+// CliUserID resolves the header value for callers that build their own store
+// client instead of going through the gate.
+func CliUserID(f *Factory) string {
+	return cliUserIDFrom(internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient))
 }

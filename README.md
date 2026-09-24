@@ -341,6 +341,7 @@ shoplazza update --check    # report current/latest versions only, no install
 | `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | Disable the background new-version check |
 | `SHOPLAZZA_CLI_NO_META_UPDATE` | Disable background API-metadata refreshes |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | Override auth base URL (default: `https://partners.shoplazza.com`) |
+| `SHOPLAZZA_CLI_USER_ID` | Override the `cli-user-id` request header (audit attribution). Defaults to the user id captured at login; set it when `SHOPLAZZA_ACCESS_TOKEN` injects a token, which carries no login state |
 
 Interactive prompts are auto-detected from the terminal and can only be switched **off** — there is no `--interactive` flag to force them on.
 
