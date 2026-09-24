@@ -217,6 +217,7 @@ shoplazza-common).
 | Stock decrease rejected | The `inventory_levels` write leaves (`set-stock` / `update-level`) only add; decreases ride `variant.inventory_quantity`, which is default-location-only and unverified on multi-location items — `+stock` gates accordingly | Use `+stock --adjust -N` / `--set N`; when the gate fires, explain and offer alternatives (unpublish, stock-policy) |
 | Product published when the user wanted a draft | `--published` on `+create` is a bare boolean — passing it publishes | Omit `--published` entirely for a draft (draft is the default) |
 | `unknown flag: --fields` on `+count` / other shortcuts | In this module `--fields` exists on `+search` **only** | Project with `--jq` elsewhere |
+| `+search --fields` result lacks a field you named | Names are **response keys** (`primary_image`, `price_min`, …); a misspelled or unknown name is silently ignored by the API. `id`, `title`, `created_at`, `updated_at` may come back regardless | Check names against the default output or `schema products.list --view response`; or skip `--fields` and project with `--jq` |
 | Tags wiped out after an update | `products update` (leaf) replaces the whole tag list; so does `+tag --set` | Use `+tag --add` / `--remove` — existing tags kept |
 | Variants vanished after a `products update` (leaf) with a `variants` array | The array is a **full replace**: any variant not listed is **deleted**, and listed variants without their `id` are recreated (sku/stock reset) | Never hand-write a `variants` array on the leaf — use `+set-variants`, which maps existing variants (carries ids) and reports every deletion |
 | "Result too large" on a big-matrix `products update` / `create` | The response echoes the full product — hundreds of variants × ~25 fields | Use `+set-variants` (bounded summary output). On the leaf, always narrow with `--jq` and pass the body via `--data @file` |
@@ -242,8 +243,8 @@ shoplazza-common).
 # 1. All unpublished products from vendor Nike
 products +search --vendor Nike --published unpublished
 
-# 2. Ids + titles only, of products with "hoodie" in the title
-products +search --keyword hoodie --fields id,title
+# 2. Ids, titles and main image only, of products with "hoodie" in the title
+products +search --keyword hoodie --fields id,title,primary_image
 
 # 3. How many published products?
 products +count --published published --jq '.data.count'
