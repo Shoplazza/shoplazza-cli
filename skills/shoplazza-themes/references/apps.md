@@ -70,15 +70,14 @@ To tell which stored entry is the app the user means, compare with `app list`: a
 3. `section list` → find its stored entry and current state.
    - Already in the requested state → no call; say so.
    - Not stored in this session → it can't be switched from here (the server rejects ids it hasn't
-     stored, with a 500); say so — the theme editor's app embeds panel is the alternative. Don't try
-     ids from `app list` instead.
+     stored); say so — the theme editor's app embeds panel is the alternative. Don't try ids from
+     `app list` instead.
    - An `app list` entry with `allowChangeDisabled:false` can't be changed — say so.
 4. `themes app enable` / `themes app disable` with the stored id, verbatim. `category` and `app_key` only to
    disambiguate a `block_id` that occurs twice; `doc_id` is optional (the server uses the
    homepage file when omitted).
-5. **Re-read `section list`** and report what it shows. A `{}` success does not prove the switch
-   flipped: an app-embed enable has returned `{}` while the entry stayed `disabled:true`. State
-   unchanged → report that the switch did not take effect.
+5. **Re-read `section list`** and report what it shows: a success response is `{}` and carries no
+   state. State unchanged → say the switch did not take effect.
 6. Give the preview (`themes +preview -t <theme_id> --oseid <oseid>`) and stop.
 
 Announcement-bar requests are often an app embed — check `app list` first. A theme's own
@@ -104,6 +103,6 @@ like any card ([card-edit.md](card-edit.md)).
 
 | Error | Meaning / fix |
 |---|---|
-| 500 `internal server error` on enable/disable | The server looks the `block_id` up in the entries stored for this theme before switching anything; an id that isn't stored there (ids from `app list` often differ in the trailing number, and embeds never switched on in this theme aren't stored at all) fails with this 500 and nothing changes. Use the stored id; if the app isn't stored, it can't be switched from the CLI — say so and point to the theme editor. Don't retry with guessed ids |
+| 422 `InvalidParameter`: `cannot toggle app: block_id "…" not found in theme app_embeds/script_tags` | The id isn't one this theme has stored — ids from `app list` often differ in the trailing number, and an embed never switched on in this theme isn't stored at all. Nothing changed. Use the stored id; if the app isn't stored, it can't be switched from the CLI — say so and point to the theme editor. Some backends answer the same case with a bare 500. Don't retry with guessed ids |
 | `{}` but state unchanged on re-read | The switch didn't take effect — report it; suggest the theme editor |
 | 404 `b_record_not_found` on `section list` | `doc_id` must be the template file uuid from `file tree`, not `"index"` |

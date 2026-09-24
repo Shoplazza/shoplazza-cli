@@ -206,7 +206,7 @@ names · install preset (`Default`) · `limit` / `page` · which session (reuse 
 | `update-config` / `app enable` have no `--promote` | They share the page session | Save / publish with `+edit … --ops '[]' --session <oseid> --promote` |
 | `update-config` accepted a wrong value | It stores anything: bad colors, out-of-range numbers, unknown keys | Check the value against the `get-config` schema before writing; re-read after |
 | Header / footer / announcement change via `update-config` fails | Global cards are cards | Edit them with `+edit` using their `section_id` (e.g. `header`) as the target |
-| `app enable` / `disable` returns a server error | Known to fail for ids taken from `app list` | Report it; read the current state from `themes section list` ([apps.md](references/apps.md)); don't retry with guessed ids |
+| `app enable` / `disable` → 422 `… not found in theme app_embeds/script_tags` | The id isn't stored in this theme; ids from `app list` often differ | Use the stored id from `themes section list` ([apps.md](references/apps.md)); not stored → can't be switched from the CLI |
 | `invalid source: gen` from `section cards` | Some backends don't accept that source | Retry without `gen` |
 | Guessed a global card name (`cart_drawer`…) that isn't there | Global-area cards differ per theme | Read `+page --area global`; the `section_id` equals the `type` |
 | A file change went live at once | `file create/update/rename/delete` bypass sessions; on the published theme they are live | Dry-run → restate → consent first |
