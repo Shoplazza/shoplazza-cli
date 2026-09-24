@@ -87,8 +87,9 @@ named). Nothing matches → show the list and ask; never guess.
 # Browse: one row per theme × preset
 themes market list --jq '{total: .data.total, rows: [.data.merchant_themes[] | {name, preset_name, remote_theme_id, c_version, is_paid}]}'
 
-# Describe one theme (every preset of it); use desc.zh_CN for a Chinese reply
-themes market list --jq '[.data.merchant_themes[] | select(.name == "<name>") | {name, preset_name, remote_theme_id, c_version, preview_url: (.preset_data.preview_url // .preview_url), industry: [.preset_data.industry[]?.name], category: [.preset_data.category[]?.name], features: [(.preset_data.features // .preset_data.feature)[]?.name], tags: ((.exts // "{}") | fromjson | .tags["en-US"] // []), desc: ((.preset_data.desc.en_US // .desc // "") | gsub("<[^>]*>"; " ") | .[0:400])}]'
+# Describe one theme (every preset of it); <word> = the name as the user wrote it, lower-case;
+# several different names match → list them and ask. Use desc.zh_CN for a Chinese reply
+themes market list --jq '[.data.merchant_themes[] | select(.name | ascii_downcase | contains("<word>")) | {name, preset_name, remote_theme_id, c_version, preview_url: (.preset_data.preview_url // .preview_url), industry: [.preset_data.industry[]?.name], category: [.preset_data.category[]?.name], features: [(.preset_data.features // .preset_data.feature)[]?.name], tags: ((.exts // "{}") | fromjson | .tags["en-US"] // []), desc: ((.preset_data.desc.en_US // .desc // "") | gsub("<[^>]*>"; " ") | .[0:400])}]'
 
 # Local filter on a taxonomy label or code taken from the data
 themes market list --jq '[.data.merchant_themes[] | select(any(.preset_data.category[]?; .name == "<label>" or .value == "<code>")) | "\(.name) · \(.preset_name)"]'

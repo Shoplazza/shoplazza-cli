@@ -55,6 +55,9 @@ The order of precedence is SKILL.md → Rules for every operation (rule 1). To m
 3. One hit → use its `id`. Several (e.g. two themes named "Nova") or none → list the candidates
    (name, series, live or not, `updated_at`) and ask.
 
+Do the matching yourself on the projected list — don't `select(.name == …)` inside `--jq`: an
+exact, case-sensitive filter misses renamed themes and skips the series-name fallback.
+
 ```bash
 themes list --params '{"page_size":250}' --jq '[.data.themes[] | {id, name, merchant_theme_name, published, c_version}]'
 ```

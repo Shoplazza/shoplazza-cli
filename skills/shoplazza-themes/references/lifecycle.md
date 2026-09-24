@@ -24,7 +24,8 @@ Omit `sources` on duplicate — it copies everything by default.
    locates it. In "rename Reformia to Reformia Black Friday" the new name is data to write, never
    a search term: don't match it against the list, and never answer "no such theme" because the
    new name isn't found.
-2. **Pre-check** against the table below using a fresh `themes get`; if it fails, stop and say why.
+2. **Pre-check** against the table below with the row you already read (the list or a `themes get`);
+   a rename with the id given needs no extra read. If a check fails, stop and say why.
 3. **Run.**
    - rename / duplicate / upgrade: say in one line what will happen, then call.
    - delete / publish: `--dry-run` → restate (theme name + id; "permanent" for delete; for

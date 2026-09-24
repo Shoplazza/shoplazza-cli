@@ -64,7 +64,7 @@ means the published theme; `+preview` and `+card-schema` require it.
 | Theme-wide settings (colors, fonts, layout, buttons, cart…) | `themes session get-config` / `session update-config` | [global-config.md](references/global-config.md) |
 | App embeds and injected scripts: list, turn on/off | `themes app list` · `themes app enable` · `themes app disable` · `themes app extensions` | [apps.md](references/apps.md) |
 | Custom templates bound to products / collections / pages | `themes template list` · `create` · `update` · `delete` | [page-template.md](references/page-template.md) |
-| Generate a new AI card (no existing card fits) | `themes block +edit -t <id> --session <oseid> --content <file> --template <name>` | [block/generate-block.md](references/block/generate-block.md) |
+| Generate a new AI card (asked for explicitly, or no existing card fits) | `themes block +edit -t <id> --session <oseid> --content <file> --template <name>` | [block/generate-block.md](references/block/generate-block.md) |
 | Change an AI card's source / delete it | `themes block +get` → `block +edit --id <gen_id>` · `themes block delete-gen` | [block/edit-block.md](references/block/edit-block.md) · [block/delete-block.md](references/block/delete-block.md) |
 | Theme files and their version history | `themes file tree` · `file get/create/update/rename/delete` · `themes version list/records/get` | [files-versions.md](references/files-versions.md) |
 | Page-builder (advanced) cards and templates | `themes pb …` | [page-builder.md](references/page-builder.md) |
@@ -96,8 +96,12 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 
 1. **Which theme.** In order: the theme named in this turn → the theme established earlier in the
    conversation (opened, previewed, queried) → the published theme
-   (`themes list --params '{"published":"1"}'`). A theme named without an id: `themes list`,
-   then match `name`, then `merchant_theme_name` yourself; several or no matches → ask.
+   (`themes list --params '{"published":"1"}'`). A theme named without an id: `themes list`
+   projected to `{id, name, merchant_theme_name, published}` — never `select` by name inside
+   `--jq` — then match `name`, then `merchant_theme_name` yourself, case-insensitively
+   ([query.md](references/query.md)); several or no matches → ask. Exception: for `rename`,
+   `delete` and `publish` never fall back to the live theme — when nothing points to a theme, list
+   the installed themes and ask.
    Omitting `-t` on a later call silently switches to the published theme.
 2. **One session per task.** Every `+page` / `+edit` / `update-config` / `app` / `block` call of
    the task carries the same `oseid`.
@@ -123,8 +127,9 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 8. **Safety.** Only these need `--dry-run` → restate → wait for consent: `themes publish`,
    `+edit --publish`, `themes delete`, `themes template delete`, `themes block delete-gen`,
    `themes pb delete-template`, `session promote` with `force:true`, and direct `file` writes on the
-   published theme
-   ([files-versions.md](references/files-versions.md)). Everything else runs directly.
+   published theme ([files-versions.md](references/files-versions.md)). Everything else runs
+   directly, with no dry-run and no "shall I go ahead?" — a rename with the id and new name known is
+   one call.
 
 ## Acting on a request
 
@@ -148,7 +153,7 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 | 改主题配色 / 换字体 / change theme colors or fonts | `session get-config` → `update-config` | field by `label`; fonts only from [fonts.md](references/fonts.md) |
 | 开启 / 关闭 xx 弹窗 app / turn on an app embed | `themes app list` → `themes app enable` / `disable` | current state and `block_id` from `themes section list` ([apps.md](references/apps.md)) |
 | 给某商品单独做个详情页 / custom product template | `themes template create` | type from wording; bindings from real ids |
-| 生成一个 xx 卡片 / 自定义卡片 / generate a card | `block +edit` | only when existing cards can't do it |
+| 生成一个 xx 卡片 / 自定义卡片 / generate a card | `block +edit` | an explicit ask to generate → generate; a request for an effect → existing cards first ([card-add.md](references/card-add.md)) |
 | 保存 / 发布 / save / publish the changes | `+edit --ops '[]' --promote [--publish]` | publish needs consent |
 | 安装 xx 主题 / install theme X | `market list` → `market install` | preset from wording, else `Default` |
 | 主题改名 / 复制 / 升级 / 删除 / rename, duplicate, upgrade, delete | `themes rename` / `duplicate` / `upgrade` / `delete` | only the "which theme" half locates the theme |
@@ -159,7 +164,7 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 |---|---|---|---|
 | `+edit` value change | a value with no direction ("调一下") — ask for that field only | direction ("更大", "深一点") → pick from `min`/`max`/`options` | other fields stay untouched |
 | `add_section` | which card, when several candidates fit | the card from name / need; position from wording (`position: before:/after:<sid>`, `first`) | position (end of area) |
-| `themes rename` | the new name | the theme | — |
+| `themes rename` | the new name; the theme when nothing in the conversation points to one (never default a rename to the live theme) | the theme | — |
 | `themes duplicate` | — | source theme | `copy_theme_name` is required: send `<source name> copy` unless a name was given |
 | `themes upgrade` | — | the theme (`has_newest_version` must be true) | new theme name |
 | `themes market install` | which theme when the name is ambiguous | preset from wording | preset `Default`, server-side name |
@@ -170,6 +175,11 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 
 `--area` (default `all`) · `--include` · `from` on template create · duplicate / install / upgrade
 names · install preset (`Default`) · `limit` / `page` · which session (reuse the current one).
+
+Never ask "shall I go ahead?" before `rename`, `duplicate`, `upgrade`, `market install`, `template
+create` / `update`, or any draft write (`+edit` without `--publish`, `update-config`, `app enable` /
+`disable`, `block +edit`): once the values are known, run it. Consent is only for the operations in
+Rules → 8.
 
 ## Boundaries
 
