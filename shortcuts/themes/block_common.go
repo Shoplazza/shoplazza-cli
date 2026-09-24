@@ -3,6 +3,7 @@ package themes
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -194,7 +195,8 @@ func blockStageErr(err error, stage, oseid string) error {
 // blockPlaceFailErr reports an op that had to land but did not. An empty undone
 // means the rollback put the session back, so the same command can be sent
 // again; otherwise the block stayed behind and a second send would add another.
-func blockPlaceFailErr(oseid, cardType, revertID string, results []map[string]any, stuck []string, undone string) *output.ExitError {
+// With the page back, the leftover file can be reverted by hand.
+func blockPlaceFailErr(oseid, cardType, revertID string, results []map[string]any, stuck []string, undone string, pageBack bool) *output.ExitError {
 	e := output.Errorf(output.ExitAPI, output.TypeAPI, "placement failed: %s", strings.Join(stuck, ", ")).
 		WithField("stage", "place").
 		WithField("block_type", cardType).
@@ -205,10 +207,14 @@ func blockPlaceFailErr(oseid, cardType, revertID string, results []map[string]an
 		return e.WithField("reverted", true).
 			WithHint("the write was rolled back, nothing was left in the session — send the same command again")
 	}
-	return e.WithField("revert_failed", true).
+	e = e.WithField("revert_failed", true).
 		WithField("revert_error", undone).
-		WithField("revert_id", revertID).
-		WithHint("the block file stayed in the session (" + undone + ") — report the failure instead of sending the command again, which would write a second file")
+		WithField("revert_id", revertID)
+	if pageBack {
+		return e.WithHint(fmt.Sprintf("the page was put back but the block file stayed in the session (%s) — do not send the command again, remove the file instead: themes block revert-gen --params '{\"oseid\":\"%s\"}' --data '{\"revert_id\":\"%s\"}'",
+			undone, oseid, revertID))
+	}
+	return e.WithHint("the block file stayed in the session (" + undone + ") — report the failure instead of sending the command again, which would write a second file")
 }
 
 // newSectionID mints the id for a CLI-added section. The server honours a

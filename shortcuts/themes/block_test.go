@@ -729,7 +729,8 @@ func TestBlockEdit_RollbackAlsoDropsTheAddedContainer(t *testing.T) {
 }
 
 // TestBlockEdit_RollbackFailureTellsTheCallerNotToRetry: with the file still in
-// the session, sending the command again would write a second one.
+// the session, sending the command again would write a second one; the page is
+// back, so the hint names the revert that removes the file.
 func TestBlockEdit_RollbackFailureTellsTheCallerNotToRetry(t *testing.T) {
 	bs := newBlockServer(t)
 	bs.failResults = map[int]string{0: "target_not_found"}
@@ -743,8 +744,31 @@ func TestBlockEdit_RollbackFailureTellsTheCallerNotToRetry(t *testing.T) {
 	if env["revert_failed"] != true || env["revert_id"] != "rev_create" || getString(env, "revert_error") == "" {
 		t.Errorf("envelope: %v", env)
 	}
-	if h := getString(env, "hint"); !strings.Contains(h, "instead of sending the command again") {
+	want := `themes block revert-gen --params '{"oseid":"ose_x"}' --data '{"revert_id":"rev_create"}'`
+	if h := getString(env, "hint"); !strings.Contains(h, "do not send the command again") || !strings.Contains(h, want) {
 		t.Errorf("hint: %v", h)
+	}
+}
+
+// TestBlockEdit_PageRollbackFailureKeepsTheFile: an instance may still point at
+// the new block, so the file stays and the hint does not offer to revert it.
+func TestBlockEdit_PageRollbackFailureKeepsTheFile(t *testing.T) {
+	bs := newBlockServer(t)
+	bs.failResults = map[int]string{1: "block_type_invalid", 2: "target_not_found"} // the append, then the container removal
+	_, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index"})
+	var exitErr *output.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("want api error, got %v", err)
+	}
+	env := exitErr.Envelope()
+	if env["revert_failed"] != true || env["revert_id"] != "rev_create" || !strings.Contains(getString(env, "revert_error"), "remove_section") {
+		t.Errorf("envelope: %v", env)
+	}
+	if h := getString(env, "hint"); !strings.Contains(h, "instead of sending the command again") || strings.Contains(h, "revert-gen") {
+		t.Errorf("hint: %v", h)
+	}
+	if n := len(bs.writesTo("/gen-blocks/revert", http.MethodPost)); n != 0 {
+		t.Errorf("the file must stay while the page may point at it, got %d reverts", n)
 	}
 }
 
