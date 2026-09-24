@@ -62,7 +62,7 @@ NEW id — pass `-t <new id>`, or later calls land on another theme.
 
 | Error | Meaning | Do |
 |---|---|---|
-| duplicate → `ServerError` 500 `internal server error` | The copy is often created anyway | Never retry blindly: `themes list`, look for the new name; retry only if it is absent |
+| duplicate → `ServerError` 500 `internal server error` | The copy (theme, files, template bindings) is written before the step that fails, so it usually exists | Never retry blindly: `themes list`, look for the new name; retry only if it is absent |
 | upgrade → 422 `version limit` | This theme can't be upgraded through this call (seen on themes several major versions behind) | Tell the user; don't retry |
 | upgrade → 422 `version newest` | Already on the newest version | Say so |
 | rename rejected | A server-side name rule | Relay the message and ask for another name; never shorten it yourself |
