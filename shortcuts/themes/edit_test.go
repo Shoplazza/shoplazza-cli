@@ -1116,8 +1116,8 @@ func TestValidateOps_PbTemplateHint(t *testing.T) {
 		t.Fatal("want *output.ExitError")
 	}
 	env := exitErr.Envelope()
-	if !strings.Contains(fmt.Sprint(env["hint"]), `"source":"pb,custom"`) {
-		t.Errorf("hint = %v, want list-card source=custom discovery", env["hint"])
+	if !strings.Contains(fmt.Sprint(env["hint"]), `themes section cards --params '{"source":["pb","custom"]}'`) {
+		t.Errorf("hint = %v, want section cards source=custom discovery", env["hint"])
 	}
 }
 

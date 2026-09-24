@@ -407,7 +407,7 @@ func resolvePbSectionValue(ctx context.Context, c *client.Client, templateID str
 	typeURI := getString(block, "type")
 	if typeURI == "" {
 		return nil, output.ErrValidation("pb template %q not found (pb-single-blocks returned no type)", templateID).
-			WithHint(`discover addable pb template ids: themes list-card --params '{"source":"pb,custom"}'`)
+			WithHint(`discover addable pb template ids: themes section cards --params '{"source":["pb","custom"]}'`)
 	}
 	name := templateID
 	if n := zhText(block["name"]); n != "" {

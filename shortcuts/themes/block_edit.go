@@ -32,7 +32,8 @@ previous_type), every other reference keeps the old block.
 When an op that has to land does not, the write is rolled back and the error
 carries stage:"place" with reverted:true — the session is where it was, so
 send the same command again. revert_failed:true instead means the block file
-stayed behind and a second send would write another one.
+stayed behind and a second send would write another one; when the page was put
+back, the hint carries the "themes block revert-gen" command that removes it.
 
 Ops the placement can live without (--ops, --section-name) never fail the
 call: the block landed, and their names come back in degraded.
@@ -408,8 +409,8 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		if results["migrate"] == opSucceeded && branched {
 			undo.prevProps = current
 		}
-		undone := revertPlacement(ctx, in.Client, oseid, docID, revertID, undo)
-		e := blockPlaceFailErr(oseid, newType, revertID, applied, fatal, undone)
+		undone, pageBack := revertPlacement(ctx, in.Client, oseid, docID, revertID, undo)
+		e := blockPlaceFailErr(oseid, newType, revertID, applied, fatal, undone, pageBack)
 		if sectionCreated {
 			e.WithField("container", containerSID+".blocks")
 		} else if id != "" {
@@ -473,8 +474,9 @@ type placementUndo struct {
 // revertPlacement puts the session back to where this call found it after an
 // op that had to land failed. The page goes first: reverting the block while an
 // instance still points at it would leave that reference dangling, so a page it
-// cannot restore stops the rollback. Returns why it could not, or "".
-func revertPlacement(ctx context.Context, c *client.Client, oseid, docID, revertID string, undo placementUndo) string {
+// cannot restore stops the rollback. Returns why it could not, or "", and
+// whether the page is back.
+func revertPlacement(ctx context.Context, c *client.Client, oseid, docID, revertID string, undo placementUndo) (string, bool) {
 	var ops []map[string]any
 	if undo.prevType != "" {
 		ops = append(ops, map[string]any{"op": "update_slot", "target": undo.instance, "props": map[string]any{"type": undo.prevType}})
@@ -488,18 +490,18 @@ func revertPlacement(ctx context.Context, c *client.Client, oseid, docID, revert
 	if len(ops) > 0 {
 		resp, err := common.Send(ctx, c, PlanBatchOps(oseid, docID, ops))
 		if err != nil {
-			return "the page changes could not be put back: " + err.Error()
+			return "the page changes could not be put back: " + err.Error(), false
 		}
 		for i, res := range batchResultStrings(resp) {
 			if res != opSucceeded {
-				return "the page change " + getString(ops[i], "op") + " could not be put back: " + res
+				return "the page change " + getString(ops[i], "op") + " could not be put back: " + res, false
 			}
 		}
 	}
 	if _, err := common.Send(ctx, c, PlanRevertGenBlock(oseid, revertID)); err != nil {
-		return "the block write could not be reverted: " + err.Error()
+		return "the block write could not be reverted: " + err.Error(), true
 	}
-	return ""
+	return "", true
 }
 
 // containerCName renders --section-name as the container's cname, which sits

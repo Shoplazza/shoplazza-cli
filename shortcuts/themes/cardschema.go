@@ -58,8 +58,7 @@ var cardSchemaShortcut = common.Shortcut{
 	Use:       "+card-schema",
 	Short:     "Batch-read the settings/blocks schema of addable theme cards by id",
 	Long: `Read the configuration schema (settings and blocks) of up to 10 addable
-theme cards in one call. Card ids come from "themes section cards" /
-"themes +cards".
+theme cards in one call. Card ids come from "themes section cards".
 
 By default the output is the same compact zh-CN projection "+page --include
 schema" uses: per setting id/type/label/info/options/default/min/max/step/
