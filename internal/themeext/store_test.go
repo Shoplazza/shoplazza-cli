@@ -123,6 +123,34 @@ func TestZipThemeAppIncludesWrapper(t *testing.T) {
 	}
 }
 
+// TestZipThemeAppSkipsNonThemeFiles: te shares app deploy's skip rules and naming.
+func TestZipThemeAppSkipsNonThemeFiles(t *testing.T) {
+	root := t.TempDir()
+	for _, f := range []string{
+		"assets-manifest.json", "blocks/x.liquid",
+		"README.md", ".DS_Store", "blocks/.DS_Store", ".git/HEAD", "node_modules/x.js",
+	} {
+		p := filepath.Join(root, "theme-app", filepath.FromSlash(f))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(f), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	zipPath, err := ZipThemeApp(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "theme-app/assets-manifest.json theme-app/blocks/x.liquid"
+	if got := strings.Join(zipEntryNames(t, zipPath), " "); got != want {
+		t.Fatalf("zip entries = %q, want %q", got, want)
+	}
+	if dir, base := filepath.Dir(zipPath), filepath.Base(zipPath); dir != filepath.Join(root, ".te-build") || !strings.HasPrefix(base, "theme-app-") {
+		t.Fatalf("zip path = %q, want .te-build/theme-app-<hash><ts>.zip", zipPath)
+	}
+}
+
 // TestPushDevDoctreePollsTaskToCompletion: the full-tree dev push is async — the
 // PATCH dev-doctree response carries {task_id}, which must be polled to completion
 // at GET /version-tasks/{id} (v1 parity). It must not POST /version-tasks (that

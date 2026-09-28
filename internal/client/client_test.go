@@ -52,6 +52,23 @@ func TestResolveURL_EmptyBase(t *testing.T) {
 	}
 }
 
+// TestSend_EmptyBaseURLFails: sending with no store target fails with a clear
+// error instead of net/http's "unsupported protocol scheme".
+func TestSend_EmptyBaseURLFails(t *testing.T) {
+	c := client.New("")
+	var out map[string]any
+	err := c.GetJSON(context.Background(), "/openapi/2026-01/products/1", &out)
+	if err == nil || !strings.Contains(err.Error(), "no store target resolved") {
+		t.Fatalf("GetJSON with empty base URL: err = %v", err)
+	}
+	if _, err := c.DoRaw(context.Background(), client.RawRequest{Method: "GET", Path: "/x"}); err == nil {
+		t.Fatal("DoRaw with empty base URL must fail")
+	}
+	if _, err := c.SendStream(context.Background(), client.RawRequest{Method: "GET", Path: "/x"}); err == nil {
+		t.Fatal("SendStream with empty base URL must fail")
+	}
+}
+
 func TestResolveURL_NoLeadingSlash(t *testing.T) {
 	c := client.New("http://api.example.com")
 	got := c.ResolveURL("foo/bar")
@@ -105,6 +122,38 @@ func TestSetBearerToken_Empty(t *testing.T) {
 	_ = c.GetJSON(context.Background(), "/", &out)
 	if receivedToken != "" {
 		t.Errorf("empty token should not set header, got %q", receivedToken)
+	}
+}
+
+// ── SetCliUserID ────────────────────────────────────────────────────────────
+
+func TestSetCliUserID(t *testing.T) {
+	var receivedID string
+	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		receivedID = r.Header.Get("cli-user-id")
+		jsonResp(w, map[string]any{})
+	})
+	c.SetCliUserID("u_42")
+
+	var out map[string]any
+	_ = c.GetJSON(context.Background(), "/", &out)
+	if receivedID != "u_42" {
+		t.Errorf("cli-user-id = %q, want u_42", receivedID)
+	}
+}
+
+func TestSetCliUserID_Empty(t *testing.T) {
+	var receivedID string
+	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		receivedID = r.Header.Get("cli-user-id")
+		jsonResp(w, map[string]any{})
+	})
+	c.SetCliUserID("") // no-op
+
+	var out map[string]any
+	_ = c.GetJSON(context.Background(), "/", &out)
+	if receivedID != "" {
+		t.Errorf("empty id should not set header, got %q", receivedID)
 	}
 }
 

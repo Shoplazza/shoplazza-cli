@@ -73,7 +73,7 @@ func dashboardClient(ctx context.Context, f *cmdutil.Factory) (*app.Dashboard, e
 	// without it the backend later 403s with no visible cause. Best-effort, but
 	// surface the failure.
 	if uid, uErr := mgr.UserIDReady(ctx); uErr == nil && uid != "" {
-		c.Headers["cli-user-id"] = uid
+		c.SetCliUserID(uid)
 	} else if uErr != nil {
 		fmt.Fprintf(warnWriter(f), "warning: could not resolve login user id (Dashboard calls may 403): %v\n", uErr)
 	}
@@ -118,6 +118,7 @@ func storeClient(ctx context.Context, f *cmdutil.Factory, storeDomain string) (*
 	}
 	c := client.New("https://" + storeDomain)
 	c.SetBearerToken(tok)
+	c.SetCliUserID(cmdutil.CliUserID(f)) // audit attribution
 	return c, nil
 }
 

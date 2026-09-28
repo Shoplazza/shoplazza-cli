@@ -70,6 +70,7 @@ is deleted and the new one created.
 The output is a bounded summary ({created, inherited, carried_over, deleted} +
 deleted detail), never the full product body. --dry-run reads the product and
 prints the exact request body it would send, plus the same summary.`,
+	DryRunReads: true,
 	Flags: []common.Flag{
 		{Name: "id", Type: common.FlagString, Required: true, Description: "Product ID (required)."},
 		{Name: "action", Type: common.FlagString, Required: true,

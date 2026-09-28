@@ -9,14 +9,28 @@ import (
 	"testing"
 )
 
+func writeTree(t *testing.T, root string, files ...string) {
+	t.Helper()
+	for _, f := range files {
+		p := filepath.Join(root, filepath.FromSlash(f))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(f), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestZipExtension_PacksTree(t *testing.T) {
 	src := t.TempDir()
-	os.MkdirAll(filepath.Join(src, "blocks"), 0o755)
-	os.WriteFile(filepath.Join(src, "shoplazza.extension.toml"), []byte("name=\"x\"\n"), 0o644)
-	os.WriteFile(filepath.Join(src, "blocks", "a.liquid"), []byte("hello"), 0o644)
-	// a .git dir must be excluded
-	os.MkdirAll(filepath.Join(src, ".git"), 0o755)
-	os.WriteFile(filepath.Join(src, ".git", "HEAD"), []byte("ref"), 0o644)
+	writeTree(t, src,
+		"assets-manifest.json", "blocks/a.liquid", "locales/en-US.json",
+		// skipped: root files, dot entries at any depth, node_modules
+		"shoplazza.extension.toml", "package.json", "package-lock.json", "README.md",
+		".gitignore", ".env", ".DS_Store", "blocks/.DS_Store", ".git/HEAD",
+		"node_modules/x/index.js",
+	)
 
 	out := filepath.Join(t.TempDir(), "app-deploy", "x.zip")
 	// theme leg passes "theme-app" so every entry is under that top dir (v1 parity).
@@ -33,22 +47,44 @@ func TestZipExtension_PacksTree(t *testing.T) {
 		t.Fatalf("open zip: %v", err)
 	}
 	defer zr.Close()
-	found := map[string]bool{}
+	var names []string
 	for _, f := range zr.File {
-		found[f.Name] = true
+		names = append(names, f.Name)
 	}
-	if !found["theme-app/shoplazza.extension.toml"] || !found["theme-app/blocks/a.liquid"] {
-		t.Fatalf("zip missing expected theme-app/ prefixed entries: %v", found)
+	want := "theme-app/assets-manifest.json theme-app/blocks/a.liquid theme-app/locales/en-US.json"
+	if got := strings.Join(names, " "); got != want {
+		t.Fatalf("zip entries = %q, want %q", got, want)
 	}
-	if found[".git/HEAD"] || found["theme-app/.git/HEAD"] {
-		t.Fatalf(".git must be excluded from the zip")
+}
+
+func TestThemeZipName_IgnoresSkippedFiles(t *testing.T) {
+	src := t.TempDir()
+	writeTree(t, src, "blocks/a.liquid")
+	n1, err := themeZipName(src, "ext")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTree(t, src, "README.md", ".DS_Store", "node_modules/x.js")
+	n2, err := themeZipName(src, "ext")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n1[:12] != n2[:12] {
+		t.Errorf("skipped files changed the hash: %q vs %q", n1, n2)
+	}
+	writeTree(t, src, "blocks/b.liquid")
+	n3, err := themeZipName(src, "ext")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n1[:12] == n3[:12] {
+		t.Errorf("bundled file did not change the hash: %q", n3)
 	}
 }
 
 func TestThemeZipName_Format(t *testing.T) {
 	src := t.TempDir()
-	os.WriteFile(filepath.Join(src, "index.css"), []byte(".x{}"), 0o644)
-	os.WriteFile(filepath.Join(src, "main.js"), []byte("export default {}"), 0o644)
+	writeTree(t, src, "assets/index.css", "blocks/main.liquid")
 
 	name, err := themeZipName(src, "mytheme")
 	if err != nil {
@@ -70,7 +106,7 @@ func TestThemeZipName_Format(t *testing.T) {
 
 func TestThemeZipName_Deterministic_SameContent(t *testing.T) {
 	src := t.TempDir()
-	os.WriteFile(filepath.Join(src, "a.js"), []byte("content"), 0o644)
+	writeTree(t, src, "blocks/a.liquid")
 
 	n1, err := themeZipName(src, "ext")
 	if err != nil {
@@ -145,7 +181,7 @@ func TestBuildArtifactFor_Theme_ProducesZip(t *testing.T) {
 	extDir := filepath.Join(root, "extensions", "mytheme")
 	os.MkdirAll(extDir, 0o755)
 	os.WriteFile(filepath.Join(extDir, "shoplazza.extension.toml"), []byte("name=\"mytheme\"\n"), 0o644)
-	os.WriteFile(filepath.Join(extDir, "main.js"), []byte("export default {}"), 0o644)
+	writeTree(t, extDir, "blocks/main.liquid")
 
 	got, exitErr := BuildArtifactFor(context.Background(), root, LocalExt{
 		Dir: "mytheme", Name: "mytheme", Type: "theme",

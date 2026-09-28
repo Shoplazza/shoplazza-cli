@@ -594,6 +594,64 @@ func TestAuthGate_NormalShortcutStillGated(t *testing.T) {
 	}
 }
 
+// TestAuthGate_DryRunReadsShortcutGatedUnderDryRun: a DryRunReads shortcut
+// keeps the auth gate on under --dry-run; without it the read goes out with
+// no store base URL.
+func TestAuthGate_DryRunReadsShortcutGatedUnderDryRun(t *testing.T) {
+	f := notLoggedInFactory(t)
+	s := common.Shortcut{
+		Service: "themes", Command: "read-probe", Use: "read-probe", Short: "p",
+		DryRunReads: true,
+		Execute: func(_ context.Context, _ common.ExecInput) (common.ExecResult, error) {
+			t.Error("DryRunReads shortcut must not execute without login")
+			return common.ExecResult{}, nil
+		},
+	}
+	root := mountUnderThemes(t, f, s)
+	root.SetArgs([]string{"themes", "read-probe", "--dry-run"})
+	err := root.Execute()
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Detail == nil || ee.Detail.Type != output.TypeAuth {
+		t.Fatalf("expected type=auth ExitError, got %T: %v", err, err)
+	}
+}
+
+// TestAuthGate_DryRunReadsShortcutReachesStore: under --dry-run the gate
+// injects the store target, so the shortcut's read lands on the server.
+func TestAuthGate_DryRunReadsShortcutReachesStore(t *testing.T) {
+	var gotToken string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotToken = r.Header.Get("Access-Token")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"product":{"id":"1"}}`))
+	}))
+	defer srv.Close()
+	f := notLoggedInFactory(t)
+	f.Client = client.New("")
+	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
+	t.Setenv("SHOPLAZZA_CLI_API_BASE_URL", srv.URL)
+
+	s := common.Shortcut{
+		Service: "themes", Command: "read-probe", Use: "read-probe", Short: "p",
+		DryRunReads: true,
+		Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
+			p := common.PlannedRequest{Method: "GET", Path: "/openapi/2026-01/products/1"}
+			if _, err := common.Send(ctx, in.Client, p); err != nil {
+				return common.ExecResult{}, err
+			}
+			return common.ExecResult{Plans: []common.PlannedRequest{p}}, nil
+		},
+	}
+	root := mountUnderThemes(t, f, s)
+	root.SetArgs([]string{"themes", "read-probe", "--dry-run"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("dry-run read must reach the store; got: %v", err)
+	}
+	if gotToken != "dev" {
+		t.Fatalf("Access-Token = %q, want the injected token", gotToken)
+	}
+}
+
 // TestAuthGate_SpecLeafStillGated: spec-generated leaves carry no AuthFree
 // annotation and must remain gated.
 func TestAuthGate_SpecLeafStillGated(t *testing.T) {

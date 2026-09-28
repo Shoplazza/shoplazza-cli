@@ -1,22 +1,15 @@
 package themeext
 
 import (
-	"archive/zip"
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
 	"net"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -81,13 +74,8 @@ func Register(ctx context.Context, store *client.Client, root, name, resourceURL
 // zip writes) is internal.
 var ErrThemeAppMissing = errors.New("theme-app is missing or not a directory")
 
-// ZipThemeApp zips <root>/theme-app/ including the "theme-app/" wrapper directory
-// as the entry prefix (e.g. "theme-app/blocks/x.liquid"), matching v1's compress.
-// The backend's version-task / doctree parser requires this wrapper: it unzips
-// and reads files under "theme-app/…" (e.g. theme-app/assets-manifest.json). A
-// flattened zip (entries at the root) makes the parser build no doc — the version
-// is created but doc-less, and a later `te release` fails with "version has no
-// doc". Returns the zip path under <root>/.te-build/.
+// ZipThemeApp zips <root>/theme-app/ with app.ZipTheme (same wrapper, naming and
+// skip rules as app deploy) and returns the zip path under <root>/.te-build/.
 func ZipThemeApp(root string) (string, error) {
 	srcDir := filepath.Join(root, "theme-app")
 	fi, statErr := os.Stat(srcDir)
@@ -99,87 +87,7 @@ func ZipThemeApp(root string) (string, error) {
 	case !fi.IsDir(): // exists but is a regular file → invalid te project layout
 		return "", ErrThemeAppMissing
 	}
-	outDir := filepath.Join(root, ".te-build")
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return "", err
-	}
-	// Content+time-unique name → distinct OSS key per build. The OSS sign endpoint
-	// sets x-oss-forbid-overwrite, so a static "theme-app.zip" makes every build
-	// after the first reuse the stale object.
-	zipName, nerr := themeAppZipName(srcDir)
-	if nerr != nil {
-		return "", nerr
-	}
-	outPath := filepath.Join(outDir, zipName)
-	f, err := os.Create(outPath)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	// Prefix every entry with the "theme-app/" wrapper dir (see the function doc).
-	wrapper := filepath.Base(srcDir) // "theme-app"
-	zw := zip.NewWriter(f)
-	walkErr := filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		rel, err := filepath.Rel(srcDir, path)
-		if err != nil {
-			return err
-		}
-		w, err := zw.Create(wrapper + "/" + filepath.ToSlash(rel))
-		if err != nil {
-			return err
-		}
-		src, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-		_, err = io.Copy(w, src)
-		return err
-	})
-	if walkErr != nil {
-		_ = zw.Close()
-		return "", walkErr
-	}
-	if err := zw.Close(); err != nil {
-		return "", err
-	}
-	return outPath, nil
-}
-
-// themeAppZipName builds a content+time-unique zip filename ("theme-app-<md5_8><ts_8>.zip")
-// so each build uploads to a distinct OSS key (ossupload keys on the basename), avoiding
-// the x-oss-forbid-overwrite stale-object reuse a static name causes.
-func themeAppZipName(srcDir string) (string, error) {
-	var files []string
-	if err := filepath.WalkDir(srcDir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !d.IsDir() {
-			files = append(files, p)
-		}
-		return nil
-	}); err != nil {
-		return "", err
-	}
-	sort.Strings(files)
-	h := md5.New()
-	for _, p := range files {
-		b, err := os.ReadFile(p)
-		if err != nil {
-			return "", err
-		}
-		h.Write(b)
-	}
-	sum := hex.EncodeToString(h.Sum(nil))
-	ts := strconv.FormatInt(time.Now().UnixNano(), 16)
-	if len(ts) > 8 {
-		ts = ts[len(ts)-8:]
-	}
-	return fmt.Sprintf("theme-app-%s%s.zip", sum[:8], ts), nil
+	return app.ZipTheme(srcDir, filepath.Join(root, ".te-build"), "theme-app")
 }
 
 // PushDevDoctree pushes the full dev tree (PATCH /theme-extensions/{id}/dev-doctree)

@@ -369,7 +369,7 @@ func (m *Manager) PartnerToken() (string, error) {
 	return state.Partner, nil
 }
 
-// UserIDReady returns the login user id, sent as the login-user-id header on
+// UserIDReady returns the login user id, sent as the cli-user-id header on
 // /api/cli/v2 Dashboard calls. Sessions that predate user-id capture have it
 // empty in meta; backfill once via the Me endpoint (and persist), best-effort.
 func (m *Manager) UserIDReady(ctx context.Context) (string, error) {

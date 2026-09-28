@@ -37,7 +37,7 @@ type AppState struct {
 // tokens come from keychain and are never written to the metadata JSON file.
 type AuthState struct {
 	Account          string
-	UserID           string // login user id (poll/me user_id) — sent as login-user-id header
+	UserID           string // login user id (poll/me user_id) — sent as cli-user-id header
 	UAT              string // keychain AccountUATKey(account) — never serialized
 	Partner          string // keychain AccountPartnerKey(account) — never serialized
 	UATExpiresAt     string
@@ -64,7 +64,7 @@ type AppTokenMeta struct {
 // intentionally absent from this struct.
 type authMeta struct {
 	Account          string                    `json:"account,omitempty"`
-	UserID           string                    `json:"user_id,omitempty"` // not sensitive; sent as login-user-id header
+	UserID           string                    `json:"user_id,omitempty"` // not sensitive; sent as cli-user-id header
 	UATExpiresAt     string                    `json:"uat_expires_at,omitempty"`
 	PartnerExpiresAt string                    `json:"partner_expires_at,omitempty"`
 	GrantedScopes    []string                  `json:"granted_scopes,omitempty"`

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/extbuild/javy"
@@ -19,24 +20,59 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
+// themeSkipDirs are directory names left out of a theme zip at any depth.
+var themeSkipDirs = map[string]bool{"node_modules": true}
+
+// skipThemeEntry reports whether rel (slash path under the source root) is left out of a theme zip.
+func skipThemeEntry(rel string, d fs.DirEntry) bool {
+	if rel == "." {
+		return false
+	}
+	name := d.Name()
+	// Dot entries at any depth: .git, .env, .DS_Store, ...
+	if strings.HasPrefix(name, ".") {
+		return true
+	}
+	if d.IsDir() {
+		return themeSkipDirs[name]
+	}
+	// Root files are not theme content, except the assets manifest.
+	return !strings.Contains(rel, "/") && rel != "assets-manifest.json"
+}
+
+// walkThemeFiles calls fn for each file bundled into a theme zip, in lexical order.
+func walkThemeFiles(srcDir string, fn func(path, rel string) error) error {
+	return filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		r, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+		rel := filepath.ToSlash(r)
+		if skipThemeEntry(rel, d) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		return fn(path, rel)
+	})
+}
+
 // themeZipName ports v1's buildTheme.js filename: "<name>-<hash8><ts8>.zip",
-// where hash8 is the first 8 hex of an md5 over the source dir's file contents
-// (sorted for determinism, .git excluded) and ts8 is 8 hex of the current time.
+// where hash8 is the first 8 hex of an md5 over the bundled files' contents
+// (sorted for determinism) and ts8 is 8 hex of the current time.
 // The name MUST be content/time-unique: the OSS upload sends x-oss-forbid-
 // overwrite and a 409 is swallowed (the old object's URL is returned), so a
 // static "<name>.zip" would silently reuse a STALE artifact on every re-deploy.
 func themeZipName(srcDir, name string) (string, error) {
 	var files []string
-	if err := filepath.WalkDir(srcDir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if d.Name() == ".git" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
+	if err := walkThemeFiles(srcDir, func(p, _ string) error {
 		files = append(files, p)
 		return nil
 	}); err != nil {
@@ -59,9 +95,19 @@ func themeZipName(srcDir, name string) (string, error) {
 	return fmt.Sprintf("%s-%s%s.zip", name, sum[:8], ts), nil
 }
 
+// ZipTheme zips srcDir into outDir as "<name>-<hash8><ts8>.zip" under a
+// "theme-app/" wrapper and returns the zip path. Shared by app deploy/dev and te.
+func ZipTheme(srcDir, outDir, name string) (string, error) {
+	zipName, err := themeZipName(srcDir, name)
+	if err != nil {
+		return "", err
+	}
+	return zipExtension(srcDir, filepath.Join(outDir, zipName), "theme-app")
+}
+
 // zipExtension packs srcDir into a zip at outPath (creating parent dirs),
-// excluding any .git directory, with forward-slash relative paths. Returns
-// outPath. Used by the theme deploy leg.
+// skipping entries per skipThemeEntry, with forward-slash relative paths.
+// Returns outPath. Used by the theme deploy leg.
 //
 // topDir, when non-empty, prefixes every entry with "<topDir>/" so the archive
 // has a single top-level directory. The theme leg passes "theme-app" to match
@@ -81,21 +127,8 @@ func zipExtension(srcDir, outPath, topDir string) (string, error) {
 	defer f.Close()
 	zw := zip.NewWriter(f)
 
-	walkErr := filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if d.Name() == ".git" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		rel, err := filepath.Rel(srcDir, path)
-		if err != nil {
-			return err
-		}
-		name := filepath.ToSlash(rel)
+	walkErr := walkThemeFiles(srcDir, func(path, rel string) error {
+		name := rel
 		if topDir != "" {
 			name = topDir + "/" + name
 		}
@@ -159,15 +192,7 @@ func BuildArtifactFor(ctx context.Context, projectRoot string, l LocalExt, debug
 		if sub := filepath.Join(src, "theme-app"); isDir(sub) {
 			src = sub
 		}
-		// Content/time-unique name (v1 parity) — a static name collides with the
-		// overwrite-forbidden OSS object and silently reuses a stale artifact.
-		zipName, nErr := themeZipName(src, l.Name)
-		if nErr != nil {
-			return "", output.ErrInternal("hash theme extension %q: %v", l.Dir, nErr)
-		}
-		out := filepath.Join(projectRoot, "app-deploy", zipName)
-		// "theme-app" wrapper dir — v1 parity (buildTheme.js rename:"theme-app").
-		zipped, err := zipExtension(src, out, "theme-app")
+		zipped, err := ZipTheme(src, filepath.Join(projectRoot, "app-deploy"), l.Name)
 		if err != nil {
 			return "", output.ErrInternal("zip theme extension %q: %v", l.Dir, err)
 		}

@@ -112,6 +112,8 @@ func storeClient(ctx context.Context, f *cmdutil.Factory, override string) (*cli
 		}
 		c := client.New(base)
 		c.SetBearerToken(tok)
+		// Injected token: the audit id must be injected too (see RequireAuth).
+		c.SetCliUserID(cmdutil.CliUserIDEnv())
 		return c, domain, nil
 	}
 	tok, domain, tErr := storeTokenFor(ctx, f, override)
@@ -120,6 +122,7 @@ func storeClient(ctx context.Context, f *cmdutil.Factory, override string) (*cli
 	}
 	c := client.New("https://" + domain)
 	c.SetBearerToken(tok)
+	c.SetCliUserID(cmdutil.CliUserID(f)) // audit attribution
 	return c, domain, nil
 }
 
@@ -165,7 +168,7 @@ func dashboardClient(ctx context.Context, f *cmdutil.Factory) (*app.Dashboard, e
 	// Best-effort, but surface the failure: without the cli-user-id header the
 	// backend later 403s with no visible cause (mirrors cmd/app).
 	if uid, uErr := mgr.UserIDReady(ctx); uErr == nil && uid != "" {
-		c.Headers["cli-user-id"] = uid
+		c.SetCliUserID(uid)
 	} else if uErr != nil {
 		fmt.Fprintf(warnWriter(f), "warning: could not resolve login user id (Dashboard calls may 403): %v\n", uErr)
 	}
