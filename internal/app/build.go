@@ -95,6 +95,16 @@ func themeZipName(srcDir, name string) (string, error) {
 	return fmt.Sprintf("%s-%s%s.zip", name, sum[:8], ts), nil
 }
 
+// ZipTheme zips srcDir into outDir as "<name>-<hash8><ts8>.zip" under a
+// "theme-app/" wrapper and returns the zip path. Shared by app deploy/dev and te.
+func ZipTheme(srcDir, outDir, name string) (string, error) {
+	zipName, err := themeZipName(srcDir, name)
+	if err != nil {
+		return "", err
+	}
+	return zipExtension(srcDir, filepath.Join(outDir, zipName), "theme-app")
+}
+
 // zipExtension packs srcDir into a zip at outPath (creating parent dirs),
 // skipping entries per skipThemeEntry, with forward-slash relative paths.
 // Returns outPath. Used by the theme deploy leg.
@@ -182,15 +192,7 @@ func BuildArtifactFor(ctx context.Context, projectRoot string, l LocalExt, debug
 		if sub := filepath.Join(src, "theme-app"); isDir(sub) {
 			src = sub
 		}
-		// Content/time-unique name (v1 parity) — a static name collides with the
-		// overwrite-forbidden OSS object and silently reuses a stale artifact.
-		zipName, nErr := themeZipName(src, l.Name)
-		if nErr != nil {
-			return "", output.ErrInternal("hash theme extension %q: %v", l.Dir, nErr)
-		}
-		out := filepath.Join(projectRoot, "app-deploy", zipName)
-		// "theme-app" wrapper dir — v1 parity (buildTheme.js rename:"theme-app").
-		zipped, err := zipExtension(src, out, "theme-app")
+		zipped, err := ZipTheme(src, filepath.Join(projectRoot, "app-deploy"), l.Name)
 		if err != nil {
 			return "", output.ErrInternal("zip theme extension %q: %v", l.Dir, err)
 		}
