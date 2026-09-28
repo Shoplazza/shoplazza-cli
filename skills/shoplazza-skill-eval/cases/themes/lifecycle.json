@@ -62,7 +62,7 @@
         "名|name"
       ],
       "semantic_rubric": [
-        "asks which theme (ideally listing the installed themes) and what the new name should be",
+        "runs the themes list projection and asks which theme with those rows as the candidates, plus what the new name should be",
         "does not emit themes rename with an invented theme id or name"
       ]
     }
@@ -106,7 +106,8 @@
       "must_ask": false,
       "semantic_rubric": [
         "resolves the live theme with themes list --params '{\"published\":\"1\"}'",
-        "if the duplicate is shown: copy_theme_id = that id and copy_theme_name '<source name> copy' (or similar) in --data",
+        "if the duplicate is shown: copy_theme_id = that id and copy_theme_name '<source name> copy' (or similar) in the body — literal --data JSON, or built by --jq and piped to --data -",
+        "reads the live theme once (not one read per field), and never splices a shell variable into a JSON string",
         "does not ask for a name or for confirmation"
       ]
     }
@@ -127,7 +128,7 @@
       ],
       "semantic_rubric": [
         "explains that the published theme can't be deleted and another theme must be published first — HARD FAIL if it emits themes delete for the live theme",
-        "offers the real path (pick and publish another theme, then delete this one with consent)"
+        "offers the real path: lists the unpublished themes (themes list with published \"0\") as the candidates to publish, then delete this one with consent (a theme with default \"1\" can't be deleted at all)"
       ]
     }
   },
