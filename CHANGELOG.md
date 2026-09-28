@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- `app deploy` / `app dev` no longer bundle non-theme files into a theme extension. Root files other than `assets-manifest.json` (`shoplazza.extension.toml`, `package.json`, `README.md`, …), dot entries at any depth (`.env`, `.gitignore`, `.DS_Store`) and `node_modules/` are left out of the upload; they previously showed up as stray files inside the extension's `blocks/` or `locales/`.
+
 ## 2.2.0 - 2026-09-21
 
 ### Fixed
