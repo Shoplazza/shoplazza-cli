@@ -20,17 +20,24 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
-// skipThemeEntry reports whether rel (slash path under the source root) is left
-// out of a theme zip: dot entries, node_modules, and root files other than
-// assets-manifest.json.
+// themeSkipDirs are directory names left out of a theme zip at any depth.
+var themeSkipDirs = map[string]bool{"node_modules": true}
+
+// skipThemeEntry reports whether rel (slash path under the source root) is left out of a theme zip.
 func skipThemeEntry(rel string, d fs.DirEntry) bool {
 	if rel == "." {
 		return false
 	}
-	if name := d.Name(); strings.HasPrefix(name, ".") || name == "node_modules" {
+	name := d.Name()
+	// Dot entries at any depth: .git, .env, .DS_Store, ...
+	if strings.HasPrefix(name, ".") {
 		return true
 	}
-	return !d.IsDir() && !strings.Contains(rel, "/") && rel != "assets-manifest.json"
+	if d.IsDir() {
+		return themeSkipDirs[name]
+	}
+	// Root files are not theme content, except the assets manifest.
+	return !strings.Contains(rel, "/") && rel != "assets-manifest.json"
 }
 
 // walkThemeFiles calls fn for each file bundled into a theme zip, in lexical order.
