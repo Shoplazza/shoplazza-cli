@@ -1,7 +1,7 @@
-# ljs-animation — one-off CSS entrance animations
+# ljs-animation — CSS entrance and scroll animations
 
-Plays a one-off CSS animation on existing nodes: entrance effects, animations that play when the
-visitor scrolls to them. lessjs reference:
+Plays a CSS animation on existing nodes: entrance effects, animations that play when the visitor
+scrolls to them (again on every entry unless `once` is set). lessjs reference:
 [spz-animation](https://lessjs.shoplazza.com/latest/components/spz-animation/) (write the tag as
 `ljs-animation`).
 

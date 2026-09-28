@@ -5,7 +5,7 @@ Shows an absolute time as "how long ago".
 ## Rules
 
 1. Use `ljs-timeago`. No hand-written relative-time JS.
-2. `datetime` is required and is the only attribute to write.
+2. `datetime` is required and, besides `layout`, the only attribute to write.
 3. `datetime` takes a parseable date string: `YYYY/MM/DD`, `YYYY/MM/DD HH:mm`, or
    `YYYY/MM/DD HH:mm:ss` (e.g. `2021/5/10 15:36:11`). When it comes from settings, output it as is;
    don't concatenate other copy into it.

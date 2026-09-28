@@ -9,8 +9,8 @@ Two uses:
 
 > Restricted component: [selection.md](selection.md) bans purchase components as a class; this
 > component, [ljs-product-form](ljs-product-form.md), and [ljs-quantity](ljs-quantity.md) are the
-> only three exceptions, and all of these must hold: a product block + a list card's add-to-cart
-> area or a single-product purchase card + this doc has been read + the matching kind file has been
+> only three exceptions (`ljs-quantity` on single-product cards only), and all of these must
+> hold: a product block + a list card's add-to-cart area or a single-product purchase card + this doc has been read + the matching kind file has been
 > read ([kinds/product-card.md](../kinds/product-card.md) for list cards,
 > [kinds/product-single.md](../kinds/product-single.md) for single-product cards).
 

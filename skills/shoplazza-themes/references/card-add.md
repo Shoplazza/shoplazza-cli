@@ -51,7 +51,7 @@ themes +edit -t <theme_id> --template index --session <oseid> --ops '[{"op":"add
 | The need names a feature (countdown, quick add, filters…) | `+card-schema` the candidates; keep only those whose `settings` / `blocks` really have it (match `label`). Empty `settings` (extension) or an id in `missing` → judge by `name` |
 | "Which cards can I add?" with no add intended | List names grouped by source, plain text; stop |
 | Empty list | Say no cards can be added to this page |
-| Nothing fits | Don't force a card or invent a type. A theme setting may cover it (cart / quick-add behavior often does — [global-config.md](global-config.md)); otherwise offer an AI card ([block/generate-block.md](block/generate-block.md)) |
+| Nothing fits | Don't force a card or invent a type. A theme setting may cover it (cart / quick-add behavior often does — [global-config.md](global-config.md)); otherwise generate an AI card without asking ([block/generate-block.md → When to generate](block/generate-block.md#when-to-generate)) |
 
 Read the source from `items[].source`, not from how the id looks.
 

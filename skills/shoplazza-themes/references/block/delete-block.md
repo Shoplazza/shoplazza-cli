@@ -10,8 +10,8 @@ Command details: [block-cli.md](block-cli.md).
   ship with the theme have no source that can be deleted: say so. They can only be removed from
   the page ([card-edit.md](../card-edit.md)).
 - **Unsure whether to delete the source or just take the card off the page?** Take it off the page
-  ([card-edit.md](../card-edit.md)) and say why: a card removed from a page can be put back, a
-  deleted source can't.
+  ([card-edit.md](../card-edit.md)) and say why: a card removed from a page can be put back, while
+  a deleted source comes back only through `revert-gen` in the same edit session (Undo below).
 
 ## Flow
 
@@ -45,14 +45,15 @@ Command details: [block-cli.md](block-cli.md).
 Each `instances` row is one placement: `template` is the page, `target` its position on the page.
 
 Restate three things, in words the user understands: the card's name (its `cname` from the page
-read), the places that will lose it, and that it's permanent — the card can't be put back on a
-page afterwards. Name pages by what they are (`index` is the homepage, `product` the product
+read), the places that will lose it, and that it's permanent — the card can't be put back on a page
+afterwards (undo is only for an explicit ask, below). Name pages by what they are (`index` is the homepage, `product` the product
 detail page); never show `ref_count`, `template`, `target` or their raw values.
 
 ## Undo
 
-The response carries a `revert_id`. `themes block revert-gen` with it, in the same session, brings
-the card back — its file, the `_blocks` container it sat in, and its settings:
+The response carries a `revert_id`. `themes block revert-gen` with it, in the same edit session, is
+the only undo and brings the card back — its file, the `_blocks` container it sat in, and its
+settings:
 
 ```bash
 themes block revert-gen --params '{"oseid":"<oseid>"}' --data '{"revert_id":"<revert_id>"}'

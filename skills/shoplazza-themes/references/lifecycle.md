@@ -23,7 +23,9 @@ Omit `sources` on duplicate — it copies everything by default.
    [query.md](query.md) → Finding a theme by name. Only the "which theme" half of the request
    locates it. In "rename Reformia to Reformia Black Friday" the new name is data to write, never
    a search term: don't match it against the list, and never answer "no such theme" because the
-   new name isn't found.
+   new name isn't found. Nothing points to a theme (rename / delete / publish) → in the same turn
+   run the list from [query.md](query.md) → Finding a theme by name and ask with its rows, bundled
+   with any other missing value (such as the new name).
 2. **Pre-check** against the table below with the row you already read (the list or a `themes get`);
    a rename with the id given needs no extra read. If a check fails, stop and say why.
 3. **Run.**
@@ -38,10 +40,21 @@ Omit `sources` on duplicate — it copies everything by default.
 | Command | Pre-check (stop if it fails) | Facts to state |
 |---|---|---|
 | rename | New name equals the current `name` → nothing to change, no call | Changes only the display name; content, published state and id stay. Send the name exactly as given — no local length check, no truncation, no escaping beyond valid JSON |
-| duplicate | — | New theme, new id, `published:"0"`; the source is untouched. No name given → `<source name> copy`, and say so |
+| duplicate | — | New theme, new id, `published:"0"`; the source is untouched. No name given → `<source name> copy`, and say so. Build the body in one read — see the recipe below |
 | upgrade | Read `c_version`, `newest_c_version`, `has_newest_version`; missing → no call (themes uploaded from local development can't be upgraded); `has_newest_version` not true → "already on the newest version (<c_version>)", no call | Creates a NEW theme at `newest_c_version` carrying over the configuration; the original is unchanged and stays live if it was. `name` optional — omitted keeps the current name |
-| delete | `published:"1"` or `default:"1"` → can't be deleted: "publish another theme first, then delete this one" | Permanent — there is no undo |
-| publish | Already `published:"1"` → it is already live, no call | Replaces the live theme for buyers immediately. Changes still in an unsaved edit session are not included — save them first, or use `+edit … --promote --publish` ([card-edit.md](card-edit.md)) |
+| delete | `default:"1"` → the store's default theme can't be deleted at all: say so, no call. `published:"1"` → can't be deleted while live: say so, list the unpublished themes (recipe below) and ask which one to publish instead — that publish needs its own consent. When the request itself names the live theme ("the one I'm using"), read it and the recipe in the same turn — `themes list --params '{"published":"1"}'` for its `default`, and the unpublished list — then ask with those rows (default → refuse outright); don't ask again which theme was meant | Permanent — there is no undo |
+| publish | Already `published:"1"` and `has_draft` not true → it is already live, no call. Live with `has_draft:true` → it has saved draft changes that aren't live yet; publishing takes them live | Replaces the live theme for buyers immediately. Changes still in an unsaved edit session are not included — save them first, or use `+edit … --promote --publish` ([card-edit.md](card-edit.md)) |
+
+```bash
+# Delete refused: the unpublished themes to offer as the replacement
+shoplazza themes list --params '{"published":"0","page_size":250}' --jq '[.data.themes[] | {id, name, merchant_theme_name}]'
+
+# Duplicate the live theme under the default name: one read, and jq builds the body (safe for any name)
+shoplazza themes list --params '{"published":"1"}' --jq '.data.themes[0] | {copy_theme_id: .id, copy_theme_name: (.name + " copy")}' | shoplazza themes duplicate --data -
+```
+
+Writing `--data` by hand from a row you read: put the values in as JSON, escaping `"` and `\`.
+Never splice a shell variable into a JSON string — a quote in the theme name breaks the body.
 
 Duplicate = a same-version clone; upgrade = a new theme on the newest version. Renaming a file
 inside a theme is a file operation ([files-versions.md](files-versions.md)), not a theme rename.
@@ -67,7 +80,7 @@ NEW id — pass `-t <new id>`, or later calls land on another theme.
 | upgrade → 422 `version limit` | This theme can't be upgraded through this call (seen on themes several major versions behind) | Tell the user; don't retry |
 | upgrade → 422 `version newest` | Already on the newest version | Say so |
 | rename rejected | A server-side name rule | Relay the message and ask for another name; never shorten it yourself |
-| delete refused | The theme is published / default | Say so; another theme must be published first (its own consent) |
+| delete refused | The theme is published, or the store's default | As the delete pre-check |
 | `Record not found` (404) | Wrong or already-deleted id | Re-list and re-resolve |
 
 ## Rules

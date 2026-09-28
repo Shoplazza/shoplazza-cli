@@ -58,8 +58,10 @@ must-fix unless marked *advisory*. The rules behind the items: [liquid-rules.md]
 - No undeclared preset key or `presets[0].blocks[].type`. → Never read; the add is rejected.
 - Value types match: `range` a number, `checkbox` unquoted `true`/`false`, `color` `#RRGGBB`. → Wrong type.
 - All copy (`text` / `textarea` / `richtext` defaults and preset values, root and sub-blocks) is
-  non-empty, in the one card copy language; dictated lines verbatim. → Two languages side by side;
-  setting defaults aren't translated for buyers.
+  non-empty — except capacity slots that hide when empty
+  ([schema-rules.md → Every setting needs a reason](schema-rules.md#every-setting-needs-a-reason)) —
+  in the one card copy language; dictated lines verbatim. → Two languages side by side; setting
+  defaults aren't translated for buyers.
 
 ## Settings consistency (declared ⇔ used)
 
@@ -90,8 +92,9 @@ must-fix unless marked *advisory*. The rules behind the items: [liquid-rules.md]
 - One top-level HTML element (not counting `{% schema %}`, `<style>`, comments), whose opening tag
   carries `{{ block.shoplaza_attributes }}` (one "z"); each sub-block root carries
   `{{ item.shoplaza_attributes }}`. → Merchants can't select the card or item in the editor.
-- `block_id` (`section.id` + `block.id`) and `root_cls` built at the top; every id and class
-  derives from them. → Two copies of the card on one page collide.
+- `block_id` (`section.id` + `block.id`) and `root_cls` built at the top; ids derive from
+  `block_id`, classes are scoped under `.{{ root_cls }}`. → Two copies of the card on one page
+  collide.
 - A `{% comment %}` stating the requirement opens the file (the next edit's only record of intent).
 - Images use `ljs-img` (no raw `<img>`) in a slot with fixed height or `aspect-ratio`, with a
   placeholder when blank (keys from liquid-rules only). → Page jumps; blank slots collapse.

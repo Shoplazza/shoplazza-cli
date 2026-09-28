@@ -12,7 +12,9 @@ exactly this by them.
 - **Quick-add button vs add-to-cart link** — a quick-add button adds to cart from the product card
   itself (no variants → straight into the cart; several options → an in-card panel to pick the
   variant first). An add-to-cart link only goes to the product page. Buttons on a product-list
-  card are always quick-add buttons, whether an icon or a full-width bar.
+  card are quick-add buttons, whether an icon or a full-width bar — except in an async load-more
+  list (L2), which always uses an add-to-cart link (the "options link" in
+  [kinds/product-card.md](kinds/product-card.md)).
 - **schema** — the setting definitions inside `{% schema %}` in a section or block file. They
   decide which settings and presets the card has in the theme editor.
 - **ljs component** — a web component available to Shoplazza theme code; its tag starts with

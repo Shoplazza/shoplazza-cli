@@ -56,9 +56,8 @@ Example: `@tap="faq.toggle(section='item-2')"` (the target section needs a stabl
 ## Events
 
 `expand` (a section opened) and `collapse` (a section closed); event data `index` = the section's
-index. Don't make the card depend on them: `expand` has been seen not to fire in some builds. Style
-the accordion's own open state with CSS on `section[expanded]` (rule 10), and use the events only
-for optional extras outside it.
+index. Style the accordion's own open state with CSS on `section[expanded]` (rule 10), not through
+these events; use the events only for optional extras outside it.
 
 ## Skeleton (single file: root block + inline item child blocks)
 

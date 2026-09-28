@@ -26,9 +26,10 @@ Embeds an external YouTube video. Keep it strictly apart from [ljs-video](ljs-vi
 | `width` / `height` | Size | no | give them with the layout |
 | `autoplay` / `loop` | Autoplay / loop | no | boolean, no value |
 | `data-param-playlist` | Goes with `loop` | no | same value as `videoid` |
+| `referrerpolicy` | iframe referrer policy | no | optional string |
 
-Use only the attributes in the table: don't write `referrerpolicy`, `aria-label`, or any other
-`data-param-*`, and don't pass a full URL through `src`.
+Use only the attributes in the table: don't write `aria-label` or any other `data-param-*`, and
+don't pass a full URL through `src`.
 
 ## Skeleton
 

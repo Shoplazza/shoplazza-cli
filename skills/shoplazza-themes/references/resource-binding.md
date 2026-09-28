@@ -63,9 +63,9 @@ it as the click target for buttons and images, and without it nothing is clickab
 ## Empty collections
 
 Before binding a collection to a card that shows its products, check it has products:
-`products +search --collection-id <collection_id> --page-limit 1`. No products → tell the user
-"this collection has no products; the card will show an empty block", and write only after they
-confirm.
+`products +search --collection-id <collection_id> --page-limit 1`. No products → still bind it,
+and say in the summary "this collection has no products yet; the card shows an empty block until
+it does".
 
 ## source fields
 

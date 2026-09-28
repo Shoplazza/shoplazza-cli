@@ -13,7 +13,6 @@ Form selection, in-card elements, the add-to-cart area and the setting contract 
 ```liquid
 {% comment %} block_id and root_cls come from the file header (liquid-rules.md) {% endcomment %}
 {% capture list_id %}pl-{{ block_id }}{% endcapture %}
-{% capture tpl_id %}pl-tpl-{{ block_id }}{% endcapture %}
 {% assign list_src = '/api/collections/' | append: col.id | append: '/cps' | add_root_url %}
 
 <div class="{{ root_cls }}" {{ block.shoplaza_attributes }}>
@@ -22,7 +21,6 @@ Form selection, in-card elements, the add-to-cart area and the setting contract 
     list="data.products" total="data.count"
     initial-page="0" initial-total="{{ col.products_count }}"
     page-size="{{ block.settings.page_size }}"
-    template="{{ tpl_id }}"
     {% if block.settings.load_mode == 'scroll' %}infinite-scroll{% endif %}
   >
     {% comment %} first page: server-rendered with the same markup as the L1 card {% endcomment %}
@@ -30,15 +28,15 @@ Form selection, in-card elements, the add-to-cart area and the setting contract 
       <div class="{{ root_cls }}__item">…</div>
     {% endfor %}
 
+    {% comment %} later pages: interpolate only ${data.xxx}; Liquid has already run by now {% endcomment %}
+    <template>
+      <div class="{{ root_cls }}__item">…</div>
+    </template>
+
     {% if block.settings.load_mode == 'click' %}
       <div loadmore class="{{ root_cls }}__loadmore">{{ block.settings.load_more_text }}</div>
     {% endif %}
   </ljs-list>
-
-  <template id="{{ tpl_id }}">
-    {% comment %} later pages: interpolate only ${data.xxx}; Liquid has already run by now {% endcomment %}
-    <div class="{{ root_cls }}__item">…</div>
-  </template>
 </div>
 ```
 
@@ -56,11 +54,15 @@ Form selection, in-card elements, the add-to-cart area and the setting contract 
      the whole attribute out; never write `="false"`.
    - `click` → a child element with the `loadmore` attribute. The list uses that element as its
      load button and switches to load-more paging.
-5. The item template is inline in the block (a `<template>` referenced by `template="<id>"`, or a
-   direct child). No `template-src` pointing at an external file — an AI card can't ship assets.
+5. The item template is a `<template>` that is a direct child of `ljs-list`
+   ([ljs/template.md](../ljs/template.md#t1--where-the-template-lives-and-how-the-component-finds-it),
+   T1); `ljs-list` has no `template` attribute. No `template-src` pointing at an external file — an
+   AI card can't ship assets.
 6. The first-page Liquid markup and the `${}` template markup must render the same card.
-7. When no collection is picked (`col.isMock`), output no `ljs-list` at all; render only
-   placeholder cards. The placeholder collection has no real id, so the API can't return data.
+7. When no collection is picked, output no `ljs-list` at all; render only placeholder cards. A
+   collection has no `isMock` field: set a flag in the fallback branch
+   (`{% assign col_placeholder = true %}` beside `{% assign col = default_collection %}`) and test
+   `col_placeholder`. The placeholder collection has no real id, so the API can't return data.
 8. Don't add `ljs-pagination`: page numbers are out of scope for this card (the setting contract in
    [product-card.md](product-card.md) has no setting for them).
 
@@ -75,9 +77,8 @@ Form selection, in-card elements, the add-to-cart area and the setting contract 
 
 ## `${}` is a restricted expression
 
-Allowed: property paths, ternaries, single-line value-level array methods. Conditional branches and
-list loops don't go inside `${}` — use the `spz-if` / `spz-for` directives (limits in the `${}`
-expression and directive sections of [ljs/template.md](../ljs/template.md)).
+Limits: [ljs/template.md](../ljs/template.md#t3---expressions-scope-and-limits) (T3); branches and
+loops use the `spz-if` / `spz-for` directives (T4).
 
 ## The cost of L2
 

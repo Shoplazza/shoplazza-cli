@@ -96,12 +96,13 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 
 1. **Which theme.** In order: the theme named in this turn → the theme established earlier in the
    conversation (opened, previewed, queried) → the published theme
-   (`themes list --params '{"published":"1"}'`). A theme named without an id: `themes list`
-   projected to `{id, name, merchant_theme_name, published}` — never `select` by name inside
-   `--jq` — then match `name`, then `merchant_theme_name` yourself, case-insensitively
-   ([query.md](references/query.md)); several or no matches → ask. Exception: for `rename`,
-   `delete` and `publish` never fall back to the live theme — when nothing points to a theme, list
-   the installed themes and ask.
+   (`themes list --params '{"published":"1"}'`). A theme named without an id: match it per
+   [query.md → Finding a theme by name](references/query.md#finding-a-theme-by-name) — every page,
+   projected, matched yourself, never `select` by name inside `--jq` (market lookups follow
+   [market.md](references/market.md)); several or no matches → ask.
+   Exception: for `rename`, `delete` and `publish` never fall back to the live theme — when
+   nothing points to a theme, run that list and ask with its rows as the candidates. A request
+   that names the live theme itself ("the one I'm using") does point to it.
    Omitting `-t` on a later call silently switches to the published theme.
 2. **One session per task.** Every `+page` / `+edit` / `update-config` / `app` / `block` call of
    the task carries the same `oseid`.
@@ -117,19 +118,23 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
    count, and PC vs mobile fields, are separate fields.
 5. **Can't do it → say so, offer the real alternatives, wait.** Never invent a field or block
    type, never replace the ask with a near action (hiding or blanking ≠ deleting), never hand-edit
-   theme source files to force it. When no existing card can do it, the AI-card flow can
-   ([block/generate-block.md](references/block/generate-block.md)).
+   theme source files to force it. One exception: when the user wants a new card and no addable
+   card can produce it, generate an AI card without asking
+   ([block/generate-block.md → When to generate](references/block/generate-block.md#when-to-generate)).
 6. **A store object named in the request is a binding, not a title.** "Show collection X" means
    filling the card's collection-type field with the real object
    ([resource-binding.md](references/resource-binding.md)), not typing X into a heading.
 7. **Card copy language** = the storefront's primary-market language (`shop markets list` →
-   the primary market → `shop markets list-language`). Text the user gives is written verbatim.
+   the primary market → `shop markets list-language`). Text the user gives is written verbatim,
+   and copy you draft for the same card follows that text's language.
 8. **Safety.** Only these need `--dry-run` → restate → wait for consent: `themes publish`,
    `+edit --publish`, `themes delete`, `themes template delete`, `themes block delete-gen`,
-   `themes pb delete-template`, `session promote` with `force:true`, and direct `file` writes on the
-   published theme ([files-versions.md](references/files-versions.md)). Everything else runs
-   directly, with no dry-run and no "shall I go ahead?" — a rename with the id and new name known is
-   one call.
+   `themes pb delete-template`, `session promote` with `force:true`, `file delete` on any theme,
+   and every other direct `file` write on the published theme
+   ([files-versions.md](references/files-versions.md)). Everything else runs directly, with no
+   dry-run and no "shall I go ahead?" — a rename with the id and new name known is one call. This
+   list replaces shoplazza-common's dry-run-first rule for this domain: session draft writes (even a
+   batch `+edit` with `remove_section`) reach no buyer until a save and publish.
 
 ## Acting on a request
 
@@ -137,7 +142,10 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 
 1. Match the intent (trigger table), resolve the theme (Rules → 1).
 2. Read before writing (Workflow 2–3); values come from the user or the schema, never invented.
-3. Missing a no-default value → ask once, bundled. Never ask about defaulted values.
+3. Missing a no-default value → ask once, bundled. Never ask about defaulted values. When what's
+   missing is *which* theme or card and a read lists the candidates (`themes list`, `+page`), run
+   that read in the same turn and ask with its rows — never make the user name it blind or offer
+   to list it.
 4. Run it; destructive/publish operations follow Rules → 8.
 
 ### Trigger phrase → command
@@ -153,9 +161,9 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 | 改主题配色 / 换字体 / change theme colors or fonts | `session get-config` → `update-config` | field by `label`; fonts only from [fonts.md](references/fonts.md) |
 | 开启 / 关闭 xx 弹窗 app / turn on an app embed | `themes app list` → `themes app enable` / `disable` | current state and `block_id` from `themes section list` ([apps.md](references/apps.md)) |
 | 给某商品单独做个详情页 / custom product template | `themes template create` | type from wording; bindings from real ids |
-| 生成一个 xx 卡片 / 自定义卡片 / generate a card | `block +edit` | an explicit ask to generate → generate; a request for an effect → existing cards first ([card-add.md](references/card-add.md)) |
+| 生成一个 xx 卡片 / 自定义卡片 / generate a card | `block +edit` | an explicit ask to generate → generate; a request for an effect → existing cards first ([block/generate-block.md → When to generate](references/block/generate-block.md#when-to-generate)) |
 | 保存 / 发布 / save / publish the changes | `+edit --ops '[]' --promote [--publish]` | publish needs consent |
-| 安装 xx 主题 / install theme X | `market list` → `market install` | preset from wording, else `Default` |
+| 安装 xx 主题 / install theme X | `market list` → `market install` | preset from wording, else `Default` (no `Default` row → omit `preset`) |
 | 主题改名 / 复制 / 升级 / 删除 / rename, duplicate, upgrade, delete | `themes rename` / `duplicate` / `upgrade` / `delete` | only the "which theme" half locates the theme |
 
 ### Required-vs-ask matrix
@@ -164,12 +172,12 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 |---|---|---|---|
 | `+edit` value change | a value with no direction ("调一下") — ask for that field only | direction ("更大", "深一点") → pick from `min`/`max`/`options` | other fields stay untouched |
 | `add_section` | which card, when several candidates fit | the card from name / need; position from wording (`position: before:/after:<sid>`, `first`) | position (end of area) |
-| `themes rename` | the new name; the theme when nothing in the conversation points to one (never default a rename to the live theme) | the theme | — |
+| `themes rename` | the new name; the theme when nothing in the conversation points to one — run `themes list` first and put its rows in the question, even when the new name is missing too (Rules → 1 exception) | the theme | — |
 | `themes duplicate` | — | source theme | `copy_theme_name` is required: send `<source name> copy` unless a name was given |
 | `themes upgrade` | — | the theme (`has_newest_version` must be true) | new theme name |
-| `themes market install` | which theme when the name is ambiguous | preset from wording | preset `Default`, server-side name |
+| `themes market install` | which theme when the name is ambiguous | preset from wording | preset `Default` (or omitted when there's no such row), server-side name |
 | `themes template create` | bindings the user named but that can't be resolved | `type` from wording | `from: "default"`, no bindings |
-| `themes publish` / `delete` / `template delete` | consent (always) | the theme / template | — |
+| `themes publish` / `delete` / `template delete` | consent (always); for publish / delete, the theme when nothing points to one (Rules → 1 exception) | the theme / template | — |
 
 ### Never-ask list
 
@@ -210,21 +218,21 @@ Rules → 8.
 |---|---|---|
 | Earlier edits missing from a read | `+page` without `--session` opened a new session | Always pass the task's `--session <oseid>` |
 | Edits landed on the live theme instead of the one being discussed | A call omitted `-t` | Pass `-t <theme_id>` on every call of the task |
-| `unknown flag: --theme` | The flag is `-t` / `--theme-id` | Use `-t <theme_id>` |
+| `+preview`: `unknown flag: --theme` | Only `-t` / `--theme-id` there | Use `-t <theme_id>` |
 | Saving included changes from earlier turns | `--promote` saves the whole session | Say so in the summary |
 | No confirmation prompt before publish | The y/N prompt only appears on an interactive terminal | Get the user's consent yourself (Rules → 8) |
 | `update-config` / `app enable` have no `--promote` | They share the page session | Save / publish with `+edit … --ops '[]' --session <oseid> --promote` |
 | `update-config` accepted a wrong value | It stores anything: bad colors, out-of-range numbers, unknown keys | Check the value against the `get-config` schema before writing; re-read after |
 | Header / footer / announcement change via `update-config` fails | Global cards are cards | Edit them with `+edit` using their `section_id` (e.g. `header`) as the target |
-| `app enable` / `disable` → 422 `… not found in theme app_embeds/script_tags` | The id isn't stored in this theme; ids from `app list` often differ | Use the stored id from `themes section list` ([apps.md](references/apps.md)); not stored → can't be switched from the CLI |
+| `app enable` / `disable` → 422 `… not found in theme app_embeds/script_tags` (some backends: a bare 500) | The id isn't stored in this theme; ids from `app list` often differ | Use the stored id from `themes section list` ([apps.md](references/apps.md)); not stored → can't be switched from the CLI. Don't retry the same id |
 | `invalid source: gen` from `section cards` | Some backends don't accept that source | Retry without `gen` |
 | Guessed a global card name (`cart_drawer`…) that isn't there | Global-area cards differ per theme | Read `+page --area global`; the `section_id` equals the `type` |
 | A file change went live at once | `file create/update/rename/delete` bypass sessions; on the published theme they are live | Dry-run → restate → consent first |
 | New theme id after duplicate / upgrade / install | Those create a new, unpublished theme | Use the new id for everything after; publish separately |
 | `themes duplicate` errored, yet a copy appeared | The copy can be created even when the call returns an error | Never retry blindly — check `themes list` for the copy first |
-| `themes delete` refused | The published theme can't be deleted | Publish another theme first |
+| `themes delete` refused | The published theme and the store's default theme can't be deleted | Published: list the unpublished themes (`published:"0"`) and ask which to publish first; default: no way ([lifecycle.md](references/lifecycle.md)) |
 | Template bindings vanished | `template update` `relations` replaces the whole set | Send the complete list; `template list` only shows a count, so ask for the full set when unsure |
-| AI card saved but broken on the storefront | The server only rejects liquid parse errors | Run [block/self-check.md](references/block/self-check.md) before writing |
+| AI card saved but broken on the storefront | The server only rejects liquid parse errors and a missing or invalid `{% schema %}` | Run [block/self-check.md](references/block/self-check.md) before writing |
 | `order` / `order_verify` template edits can't be checked | Those pages can't be previewed | Say it isn't supported |
 
 ## Recipes
@@ -234,7 +242,7 @@ Rules → 8.
 themes list --params '{"published":"1"}' --jq '.data.themes[] | {id, name, merchant_theme_name}'
 
 # Open a session on a theme's homepage and list its cards
-themes +page -t <theme_id> --template index --jq '{oseid: .data.oseid, sections: [.data.sections[] | {section_id, type, area}]}'
+themes +page -t <theme_id> --template index --jq '{oseid: .data.oseid, areas: .data.areas, sections: [.data.sections[] | {section_id, type, area, name, visible} + ([.blocks[]? | select(.type | startswith("blocks/gen_")) | {type, cname, target}] | if length > 0 then {ai_cards: .} else {} end)]}'
 
 # Change one card field, re-read it, then save on request
 themes +edit -t <theme_id> --template index --session <oseid> --ops '[{"op":"replace_props","target":"<section_id>","props":{"<field_id>":<value>}}]'

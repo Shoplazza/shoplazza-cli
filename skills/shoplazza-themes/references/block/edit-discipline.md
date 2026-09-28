@@ -6,8 +6,10 @@
   that takes the old text and the new text). A rewrite re-decides every choice in the card, so
   classes, DOM structure and ljs usage nobody asked about drift along with it.
 - **Never change an existing setting's `id`.** A new id is a delete plus an add: values the
-  merchant already set can no longer be read. Changing its `label`, control type or `options` is
-  fine.
+  merchant already set can no longer be read. Changing its `label` (or an option's `label`) is
+  fine. Its `type` and a `select` option's `value` are frozen too, and a `range` may only widen:
+  saved values carry over by id and would no longer fit — the full list is in
+  [product-card.md → Extension points and id freeze](kinds/product-card.md#extension-points-and-id-freeze).
 - **Adding a setting:** add it to `{% schema %}` `settings` and to `presets[0].settings` together,
   with a **non-empty** example value (see copy and i18n in [liquid-rules.md](liquid-rules.md)).
   The instance's initial value comes from `presets[0]`; leave it empty there and the instance gets

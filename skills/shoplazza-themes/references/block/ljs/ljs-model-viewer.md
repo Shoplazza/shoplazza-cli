@@ -21,7 +21,7 @@ Previews a product or exhibit as a 3D model (`.glb`).
 | Attribute | Purpose | Required | Notes |
 |---|---|---|---|
 | `src` | glb URL | yes | |
-| `poster` | Cover image | yes | usually `\| img_url` |
+| `poster` | Cover image | yes | usually `\| img_url`; with no poster set, output the placeholder instead (skeleton) |
 | `alt` | Accessible description | no | string |
 | `id` | Target for `enter` | no | `capture` it from `block_id` |
 | `user-control` | Turns off the default zoom/fullscreen controls | no | boolean, no value; inverted — present = off |
@@ -40,14 +40,14 @@ Actions: only `enter`. No events. Use only the attributes in the table; names li
   style="--viewer-height: {{ block.settings.viewer_height | default: 500 }}px;"
   {{ block.shoplaza_attributes }}
 >
-  {% if block.settings.model_src != blank %}
+  {% if block.settings.model_src != blank and poster != blank %}
     <div class="model-viewer-wrap">
       <ljs-model-viewer
         id="{{ viewer_id }}"
         layout="container"
         src="{{ block.settings.model_src }}"
         alt="{{ block.settings.alt | escape }}"
-        {% if poster != blank %}poster="{{ poster | img_url }}"{% endif %}
+        poster="{{ poster | img_url }}"
       ></ljs-model-viewer>
     </div>
     {% if block.settings.show_enter_btn %}

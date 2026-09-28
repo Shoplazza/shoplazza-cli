@@ -95,16 +95,9 @@ block), not on the card — check the schema's block list for where it lives.
 - Delete with a delete op; it's done only when the re-read no longer shows the row. Never remove
   the `header` / `footer` card itself — hide it or remove blocks inside.
 
-**When the value is incomplete:**
-
-| Situation | Handling |
-|---|---|
-| Outside `min`/`max`, off `step`, not in `options` | State the legal range; don't write it, don't clamp it |
-| Direction only ("bigger", "darker") | Pick a value from the current one in that direction, within range; write it; summary says old → new |
-| Field named, no direction ("adjust it") | Leave it out (the rest of the batch still goes); offer 2–3 candidates by `label` and ask |
-| Requested icon / shape not in `options` | Don't substitute the closest; say what exists ([setting-values.md](setting-values.md)) |
-
-An item left pending is not done — say so in the summary.
+**When the value is incomplete** (out of range, a direction only, no direction, an icon not in
+`options`): follow [setting-values.md → No concrete value given](setting-values.md#no-concrete-value-given)
+and the [value-domain table](setting-values.md#value-domain-where-a-value-may-come-from). An item left pending is not done — say so in the summary.
 
 ## Batch rules
 
@@ -152,8 +145,8 @@ re-read shows (field `label`s, old → new), not what was sent. `success` but th
 | `placement_warning` on success | Card added but not placed | `move_section` with `before:` / `after:` |
 | `promote conflict: the theme draft changed since this edit session was created`, `conflict:true` | Ops applied (previewable); the theme draft changed since the session opened | Ask. Forcing overwrites those draft changes. With consent (dry-run → restate → wait): `themes session promote --params '{"oseid":"<oseid>"}' --data '{"force":true}'`. |
 | `the edit was promoted to the theme draft but publishing failed: …`, `promoted:true, published:false` | Saved, not live | Don't redo ops; resend `+edit … --session <oseid> --ops '[]' --promote --publish` once (same consent) |
-| `b_invalid_themeid` (404) | `-t` isn't the theme the session was opened on | Pass that theme's id |
-| `b_invalid_request` (403, hint says log in again) or `SESSION_NOT_FOUND` | Session unknown or expired — not an auth problem | Tell the user its drafts are gone; with their OK, open a new session (`+page` without `--session`) and redo the changes |
-
+| 404 `b_record_not_found` on a call with `--session` | `-t` isn't the theme the session was opened on | Pass that theme's id |
+| `b_invalid_themeid` | `-t` doesn't match the session, or the session is gone | Check `-t` is the session's theme; if it is, handle it as the next row |
+| 403 `b_invalid_request` (hint says log in again) or `SESSION_NOT_FOUND` | Session unknown or expired — not an auth problem | Tell the user its drafts are gone; with their OK, open a new session (`+page` without `--session`) and redo the changes |
 | 5xx / timeout | Unknown whether it applied | Re-read first; resend only what didn't land, once |
 

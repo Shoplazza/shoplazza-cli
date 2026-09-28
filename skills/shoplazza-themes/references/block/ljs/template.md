@@ -7,26 +7,26 @@ components take a template and what their data fields look like are in each comp
 
 ## T1 · Where the template lives and how the component finds it
 
-The component looks for its template in this order and stops at the first match:
+This section is the single source for attaching a template. A component takes it either from a
+`template` attribute or from a direct-child `<template>`; use one, not both:
 
 | Declaration | How | When |
 |---|---|---|
-| `template="<id>"` attribute | Put `<template id="tpl-{{ block_id }}">` in the same file and reference that id from the component | **Default choice**; `ljs-render` and `ljs-product-snippet` support it |
-| Direct child `<template>` | Write `<template>` as a direct child of the component; no id needed | **Required** for `ljs-list` item templates; also the control UI of `ljs-scrollbar` / `ljs-countdown` |
+| `template="<id>"` attribute | Put `<template id="tpl-{{ block_id }}">` in the same file and reference that id from the component | **Default choice** where the component has the attribute (`ljs-render`) |
+| Direct child `<template>` | Write `<template>` as a direct child of the component; no id needed | The only form `ljs-list` takes (it has no `template` attribute); also the control UI of `ljs-scrollbar` / `ljs-countdown` |
 | `template-src` external file | — | **Never**: a block is a self-contained single file, so the template must be inline in the same file |
 
 After rendering, the `<template>` element stays in the DOM and the rendered output is appended
 after it — don't write CSS selectors that assume the template disappears.
 
-## T2 · One root element, carrying `data-nosnippet`
+## T2 · One root element
 
 Only the first root element of the template's output is rendered: with several sibling roots only
 the first renders and the rest are dropped silently. To output several pieces, wrap them in one root
 `<div>`.
 
-Put the valueless `data-nosnippet` attribute on that single root. The `<template>` content stays in
-the body of the HTML source; `data-nosnippet` tells search engines to keep that text out of search
-snippets, so interpolation markers and placeholder copy are not indexed.
+Optional: a valueless `data-nosnippet` on the root keeps the template's placeholder text out of
+search snippets.
 
 ## T3 · `${}` expressions: scope and limits
 
@@ -59,7 +59,7 @@ of the text.
 
 | Directive | How | Note |
 |---|---|---|
-| `spz-if` | `<div spz-if="${cond}">`; the value **must** be wrapped in `${}` | When false the node is not rendered at all; exception when on the same node as `spz-for`, see below |
+| `spz-if` | `<div spz-if="${cond}">`; outside an `spz-for` the value **must** be wrapped in `${}` | When false the node is not rendered at all; inside an `spz-for` no `${}`, see below |
 | `spz-else` | Valueless `spz-else` on the sibling node right after an `spz-if` node | Only adjacent siblings count |
 | `spz-for` | `<li spz-for="item in data.list" key="index">` or `(item, index) in data.list`; the value is **not** wrapped in `${}` | Interpolate with `${item.xxx}` inside the loop body; add `key` |
 
@@ -76,10 +76,10 @@ of the text.
 - The `spz-for` value is only "alias in data path"; the path has no indexes, quotes or method
   calls. Data that needs processing (filtering, joining, sorting) is computed beforehand in the
   `data-function` preprocessor (T6).
-- `spz-if` may share a node with `spz-for` to filter item by item; then its value is **not** wrapped
-  in `${}` (`spz-if="!!item.image"`). When the loop expands, the component adds the `${}` itself;
-  wrapping it yourself produces `${${...}}` and the whole template fails to render. The same holds
-  for `key`.
+- Anywhere inside an `spz-for` (the loop node or its descendants), `spz-if` and `key` omit `${}`
+  (`spz-if="!!item.image"`, `key="index"`). When the loop expands, the component adds the `${}`
+  itself; wrapping it yourself produces `${${...}}` and the whole template fails to render. An
+  `spz-if` on the loop node itself filters item by item.
 - Short value-level processing may still use a `${}` ternary or a one-line array method
   (`${item.options.map(o => o.value).join('/')}`) — the test is that it produces one value, not a
   chunk of HTML.
@@ -142,7 +142,7 @@ into `${}`:
 </template>
 ```
 
-What it shows: the template is referenced by id (T1); a single root `<div>` with `data-nosnippet`
-(T2); runtime data only through `${}` interpolation (T3); conditions and loops via directives —
-a standalone `spz-if` wraps `${}`, one sharing a node with `spz-for` doesn't (T4); settings copy
+What it shows: the template is referenced by id (T1); a single root `<div>`, here with the optional
+`data-nosnippet` (T2); runtime data only through `${}` interpolation (T3); conditions and loops via
+directives — the `spz-if` outside the loop wraps `${}`, the one inside it doesn't (T4); settings copy
 mixed in as Liquid (T5); the derived `hasItems` field computed in `data-function` (T6).

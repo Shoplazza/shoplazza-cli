@@ -259,7 +259,7 @@ function checkCase(c, reply, opts) {
     // must_ask discipline
     if (exp.must_ask) {
       const askedOk = !!reply.ask;
-      const wroteAnyway = cmds.some(isWrite);
+      const wroteAnyway = cmds.some(cmd => splitPipes(cmd).some(seg => isWrite(normalizeCmd(seg))));
       checks.must_ask = askedOk && !wroteAnyway ? 'pass'
         : `fail: ${!askedOk ? 'did not ask' : 'asked but still emitted a write command'}`;
       let coverOk = true;
@@ -274,7 +274,7 @@ function checkCase(c, reply, opts) {
 
     // command shape (only when a command is expected)
     if (exp.command_prefix) {
-      const hit = cmds.find(cmd => cmd.startsWith(exp.command_prefix));
+      const hit = cmds.find(cmd => splitPipes(cmd).some(seg => normalizeCmd(seg).startsWith(exp.command_prefix)));
       checks.command_prefix = hit ? 'pass' : `fail: no command starts with '${exp.command_prefix}'`;
       const scored = hit || cmds[0] || '';
       if (scored) {
@@ -333,7 +333,7 @@ function checkCase(c, reply, opts) {
 // Quote-aware shell word splitter: keeps `--tiers "200:20"` / `--data '{…}'`
 // intact and strips the quotes, instead of the old naive whitespace split.
 function shellTokenize(s) {
-  const words = s.match(/(?:"(?:\\.|[^"\\])*"|'[^']*'|[^\s"'])+/g) || [];
+  const words = s.match(/(?:\\.|"(?:\\.|[^"\\])*"|'[^']*'|[^\s"'\\])+/g) || [];
   return words.map(w => {
     let out = '', i = 0;
     while (i < w.length) {
@@ -349,7 +349,8 @@ function shellTokenize(s) {
         let j = i + 1;
         while (j < w.length && w[j] !== "'") { out += w[j]; j++; }
         i = j + 1;
-      } else { out += ch; i++; }
+      } else if (ch === '\\' && i + 1 < w.length) { out += w[i + 1]; i += 2; }
+      else { out += ch; i++; }
     }
     return out;
   });
@@ -366,7 +367,40 @@ function stripJq(argv) {
   return out;
 }
 
+// Splits `a | b` on unquoted pipes; quoted `|` (e.g. inside --jq) and `||` stay put.
+// An unbalanced quote returns the line whole.
+function splitPipes(s) {
+  const segs = [];
+  let cur = '', q = null;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (q === "'") { cur += ch; if (ch === "'") q = null; continue; }
+    if (ch === '\\' && i + 1 < s.length) { cur += ch + s[++i]; continue; }
+    if (q === '"') { cur += ch; if (ch === '"') q = null; continue; }
+    if (ch === "'" || ch === '"') { q = ch; cur += ch; continue; }
+    if (ch === '|' && s[i + 1] !== '|' && s[i - 1] !== '|') { segs.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  if (q) return [s.trim()];
+  segs.push(cur);
+  return segs.map(p => p.trim()).filter(Boolean);
+}
+
+const NON_CLI = /^(jq|grep|head|tail|sed|awk|xargs|tee|cat|sort|uniq|wc|cut|tr|python3?|node)\b/;
+const READS_STDIN = /\s--(data|params|ops|content|settings)(=|\s+)-(\s|$)/;
+
 function execDryRun(cmd, bin) {
+  const segments = splitPipes(cmd);
+  if (segments.length > 1) {
+    // Each piped shoplazza call is dry-run on its own; one fed by stdin can't be.
+    return {
+      pipeline: segments.map(seg => {
+        if (NON_CLI.test(seg)) return { segment: seg, skipped: 'not a shoplazza command' };
+        if (READS_STDIN.test(seg)) return { segment: seg, skipped: 'reads its input from the pipe' };
+        return { segment: seg, ...execDryRun(seg, bin) };
+      }),
+    };
+  }
   const line = cmd.replace(/^\s*shoplazza\s+/, '').trim();
   const [svc0 = '', sub0 = ''] = line.split(/\s+/);
   if (/^(auth|profile|update|app)$/.test(svc0)) {

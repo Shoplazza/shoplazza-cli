@@ -30,7 +30,8 @@ A content layer over a full-screen mask (modal dialog). lessjs reference:
 - Actions: `open` / `close`.
 - Events: `open` / `close`.
 
-Use only the attributes in the table, plus `close` on a child (rule 5).
+Use only the attributes in the table, plus `close` on a child (rule 5) and the standard HTML
+`hidden`, as the public example does.
 
 ## Skeleton
 

@@ -106,16 +106,17 @@ there is no reason to send another request.
   {% assign show_count = col.products.size %}
 {% endif %}
 
-<div class="{{ root_cls }}__grid" {{ block.shoplaza_attributes }}>
-  {% for p in col.products limit: show_count %}
-    {% comment %} one card = P0 skeleton + the P1/P2 tiers you hit {% endcomment %}
-  {% endfor %}
+<div class="{{ root_cls }}" {{ block.shoplaza_attributes }}>
+  <div class="{{ root_cls }}__grid">
+    {% for p in col.products limit: show_count %}
+      {% comment %} one card = P0 skeleton + the P1/P2 tiers you hit {% endcomment %}
+    {% endfor %}
+  </div>
 </div>
 ```
 
-- Fall back on `products.size`, not `col.id` (the fixed fallback-chain pattern in
-  [objects.md](../objects.md)).
-- Cap with `limit:`; don't loop `{% for i in (1..n) %}` and index into the array.
+- The fallback (on `products.size`, not `col.id`) and the `limit:` cap follow the fixed
+  fallback-chain pattern in [objects.md](../objects.md).
 - Mobile-first grid: `grid-template-columns: repeat({{ mobile_per_row }}, minmax(0,1fr))`, switch to
   `pc_per_row` under `@media (min-width: 960px)`.
 - Use `minmax(0, 1fr)` and give the card root `min-width: 0`, or long titles break the grid.
@@ -129,21 +130,22 @@ The L2 skeleton, rules and client-template limits are in
 packing several cards into one slide.
 
 ```liquid
-<ljs-carousel
-  id="pc-{{ block_id }}"
-  layout="container"
-  visible-count="(min-width:960px) {{ block.settings.carousel_visible_pc }}, {{ block.settings.carousel_visible_mobile }}"
-  advance-count="1"
-  initial-slide="0"
-  {{ block.shoplaza_attributes }}
-  {% if block.settings.show_arrows %}controls{% endif %}
-  {% if block.settings.enable_loop %}loop{% endif %}
-  {% if block.settings.enable_autoplay %}autoplay delay="{{ block.settings.autoplay_delay | times: 1000 }}"{% endif %}
->
-  {% for p in col.products limit: show_count %}
-    <div class="{{ root_cls }}__slide">…one card…</div>
-  {% endfor %}
-</ljs-carousel>
+<div class="{{ root_cls }}" {{ block.shoplaza_attributes }}>
+  <ljs-carousel
+    id="pc-{{ block_id }}"
+    layout="container"
+    visible-count="(min-width:960px) {{ block.settings.carousel_visible_pc }}, {{ block.settings.carousel_visible_mobile }}"
+    advance-count="1"
+    initial-slide="0"
+    {% if block.settings.show_arrows %}controls{% endif %}
+    {% if block.settings.enable_loop %}loop{% endif %}
+    {% if block.settings.enable_autoplay %}autoplay delay="{{ block.settings.autoplay_delay | times: 1000 }}"{% endif %}
+  >
+    {% for p in col.products limit: show_count %}
+      <div class="{{ root_cls }}__slide">…one card…</div>
+    {% endfor %}
+  </ljs-carousel>
+</div>
 ```
 
 - Multi-column sliding needs both `visible-count` (component paging) and a matching per-slide
@@ -203,8 +205,9 @@ positioning context — badges, the add-to-cart icon and the in-card panel all h
 </div>
 ```
 
-- `{{ block.shoplaza_attributes }}` goes once on the block root (the grid or carousel above), not
-  on every card in the loop ([liquid-rules.md](../liquid-rules.md)).
+- `{{ block.shoplaza_attributes }}` goes once on the `{{ root_cls }}` root div of the L1 / L3
+  skeletons, not on the grid, the carousel or every card in the loop
+  ([liquid-rules.md](../liquid-rules.md)).
 - The media area needs `position: relative` and a fixed shape (`aspect-ratio`); otherwise badges
   and the add-to-cart icon have nothing to anchor to, and the layout jumps before the image loads.
 - Placeholder and real image share the `__img` class; style it
@@ -372,8 +375,9 @@ L1 / L3 cards never show an options link: multi-option products use the panel, w
 Don't write `role="quick-view"` either (§6 "Using a theme's private building blocks").
 
 Declare the three add-to-cart settings together and read all three in the body: `atc_text`,
-`sold_out_text` (copy) and `add_cart_style` (style). Declared-but-unread or read-but-undeclared
-fails [self-check.md](../self-check.md).
+`sold_out_text` (copy) and `add_cart_style` (style). In L2, `select_variant_text` replaces
+`atc_text` and `add_cart_style` (§5). Declared-but-unread or read-but-undeclared fails
+[self-check.md](../self-check.md).
 
 #### Panel
 
@@ -438,7 +442,7 @@ strings with `capture`).
 | List carousel (L3) | `pc-{{ block_id }}` |
 | Async list (L2) | `pl-{{ block_id }}` |
 | In-card image carousel (P2-a, `ljs-carousel`) | `pimg-{{ block_id }}-{{ p.id }}` |
-| Async list data source (L2) | `pds-{{ block_id }}` |
+| Card data source | `pds-{{ block_id }}-{{ p.id }}` |
 | Panel container | `ppanel-{{ block_id }}-{{ p.id }}` |
 | `ljs-variants` in the panel | `ppvar-{{ block_id }}-{{ p.id }}` |
 | Add-to-cart form | `patc-{{ block_id }}-{{ p.id }}` |
@@ -547,8 +551,8 @@ changed id / type / enum, never the insertion position. Three rules:
    to `settings` and `presets[0]` together (the editor's initial values come from presets); see
    [edit-discipline.md](../edit-discipline.md).
 2. Never: rename an existing id, change its type, change a `select` option's `value` (`label` may
-   change), delete a setting, narrow a `range` `min` / `max` (old values fall out of range — only
-   widen), or turn a `checkbox` into a `select`.
+   change), delete a setting the request didn't ask to remove, narrow a `range` `min` / `max` (old
+   values fall out of range — only widen), or turn a `checkbox` into a `select`.
 3. Meaning really changed → new id and keep the old one:
    `{{ block.settings.image_ratio_v2 | default: block.settings.image_ratio }}`. Keep the old id in
    the schema with an `info` marking it deprecated (the `default:` chain already satisfies "every
@@ -561,7 +565,7 @@ Extension points
 | X1 | Add a fixed line under the title | After `.__title`, before `.__price` | `show_subtitle` + `subtitle_text` | Don't change `title_style`; don't make it a child block (merchant-level shared text) | No blank line when off; same text on every card |
 | X2 | Add a badge on the image | Inside the media area, after the product link | `show_badge` + `badge_text` (reuse `badge_position`) | Don't change the image ratio; keep the badge out of flow; move the discount badge to the opposite corner when they share one | Badge overlays without squeezing the image; media height unchanged when off |
 | X3 | Configurable image ratio | Media-box CSS | `image_ratio` + `image_fill_mode` | Don't split PC / mobile ratios; don't change the `ljs-img` `layout` | Equal heights per row; no distortion; space reserved before load |
-| X4 | One per row on mobile | Only the grid's mobile branch | Append `1` to `mobile_per_row` options | Don't change `pc_per_row` | Single column at 360px with no overflow |
+| X4 | One per row on mobile | Only the grid's mobile branch | None — `mobile_per_row` already offers `1`, so this is a value change ([card-edit.md](../../card-edit.md)); append `1` only if an older card lacks it | Don't change `pc_per_row` | Single column at 360px with no overflow |
 | X5 | Truncate long titles | Title class | `title_style` | No fixed `height` | Two-line ellipsis; equal heights per row |
 | X6 | Show the amount saved | End of the price row | Append `amount` to `discount_style` | Don't change the output filters for current / compare-at price | Nothing rendered without a discount |
 | X7 | Add "view all" | After the list container | `show_view_all` + `view_all_text` | Link only to `col.url` | Not rendered in placeholder state |

@@ -11,8 +11,8 @@ Plays a video uploaded to the store (mp4/hls).
 3. `poster`: cover image, usually `| img_url`. Required — without it the component errors.
 4. Boolean attributes take no value: `autoplay` / `loop` / `click-control` / `has-play`; omit them
    when off.
-5. `layout`: usually `responsive` + `width`/`height`, or `fill` / `container` depending on the
-   wrapper.
+5. `layout`: usually `responsive` + `width`/`height`, or `fill` depending on the wrapper. No
+   `container`.
 6. Play button: a bare `<svg role="play">` as the play slot makes the whole card fail to render
    (the page shows an HTML comment saying the card was not found or failed to render instead of the
    card). Choose:

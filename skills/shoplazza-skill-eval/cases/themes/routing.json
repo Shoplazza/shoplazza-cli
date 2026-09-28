@@ -12,7 +12,7 @@
         "shoplazza-shop"
       ],
       "semantic_rubric": [
-        "If a command is named, it is themes +page then themes +edit"
+        "If a command is named, it is a themes page-edit command (+page / +edit), not a products or shop command"
       ]
     }
   },
@@ -28,7 +28,7 @@
         "shoplazza-shop"
       ],
       "semantic_rubric": [
-        "If a command is named, it is themes session get-config / update-config"
+        "If a command is named, it is themes session get-config / update-config, not a shop settings command"
       ]
     }
   },
@@ -44,7 +44,7 @@
         "shoplazza-shop"
       ],
       "semantic_rubric": [
-        "If a command is named, it is themes market list, then themes market install"
+        "If a command is named, it is themes market list / market install"
       ]
     }
   },
@@ -61,7 +61,7 @@
         "shoplazza-products"
       ],
       "semantic_rubric": [
-        "If a command is named, it is themes block +edit (an explicit ask to generate goes straight to the AI-card flow), not a discounts or products command"
+        "If a command is named, it is a themes command, not a discounts or products command"
       ]
     }
   },
@@ -77,7 +77,7 @@
         "shoplazza-shop"
       ],
       "semantic_rubric": [
-        "If a command is named, it is themes list with published=1"
+        "If a command is named, it is themes list, not a shop command"
       ]
     }
   },
@@ -93,7 +93,7 @@
         "shoplazza-discounts"
       ],
       "semantic_rubric": [
-        "If a command is named, it is themes app list, then themes app disable"
+        "If a command is named, it is themes app list / app disable, not a discounts command"
       ]
     }
   },
@@ -126,7 +126,7 @@
         "shoplazza-shop"
       ],
       "semantic_rubric": [
-        "If a command is named, it is themes template create with type product"
+        "If a command is named, it is themes template create, not a products command"
       ]
     }
   }
