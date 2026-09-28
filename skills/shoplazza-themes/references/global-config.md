@@ -35,8 +35,8 @@ No session yet → `themes +page -t <theme_id> --template index` → `.data.osei
 
 Categories and fields differ by theme: whether there is an animation category, whether fonts sit
 under Typography or Format, whether logo width is a theme setting. Pick fields by the meaning of
-`label` / `info` (either language), never by the key's spelling or from memory: list categories,
-then read fields.
+`label` / `info` (either language), never by the key's spelling or from memory. Which query to
+run first is below.
 
 ### Choosing a query
 

@@ -72,20 +72,19 @@ Command details: [block-cli.md](block-cli.md).
 
 ## Fork (card placed in 2+ places)
 
-When `ref_count` ≥ 2, the server forks the file on update: `branched: true`, a new `type`, and
-`previous_type` = the card you passed. The CLI repoints only the `--target` instance to the new
-card; every other placement keeps the old card, unchanged. Tell the user the change applies to
-this placement only, and use the returned `type` for everything after.
+When `ref_count` ≥ 2 the update forks the card ([block-cli.md → Fork](block-cli.md#fork)). Tell
+the user the change applies to this placement only, and use the returned `type` for everything
+after.
 
 ## Errors & recovery
 
 | Situation | Do |
 |---|---|
 | Self-check still failing after 3 rounds | Don't write back; report which rules can't be satisfied. Nothing on the page changed. |
-| `stage:"write"` | The server rejected the file (liquid parse error, invalid `{% schema %}`); nothing was written. Fix and resend. |
-| `stage:"place"` with `reverted:true` | Rolled back; send the same command again. |
-| `stage:"place"` with `revert_failed:true` | Don't resend blindly. The hint carries a `themes block revert-gen` command → run it, then retry once the failed op (`results` / `failed`) is fixed; no such command in the hint → report the failure with `block_type` and `revert_id` (details: [block-cli.md](block-cli.md)). |
 | Validation error about `--target` (not on the page, out of range, a different card) | Indexes shift after structural edits; re-read with `themes block +get … --id <gen_id> --section <sid>` and resend with that `target`. |
+
+`stage:*` errors (`reverted`, `revert_failed`) →
+[block-cli.md → Errors & recovery](block-cli.md#errors--recovery).
 
 ## Output
 

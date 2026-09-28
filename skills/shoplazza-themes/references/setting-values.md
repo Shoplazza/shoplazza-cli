@@ -38,7 +38,7 @@ Schema sources: card fields → `themes +page … --section <sid> --include sche
 
 | Class | Legal values come from | Rule |
 |---|---|---|
-| Enum / number (`select`, `color_group`, `range`) | The field's `options[].value` / `min`–`max`–`step` | Only from there. Map the wording to an option's `label`, then write that option's `value` — don't translate the wording into a value of your own. A value the user gives that is out of range → state the legal range and don't write it; never clamp silently |
+| Enum / number (`select`, `color_group`, `range`) | The field's `options[].value` / `min`–`max`–`step` | Only from there. Map the wording to an option's `label`, then write that option's `value` — don't translate the wording into a value of your own. A value the user gives that is out of range → state the legal range and don't write it; don't clamp it |
 | Reference (`color_scheme`, `font_picker`, image, video, resources) | Real things outside the field schema | Never invent. A `color_scheme` id → check it exists (`get-config`, [global-config.md](global-config.md)); missing → say so and list the existing schemes. Resources → [resource-binding.md](resource-binding.md). Image URLs: only one the user provides, or one already in the store's media library (`shop files list`, shoplazza-shop). Write it whole, domain included. Card defaults are often bare paths like `<hash>.png`; both forms work. Videos must already be uploaded |
 | Free (`text`, `richtext`, `checkbox`, `spacing`, `tags`) | The user | Mind the format only. Copy the user gives is written verbatim — no rewriting or polishing (copy language: SKILL.md → Rules for every operation, 7) |
 
@@ -47,7 +47,7 @@ Schema sources: card fields → `themes +page … --section <sid> --include sche
 Read the field's legal values and current value first, then:
 
 - **A direction is given** (bigger, darker, tighter) → pick a fitting value from the current one
-  in that direction and write it; in the summary say "per '<direction>': <old> → <new>" so the
+  in that direction and write it (fonts excepted: no ordered scale — [fonts.md](fonts.md)); in the summary say "per '<direction>': <old> → <new>" so the
   user can check. Don't stop to ask.
 - **No direction** ("adjust it", "make it fit", "your call") → **don't write this field**. Finish
   the other fields that don't depend on the answer, and offer 2–3 fitting candidates (with their
@@ -70,20 +70,14 @@ Both are pending until the user answers: the summary says so.
 
 ## Resource-object values
 
-The value is the full object of the chosen real resource (id plus url, title, image…), never a
-bare id:
+The value is the full object of a real record (id plus url, title, image…), never a bare id:
 
 ```json
 "collection": {"id": "<collection_id>", "type": "collection", "title": "<title>", "url": "/collections/<handle>", "image": []}
 ```
 
-- Key sets differ by card and theme (`image` an object or `[]`; `url` or `seo_url`): read the
-  card's current object (`+page --section <sid>`) and fill the same keys. The link key must be
-  present — the card uses it as the click target. Per-type mapping:
-  [resource-binding.md](resource-binding.md) → Field mapping.
-- No specific resource named → keep the current value.
-- An id alone (from earlier output, or given by the user) locates the object but isn't the value:
-  look it up and fill url, title and the rest.
+No specific resource named → keep the current value. Finding the record and filling the card's
+key set: [resource-binding.md](resource-binding.md).
 
 ## visibleOn (conditional fields)
 

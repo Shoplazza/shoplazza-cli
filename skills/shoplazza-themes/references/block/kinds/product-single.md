@@ -419,12 +419,10 @@ after add, calling a theme's popups ("Using a theme's private building blocks" i
 
 ### Id contract (the same meaning always uses the same id / type / default / enum values)
 
-Ids added by this card type:
+Ids added by this card type, besides the two required ones above:
 
 | Meaning | id | type | default |
 |---|---|---|---|
-| Product | `product` | product | — |
-| Image / text position | `layout` | select image_left, image_right | `image_left` |
 | Merchant copy | `text` | textarea | empty |
 | Product-page button text | `button_text` | text | 查看详情 / View details |
 | Buy now | `show_buy_now` / `buy_now_text` | checkbox / text | false / 立即购买 / Buy now |

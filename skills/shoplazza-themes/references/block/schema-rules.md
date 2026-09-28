@@ -65,10 +65,12 @@ including entries whose value is an empty string, entries that already have a `d
 ### Every setting needs a reason
 
 - Upper bound: only the adjustable points the request names get a setting, plus the standard
-  `content_width` — declare that one regardless of the request; the only exception is a card that
-  bleeds full-width, which gets no `content_width`. Don't add mode switches, style tiers or spare color
-  sets "for flexibility": such fields need `visibleOn` wiring to avoid clashing, and a wrong
-  `visibleOn` expression silently crashes the whole settings panel (see
+  `content_width` — declare that one regardless of the request; the only exceptions are a card that
+  bleeds full-width, which gets no `content_width`, and the product kinds, whose setting contracts
+  are fixed ([kinds/product-card.md](kinds/product-card.md),
+  [kinds/product-single.md](kinds/product-single.md)). Don't add mode switches, style tiers or
+  spare color sets "for flexibility": such fields need `visibleOn` wiring to avoid clashing, and a
+  wrong `visibleOn` expression silently crashes the whole settings panel (see
   [Setting skeleton](#setting-skeleton)). Hard-code any form the request doesn't mention in the CSS.
 - Granularity: fields follow the elements the request names. "Text" is one `textarea`; only
   "title + description" splits into `title` and `text`.
@@ -157,7 +159,7 @@ usually doesn't error, but the control is dead.
 | Slider range is wrong, with no error | `range` lacks `min` / `max` → write `min` / `max` / `step` / `default` explicitly; `(max-min)` divisible by `step`, `default` within `[min, max]` |
 | Odd label in the panel | `image_picker` / `video_picker` given a `label` → exception in [Setting skeleton](#setting-skeleton) |
 | Video is black; the `if` passes with no video picked | A `video_picker` value is an object, so `!= blank` is always true → loop over `video.sources` for mp4 / hls; empty check in [ljs/ljs-video.md](ljs/ljs-video.md) |
-| A countdown doesn't render, or a picked date shows as empty | The `date_picker` `format` isn't one of the two values in the field reference, or the `presets[0]` value, `default` or `props.min` / `props.max` doesn't follow that format → rewrite per the `date_picker` example |
+| A countdown doesn't render, or a picked date shows as empty | The `date_picker` `format` isn't one of the two values in the field reference, or the `presets[0]` value or `props.min` / `props.max` doesn't follow that format → rewrite per the `date_picker` example (no `default`) |
 
 ## Full field reference (JSONC)
 
@@ -200,8 +202,9 @@ some types (e.g. `value_type`, `accept`); the forms below are the ones the Liqui
   // [optional] Panel-wide note (bilingual object).
   "info": { "zh-CN": "用于首页促销位", "en-US": "Homepage promo slot" },
 
-  // [optional] CSS classes appended to the card's outermost wrapper, space-separated.
-  "class": "py-5 lg:mt-15",
+  // [optional] CSS classes appended to the card's outermost wrapper, space-separated. Usually
+  //            omitted; never theme utility classes — the card has no CSS for them.
+  "class": "promo-card",
 
   // [optional] Per-page instance limit — how many times this card can be added to one page.
   //            Not the child-item limit.
@@ -222,8 +225,8 @@ some types (e.g. `value_type`, `accept`); the forms below are the ones the Liqui
   // setting's default.
   "presets": [
     {
-      // [required] Identical to the top-level name; a mismatch → the card's settings panel doesn't
-      //            show and its settings can't be changed.
+      // [required] Identical to the top-level name; a mismatch makes the editor's "Add" return 404
+      //            (→ Symptoms → fix).
       "name": "promo_card",
 
       // [required] Merchant-facing name (bilingual). Without it the layer list shows the English
@@ -278,20 +281,23 @@ some types (e.g. `value_type`, `accept`); the forms below are the ones the Liqui
       "type": "text",
       // [required] Value key. Exception: header / paragraph have no id.
       "id": "title",
-      // [required] What this setting does.
+      // [optional] What this setting does; write it only when the label doesn't make that clear
+      //            (→ Setting skeleton).
       "desc": "Sets the card title text",
 
-      // [conditional] Bilingual. Required on every type except header/paragraph/image_picker/video_picker.
+      // [conditional] Bilingual. Required on every type except header/paragraph/html/image_picker/video_picker.
       "label": { "zh-CN": "标题", "en-US": "Title" },
-      // [required] Source of the initial value when the merchant adds it in the panel; write it both
-      //            here and in presets[0].settings (→ Defaults live in two places).
+      // [required] The setting's default value. Added instances copy presets[0].settings, not this
+      //            field, so write the same value in both places (→ Defaults live in two places).
+      //            Exception: date_picker has no default.
       "default": "Limited-time offer",
       // [optional] Input placeholder hint.
       "placeholder": { "zh-CN": "不超过 20 字", "en-US": "Max 20 chars" },
       // [optional] Note under the control (bilingual).
       "info": { "zh-CN": "留空则不展示", "en-US": "Leave blank to hide" },
 
-      // [optional] Conditional display: for a boolean parent write the parent id, otherwise an expression.
+      // [optional] Conditional display: only the id of a boolean parent setting; no compound
+      //            expressions (→ Setting skeleton).
       "visibleOn": "show_button",
       // [conditional] Maximum length for type=text.
       "maxLength": 20

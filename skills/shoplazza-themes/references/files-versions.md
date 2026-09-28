@@ -17,7 +17,7 @@ a write is live on the storefront the moment it returns.
 | Theme-wide settings (colors, fonts, …) | `session get-config` / `update-config` ([global-config.md](global-config.md)) | Editing `settings_data.json` |
 | An AI card's source | `block +get --with-content` / `block +edit` ([block/block-cli.md](block/block-cli.md)) | `file get` with type `blocks` (session AI cards are not theme files) |
 | Read a card's liquid, a snippet, CSS / JS, a locale file | `file tree` → `file get` | — |
-| Change code or assets the editor can't reach (custom CSS, a locale string, section liquid) | `file get` → edit locally → `file update` | — |
+| The user explicitly asks to change a theme file's code (custom CSS, a locale string, section liquid) | `file get` → edit locally → `file update` | Editing files to force a style no setting has ([global-config.md](global-config.md)) |
 | When did a file change | `version list` / `version records` | — |
 
 Template files don't track the editor: a custom template made with `template create` never shows
@@ -59,7 +59,8 @@ and `file delete` without `location` falls back to `assets/a.js` and deletes tha
 - **Published theme**: every `file create|update|rename|delete` is publish-class — `--dry-run` →
   restate (file, what changes, "goes live immediately, there is no draft or undo") → wait for the
   user's explicit go-ahead in a later turn.
-- **Unpublished theme**: create / update / rename run directly; `file delete` still needs consent.
+- **Unpublished theme**: create / update / rename run directly; `file delete` still needs consent —
+  a deleted file can't be restored.
 - `assets/theme.css` and the theme's main layout file can't be deleted.
 - Deleting a `sections` file that a page still uses does not fail — that card silently stops
   rendering. Before deleting one, check `+page` rows on the pages that could use it (row `type` =

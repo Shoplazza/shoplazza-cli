@@ -61,7 +61,8 @@ The path without `#` (`0.0.1`) is the `targetId` of a canvas operation.
   changes, so take `targetId`s from the latest canvas.
 
 Add a pb card to a page: `+edit` op `{"op":"add_section","pb":true,"template_id":"global-<n>","position":"after:<sid>"}`
-(no `value` — content comes from the template); see [card-add.md](card-add.md).
+(no `value` — content comes from the template); `position` as in
+[card-add.md → Placement](card-add.md#placement).
 
 ## Raw leaves
 

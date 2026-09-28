@@ -10,7 +10,7 @@ Sticky header or footer bar.
    driven by [ljs-observer](ljs-observer.md)).
 4. Start hidden with the HTML `hidden` attribute. `show` is a display state the component sets; don't
    make it a schema switch.
-5. Use only the attributes in the table.
+5. Use only the attributes in the table, plus the standard HTML `hidden` (rule 4).
 6. The component doesn't position anything itself. It only writes inline `top/bottom: Npx` on an
    element that is already `fixed` / `sticky`, to stack several stuck elements without overlap.
    Write the positioning yourself: `position: sticky` + `top/bottom: 0`, or `fixed` pinned left and

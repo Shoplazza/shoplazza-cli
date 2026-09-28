@@ -27,7 +27,8 @@ through the unpublished themes.
 | Field | Meaning |
 |---|---|
 | `published` | `"1"` = the live theme (exactly one per store), `"0"` otherwise — a string |
-| `default` | `"1"` on the store's default theme; absent or `"0"` elsewhere |
+| `default` | `"1"` on the store's default theme (it can't be deleted); absent or `"0"` elsewhere |
+| `has_draft` | `true` = saved draft changes that aren't live yet; publishing takes them live |
 | `name` | The theme's own display name (what `themes rename` changes) |
 | `merchant_theme_name` | The market series it was installed from (Reformia, Hero, Nova 2023, …); `preset` = its style preset |
 | `c_version` → `newest_c_version` | Current → newest available version; `has_newest_version:true` = an upgrade exists ([lifecycle.md](lifecycle.md)) |
@@ -59,7 +60,7 @@ Do the matching yourself on the projected list — don't `select(.name == …)` 
 exact, case-sensitive filter misses renamed themes and skips the series-name fallback.
 
 ```bash
-themes list --params '{"page_size":250}' --jq '[.data.themes[] | {id, name, merchant_theme_name, published, c_version}]'
+themes list --params '{"page_size":250}' --jq '{has_more: .data.has_more, cursor: .data.cursor, themes: [.data.themes[] | {id, name, merchant_theme_name, published, c_version}]}'
 ```
 
 ## Preview links
@@ -67,7 +68,8 @@ themes list --params '{"page_size":250}' --jq '[.data.themes[] | {id, name, merc
 `themes +preview` builds the URL locally: no API call, and no check of `--path` or `--oseid` — a
 wrong handle or session id just gives a broken link.
 
-- `-t` is required here (no published-theme default, unlike other shortcuts). Resolve it first;
+- `-t` is required here, as on `+card-schema` (no published-theme default, unlike `+page` /
+  `+edit`). Resolve it first;
   for the live theme use `themes list --params '{"published":"1"}'`.
 - `--oseid <oseid>`: pass the active edit session when the conversation has unsaved edits on
   that theme, so the preview shows them. Without it the preview shows no session's edits. Never

@@ -12,8 +12,9 @@ Fetches data and renders it once into static markup. No paging, no load-more.
    `custom:<state_id>.getState`, see [ljs-state](ljs-state.md)). Join several sources with `;`; they reach the template's
    preprocessing function in that order (see the `data-function` section of
    [template.md](template.md)).
-4. The template is an inline `<template>`; follow [template.md](template.md) for single root,
-   `${}` expression limits, loops, and conditions.
+4. Attach the template per [template.md](template.md) T1 (`ljs-render` takes both the `template`
+   attribute and a direct child); single root, `${}` limits, loops, and conditions follow the rest
+   of that file.
 5. Automatic render: don't write `manual`. Event-driven data: write `manual`, then call `render` /
    `rerender` from outside.
 6. `render` takes only `src=` (switch source and refetch) and `redo=`; it does not take `data=`.
@@ -42,7 +43,7 @@ Fetches data and renders it once into static markup. No paging, no load-more.
 | Attribute | Purpose | Required | Notes |
 |---|---|---|---|
 | `src` | Data source | yes, unless `manual` and data comes from `render`/`rerender` | URL / `script:` / `spz-script:` / `custom:`; `;` for several |
-| `template` | Id of a template elsewhere on the page | no | for a larger shared template |
+| `template` | Id of the `<template>` to render | no | how to attach: [template.md](template.md) T1 |
 | `manual` | No automatic first render | no | boolean, no value |
 | `id` | Instance id | no | for actions / events |
 

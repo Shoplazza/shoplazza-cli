@@ -12,20 +12,27 @@ and main-image sync (P2-b)".
 ## In-card image carousel (P2-a)
 
 ```liquid
-{% assign w0 = p.images[0].width | default: 800 %}
-{% assign h0 = p.images[0].height | default: 800 %}
-<ljs-carousel id="{{ img_id }}" layout="responsive" width="{{ w0 }}" height="{{ h0 }}" controls loop>
-  {% for im in p.images limit: 8 %}
-    <a href="{{ p.url }}" draggable="false">
-      <ljs-img layout="fill" object-fit="{{ block.settings.image_fill_mode }}"
-        src="{{ im.src }}" alt="{{ im.alt | default: p.title | escape }}"></ljs-img>
-    </a>
-  {% endfor %}
-</ljs-carousel>
+{% if p.isMock %}
+  {% capture ph_cls %}{{ root_cls }}__img{% endcapture %}
+  {{ 'product-1' | placeholder_img_tag: ph_cls }}
+{% else %}
+  {% assign w0 = p.images[0].width | default: 800 %}
+  {% assign h0 = p.images[0].height | default: 800 %}
+  <ljs-carousel id="{{ img_id }}" layout="responsive" width="{{ w0 }}" height="{{ h0 }}" controls loop>
+    {% for im in p.images limit: 8 %}
+      <a href="{{ p.url }}" draggable="false">
+        <ljs-img layout="fill" object-fit="cover"
+          src="{{ im.src }}" alt="{{ im.alt | default: p.title | escape }}"></ljs-img>
+      </a>
+    {% endfor %}
+  </ljs-carousel>
+{% endif %}
 ```
 
 | Item | Requirement |
 |---|---|
+| Placeholder state | The `p.isMock` branch comes first: the placeholder product has 5 images and an empty `url`, so without it the card renders a carousel of links to a 404. Inside the carousel `p.url` is always real |
+| `object-fit` | `cover`; only with P1-b on, `{{ block.settings.image_fill_mode }}` |
 | `layout` + `width` / `height` | `responsive` + the first image's real width and height. `layout="container"` also renders, but the ratio is unstable |
 | Slide `src` | **Use the raw `im.src`; never wrap it in `img_url`** — swatch sync matches slides by src through `path=`, and a resized URL never matches |
 | Arrows | `controls` makes the component render its own arrow buttons. Your own children with the `pre` / `next` attribute replace those buttons and are not counted as slides, but you style them yourself |

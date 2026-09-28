@@ -2,17 +2,15 @@
 
 The "− 1 +" box next to add-to-cart: the buyer picks how many, and add-to-cart uses that quantity.
 
-Two hosts, both optional elements: products on a list card that can be added from the card (the
-"add directly" and "open panel" rows of the add-to-cart section in
-[kinds/product-card.md](../kinds/product-card.md)), and the single-product purchase card
-([kinds/product-single.md](../kinds/product-single.md)).
+Host: the single-product purchase card ([kinds/product-single.md](../kinds/product-single.md)), as
+an optional element. Product-list cards don't build a quantity stepper
+([kinds/product-card.md](../kinds/product-card.md)).
 
 > Restricted component: [selection.md](selection.md) bans purchase components as a class; this is
 > one of the three exceptions (with [ljs-product-form.md](ljs-product-form.md) and
 > [ljs-variants.md](ljs-variants.md)). Both conditions must hold: it sits in the purchase area of a
-> product block (a list-card product that can be added from the card, or a single-product purchase
-> card), and the matching kind file has been read — [kinds/product-card.md](../kinds/product-card.md)
-> for list cards, [kinds/product-single.md](../kinds/product-single.md) for single-product cards.
+> single-product purchase card, and [kinds/product-single.md](../kinds/product-single.md) has been
+> read.
 
 ## Rules
 
@@ -41,8 +39,8 @@ Two hosts, both optional elements: products on a list card that can be added fro
    component uses them in place of its default icons. Don't draw two extra buttons on top.
 9. No hand-written +/− JS (the intent → component table in [selection.md](selection.md): if a
    component covers the interaction, don't hand-write it) — no `onclick`, no `input.value++`.
-10. In placeholder state (`p.isMock`) the whole add-to-cart area isn't rendered (add-to-cart section
-    of [kinds/product-card.md](../kinds/product-card.md)), and the quantity box goes with it. When
+10. In placeholder state (`p.isMock`) the purchase shell isn't rendered (purchase tiers in
+    [kinds/product-single.md](../kinds/product-single.md)), and the quantity box goes with it. When
     sold out (`p.available == false`) the button is greyed out and the quantity box is not output
     either.
 
@@ -70,39 +68,27 @@ underflow the `min` — to say "at most N", use `event.value` directly. Bind the
 
 ## Skeleton
 
+The box only. The host form, and the placeholder / sold-out gating around it, come from the
+[purchase skeleton](../kinds/product-single.md#purchase-skeleton) in
+[kinds/product-single.md](../kinds/product-single.md); the box goes in its quantity slot, inside the
+form and before the buttons. `qty_id` is the one that skeleton captures (`qty-{{ pid }}`).
+
 ```liquid
-{% capture pf_id %}pf-{{ block_id }}-{{ p.id }}{% endcapture %}
-{% capture qty_id %}qty-{{ block_id }}-{{ p.id }}{% endcapture %}
-
-{% unless p.isMock %}
-  {% if p.available %}
-    {% assign sv = p.selected_or_first_available_variant %}
-    {% assign qty_max = sv.available_quantity | default: 9999 %}
-
-    <ljs-product-form id="{{ pf_id }}" layout="container"
-      product-id="{{ p.id }}" variant-id="{{ p.variants[0].id }}">
-      <form>
-        <div class="{{ root_cls }}__qtyrow">
-          <span class="{{ root_cls }}__qtylabel">{{ block.settings.qty_label }}</span>
-          <ljs-quantity
-            id="{{ qty_id }}"
-            name="quantity"
-            layout="fixed" width="94" height="32"
-            value="1" min="1" max="{{ qty_max }}"
-            icon-class="{{ root_cls }}__qtyicon"
-            input-class="{{ root_cls }}__qtyinput">
-          </ljs-quantity>
-        </div>
-        <button type="button" role="addToCart" class="{{ root_cls }}__atc">
-          {{ block.settings.atc_text }}
-        </button>
-      </form>
-    </ljs-product-form>
-  {% endif %}
-{% endunless %}
+{% assign qty_max = p.selected_or_first_available_variant.available_quantity | default: 9999 %}
+<div class="{{ root_cls }}__qtyrow">
+  <span class="{{ root_cls }}__qtylabel">{{ block.settings.qty_label }}</span>
+  <ljs-quantity
+    id="{{ qty_id }}"
+    name="quantity"
+    layout="fixed" width="94" height="32"
+    value="1" min="1" max="{{ qty_max }}"
+    icon-class="{{ root_cls }}__qtyicon"
+    input-class="{{ root_cls }}__qtyinput">
+  </ljs-quantity>
+</div>
 ```
 
-When the card also selects variants, put the limit sync on the card-root `ljs-product-form`:
+The limit sync (rule 6) goes on that card-root `ljs-product-form`:
 
 ```liquid
 <ljs-product-form … @productChange="{{ qty_id }}.update(value=event.quantity,max=event.max)">

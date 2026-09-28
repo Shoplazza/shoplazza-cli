@@ -28,11 +28,12 @@ not mean it is right — run [self-check.md](self-check.md).
 
 ### Card root: `block_id`, `root_cls`, and the selection anchor
 
-Build these two variables at the top of the file. Every id, class and linkage anchor in the card
-derives from them — never assemble ids separately:
+Build these two variables at the top of the file. Ids and linkage anchors derive from `block_id`,
+and classes are scoped under `.{{ root_cls }}` — never assemble ids separately:
 
 ```liquid
 {% capture block_id %}{{ section.id }}-{{ block.id }}{% endcapture %}
+{% assign block_id = block_id | replace: '.', '_' %}
 {% assign root_cls = "ai-block-" | append: block_id %}
 ```
 
@@ -56,7 +57,7 @@ writes `{{ item.shoplaza_attributes }}` for the same reason:
 ```
 
 Ids inside a child block start from `block_id` plus `item.id` (`{{ block_id }}-{{ item.id }}`);
-classes start with `root_cls` as in [Styles and scope](#styles-and-scope).
+classes are scoped under `.{{ root_cls }}` as in [Styles and scope](#styles-and-scope).
 
 ### Inline child blocks and the block root
 
@@ -113,7 +114,7 @@ replacement:
 | Renamed | `image_url` `image_tag` `article_img_url` | `img_url` / `img_tag` (see [Replace these Shopify patterns](#replace-these-shopify-patterns)) |
 | Renamed | `money_with_currency` `money_amount` | `money_with_symbol` / `money_without_currency` |
 | Renamed | `camelize` | `camelcase` |
-| Renamed | `translate` | `t` |
+| Renamed | `translate` | `t` exists here, but an AI card never uses it ([Copy and i18n](#copy-and-i18n)) |
 | Array | `at_least` `at_most` `compact` `sum` `sort_natural` `sort_by` `find` `find_index` `has` `reject` | Combine `if` / `sort` / `where` / `map` |
 | String | `remove_last` `replace_last` | `split` and rejoin, or change the requirement |
 | Encoding / hashing | `base64_encode` `base64_decode` `base64_url_safe_encode` `base64_url_safe_decode` `blake3` | No base64; for hashing use `md5` `sha1` `sha256` `hmac_*` |
@@ -226,8 +227,8 @@ appending a string that came out of `capture` works; the empty string only happe
 
 Filter arguments take only a variable or a literal; build a string with `capture` first, then pass
 the variable. A pipeline inside one `{{ }}` is left-associative: in `{{ a | f: x | g: 's' }}`, `g`
-receives the result of `f`, not `x`. The same holds for the argument of `img_url:`, `default:` and
-`t:`.
+receives the result of `f`, not `x`. The same holds for the argument of `img_url:` and
+`default:`.
 
 ❌ `append` lands after the `<svg>` that `placeholder_svg_tag` produced: the class name renders as
 visible text next to the image, and the tag itself never gets that class:
@@ -254,8 +255,8 @@ directly gives empty values with no error. Look up the metadata in `images` firs
 
 ```liquid
 {% assign img = images[block.settings.cover] %}
-<ljs-img src="{{ block.settings.cover | img_url: '800x' }}"
-     alt="{{ img.alt }}" width="{{ img.width }}" height="{{ img.height }}">
+<ljs-img src="{{ block.settings.cover | img_url: '800x' }}" layout="responsive"
+     alt="{{ img.alt }}" width="{{ img.width }}" height="{{ img.height }}"></ljs-img>
 ```
 
 ### Images use `ljs-img`; media areas always have a placeholder

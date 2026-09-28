@@ -114,10 +114,10 @@ boolean.
         <button
           type="button"
           class="fav-btn"
-          data-liked="${data.liked ? 'true' : 'false'}"
+          data-liked="${data.liked?'true':'false'}"
           @tap="{{ state_id }}.toggle()"
         >
-          ${data.liked ? '{{ block.settings.on_label }}' : '{{ block.settings.off_label }}'}
+          ${data.liked?'{{ block.settings.on_label }}':'{{ block.settings.off_label }}'}
         </button>
       </template>
     </ljs-render>

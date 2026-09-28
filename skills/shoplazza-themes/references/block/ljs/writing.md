@@ -25,7 +25,7 @@ tables below; don't guess from what "usually" works.
 | `fill` | Fills the parent's available space; the parent needs `position:relative` / `absolute` |
 | `responsive` | Height adapts to the aspect ratio given by `width` / `height`; needs both |
 | `fixed` | Fixed width and height, no adapting; needs both |
-| `fixed-height` | Fixed height only, width adapts (for horizontally laid-out content such as a carousel) |
+| `fixed-height` | Fixed height only, width adapts (e.g. an image shown at a set height) |
 | `intrinsic` | Adapts to the aspect ratio until it reaches the `width` / `height` size or a CSS limit (e.g. `max-width`) |
 | `flex-item` | When the parent is `display:flex`, shares the remaining space with sibling `flex-item`s |
 
@@ -33,12 +33,13 @@ Which component takes which value (copy as is):
 
 | `layout` value | Components |
 |---|---|
-| `container` | `accordion` `anchor` `carousel` `countdown` `currency` `date` `list` `model-viewer` `odometer` `product-form` `render` `rng` `scrollbar` `selector` `slide-indicator` `state` `sticky` `tabs` `timeago` `variants` `zoom` |
+| `container` | `accordion` `anchor` `countdown` `currency` `data-source` `date` `list` `model-viewer` `odometer` `product-form` `render` `rng` `scrollbar` `selector` `slide-indicator` `state` `sticky` `tabs` `timeago` `variants` `zoom` |
 | `logic` | `animation` `event` `interact-observer` `observer` `script` `tooltip` |
 | `nodisplay` | `dropdown` `lightbox` `toast` |
-| **See the component doc** | `img` `video` `vimeo` `youtube` `tiktok` `quantity` `loading` — which of `fill` / `responsive` / `fixed` / `fixed-height` / `intrinsic` / `flex-item` (or `nodisplay` for loading) depends on the display need, usually paired with `width` / `height`; each component doc explains it |
+| **See the component doc** | `img` `video` `vimeo` `youtube` `tiktok` `quantity` `loading` `carousel` — which of `fill` / `responsive` / `fixed` / `fixed-height` / `intrinsic` / `flex-item` (or `nodisplay` for loading; `container` for a carousel whose slides set their own height, `responsive` for an image gallery) depends on the display need, usually paired with `width` / `height`; each component doc explains it |
 
-Component docs don't repeat `layout` values; this table is the only source.
+Except for the last row, component docs don't repeat `layout` values; this table is the only
+source.
 
 ## R5 · Attributes, ids and CSS
 
@@ -52,8 +53,8 @@ Component docs don't repeat `layout` values; this table is the only source.
 5. Stable ids and classes: derive linked ids from `block_id` and use `root_cls` for the root class
    (both declared per [liquid-rules.md](../liquid-rules.md) → "Card root"); inside loops, build the
    id with `capture` and append a suffix.
-6. Unit conversion: carousel `delay` seconds → ms (`| times: 1000`); countdown days → seconds
-   (`| times: 86400`), then pass `timeleft-seconds`.
+6. Unit conversions are in the component docs: carousel `delay` ([ljs-carousel.md](ljs-carousel.md)),
+   countdown `timeleft-seconds` ([ljs-countdown.md](ljs-countdown.md)).
 7. Don't fight the CSS a component controls:
 
 | Component | The component controls | What you write |
@@ -97,18 +98,16 @@ Bind on the main component first:
    (products, collections) is not modeled as child items; use a resource-type setting as the data
    source instead ([schema-rules.md](../schema-rules.md) → "One block file, at most one level of
    inline children").
-3. `ljs-slide-indicator`'s `carousel-id` must equal the carousel's `id` (same `capture`), and it
-   must have `size` (without it the element is marked `empty` and renders no dots).
+3. `ljs-slide-indicator`'s `carousel-id` and `size`: [ljs-slide-indicator.md](ljs-slide-indicator.md).
 4. Give heights in real px (CSS variables); don't rely on `height:100%` alone.
 
 ## R8 · Templates
 
 Components that use a `<template>` (`ljs-render` / `ljs-list` / `ljs-scrollbar` / `ljs-countdown` /
-the async product-card tier, etc.): how to declare the template, the single-root rule, the limits
-of `${}` expressions and the split with Liquid are all in [template.md](template.md). Component
-docs only describe their own data fields and don't repeat the template rules.
+the async product-card tier, etc.): how to attach the template ([template.md](template.md) T1), the
+single-root rule, the limits of `${}` expressions ([template.md](template.md) T3) and the split with
+Liquid are all in [template.md](template.md). Component docs only describe their own data fields
+and don't repeat the template rules.
 
-The template must be written inline as a child of the component (or referenced by id in the same
-file), with exactly one root element, and `${}` must not call global objects. `template-src`, the
-`shoplaza_asset_url` filter, and the theme's own global data and snippets are all unavailable in
+The `shoplaza_asset_url` filter and the theme's own global data and snippets are unavailable in
 templates.

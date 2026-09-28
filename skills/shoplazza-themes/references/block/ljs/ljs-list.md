@@ -151,8 +151,7 @@ Calling the HTTP endpoint directly: set `src` to the endpoint and drop the `ljs-
 </ljs-list>
 ```
 
-`${}` is a restricted expression: property paths, ternaries and array methods work;
-`Object.keys(...)` / `JSON.stringify(...)` make the whole node disappear silently (no error). Wrap
-every amount in `ljs-currency`; never assemble a currency symbol inside `${}`.
+`${}` limits: [template.md](template.md) T3. Wrap every amount in `ljs-currency`; never assemble a
+currency symbol inside `${}`.
 
 Load-more for a product list: see [product-card-async.md](../kinds/product-card-async.md).

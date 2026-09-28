@@ -82,7 +82,9 @@ Name the loop variable `item` (not `block`, which would clash with the root `blo
           <ljs-img
             src="{{ item.settings.image | img_url }}"
             alt="{{ item.settings.heading | escape }}"
-            layout="fill"
+            layout="responsive"
+            width="800"
+            height="600"
             object-fit="cover"
           ></ljs-img>
         {% endif %}

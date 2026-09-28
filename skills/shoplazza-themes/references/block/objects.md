@@ -26,7 +26,7 @@ part of the page is just blank:
 | `page` | `.id` `.title` `.url` saved when it was picked | `{% assign pg = pages[block.settings.my_page.id] %}` → only `.title` `.content` are usable |
 | `link_list` | `.id` `.title` `.url` saved when it was picked | `{% for link in linklists[block.settings.my_menu.id].links %}` → each item has `.title` `.url` `.type` |
 | `blog` | `.id` `.title` `.url` saved when it was picked | Its article list can't be reached; see below |
-| `article` | `.id` `.title` `.url` `.image` saved when it was picked | Excerpt / date / author go through `articles[handle]`; see [Articles](#articles) |
+| `article` | `.id` `.title` `.url` saved when it was picked | Excerpt / date / author go through `articles[handle]`; see [Articles](#articles) |
 | `image_picker` | A string key, not an image object | URL via `\| img_url`; width, height and alt via `images[key]` ([liquid-rules.md](liquid-rules.md) → "`image_picker` values are keys") |
 | `video_picker` | An object — **an empty check is always true** | Loop over `.sources` for mp4 / hls; empty-check pattern in [ljs/ljs-video.md](ljs/ljs-video.md) |
 
@@ -199,7 +199,7 @@ object.
 |---|---|
 | Output an amount | `<ljs-currency layout="container" value="{{ product.price }}"></ljs-currency>`: pass the number straight to `value`, without `money_with_symbol`; the component renders its own `class="money"` container (the hook for currency switching), so don't wrap it by hand; in the price row give it `display: inline-block` |
 | Show a strike-through price? | `{% if product.price < product.compare_at_price %}` — **compare the values, don't check for non-empty**: without a discount `compare_at_price == price` rather than empty, so a non-empty check puts a strike-through price on every product |
-| Price range? | `{% if product.price_min != product.price_max %}` → show `price_min` + "from" |
+| Price range? | `{% if product.price_min != product.price_max %}` → show `price_min` – `price_max` (see [product-single.md → Price area](kinds/product-single.md#price-area)) |
 | Discount percentage | `off_ratio` is already an integer (`30` = 30%); `times: 100` again makes 3000%. When it's empty compute it: `compare_at_price \| minus: price \| times: 100 \| divided_by: compare_at_price \| round` |
 | Discount amount | `<ljs-currency layout="container" value="{{ product.compare_at_price \| minus: product.price }}"></ljs-currency>` |
 

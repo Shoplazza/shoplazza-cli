@@ -9,8 +9,8 @@ Hosts variant add-to-cart and checkout. Used on product-detail style cards and q
    panel can't find their host form.
 2. The list-card shell, button behaviour, and panel rules are in the add-to-cart section of
    [kinds/product-card.md](../kinds/product-card.md); single-product cards have four purchase
-   tiers, see [kinds/product-single.md](../kinds/product-single.md). The skeleton below is the
-   list-card root form.
+   tiers, see [kinds/product-single.md](../kinds/product-single.md). The shells themselves live
+   only in those files (see "Shells" below).
 3. `role="addToCart"` is the component's hook — never rename it. Write the button as
    `<button type="button">`.
 4. For a product with no variants or a single variant, set the variant with the `variant-id`
@@ -18,8 +18,8 @@ Hosts variant add-to-cart and checkout. Used on product-detail style cards and q
    already the form; it would duplicate).
 5. Success/failure feedback uses `show-toast` (boolean: present when on, omitted when off). Never
    fetch or toast yourself.
-6. Build `id` as `{{ block_id }}-{{ product.id }}` so several shells and cards on one page don't
-   collide.
+6. Build `id` as `patc-{{ pid }}`, with `pid` captured as `{{ block_id }}-{{ p.id }}`, so several
+   shells and cards on one page don't collide.
 7. Use only the attributes in the table below. Don't write `buy-now-url` or `manual-create-order`,
    and don't call the theme's own quick-view popup: those depend on one theme's global UI and fail
    silently on another theme.
@@ -75,39 +75,15 @@ Declarative, bind only what you need.
 | `@option{N}Invalid` / `@option{N}Valid` | Option N is unselected / selected; N starts at 1 | Case-sensitive: `Invalid` / `Valid` start with a capital, lowercase won't bind. If it doesn't fire, fall back to `@atcError` |
 | `@{optionName}Invalid` / `@{optionName}Valid` | Same, keyed by option name without spaces, e.g. `@ColorInvalid` | Fires together with `@option{N}Invalid`; either form works |
 
-## Skeleton (card root)
+## Shells
 
-How the `direct_atc` / `swatch_atc` booleans are computed is in the add-to-cart section of
-[kinds/product-card.md](../kinds/product-card.md). `p` is the product in the list loop.
+Copy the card-root shell from the kind file; both wrap `ljs-data-source` → `ljs-product-form > form`:
 
-```liquid
-<div class="{{ root_cls }}__card">
-  {% unless p.isMock %}
-    <ljs-product-form
-      id="patc-{{ block_id }}-{{ p.id }}"
-      layout="container"
-      product-id="{{ p.id }}"
-      show-toast
-      disable-init-toast
-      {% if direct_atc %}variant-id="{{ p.variants[0].id }}"{% endif %}
-    >
-      <form>
-  {% endunless %}
-
-        {% comment %} Media, title, price, and options all sit inside the form {% endcomment %}
-        {% comment %} Quick-add button: sold-out disabled / add directly / open panel — which one a product gets is in the add-to-cart button table; only "add directly" is shown here. This slot is the button form; the icon form sits in the media area, one per card per device {% endcomment %}
-        <button type="button" role="addToCart" class="{{ root_cls }}__btn">{{ block.settings.atc_text }}</button>
-
-  {% unless p.isMock %}
-      </form>
-    </ljs-product-form>
-  {% endunless %}
-</div>
-```
-
-List-card shell, button behaviour, and panel: [kinds/product-card.md](../kinds/product-card.md)
-(add-to-cart section). Single-product skeleton and tiers:
-[kinds/product-single.md](../kinds/product-single.md) (purchase skeleton, purchase tiers).
+- List card: [Card root shell and the two flags](../kinds/product-card.md#card-root-shell-and-the-two-flags)
+  in [kinds/product-card.md](../kinds/product-card.md) (with `disable-init-toast` and the panel's
+  `@atcSuccess`); button behaviour and the panel follow in the same section.
+- Single-product card: [Purchase skeleton](../kinds/product-single.md#purchase-skeleton) in
+  [kinds/product-single.md](../kinds/product-single.md); tiers under "Purchase tiers".
 
 ## Common mistakes
 

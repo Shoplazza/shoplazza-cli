@@ -14,13 +14,18 @@ tag as `ljs-carousel`).
 4. Several slides per screen: set `visible-count`, per breakpoint with the media-query form
    `visible-count="(min-width:960px) 3, 1.1"`. Decimals show part of the next slide (`1.2` on
    mobile tells the shopper there is more).
-5. Give the slide root a real px height (CSS variable); never only `height:100%` (black bars
-   appear easily).
+5. Image slides: give the slide root a real px height (CSS variable); never only `height:100%`
+   (black bars appear easily). Content slides (product cards) take their height from their content.
 6. Arrows: add the boolean `controls`; the component brings its own prev/next buttons (preferred).
    No arrows → don't output `controls`. To change the arrow look, put child elements carrying the
    `pre` (previous) and `next` attributes inside the carousel (still with `controls`); don't
    `{% render %}` the theme's own icon snippets.
-7. Images: `ljs-img` + `img_url`.
+7. Images: `ljs-img` + `img_url`. Exception: a product card's in-card image carousel uses the raw
+   `im.src` without `img_url`, because swatch sync matches slides by src
+   ([product-card-interaction.md](../kinds/product-card-interaction.md)).
+8. `layout`: `container` when the slides set their own height (rule 5: px-height image slides, the
+   skeleton below, or content slides such as the L3 product list); `responsive` + `width` /
+   `height` for an image gallery sized by the image ratio.
 
 ## Attributes
 

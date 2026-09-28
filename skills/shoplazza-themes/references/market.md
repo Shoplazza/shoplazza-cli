@@ -63,8 +63,8 @@ named). Nothing matches → show the list and ask; never guess.
 1. Pick the row: reuse `remote_theme_id` + `preset_name` from a market read earlier in the
    conversation; otherwise read the list.
 2. Pick the preset: one row → it; a style named → that `preset_name`; several and none named →
-   `Default`, and mention the other styles; no `Default` row → list the preset names and ask;
-   nothing matches → back to the list, never guess an id.
+   `Default`, and mention the other styles; no `Default` row → omit `preset` (the theme's default
+   preset is used) and name the styles; nothing matches → back to the list, never guess an id.
 3. Say in one line: theme + preset, "installs as an unpublished theme — the live store doesn't
    change". Then install; no consent step (it doesn't touch the live theme).
 4. Report the new theme. Install is synchronous: the theme and its files exist at once, with
@@ -85,11 +85,11 @@ named). Nothing matches → show the list and ask; never guess.
 
 ```bash
 # Browse: one row per theme × preset
-themes market list --jq '{total: .data.total, rows: [.data.merchant_themes[] | {name, preset_name, remote_theme_id, c_version, is_paid}]}'
+themes market list --jq '{total: .data.total, total_pages: .data.total_pages, rows: [.data.merchant_themes[] | {name, preset_name, remote_theme_id, c_version, is_paid}]}'
 
 # Describe one theme (every preset of it); <word> = the name as the user wrote it, lower-case;
 # several different names match → list them and ask. Use desc.zh_CN for a Chinese reply
-themes market list --jq '[.data.merchant_themes[] | select(.name | ascii_downcase | contains("<word>")) | {name, preset_name, remote_theme_id, c_version, preview_url: (.preset_data.preview_url // .preview_url), industry: [.preset_data.industry[]?.name], category: [.preset_data.category[]?.name], features: [(.preset_data.features // .preset_data.feature)[]?.name], tags: ((.exts // "{}") | fromjson | .tags["en-US"] // []), desc: ((.preset_data.desc.en_US // .desc // "") | gsub("<[^>]*>"; " ") | .[0:400])}]'
+themes market list --jq '{total_pages: .data.total_pages, rows: [.data.merchant_themes[] | select(.name | ascii_downcase | contains("<word>")) | {name, preset_name, remote_theme_id, c_version, preview_url: (.preset_data.preview_url // .preview_url), industry: [.preset_data.industry[]?.name], category: [.preset_data.category[]?.name], features: [(.preset_data.features // .preset_data.feature)[]?.name], tags: ((.exts // "{}") | fromjson | .tags["en-US"] // []), desc: ((.preset_data.desc.en_US // .desc // "") | gsub("<[^>]*>"; " ") | .[0:400])}]}'
 
 # Local filter on a taxonomy label or code taken from the data
 themes market list --jq '[.data.merchant_themes[] | select(any(.preset_data.category[]?; .name == "<label>" or .value == "<code>")) | "\(.name) · \(.preset_name)"]'
