@@ -90,6 +90,7 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 		c := client.New(base)
 		c.SetBearerToken(tok)
 		c.SetCliUserID(cmdutil.CliUserIDEnv())
+		cmdutil.SetThemeRF(c)
 		echoTarget(cmd, domain, envName)
 		return resolvedStore{Client: c, Domain: domain, Env: selEnv}, nil
 	}
@@ -118,6 +119,7 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 	c := client.New("https://" + profile.StoreDomain)
 	c.SetBearerToken(tok)
 	c.SetCliUserID(cmdutil.CliUserID(f)) // audit attribution
+	cmdutil.SetThemeRF(c)
 	echoTarget(cmd, profile.StoreDomain, envName)
 	return resolvedStore{Client: c, Domain: profile.StoreDomain, Env: selEnv, Profile: profile.Name}, nil
 }

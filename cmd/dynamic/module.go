@@ -90,7 +90,13 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 			if cmdutil.IsDryRun(cmd) && cmd.Annotations[cmdutil.AnnotationDryRunReads] != "true" {
 				return nil
 			}
-			return cmdutil.RequireAuth(cmd.Context(), factory, cmd)
+			if err := cmdutil.RequireAuth(cmd.Context(), factory, cmd); err != nil {
+				return err
+			}
+			if mod.Name == "themes" {
+				cmdutil.SetThemeRF(factory.Client)
+			}
+			return nil
 		},
 		Annotations: map[string]string{annotationDiscovery: "true"},
 	}
