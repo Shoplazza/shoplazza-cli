@@ -312,6 +312,9 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	if ops != nil {
 		body["ops"] = ops
 	}
+	if docID != "" {
+		body["doc_id"] = docID
+	}
 	if branched {
 		body["previous_type"] = cardType
 	}
@@ -428,7 +431,10 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	if len(degraded) > 0 {
 		body["degraded"] = degraded
 	}
-	body["preview_url"] = previewURLFor(themeID, oseid)
+	body["preview_url"], body["template_id"] = previewURLFor(themeID, oseid)
+	if body["template_id"] == "" {
+		delete(body, "template_id")
+	}
 	return common.ExecResult{Body: body}, nil
 }
 
@@ -445,15 +451,18 @@ func runOps(ctx context.Context, c *client.Client, oseid, docID string, operatio
 	if err != nil {
 		return out, err
 	}
-	results := batchResultStrings(resp)
+	items := batchResultItems(resp)
 	for i, op := range operations {
-		res := ""
-		if i < len(results) {
-			res = results[i]
+		res, revertID := "", ""
+		if i < len(items) {
+			res, revertID = getString(items[i], "result"), anyToString(items[i]["revert_id"])
 		}
 		entry := map[string]any{"op": op["op"], "result": res}
 		if t, ok := op["target"]; ok {
 			entry["target"] = t
+		}
+		if revertID != "" {
+			entry["revert_id"] = revertID
 		}
 		*applied = append(*applied, entry)
 		out[names[i]] = res

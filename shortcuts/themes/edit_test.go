@@ -27,10 +27,11 @@ type editServer struct {
 
 	mu           sync.Mutex
 	writes       []map[string]any
-	failResults  map[int]string // batch entry index → non-success result string
-	added        []string       // section ids "created" by add_section entries
-	conflict     bool           // promote responds conflict=true
-	publishFails bool           // publish responds 500
+	failResults  map[int]string   // batch entry index → non-success result string
+	added        []string         // section ids "created" by add_section entries
+	moves        []map[string]any // move_section entries applied to the page area, in order
+	conflict     bool             // promote responds conflict=true
+	publishFails bool             // publish responds 500
 }
 
 func newEditServer(t *testing.T) *editServer {
@@ -48,6 +49,7 @@ func newEditServer(t *testing.T) *editServer {
 			_ = json.NewEncoder(w).Encode(map[string]any{"templates": []any{
 				map[string]any{"id": "d_index", "location": "index.liquid"},
 				map[string]any{"id": "d_product", "location": "product.liquid"},
+				map[string]any{"id": "d_product_custom", "location": "product.custom.liquid"},
 			}})
 		case p == "/openapi/2026-01/products" && r.Method == http.MethodGet:
 			_ = json.NewEncoder(w).Encode(map[string]any{"products": []any{map[string]any{"handle": "demo-product"}}})
@@ -72,6 +74,31 @@ func newEditServer(t *testing.T) *editServer {
 			for _, id := range es.added { // sections "created" by earlier batch adds
 				pageSections = append(pageSections, map[string]any{"id": id, "type": "rich_text", "display": true,
 					"settings": map[string]any{}, "blocks": []any{}})
+			}
+			// Replay recorded move_sections so a re-read sees the final layout.
+			for _, mv := range es.moves {
+				var moved map[string]any
+				rest := make([]any, 0, len(pageSections))
+				for _, sec := range pageSections {
+					if anyToString(sec.(map[string]any)["id"]) == anyToString(mv["target"]) {
+						moved = sec.(map[string]any)
+					} else {
+						rest = append(rest, sec)
+					}
+				}
+				if moved == nil {
+					continue
+				}
+				pageSections = nil
+				for _, sec := range rest {
+					if mv["position"] == "before" && anyToString(sec.(map[string]any)["id"]) == anyToString(mv["move_target"]) {
+						pageSections = append(pageSections, moved)
+					}
+					pageSections = append(pageSections, sec)
+					if mv["position"] == "after" && anyToString(sec.(map[string]any)["id"]) == anyToString(mv["move_target"]) {
+						pageSections = append(pageSections, moved)
+					}
+				}
 			}
 			es.mu.Unlock()
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{
@@ -115,11 +142,20 @@ func newEditServer(t *testing.T) *editServer {
 					res = fr
 				} else if om["op"] == "add_section" {
 					es.added = append(es.added, fmt.Sprintf("sec_new%d", len(es.added)+1))
+				} else if om["op"] == "move_section" {
+					es.moves = append(es.moves, om)
 				}
-				results = append(results, map[string]any{"op": om["op"], "result": res})
+				// revert_id per entry, as the server will echo it once undo ships.
+				results = append(results, map[string]any{"op": om["op"], "result": res, "revert_id": fmt.Sprintf("rv%d", i)})
 			}
 			es.mu.Unlock()
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"data": results}})
+		case strings.HasSuffix(p, "/theme-templates") && r.Method == http.MethodGet:
+			// One unbound custom template; the id is a 19-digit integer in the
+			// real API, so it must survive as digits, not a float.
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"theme_templates": []any{
+				map[string]any{"id": json.Number("1234567890123456789"), "type": r.URL.Query().Get("type"), "suffix": "custom", "obj_id": nil},
+			}}})
 		case strings.HasSuffix(p, "/page-builder/blocks") && r.Method == http.MethodGet:
 			sid := r.URL.Query().Get("source_ids")
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"blocks": map[string]any{
@@ -380,6 +416,10 @@ func TestEdit_MixedBatchRoutesPbAndBackfillsBody(t *testing.T) {
 	applied := body["applied"].([]map[string]any)
 	if len(applied) != 2 || applied[1]["result"] != "success" {
 		t.Fatalf("applied = %v", applied)
+	}
+	// update_pb expands to remove+add, so it echoes both undo handles.
+	if applied[0]["revert_id"] != "rv0" || fmt.Sprint(applied[1]["revert_ids"]) != "[rv1 rv2]" {
+		t.Errorf("revert handles = %v / %v, want rv0 / [rv1 rv2]", applied[0]["revert_id"], applied[1]["revert_ids"])
 	}
 	// pb-block-save runs first and generates the replacement card.
 	pb := editWriteBody(es, http.MethodPost, "/page-builder/blocks")
@@ -779,6 +819,70 @@ func TestEdit_PositionTranslationAndPlacement(t *testing.T) {
 	}
 	if body["applied"].([]map[string]any)[0]["new_section_id"] != "sec_new1" {
 		t.Errorf("new_section_id = %v", body["applied"])
+	}
+}
+
+// TestEdit_EchoFieldsForConsumers pins the fields a consumer mirrors the
+// change from without re-reading the page: to_index_id (the section the moved
+// or added one now follows, "" = first), visible, per-op revert_id, doc_id and
+// the custom template's id.
+func TestEdit_EchoFieldsForConsumers(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	// Page layout in the mock: 111, 222, 444, 333 (then appended adds).
+	body, err := editExec(t, es, map[string]any{"template": "index", "session": "ose_x",
+		"ops": `[{"op":"set_visibility","target":"111","visible":false},
+		         {"op":"move_section","target":"333","position":"before:222"},
+		         {"op":"move_section","target":"222","position":"first"},
+		         {"op":"move_section","target":"111","position":"before:222"},
+		         {"op":"add_section","name":"rich_text"},
+		         {"op":"add_section","name":"rich_text","position":"first"},
+		         {"op":"add_section","name":"rich_text","position":"after:444"}]`})
+	if err != nil {
+		t.Fatalf("editExecute: %v", err)
+	}
+	applied := body["applied"].([]map[string]any)
+	if len(applied) != 7 {
+		t.Fatalf("applied = %v", applied)
+	}
+	if applied[0]["visible"] != false || applied[0]["revert_id"] != "rv0" {
+		t.Errorf("set_visibility row = %v, want visible=false revert_id=rv0", applied[0])
+	}
+	want := map[int]any{
+		1: "111",      // before 222 → follows 111
+		2: "",         // first of its area
+		3: "",         // before 222 while sitting right before it: skip itself → first
+		4: "sec_new3", // appended last, then the add placed after 444 slid in front of it
+		5: "",         // placed first
+		6: "444",      // placed after 444
+	}
+	for i, to := range want {
+		if got, ok := applied[i]["to_index_id"]; !ok || got != to {
+			t.Errorf("applied[%d] to_index_id = %v (present=%v), want %q; row=%v", i, got, ok, to, applied[i])
+		}
+	}
+	if applied[6]["new_section_id"] != "sec_new3" {
+		t.Errorf("new_section_id = %v", applied[6]["new_section_id"])
+	}
+	if body["doc_id"] != "d_index" {
+		t.Errorf("doc_id = %v, want d_index", body["doc_id"])
+	}
+	if _, has := body["template_id"]; has {
+		t.Errorf("template_id must be absent for a system template, got %v", body["template_id"])
+	}
+
+	// A custom resource template echoes its theme-templates id as digits.
+	body, err = editExec(t, es, map[string]any{"template": "product.custom", "session": "ose_x",
+		"ops": `[{"op":"replace_props","target":"111","props":{"a":"1"}}]`})
+	if err != nil {
+		t.Fatalf("custom template edit: %v", err)
+	}
+	if body["template_id"] != "1234567890123456789" {
+		t.Errorf("template_id = %v, want 1234567890123456789", body["template_id"])
+	}
+	if !strings.Contains(getString(body, "preview_url"), "template=custom") {
+		t.Errorf("preview_url = %v", body["preview_url"])
 	}
 }
 

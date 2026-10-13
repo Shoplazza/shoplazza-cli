@@ -164,7 +164,7 @@ func newBlockServer(t *testing.T) *blockServer {
 					}
 					bs.added = append(bs.added, sid)
 				}
-				results = append(results, map[string]any{"op": om["op"], "result": res})
+				results = append(results, map[string]any{"op": om["op"], "result": res, "revert_id": fmt.Sprintf("rv%d", i)})
 			}
 			bs.mu.Unlock()
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"data": results}})
@@ -276,6 +276,12 @@ func TestBlockEdit_CreateAndPlace(t *testing.T) {
 	}
 	if body["ops"] != nil {
 		t.Errorf("ops should be nil when --ops is absent: %v", body["ops"])
+	}
+	if body["doc_id"] != "d_index" {
+		t.Errorf("doc_id = %v, want d_index", body["doc_id"])
+	}
+	if applied, _ := body["applied"].([]map[string]any); len(applied) != 1 || applied[0]["revert_id"] != "rv0" {
+		t.Errorf("applied = %v, want one row carrying revert_id rv0", body["applied"])
 	}
 }
 
