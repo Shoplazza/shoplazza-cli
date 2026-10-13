@@ -322,6 +322,9 @@ func pageList(ctx context.Context, in common.ExecInput, themeID string) (common.
 			name = typ + "." + suffix
 		}
 		entry := map[string]any{"template": name, "type": typ, "title": getString(item, "title")}
+		if v := anyToString(item["id"]); v != "" {
+			entry["template_id"] = v
+		}
 		if v := getString(item, "obj_title"); v != "" {
 			entry["obj_title"] = v
 		}

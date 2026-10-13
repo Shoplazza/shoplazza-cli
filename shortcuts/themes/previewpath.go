@@ -61,29 +61,37 @@ const previewPathTimeout = 5 * time.Second
 // and otherwise fetch one representative item. A custom template's suffix is
 // appended as ?template=<suffix>.
 func resolvePreviewPath(ctx context.Context, c *client.Client, themeID, template, file string) string {
+	path, _ := resolvePreviewTarget(ctx, c, themeID, template, file)
+	return path
+}
+
+// resolvePreviewTarget is resolvePreviewPath plus the theme-templates id of a
+// custom resource template ("" for static pages, default templates, or when
+// the lookup fails) — the id the editor's template view is keyed by.
+func resolvePreviewTarget(ctx context.Context, c *client.Client, themeID, template, file string) (path, templateID string) {
 	page, suffix := previewPageName(template, file)
 	if page == "" {
-		return ""
+		return "", ""
 	}
 	path, ok := previewStaticPaths[page]
 	if !ok {
 		res, known := previewResourcePages[page]
 		if !known {
-			return ""
+			return "", ""
 		}
 		if suffix != "" {
-			path = boundPath(ctx, c, themeID, page, suffix, res.queryPath, res.prefix)
+			path, templateID = boundPath(ctx, c, themeID, page, suffix, res.queryPath, res.prefix)
 		}
 		if path == "" {
 			if path = representativePath(ctx, c, res.queryPath, res.sizeParam, res.prefix); path == "" {
-				return ""
+				return "", templateID
 			}
 		}
 	}
 	if suffix != "" {
 		path += "?template=" + url.QueryEscape(suffix)
 	}
-	return path
+	return path, templateID
 }
 
 // previewPageName splits --template/--file into the page name and the custom
@@ -106,35 +114,39 @@ func previewPageName(template, file string) (page, suffix string) {
 
 // boundPath resolves a custom template to the storefront path of the object it
 // is bound to: the template list carries obj_id once bound, and that object's
-// detail carries the handle. "" when the theme is unknown, the template is
-// unbound, or either call fails; bounded by previewPathTimeout.
-func boundPath(ctx context.Context, c *client.Client, themeID, page, suffix, queryPath, prefix string) string {
+// detail carries the handle. Path is "" when the theme is unknown, the template
+// is unbound, or either call fails; templateID is the matching template's id
+// whenever the list call succeeded. Bounded by previewPathTimeout.
+func boundPath(ctx context.Context, c *client.Client, themeID, page, suffix, queryPath, prefix string) (path, templateID string) {
 	if themeID == "" {
-		return ""
+		return "", ""
 	}
 	ctx, cancel := context.WithTimeout(ctx, previewPathTimeout)
 	defer cancel()
 	resp, err := common.Send(ctx, c, PlanListTemplates(themeID, map[string]any{"type": page, "per_page": "100"}))
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	var objID string
 	for _, item := range mapSlice(unwrapData(resp)["theme_templates"]) {
 		if getString(item, "suffix") != suffix {
 			continue
 		}
+		if templateID == "" {
+			templateID = anyToString(item["id"])
+		}
 		if objID = getString(item, "obj_id"); objID != "" {
 			break
 		}
 	}
 	if objID == "" {
-		return ""
+		return "", templateID
 	}
 	detail, err := common.Send(ctx, c, common.PlannedRequest{Method: "GET", Path: queryPath + "/" + objID})
 	if err != nil {
-		return ""
+		return "", templateID
 	}
-	return detailPath(detail, prefix)
+	return detailPath(detail, prefix), templateID
 }
 
 // detailPath reads the storefront path out of a single-object detail response,

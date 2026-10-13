@@ -144,6 +144,48 @@ func successorOf(inner map[string]any, sid string) string {
 	return ""
 }
 
+// predecessorOf returns the id of the section right before sid in its area
+// layout, skipping the section named skip (the one being moved, when a
+// "before" move lands next to itself). "" when sid is first or unknown.
+func predecessorOf(inner map[string]any, sid, skip string) string {
+	if inner == nil {
+		return ""
+	}
+	grp := sectionArea(inner, sid)
+	if grp == "" {
+		grp = "page"
+	}
+	list := sectionsByArea(inner)[grp]
+	for i, m := range list {
+		if anyToString(m["id"]) != sid {
+			continue
+		}
+		for j := i - 1; j >= 0; j-- {
+			if id := anyToString(list[j]["id"]); id != skip {
+				return id
+			}
+		}
+		return ""
+	}
+	return ""
+}
+
+// toIndexIDOf renders a server {position, move_target} pair as the echo's
+// to_index_id: the id of the section the moved one now follows ("" = first in
+// its area). inner is the layout the pair was resolved against.
+func toIndexIDOf(inner map[string]any, position, moveTarget, moved string) (string, bool) {
+	switch position {
+	case "after":
+		return moveTarget, true
+	case "before":
+		if inner == nil {
+			return "", false
+		}
+		return predecessorOf(inner, moveTarget, moved), true
+	}
+	return "", false
+}
+
 // translateOps maps validated +edit ops onto server ThemeOperation entries
 // plus the placement fix-ups for the follow-up batch.
 func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]any) ([]serverOp, []postMove, map[int]string, error) {
@@ -282,9 +324,9 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 	return entries, moves, newTargets, nil
 }
 
-// batchResultStrings pulls the ordered result list out of a batch-ops
-// response, tolerating the {data:{data:[{op,result}…]}} envelope.
-func batchResultStrings(resp map[string]any) []string {
+// batchResultItems pulls the ordered per-entry result objects out of a
+// batch-ops response, tolerating the {data:{data:[{op,result,…}…]}} envelope.
+func batchResultItems(resp map[string]any) []map[string]any {
 	root := resp
 	for range 2 {
 		if d := mapField(root, "data"); d != nil {
@@ -295,30 +337,46 @@ func batchResultStrings(resp map[string]any) []string {
 	if items == nil {
 		items = root["results"]
 	}
+	return mapSlice(items)
+}
+
+// batchResultStrings is batchResultItems projected to each entry's result.
+func batchResultStrings(resp map[string]any) []string {
 	var out []string
-	for _, it := range mapSlice(items) {
+	for _, it := range batchResultItems(resp) {
 		out = append(out, getString(it, "result"))
 	}
 	return out
 }
 
+// batchOutcome is one source op's folded result: the (first non-success)
+// result string plus the per-entry undo handles the server echoed, in entry
+// order. revertIDs stays empty until the server emits revert_id.
+type batchOutcome struct {
+	result    string
+	revertIDs []string
+}
+
 // mapBatchResults folds per-entry results back onto source ops (an update_pb
 // expansion fails if either of its two entries failed).
-func mapBatchResults(n int, entries []serverOp, resp map[string]any) []string {
-	results := batchResultStrings(resp)
-	perOp := make([]string, n)
+func mapBatchResults(n int, entries []serverOp, resp map[string]any) []batchOutcome {
+	items := batchResultItems(resp)
+	perOp := make([]batchOutcome, n)
 	for j, e := range entries {
-		r := "unknown"
-		if j < len(results) {
-			r = results[j]
+		r, rid := "unknown", ""
+		if j < len(items) {
+			r, rid = getString(items[j], "result"), anyToString(items[j]["revert_id"])
 		}
-		if perOp[e.source] == "" || perOp[e.source] == "success" {
-			perOp[e.source] = r
+		if perOp[e.source].result == "" || perOp[e.source].result == "success" {
+			perOp[e.source].result = r
+		}
+		if rid != "" {
+			perOp[e.source].revertIDs = append(perOp[e.source].revertIDs, rid)
 		}
 	}
 	for i := range perOp {
-		if perOp[i] == "" {
-			perOp[i] = "success" // ops that expand to zero entries
+		if perOp[i].result == "" {
+			perOp[i].result = "success" // ops that expand to zero entries
 		}
 	}
 	return perOp
@@ -351,9 +409,12 @@ func placeSections(ctx context.Context, c *client.Client, oseid, docID string, e
 			k++
 		}
 	}
+	// Until the placement batch lands, every add sits where the server
+	// appended it: to_index_id is the section right before it.
 	for src, id := range bySource {
 		if src < len(applied) {
 			applied[src]["new_section_id"] = id
+			applied[src]["to_index_id"] = predecessorOf(inner, id, "")
 		}
 	}
 	if len(moves) == 0 {
@@ -377,6 +438,21 @@ func placeSections(ctx context.Context, c *client.Client, oseid, docID string, e
 		if r != "success" {
 			return "placement move result: " + r
 		}
+	}
+	// The moves shuffled every add's neighbour (a card placed after X lands in
+	// front of the ones still appended), so re-read once and report the final
+	// layout; if that read fails the appended-state values above would lie, so
+	// drop them rather than guess.
+	final, err := fetchSections(ctx, c, oseid, docID)
+	for src, id := range bySource {
+		if src >= len(applied) {
+			continue
+		}
+		if err != nil {
+			delete(applied[src], "to_index_id")
+			continue
+		}
+		applied[src]["to_index_id"] = predecessorOf(final, id, "")
 	}
 	return ""
 }

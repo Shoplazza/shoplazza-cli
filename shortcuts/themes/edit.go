@@ -185,24 +185,50 @@ func preflightCards(ctx context.Context, c *client.Client, ops []editOp, inner m
 }
 
 // foldBatchResults folds the server's per-entry results back onto the source
-// ops, returning the applied list and the indexes that did not succeed.
+// ops, returning the applied list and the indexes that did not succeed. Each
+// row also echoes what a consumer needs to mirror the change without
+// re-reading the page: visible for set_visibility, to_index_id for a
+// move_section (resolved against inner, the pre-batch layout), and the
+// server's revert_id once it emits one (revert_ids when the op expanded to
+// several entries).
 func foldBatchResults(ops []editOp, entries []serverOp, newTargets map[int]string,
-	resp map[string]any) ([]map[string]any, []int) {
+	inner, resp map[string]any) ([]map[string]any, []int) {
 	perOp := mapBatchResults(len(ops), entries, resp)
 	applied := make([]map[string]any, 0, len(ops))
 	var failedIdx []int
 	for i := range ops {
-		entry := map[string]any{"op": ops[i].Op, "result": perOp[i]}
+		entry := map[string]any{"op": ops[i].Op, "result": perOp[i].result}
 		if ops[i].Target != "" {
 			entry["target"] = ops[i].Target
 		}
 		if nt := newTargets[i]; nt != "" {
 			entry["new_target"] = nt
 		}
-		if perOp[i] != "success" {
+		if ops[i].Op == "set_visibility" && ops[i].Visible != nil {
+			entry["visible"] = *ops[i].Visible
+		}
+		switch len(perOp[i].revertIDs) {
+		case 0:
+		case 1:
+			entry["revert_id"] = perOp[i].revertIDs[0]
+		default:
+			entry["revert_ids"] = perOp[i].revertIDs
+		}
+		if perOp[i].result != "success" {
 			failedIdx = append(failedIdx, i)
 		}
 		applied = append(applied, entry)
+	}
+	// ponytail: resolved against the pre-batch snapshot; two move_sections
+	// crossing each other in one batch can misreport the second.
+	for _, e := range entries {
+		if e.entry["op"] != "move_section" || e.source >= len(applied) {
+			continue
+		}
+		if to, ok := toIndexIDOf(inner, anyToString(e.entry["position"]), anyToString(e.entry["move_target"]),
+			anyToString(e.entry["target"])); ok {
+			applied[e.source]["to_index_id"] = to
+		}
 	}
 	return applied, failedIdx
 }
@@ -305,7 +331,7 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		}
 		return fail(err)
 	}
-	applied, failedIdx := foldBatchResults(e.ops, entries, newTargets, resp)
+	applied, failedIdx := foldBatchResults(e.ops, entries, newTargets, inner, resp)
 	if len(failedIdx) > 0 {
 		return common.ExecResult{}, batchFailErr(oseid, created, applied, failedIdx)
 	}
@@ -317,11 +343,14 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		placementWarning = placeSections(ctx, in.Client, oseid, docID, entries, moves, preIDs, applied)
 	}
 
-	previewURL := previewURLFor(themeID, oseid)
+	previewURL, templateID := previewURLFor(themeID, oseid)
 
 	body := map[string]any{
-		"oseid": oseid, "session_created": created,
+		"oseid": oseid, "session_created": created, "doc_id": docID,
 		"applied": applied, "preview_url": previewURL, "promoted": false,
+	}
+	if templateID != "" {
+		body["template_id"] = templateID
 	}
 	if placementWarning != "" {
 		body["placement_warning"] = placementWarning
