@@ -12,14 +12,14 @@
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
         "--id 13579",
-        "--action add",
-        "--price 19.99"
+        "--add",
+        "--new-price 19.99"
       ],
       "must_ask": false,
       "semantic_rubric": [
-        "--option carries exactly the delta (\"Color:White\") — never the full value list of the dimension",
-        "price 19.99 verbatim from the utterance (new combos need a price)",
-        "no --sku-template / --stock invented — user never mentioned them"
+        "--add carries exactly the delta (\"Color:White\") — never the full value list of the dimension",
+        "price 19.99 verbatim from the utterance as --new-price (new combos need a price); not --set-price, which would reprice every variant",
+        "no --sku-template / --set-stock invented — user never mentioned them"
       ]
     },
     "notes": "Value add on an existing dimension: matched variants keep id/sku/stock; only White is created."
@@ -29,31 +29,31 @@
     "type": "behavior",
     "skill": "shoplazza-products",
     "operation": "products.set-variants",
-    "scenario": "加一个新规格维度 — 旧变体落到第一个值，必须先告知",
+    "scenario": "加一个新规格维度 — 旧变体落到哪个值要问清，--existing 指定",
     "input": "给商品 24680 加一个尺码规格，S、M、L 三个码",
     "expected": {
       "route_to_skill": "shoplazza-products",
       "access_tier": "shortcut",
       "must_ask": true,
       "ask_must_cover": [
-        "第一个|首个|first|S 码|库存|stock"
+        "现有|当前|existing|库存|stock"
       ],
       "semantic_rubric": [
-        "recognizes a NEW dimension name: existing variants keep their id/sku/stock and become the FIRST listed value (S); M and L are new variants with the price copied but no sku and zero stock — states this BEFORE any command",
-        "asks which size the current stock belongs to, so that value can be listed first",
+        "recognizes a NEW dimension name: existing variants keep their id/sku/stock and take ONE of the values (passed as --existing \"Size:<value>\"); the other values are new variants with the price copied but no sku and zero stock — states this BEFORE any command",
+        "asks which size the current variants (and their stock) are, to pass as --existing",
         "does NOT claim stock or prices are wiped — nothing existing is deleted",
-        "does NOT ask for --price — every new variant copies one",
+        "does NOT ask for a price — every new variant copies one",
         "emits no write command until the user answers (ask-first)"
       ]
     },
-    "notes": "Ask-first case: adding a dimension pins existing variants to its first value (Shopify-style) and creates the other values with copied price, no sku/stock. The question that matters is which value the current stock belongs to."
+    "notes": "Ask-first case: adding a dimension with several values to a product that already has dimensions needs --existing (the CLI refuses without it). The question that matters is which value the current variants are."
   },
   {
     "case_id": "products.set-variants-03",
     "type": "behavior",
     "skill": "shoplazza-products",
     "operation": "products.set-variants",
-    "scenario": "下掉一个规格值 — remove，变体会被删并报告",
+    "scenario": "下掉一个规格值 — --remove，变体会被删并报告",
     "input": "把商品 13579 的 Pink 色下掉",
     "expected": {
       "route_to_skill": "shoplazza-products",
@@ -61,17 +61,18 @@
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
         "--id 13579",
-        "--action remove",
+        "--remove",
         "--dry-run"
       ],
       "flags_must_not_contain": [
-        "--price"
+        "--new-price",
+        "--drop"
       ],
       "must_ask": true,
       "semantic_rubric": [
-        "--option carries only the value to drop (\"Color:Pink\") — a bare dimension name would drop the whole dimension",
-        "no --price: removal creates no variants",
-        "destructive delete → previews with --dry-run and waits for the user's go-ahead before the real run",
+        "--remove carries only the value to drop (\"Color:Pink\") — --drop would delete the whole dimension",
+        "no price: removal creates no variants",
+        "destructive delete → previews with --dry-run, relays its \"changes\", and waits for the user's go-ahead before the real run",
         "after the real run, relays deleted_detail (id/sku/inventory)"
       ],
       "ask_must_cover": [
@@ -92,24 +93,28 @@
       "access_tier": "shortcut",
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
-        "--action add"
+        "--add"
+      ],
+      "flags_must_not_contain": [
+        "--existing"
       ],
       "must_ask": false,
       "semantic_rubric": [
-        "two steps: products +create --price 29.99 (draft) first, then products +set-variants --id <new-id> --action add with BOTH dimensions (--option \"Color:Black,White,Pink\" --option \"Size:S,M\")",
-        "no --price needed on +set-variants: every combination copies the price +create set (passing it is harmless but unused)",
+        "two steps: products +create --price 29.99 (draft) first, then ONE products +set-variants --id <new-id> call with BOTH dimensions (--add \"Color:Black,White,Pink\" --add \"Size:S,M\")",
+        "no --existing: a freshly created product has no dimension, its one variant takes the first values",
+        "no price needed on +set-variants: every combination copies the price +create set",
         "does NOT hand-write a variants array on the products create leaf",
         "publish only if the user asked to 上架 (they didn't — stays a draft)"
       ]
     },
-    "notes": "Multi-spec creation route: +create then +set-variants --action add. The created variant becomes the first combination; the rest copy its price."
+    "notes": "Multi-spec creation route: +create then +set-variants --add. The created variant becomes the first combination; the rest copy its price."
   },
   {
     "case_id": "products.set-variants-05",
     "type": "behavior",
     "skill": "shoplazza-products",
     "operation": "products.set-variants",
-    "scenario": "值集整体替换 — update，没列出的值会被删，先 dry-run + 确认",
+    "scenario": "值集整体替换 — --set，没列出的值会被删，先 dry-run + 确认",
     "input": "商品 13579 的颜色只保留 Red 和 Blue",
     "expected": {
       "route_to_skill": "shoplazza-products",
@@ -117,17 +122,17 @@
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
         "--id 13579",
-        "--action update",
+        "--set",
         "--dry-run"
       ],
       "flags_must_not_contain": [
-        "--price"
+        "--new-price"
       ],
       "must_ask": true,
       "semantic_rubric": [
-        "只保留 → --action update with --option \"Color:Red,Blue\" (values not listed are removed) — not a series of removes",
+        "只保留 → --set \"Color:Red,Blue\" (values not listed are removed) — not a list of removes",
         "value spelling verbatim from the utterance",
-        "no --price: Red and Blue already exist, no new combos are created",
+        "no price: Red and Blue already exist, no new combos are created",
         "destructive delete (unlisted values' variants) → previews with --dry-run and waits for the user's go-ahead before the real run",
         "after the real run, relays which variants got deleted (deleted_detail)"
       ],
@@ -135,14 +140,14 @@
         "确认|删除|confirm"
       ]
     },
-    "notes": "update replaces one dimension's value list; unlisted values' variants are deleted — same safety protocol as remove (case 03): dry-run + confirm first."
+    "notes": "--set fixes one dimension's value list; unlisted values' variants are deleted — same safety protocol as remove (case 03): dry-run + confirm first."
   },
   {
     "case_id": "products.set-variants-06",
     "type": "behavior",
     "skill": "shoplazza-products",
     "operation": "products.set-variants",
-    "scenario": "规格值改名 — rename 原地改，变体全保留",
+    "scenario": "规格值改名 — --rename 原地改，变体全保留",
     "input": "把商品 13579 的 Color 里的 Red 改名为 Wine Red",
     "expected": {
       "route_to_skill": "shoplazza-products",
@@ -150,20 +155,100 @@
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
         "--id 13579",
-        "--action rename"
+        "--rename"
       ],
       "flags_must_not_contain": [
-        "--price",
-        "--action remove",
-        "--action add"
+        "--new-price",
+        "--remove",
+        "--add"
       ],
       "must_ask": false,
       "semantic_rubric": [
-        "--option \"Color:Red=Wine Red\" — a rename pair, value spelling verbatim",
+        "--rename \"Color:Red=Wine Red\" — a rename pair, value spelling verbatim",
         "does NOT model the rename as remove + add (that would delete the variants and lose sku/stock)",
         "states that every variant keeps its id, sku and stock"
       ]
     },
-    "notes": "rename changes values in place: all variants keep their id. Non-destructive, so no dry-run/confirm round is required."
+    "notes": "--rename changes values in place: all variants keep their id. Non-destructive, so no dry-run/confirm round is required."
+  },
+  {
+    "case_id": "products.set-variants-07",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-variants",
+    "scenario": "一句话多处改规格 — 一次调用组合 --drop/--set/--rename/--set-price",
+    "input": "商品 13579 不要 lenses 这个规格了，只留 6lenses 的；款式只要 Ocean，改名叫 2 lenses；价格全部 19.9",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +set-variants",
+      "flags_must_contain": [
+        "--id 13579",
+        "--drop",
+        "--set",
+        "--rename",
+        "--set-price 19.9",
+        "--dry-run"
+      ],
+      "must_ask": true,
+      "semantic_rubric": [
+        "ONE +set-variants call: --drop \"lenses=6lenses\" --set \"Style:Ocean\" --rename \"Style:Ocean=2 lenses\" --set-price 19.9 — not several calls in sequence",
+        "names the dimensions and values as they are now (Ocean in --set and on the left of --rename)",
+        "--set-price (every variant), not --new-price (which never changes existing prices)",
+        "destructive delete → previews with --dry-run, relays its \"changes\" list, and waits for the user's go-ahead before the real run"
+      ],
+      "ask_must_cover": [
+        "确认|删除|confirm"
+      ]
+    },
+    "notes": "Combined form: the edits apply in a fixed order (remove, drop, set, add, rename) and are written in one request, so one confirmation covers the whole sentence."
+  },
+  {
+    "case_id": "products.set-variants-08",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-variants",
+    "scenario": "去掉整个维度会合并变体 — 先问保留哪个值",
+    "input": "商品 13579 不按镜片数量分了，把 lenses 规格去掉",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "must_ask": true,
+      "ask_must_cover": [
+        "保留|留|keep|哪"
+      ],
+      "semantic_rubric": [
+        "when lenses has several values, dropping it would merge variants — asks which value's variants to keep (the CLI refuses a bare --drop then and names the --drop \"lenses=<value>\" form)",
+        "does NOT pick a value on the user's behalf",
+        "once answered, uses --drop \"lenses=<value>\" in one call"
+      ]
+    },
+    "notes": "Ask-first: the value to keep is the merchant's decision; the other values' variants are deleted."
+  },
+  {
+    "case_id": "products.set-variants-09",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-variants",
+    "scenario": "按取值定价 — --set-price \"Dim:v=price\"",
+    "input": "给商品 24680 加 S/M/L 三个尺码，现在的变体都算 M 码；S 卖 20、M 卖 25、L 卖 30",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +set-variants",
+      "flags_must_contain": [
+        "--id 24680",
+        "--add",
+        "--existing",
+        "--set-price"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "ONE call: --add \"Size:S,M,L\" --existing \"Size:M\" --set-price \"Size:S=20,M=25,L=30\"",
+        "--set-price per value (M's existing variants are repriced to 25 too), not --new-price (which never touches the kept M variants)",
+        "does NOT fall back to hand-writing a variants array on products update"
+      ]
+    },
+    "notes": "Per-value price: the per-value form names one dimension of the edited matrix."
   }
 ]

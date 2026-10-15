@@ -322,3 +322,126 @@ func applyWrite(product, captured map[string]any) map[string]any {
 	}
 	return next
 }
+
+// Random combined edits: every planned write satisfies the server's rules, and
+// an edit made only of --add/--set converges when repeated.
+func TestSetVariants_RandomizedCombined(t *testing.T) {
+	rng := rand.New(rand.NewPCG(13, 17))
+	srv := newEditServer(t)
+	for i := range 5000 {
+		product := randomProduct(rng)
+		args, kind, converges := randomCombinedEdit(rng, product)
+		name := fmt.Sprintf("#%d %q", i, args)
+
+		res, captured, err := srv.run(t, product, args...)
+		if err != nil {
+			requireValidation(t, name, err)
+			continue
+		}
+		if captured == nil {
+			if res.Body["no_change"] != true {
+				t.Fatalf("%s: no write but no no_change: %+v", name, res.Body)
+			}
+			continue
+		}
+		checkPlannedWrite(t, name, product, captured, res.Body, kind)
+		if _, ok := res.Body["changes"]; !ok {
+			t.Fatalf("%s: a combined write must report changes", name)
+		}
+		if !converges {
+			continue
+		}
+		res2, captured2, err := srv.run(t, applyWrite(product, captured), args...)
+		if err != nil || captured2 != nil || res2.Body["no_change"] != true {
+			t.Fatalf("%s: repeat must converge, got err=%v write=%v body=%+v", name, err, captured2 != nil, res2.Body)
+		}
+	}
+}
+
+// randomCombinedEdit returns combined-form flags, the checkPlannedWrite kind
+// ("rename" when values may be renamed, "add" when only --add) and whether a
+// repeat must converge (only --add/--set). Names and values mostly come from
+// the product so most edits get past validation.
+func randomCombinedEdit(rng *rand.Rand, product map[string]any) ([]string, string, bool) {
+	type dim struct {
+		name   string
+		values []string
+	}
+	var dims []dim
+	for _, raw := range product["options"].([]any) {
+		o := raw.(map[string]any)
+		d := dim{name: o["name"].(string)}
+		for _, v := range o["values"].([]any) {
+			d.values = append(d.values, v.(string))
+		}
+		dims = append(dims, d)
+	}
+	pool := []string{"Red", "red", "Blue", "S", "s", "M", "XL", "Slim", "Wine"}
+	pickDim := func() dim {
+		if len(dims) == 0 || rng.IntN(5) == 0 {
+			return dim{name: []string{"Color", "Size", "Fit", "color", "Material"}[rng.IntN(5)], values: pool}
+		}
+		return dims[rng.IntN(len(dims))]
+	}
+	some := func(vals []string) string {
+		vals = slices.Clone(vals)
+		rng.Shuffle(len(vals), func(a, b int) { vals[a], vals[b] = vals[b], vals[a] })
+		return strings.Join(vals[:1+rng.IntN(min(3, len(vals)))], ",")
+	}
+	one := func(vals []string) string { return vals[rng.IntN(len(vals))] }
+	var args []string
+	used := map[string]bool{}
+	onlyGrow, onlyAdd, renames := true, true, false
+	for range 1 + rng.IntN(3) {
+		d := pickDim()
+		kind := rng.IntN(6)
+		if kind < 4 && used[strings.ToLower(d.name)] {
+			continue
+		}
+		switch kind {
+		case 0:
+			used[strings.ToLower(d.name)] = true
+			args = append(args, "--add="+d.name+":"+some(pool))
+			if rng.IntN(2) == 0 {
+				args = append(args, "--existing="+d.name+":"+one(pool))
+			}
+		case 1:
+			used[strings.ToLower(d.name)] = true
+			args, onlyAdd = append(args, "--set="+d.name+":"+some(append(slices.Clone(d.values), one(pool)))), false
+		case 2:
+			used[strings.ToLower(d.name)] = true
+			args, onlyGrow, onlyAdd = append(args, "--remove="+d.name+":"+some(d.values)), false, false
+		case 3:
+			used[strings.ToLower(d.name)] = true
+			drop := "--drop=" + d.name
+			if rng.IntN(3) > 0 {
+				drop += "=" + one(d.values)
+			}
+			args, onlyGrow, onlyAdd = append(args, drop), false, false
+		case 4:
+			args, onlyGrow, renames = append(args, "--rename="+d.name+":"+one(d.values)+"="+one(pool)+"X"), false, true
+		default:
+			args, onlyGrow = append(args, "--rename="+d.name+"="+d.name+"X"), false
+		}
+	}
+	if rng.IntN(3) > 0 {
+		args = append(args, "--new-price=9")
+	}
+	if len(dims) > 0 && rng.IntN(4) == 0 {
+		d := dims[rng.IntN(len(dims))]
+		args = append(args, "--new-price="+d.name+":"+one(d.values)+"=5")
+	}
+	if rng.IntN(3) == 0 {
+		args = append(args, "--new-image=img-1")
+	}
+	if rng.IntN(6) == 0 {
+		args, onlyGrow = append(args, "--set-price=3"), false
+	}
+	switch {
+	case renames:
+		return args, "rename", false
+	case onlyGrow && onlyAdd:
+		return args, "add", true
+	}
+	return args, "", onlyGrow
+}
