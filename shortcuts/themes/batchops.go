@@ -3,6 +3,7 @@ package themes
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -19,7 +20,10 @@ import (
 //   - block paths use dot indexes ("sid.blocks.0"), not brackets
 //   - block props merge via replace_props with a block dot-path (the server's
 //     update_slot swaps child slots — a different op)
-//   - add_section always appends; placement needs a follow-up move_section
+//   - add_section without target appends to the page flow; with target +
+//     position it inserts before/after that section inside its group, which
+//     is the only way into the header/footer groups (move_section never
+//     crosses groups)
 //   - the server assigns section ids; client-supplied ids are ignored
 
 // serverOp is one translated ThemeOperation plus its source op index
@@ -27,14 +31,6 @@ import (
 type serverOp struct {
 	entry  map[string]any
 	source int
-}
-
-// postMove is a placement fix-up sent in a follow-up batch: the section added
-// by source op #source must end up before/after moveTarget.
-type postMove struct {
-	source     int
-	position   string // "before" | "after"
-	moveTarget string
 }
 
 // dotBlockPath renders a parsed block target in the server's dot-index grammar.
@@ -186,11 +182,9 @@ func toIndexIDOf(inner map[string]any, position, moveTarget, moved string) (stri
 	return "", false
 }
 
-// translateOps maps validated +edit ops onto server ThemeOperation entries
-// plus the placement fix-ups for the follow-up batch.
-func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]any) ([]serverOp, []postMove, map[int]string, error) {
+// translateOps maps validated +edit ops onto server ThemeOperation entries.
+func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]any) ([]serverOp, map[int]string, error) {
 	var entries []serverOp
-	var moves []postMove
 	newTargets := map[int]string{}
 	// Appends earlier in this batch, per container dot-path: the page snapshot
 	// is pre-batch, so two appends into one container would otherwise both
@@ -222,15 +216,15 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 			if inner != nil { // schema gate + new_target echo need page data
 				section := findSectionByID(inner, op.ref.SectionID)
 				if section == nil {
-					return nil, nil, nil, fail(i, "section %q not found on this page", op.ref.SectionID)
+					return nil, nil, fail(i, "section %q not found on this page", op.ref.SectionID)
 				}
 				container, children, err := containerAt(section, op.ref.ParentPath)
 				if err != nil {
-					return nil, nil, nil, fail(i, "%v", err)
+					return nil, nil, fail(i, "%v", err)
 				}
 				at := len(children) + appended[path]
 				if err := validateAppend(inner, container, op.Value, at); err != nil {
-					return nil, nil, nil, fail(i, "%v", err)
+					return nil, nil, fail(i, "%v", err)
 				}
 				newTargets[i] = fmt.Sprintf("%s[%d]", op.Target, at)
 				appended[path]++
@@ -245,19 +239,19 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 		case "move_array_item":
 			at, ierr := moveItemIndex(&ops[i])
 			if ierr != nil {
-				return nil, nil, nil, fail(i, "%v", ierr)
+				return nil, nil, fail(i, "%v", ierr)
 			}
 			if inner != nil { // range-check the container before spending a call
 				section := findSectionByID(inner, op.ref.SectionID)
 				if section == nil {
-					return nil, nil, nil, fail(i, "section %q not found on this page", op.ref.SectionID)
+					return nil, nil, fail(i, "section %q not found on this page", op.ref.SectionID)
 				}
 				_, siblings, cerr := containerAt(section, op.ref.ParentPath)
 				if cerr != nil {
-					return nil, nil, nil, fail(i, "%v", cerr)
+					return nil, nil, fail(i, "%v", cerr)
 				}
 				if at >= len(siblings) {
-					return nil, nil, nil, fail(i, "to_index %d is out of range: the container holds %d blocks, so 0..%d",
+					return nil, nil, fail(i, "to_index %d is out of range: the container holds %d blocks, so 0..%d",
 						at, len(siblings), len(siblings)-1)
 				}
 			}
@@ -274,19 +268,19 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 				// pb mode: card value pre-resolved via pb-single-blocks.
 				value = cards[i]
 				if value == nil {
-					return nil, nil, nil, fail(i, "internal: no resolved pb card value")
+					return nil, nil, fail(i, "internal: no resolved pb card value")
 				}
 			}
-			entries = append(entries, serverOp{map[string]any{
-				"op": "add_section", "value": value,
-			}, i})
-			// add_section always appends; a requested position needs a
-			// follow-up move once the new id is known.
+			entry := map[string]any{"op": "add_section", "value": value}
+			// A requested position rides on the add itself: the server inserts
+			// before/after target inside target's group (page, header or
+			// footer). Plain "last" is the page-flow append.
 			if op.Position != "" && op.Position != "last" || op.ToIndex != nil {
 				if pos, ref := resolveMoveRef(inner, op); pos != "" && ref != "" {
-					moves = append(moves, postMove{source: i, position: pos, moveTarget: ref})
+					entry["target"], entry["position"] = ref, pos
 				}
 			}
+			entries = append(entries, serverOp{entry, i})
 		case "remove_section":
 			entries = append(entries, serverOp{map[string]any{
 				"op": "remove_section", "target": op.ref.SectionID,
@@ -294,7 +288,7 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 		case "move_section":
 			pos, ref := resolveMoveRef(inner, op)
 			if pos == "" || ref == "" {
-				return nil, nil, nil, fail(i, "cannot resolve position %q on this page", op.Position)
+				return nil, nil, fail(i, "cannot resolve position %q on this page", op.Position)
 			}
 			entries = append(entries, serverOp{map[string]any{
 				"op": "move_section", "target": op.ref.SectionID, "position": pos, "move_target": ref,
@@ -306,22 +300,23 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 		case "update_pb":
 			card := cards[i]
 			if card == nil {
-				return nil, nil, nil, fail(i, "internal: no generated theme card for update_pb")
+				return nil, nil, fail(i, "internal: no generated theme card for update_pb")
 			}
-			// Replace in place: drop the old card, append the generated one,
-			// then move it back before the old card's successor.
+			// Replace in place: drop the old card, then insert the generated
+			// one before the old card's successor (append when it was last).
+			add := map[string]any{"op": "add_section", "value": card}
+			if succ := successorOf(inner, op.ref.SectionID); succ != "" {
+				add["target"], add["position"] = succ, "before"
+			}
 			entries = append(entries,
 				serverOp{map[string]any{"op": "remove_section", "target": op.ref.SectionID}, i},
-				serverOp{map[string]any{"op": "add_section", "value": card}, i},
+				serverOp{add, i},
 			)
-			if succ := successorOf(inner, op.ref.SectionID); succ != "" {
-				moves = append(moves, postMove{source: i, position: "before", moveTarget: succ})
-			}
 		default:
-			return nil, nil, nil, fail(i, "unknown op")
+			return nil, nil, fail(i, "unknown op")
 		}
 	}
-	return entries, moves, newTargets, nil
+	return entries, newTargets, nil
 }
 
 // batchResultItems pulls the ordered per-entry result objects out of a
@@ -392,67 +387,30 @@ func hasAdds(entries []serverOp) bool {
 	return false
 }
 
-// placeSections recovers server-assigned ids for added sections and sends the
-// follow-up move batch; failures degrade to a warning (no rollback).
-func placeSections(ctx context.Context, c *client.Client, oseid, docID string, entries []serverOp, moves []postMove, preIDs map[string]bool, applied []map[string]any) string {
+// recoverSectionIDs re-reads the session once to recover the server-assigned
+// ids of added sections and report each one's neighbour; a failed read
+// degrades to a warning (the batch itself already persisted).
+func recoverSectionIDs(ctx context.Context, c *client.Client, oseid, docID string, entries []serverOp, preIDs map[string]bool, applied []map[string]any) string {
 	inner, err := fetchSections(ctx, c, oseid, docID)
 	if err != nil {
 		return "could not re-read the session to recover new section ids: " + err.Error()
 	}
+	// Adds are created in batch order and the server mints ids as
+	// millisecond timestamps, so ascending id = creation order (layout order
+	// no longer is, since an add can insert mid-page or into another group).
 	newIDs := newSectionIDs(inner, preIDs)
-	// Adds append in batch order — assign recovered ids in order.
-	bySource := map[int]string{}
+	sort.Slice(newIDs, func(i, j int) bool { return idLess(newIDs[i], newIDs[j]) })
 	k := 0
 	for _, e := range entries {
-		if e.entry["op"] == "add_section" && k < len(newIDs) {
-			bySource[e.source] = newIDs[k]
-			k++
-		}
-	}
-	// Until the placement batch lands, every add sits where the server
-	// appended it: to_index_id is the section right before it.
-	for src, id := range bySource {
-		if src < len(applied) {
-			applied[src]["new_section_id"] = id
-			applied[src]["to_index_id"] = predecessorOf(inner, id, "")
-		}
-	}
-	if len(moves) == 0 {
-		return ""
-	}
-	var moveOps []map[string]any
-	for _, mv := range moves {
-		id := bySource[mv.source]
-		if id == "" {
-			return fmt.Sprintf("op #%d: new section id unknown, requested placement skipped", mv.source)
-		}
-		moveOps = append(moveOps, map[string]any{
-			"op": "move_section", "target": id, "position": mv.position, "move_target": mv.moveTarget,
-		})
-	}
-	resp, err := common.Send(ctx, c, PlanBatchOps(oseid, docID, moveOps))
-	if err != nil {
-		return "placement moves failed: " + err.Error()
-	}
-	for _, r := range batchResultStrings(resp) {
-		if r != "success" {
-			return "placement move result: " + r
-		}
-	}
-	// The moves shuffled every add's neighbour (a card placed after X lands in
-	// front of the ones still appended), so re-read once and report the final
-	// layout; if that read fails the appended-state values above would lie, so
-	// drop them rather than guess.
-	final, err := fetchSections(ctx, c, oseid, docID)
-	for src, id := range bySource {
-		if src >= len(applied) {
+		if e.entry["op"] != "add_section" || k >= len(newIDs) {
 			continue
 		}
-		if err != nil {
-			delete(applied[src], "to_index_id")
-			continue
+		id := newIDs[k]
+		k++
+		if e.source < len(applied) {
+			applied[e.source]["new_section_id"] = id
+			applied[e.source]["to_index_id"] = predecessorOf(inner, id, "")
 		}
-		applied[src]["to_index_id"] = predecessorOf(final, id, "")
 	}
 	return ""
 }
@@ -569,4 +527,15 @@ func buildThemeCard(resp map[string]any, old map[string]any) map[string]any {
 		}
 	}
 	return card
+}
+
+// idLess orders section ids numerically when both parse (server ids are
+// timestamps), falling back to string order.
+func idLess(a, b string) bool {
+	x, errA := strconv.ParseInt(a, 10, 64)
+	y, errB := strconv.ParseInt(b, 10, 64)
+	if errA == nil && errB == nil {
+		return x < y
+	}
+	return a < b
 }

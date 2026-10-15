@@ -303,7 +303,7 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	if err != nil {
 		return fail(err)
 	}
-	entries, moves, newTargets, err := translateOps(e.ops, inner, cards)
+	entries, newTargets, err := translateOps(e.ops, inner, cards)
 	if err != nil {
 		return fail(err)
 	}
@@ -336,11 +336,10 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		return common.ExecResult{}, batchFailErr(oseid, created, applied, failedIdx)
 	}
 
-	// Recover server-assigned ids for added sections and restore requested
-	// placement (the server always appends) with one follow-up batch.
+	// Recover server-assigned ids for added sections with one re-read.
 	var placementWarning string
 	if hasAdds(entries) {
-		placementWarning = placeSections(ctx, in.Client, oseid, docID, entries, moves, preIDs, applied)
+		placementWarning = recoverSectionIDs(ctx, in.Client, oseid, docID, entries, preIDs, applied)
 	}
 
 	previewURL, templateID := previewURLFor(themeID, oseid)
@@ -532,8 +531,7 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote, publish boo
 	if opsNeedImplicitRead(ops) {
 		plans = append(plans, PlanSchemasList(oseidRef, phDocID))
 	}
-	// pb pre-flight plans, then the whole batch as one request, plus the
-	// placement follow-up when adds carry a position.
+	// pb pre-flight plans, then the whole batch as one request.
 	cards := map[int]map[string]any{}
 	for i := range ops {
 		switch {
@@ -551,22 +549,13 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote, publish boo
 			cards[i] = map[string]any{"type": "<pb_template_type_uri>"}
 		}
 	}
-	if entries, moves, _, err := translateOps(ops, nil, cards); err == nil {
+	if entries, _, err := translateOps(ops, nil, cards); err == nil {
 		operations := make([]map[string]any, len(entries))
 		for i, e := range entries {
 			operations[i] = e.entry
 		}
 		if len(entries) > 0 { // an empty batch sends no request at all
 			plans = append(plans, PlanBatchOps(oseidRef, phDocID, operations))
-		}
-		if len(moves) > 0 {
-			moveOps := make([]map[string]any, 0, len(moves))
-			for _, mv := range moves {
-				moveOps = append(moveOps, map[string]any{
-					"op": "move_section", "target": "<new_section_id>", "position": mv.position, "move_target": mv.moveTarget,
-				})
-			}
-			plans = append(plans, PlanBatchOps(oseidRef, phDocID, moveOps))
 		}
 	}
 	if promote {
