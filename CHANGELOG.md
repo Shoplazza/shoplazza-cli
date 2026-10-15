@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- `products +set-variants` keeps existing variants through dimension changes. Adding a dimension puts every existing variant on its first value, keeping its id and with it the sku, stock, image and every other field; the other values get new variants copying price, compare-at price, weight and image (never sku, barcode or stock). Dropping a dimension keeps each variant when no two of them land on the same combination, and is refused — naming the colliding variants — when they would, instead of keeping the first and deleting the rest. Previously any dimension change deleted and recreated every variant: stock, barcode, weight and compare-at price were wiped, and products that require variant images rejected the edit.
+- `products +set-variants` generates new combinations only next to combinations that exist. Adding a value creates one variant per existing combination of the other dimensions, so a combination the merchant deleted is no longer brought back, and removing a value no longer asks for `--price`. A value whose last variant goes is dropped from its dimension (`pruned_values`); a value listed on the product with no variant is left alone by other edits, and `add` / `update` naming it now creates its variants (it used to be treated as already present).
+- `products +set-variants` matches names and values exactly, falling back to a case-insensitive match only when it is the single candidate; `remove` needs a value's exact spelling and answers a case-only mismatch with a "did you mean". `S` and `s` are distinct values on the server; treating them as one made an unrelated edit overwrite one variant's price and sku with the other's, and made `remove Size:s` drop both. A new value that differs from another of its dimension only by case is refused, whether added, listed in `update`, or part of a new dimension.
+- `products +set-variants --action remove` naming a dimension or value that does not exist is an error listing what exists (it used to report `no_change`), and removing every value of a dimension is refused in favour of the bare-name form that drops the dimension. A negative `--stock` is refused, and a product whose variants already share a combination, or whose variant still stores options the edit would create, is refused with an explanation instead of being written.
+- `products +set-variants` summary: `inherited` is now `kept` and `carried_over` is gone (`cloned` counts the variants copied when a dimension is added). New `created_detail`, `remapped_detail`, `pruned_values`, `sku_may_be_stale` (a kept sku still naming a value the variant lost), `price_applied`, and a warning when `--price` was not used — it never changes an existing price. `deleted_detail` also reports compare-at price, barcode, weight and image.
+
+### Added
+- `products +set-variants --action rename` renames values (`--option "Color:Red=Wine Red"`) or a dimension (`--option "Color=Colour"`) in place; every variant keeps its id and data. A rename used to be a delete plus a create. Names resolve against the product as read, so pairs never chain; a new name already taken (including a swap) is refused, and repeating a finished rename reports the old name as missing.
+- `products +set-variants --image` gives brand-new variants an image on products that require one; it must be one of the product's images. Without it such an edit is refused before anything is written.
+
 ## 2.2.1 - 2026-09-28
 
 ### Fixed

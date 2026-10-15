@@ -29,23 +29,24 @@
     "type": "behavior",
     "skill": "shoplazza-products",
     "operation": "products.set-variants",
-    "scenario": "加一个新规格维度 — 全量重建，必须先告知",
+    "scenario": "加一个新规格维度 — 旧变体落到第一个值，必须先告知",
     "input": "给商品 24680 加一个尺码规格，S、M、L 三个码",
     "expected": {
       "route_to_skill": "shoplazza-products",
       "access_tier": "shortcut",
       "must_ask": true,
       "ask_must_cover": [
-        "重建|rebuild|库存|stock"
+        "第一个|首个|first|S 码|库存|stock"
       ],
       "semantic_rubric": [
-        "recognizes a NEW dimension name → full rebuild: every variant recreated with a new id and stock reset — states this BEFORE any command",
-        "does NOT claim prices are lost: each existing variant's price is carried onto the combos it expands into",
-        "does NOT ask for --price — nothing brand-new appears, so there is nothing for it to fill",
+        "recognizes a NEW dimension name: existing variants keep their id/sku/stock and become the FIRST listed value (S); M and L are new variants with the price copied but no sku and zero stock — states this BEFORE any command",
+        "asks which size the current stock belongs to, so that value can be listed first",
+        "does NOT claim stock or prices are wiped — nothing existing is deleted",
+        "does NOT ask for --price — every new variant copies one",
         "emits no write command until the user answers (ask-first)"
       ]
     },
-    "notes": "Ask-first case: rebuild warning (new ids, stock reset) + go-ahead; no command expected in the same reply. Prices ride across the rebuild and skus do not (one sku cannot serve S/M/L), so --price is not required here."
+    "notes": "Ask-first case: adding a dimension pins existing variants to its first value (Shopify-style) and creates the other values with copied price, no sku/stock. The question that matters is which value the current stock belongs to."
   },
   {
     "case_id": "products.set-variants-03",
@@ -91,17 +92,17 @@
       "access_tier": "shortcut",
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
-        "--action add",
-        "--price 29.99"
+        "--action add"
       ],
       "must_ask": false,
       "semantic_rubric": [
-        "two steps: products +create (draft) first, then products +set-variants --id <new-id> --action add with BOTH dimensions (--option \"Color:Black,White,Pink\" --option \"Size:S,M\") and --price 29.99",
+        "two steps: products +create --price 29.99 (draft) first, then products +set-variants --id <new-id> --action add with BOTH dimensions (--option \"Color:Black,White,Pink\" --option \"Size:S,M\")",
+        "no --price needed on +set-variants: every combination copies the price +create set (passing it is harmless but unused)",
         "does NOT hand-write a variants array on the products create leaf",
         "publish only if the user asked to 上架 (they didn't — stays a draft)"
       ]
     },
-    "notes": "Multi-spec creation route: +create then +set-variants --action add. +set-variants has no create mode."
+    "notes": "Multi-spec creation route: +create then +set-variants --action add. The created variant becomes the first combination; the rest copy its price."
   },
   {
     "case_id": "products.set-variants-05",
@@ -135,5 +136,34 @@
       ]
     },
     "notes": "update replaces one dimension's value list; unlisted values' variants are deleted — same safety protocol as remove (case 03): dry-run + confirm first."
+  },
+  {
+    "case_id": "products.set-variants-06",
+    "type": "behavior",
+    "skill": "shoplazza-products",
+    "operation": "products.set-variants",
+    "scenario": "规格值改名 — rename 原地改，变体全保留",
+    "input": "把商品 13579 的 Color 里的 Red 改名为 Wine Red",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "access_tier": "shortcut",
+      "command_prefix": "products +set-variants",
+      "flags_must_contain": [
+        "--id 13579",
+        "--action rename"
+      ],
+      "flags_must_not_contain": [
+        "--price",
+        "--action remove",
+        "--action add"
+      ],
+      "must_ask": false,
+      "semantic_rubric": [
+        "--option \"Color:Red=Wine Red\" — a rename pair, value spelling verbatim",
+        "does NOT model the rename as remove + add (that would delete the variants and lose sku/stock)",
+        "states that every variant keeps its id, sku and stock"
+      ]
+    },
+    "notes": "rename changes values in place: all variants keep their id. Non-destructive, so no dry-run/confirm round is required."
   }
 ]
