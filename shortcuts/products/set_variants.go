@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -12,87 +13,120 @@ import (
 )
 
 // setVariantsShortcut edits a product's option matrix, keeping each variant's
-// id wherever it maps onto the new matrix unambiguously.
+// id wherever it maps onto the new matrix unambiguously. Any mix of edits goes
+// in one call and one write.
 var setVariantsShortcut = common.Shortcut{
 	Service: "products",
 	Command: "+set-variants",
-	Use:     `+set-variants --id <product-id> --action <add|remove|update|rename> --option "Color:Red,Blue" [--option ...] [--price <n>]`,
-	Short:   "Edit a product's option matrix (add/remove/update/rename spec dimensions and values); variants follow",
-	Example: `  # Preview adding a Size dimension (existing variants become "S")
-  shoplazza products +set-variants --id 12345 --action add --option "Size:S,M,L" --dry-run
+	Use:     `+set-variants --id <product-id> [--add|--remove|--set|--drop|--rename ...] [--new-price ...] [--set-price ...]`,
+	Short:   "Edit a product's option matrix (add/remove/set/rename values, add/drop/rename dimensions, price variants) in one request",
+	Example: `  # Drop lenses keeping the 6lenses variants, keep one style and rename it, one price for all
+  shoplazza products +set-variants --id 12345 --drop "lenses=6lenses" --set "Style:Ocean" \
+    --rename "Style:Ocean=2 lenses" --set-price 19.9 --dry-run
 
-  # Add colors to an existing dimension
-  shoplazza products +set-variants --id 12345 --action add --option "Color:Red,Blue" --price 24.99
+  # Add a Size dimension (existing variants become M) and a color with its own image
+  shoplazza products +set-variants --id 12345 --add "Size:S,M,L" --existing "Size:M" \
+    --add "Color:Red" --new-image "Color:Red=https://img.example.com/red.png" --new-price 24.99
 
-  # Rename a value in place
-  shoplazza products +set-variants --id 12345 --action rename --option "Color:Red=Wine Red"`,
+  # Price per value
+  shoplazza products +set-variants --id 12345 --set-price "Size:S=20,M=30,L=40"`,
 	Long: `Edit an existing product's specification matrix in one request: the CLI reads
-the product, maps every existing variant onto the new matrix and writes the
-full variant list back.
+the product, applies every edit to it and writes the full variant list back.
 
---option names the dimensions/values to operate on and --action says what to
-do (exactly one action per call, max 3 dimensions):
-  add     append values to a dimension, or add a whole new dimension
-  remove  drop values and the variants using them; a bare name ("Size") drops
-          the dimension
-  update  replace one dimension's value list with exactly the given values
-  rename  rename values ("Color:Red=Wine Red,Blue=Navy") or a dimension
-          ("Color=Colour") in place
-Names and values match exactly; one that differs only by case matches when it
-is the only candidate, except that remove needs the exact spelling of a value.
-A name or value that does not exist is an error, and a new value that differs
-only by case from another of its dimension is refused.
+Edits (repeatable, combinable). Dimensions and values are named as they are
+on the product now:
+  --remove "Dim:v1,v2"    delete these values and the variants using them
+                          (exact spelling)
+  --drop "Dim"            delete a dimension; variants keep their id
+  --drop "Dim=value"      keep only the variants with that value, then delete
+                          the dimension; required when variants would merge
+  --set "Dim:v1,v2"       make the values exactly these, in this storefront
+                          order: unlisted values go with their variants, new
+                          ones get variants
+  --add "Dim:v1,v2"       add values, one new variant per existing combination
+                          of the other dimensions (deleted combinations stay
+                          deleted); an unknown name adds a dimension
+  --existing "Dim:value"  the value existing variants take in a dimension
+                          added with several values (required then, unless
+                          the product has no dimension yet: its one variant
+                          takes the first value)
+  --rename "Dim:old=new,..." / "OldDim=NewDim"   rename in place
+They apply in that order whatever order they are written in; renames come
+last, so every other edit uses the current names.
 
-Existing variants keep their id — and with it sku, stock, image and every other
-field — except where noted:
-  add value         one new variant per existing combination of the other
-                    dimensions; combinations deleted earlier stay deleted (a
-                    listed value that has no variant yet gets them too)
-  add dimension     existing variants take its FIRST value; each other value
-                    gets new variants copying price, compare-at and cost
-                    price, weight, and the image on products that require one
-                    (not sku, barcode or stock), so list the value the current
-                    stock belongs to first
-  remove value      the variants using it are deleted
-  remove dimension  refused when two variants would merge into one
-                    combination; remove values first so one is left in each
-  update            removed values delete their variants, new values add
-                    variants as in "add value"
-  rename            values or the name change in place; names resolve as
-                    read and may not be taken, so swap two through a
-                    temporary name
-A value whose last variant goes is dropped from its dimension; values that had
-none are left alone. Deleted variants do not break past orders (line items are
-snapshotted).
+Existing variants keep their id, and with it sku, stock, image and every
+other field. A sibling created by adding a dimension copies price, compare-at
+and cost price, weight, and the image on products that require one (never
+sku, barcode or stock). A value whose last variant goes is dropped from its
+dimension; values that had no variant are left alone.
 
-To create a multi-spec product, create it first (products +create), then add
-the dimensions here with --action add.
+Values for variants, named as they are AFTER the edit:
+  --new-price  P | "Dim:v=P,..."   price for new variants with nothing to copy
+  --new-image  I | "Dim:v=I,..."   image (id or URL of one of the product's
+                                   images) for new variants with none to copy;
+                                   required on products that require one
+  --new-stock  N                   stock for every new variant
+  --set-price  P | "Dim:v=P,..."   price for EVERY variant (per value: the
+                                   variants with that value)
+  --set-stock  N                   stock for every variant
+  --sku-template "TS-{Color}-{Size}"   sku for every variant
+A per-value form names one dimension; a plain value may be passed alongside
+it as the fallback for the other values.
 
---price prices only new variants that have nothing to copy from; it never
-changes an existing price (use products +set-price for that). --image does the
-same for products that require a variant image and must be one of the product's
-images (products images create adds one).
+Refused before anything is written: a name or value that does not exist, the
+same dimension in two of --add/--remove/--set/--drop, a value both removed
+and renamed, a dimension both dropped and renamed, a drop that would merge
+variants, more than 3 dimensions or 300 variants, no dimension left, a new
+variant without a price, or without an image on a product that requires one.
 
-The output is a bounded summary ({kept, cloned, created, deleted} + details),
-never the full product body. --dry-run reads the product and prints the exact
-request body it would send, plus the same summary.`,
+The older form --action add|remove|update|rename with --option payloads (and
+--price/--image/--stock) still works: add = --add, remove = --remove or a bare
+"Dim" for --drop, update = --set, rename = --rename; a dimension added this way
+puts existing variants on its first value. It cannot be mixed with the flags
+above.
+
+Deleted variants do not break past orders (line items are snapshotted). The
+output is a bounded summary ({kept, cloned, created, deleted} + details, and
+"changes" describing the edit in plain words), never the full product body.
+--dry-run reads the product and prints the exact request plus the summary.`,
 	DryRunReads: true,
 	Flags: []common.Flag{
 		{Name: "id", Type: common.FlagString, Required: true, Description: "Product ID (required)."},
-		{Name: "action", Type: common.FlagString, Required: true,
-			Description: "What to do with the --option payloads: add, remove, update, or rename.",
+		{Name: "add", Type: common.FlagStringArray, Description: `"Dim:v1,v2": add values; an unknown dimension name adds that dimension.`},
+		{Name: "remove", Type: common.FlagStringArray, Description: `"Dim:v1,v2": delete values and the variants using them.`},
+		{Name: "set", Type: common.FlagStringArray, Description: `"Dim:v1,v2": make the dimension's values exactly these (order = storefront order).`},
+		{Name: "drop", Type: common.FlagStringArray, Description: `"Dim" or "Dim=value": delete a dimension, keeping only the variants with value when given.`},
+		{Name: "rename", Type: common.FlagStringArray, Description: `"Dim:old=new,..." renames values; "OldDim=NewDim" renames a dimension.`},
+		{Name: "existing", Type: common.FlagStringArray, Description: `"Dim:value": for a dimension added with several values, the value existing variants take.`},
+		{Name: "new-price", Type: common.FlagStringArray, Description: `Price for new variants with nothing to copy: a number, or "Dim:v=price,..." per value.`},
+		{Name: "new-image", Type: common.FlagStringArray, Description: `Image (id or URL of one of the product's images) for new variants with none to copy, or "Dim:v=image,..." per value.`},
+		{Name: "new-stock", Type: common.FlagInt, Description: "Inventory quantity for every new variant."},
+		{Name: "set-price", Type: common.FlagStringArray, Description: `Price for EVERY variant: a number, or "Dim:v=price,..." for the variants with those values.`},
+		{Name: "set-stock", Type: common.FlagInt, Description: "Inventory quantity for EVERY variant (absolute, default location)."},
+		{Name: "sku-template", Type: common.FlagString, Description: `SKU pattern with {Option Name} placeholders (names after the edit), e.g. "TS-{Color}-{Size}". Applied to EVERY variant.`},
+		{Name: "action", Type: common.FlagString, Description: "Older form: add, remove, update or rename, applied to the --option payloads.",
 			Completions: []string{"add", "remove", "update", "rename"}},
-		{Name: "option", Type: common.FlagStringArray, Required: true,
-			Description: `Dimension payload as "Name:v1,v2,..." (repeat per dimension; values comma-separated, order = storefront order). Bare "Name" only with --action remove; "Name:old=new,..." or "Old=New" with --action rename.`},
-		{Name: "price", Type: common.FlagString, Description: "Price for new variants with nothing to copy from (required when such a variant appears). Never changes an existing price."},
-		{Name: "image", Type: common.FlagString, Description: "Image (id or URL of one of the product's images) for new variants with nothing to copy from; required when the product requires variant images."},
-		{Name: "sku-template", Type: common.FlagString, Description: `SKU pattern with {Option Name} placeholders, e.g. "TS-{Color}-{Size}". Applied to EVERY variant (overwrites existing skus).`},
-		{Name: "stock", Type: common.FlagInt, Description: "Inventory quantity set on EVERY variant (absolute set at the default location; overwrites existing stock). Omit to leave stock untouched."},
+		{Name: "option", Type: common.FlagStringArray, Description: `Older form: "Name:v1,v2,..." per dimension; bare "Name" with --action remove; "Name:old=new" or "Old=New" with --action rename.`},
+		{Name: "price", Type: common.FlagString, Description: "Older form of --new-price."},
+		{Name: "image", Type: common.FlagString, Description: "Older form of --new-image."},
+		{Name: "stock", Type: common.FlagInt, Description: "Older form of --set-stock."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		id := strings.TrimSpace(in.Flags.GetString("id"))
 		if id == "" {
 			return common.ExecResult{}, output.ErrValidation("--id is required")
+		}
+		legacy := in.Flags.GetString("action") != "" || len(in.Flags.GetStringArray("option")) > 0 ||
+			in.Flags.GetString("price") != "" || in.Flags.GetString("image") != "" || in.Flags.Changed("stock")
+		if !legacy {
+			plan, err := parseEditFlags(in)
+			if err != nil {
+				return common.ExecResult{}, err
+			}
+			return execEditPlan(ctx, in, id, plan)
+		}
+		if usedEditFlags(in) {
+			return common.ExecResult{}, output.ErrValidation("--action/--option/--price/--image/--stock cannot be mixed with --add/--remove/--set/--drop/--rename/--existing/--new-*/--set-* — use one form")
 		}
 		action := strings.TrimSpace(in.Flags.GetString("action"))
 		switch action {
@@ -112,25 +146,33 @@ request body it would send, plus the same summary.`,
 		if in.Flags.Changed("stock") && in.Flags.GetInt("stock") < 0 {
 			return common.ExecResult{}, output.ErrValidation("--stock must be 0 or more, got %d", in.Flags.GetInt("stock"))
 		}
-		return execUpdateMatrix(ctx, in, id, action, specs, matrixOverrides{
-			price:       price,
-			hasPrice:    hasPrice,
-			image:       strings.TrimSpace(in.Flags.GetString("image")),
+		ov := matrixOverrides{
+			newPrice:    newPerValue("--price"),
+			setPrice:    newPerValue("--set-price"),
+			newImage:    newPerValue("--image"),
 			skuTemplate: in.Flags.GetString("sku-template"),
 			hasStock:    in.Flags.Changed("stock"),
 			stock:       in.Flags.GetInt("stock"),
-		})
+		}
+		if hasPrice {
+			ov.newPrice.scalar = strconv.FormatFloat(price, 'f', -1, 64)
+		}
+		ov.newImage.scalar = strings.TrimSpace(in.Flags.GetString("image"))
+		return execUpdateMatrix(ctx, in, id, action, specs, ov)
 	},
 }
 
 // matrixOverrides carries the per-variant flags.
 type matrixOverrides struct {
-	price       float64
-	hasPrice    bool
-	image       string
+	newPrice    perValue // prices new variants with nothing to copy
+	setPrice    perValue // prices every variant it covers
+	newImage    perValue // images new variants with none to copy
 	skuTemplate string
-	hasStock    bool
+	hasStock    bool // stock set on every variant
 	stock       int
+	hasNewStock bool // stock set on new variants
+	newStock    int
+	changes     []string
 }
 
 // ── option parsing ────────────────────────────────────────────────────────────
@@ -930,28 +972,476 @@ func (m *matrix) sortRows() error {
 	return nil
 }
 
+// ── combined edits ────────────────────────────────────────────────────────────
+
+const maxVariants = 300
+
+// editFlags are the flags of the combined form; any of them selects it.
+var editFlags = []string{"add", "remove", "set", "drop", "rename", "existing", "new-price", "new-image", "new-stock", "set-price", "set-stock"}
+
+func usedEditFlags(in common.ExecInput) bool {
+	return slices.ContainsFunc(editFlags, in.Flags.Changed)
+}
+
+// dropSpec is one --drop payload; Keep is the value whose variants survive.
+type dropSpec struct {
+	Name, Keep string
+}
+
+// editPlan is the parsed combined form.
+type editPlan struct {
+	adds, removes, sets, renames []optionSpec
+	drops                        []dropSpec
+	existing                     map[string]string // added dimension → value existing variants take
+	ov                           matrixOverrides
+	// specless: the product had no dimension when read (a fresh +create), so
+	// its one variant takes the first value of each added dimension.
+	specless bool
+}
+
+func parseEditFlags(in common.ExecInput) (*editPlan, error) {
+	p := &editPlan{existing: map[string]string{}}
+	parseAll := func(flag string, parse func(string) (optionSpec, error)) ([]optionSpec, error) {
+		var out []optionSpec
+		for _, raw := range in.Flags.GetStringArray(flag) {
+			s, err := parse(raw)
+			if err != nil {
+				return nil, output.ErrValidation("--%s: %s", flag, err.Error())
+			}
+			out = append(out, s)
+		}
+		return out, nil
+	}
+	valueSpec := func(raw string) (optionSpec, error) { return parseValueSpec(raw, false) }
+	var err error
+	if p.adds, err = parseAll("add", valueSpec); err != nil {
+		return nil, err
+	}
+	if p.removes, err = parseAll("remove", valueSpec); err != nil {
+		return nil, err
+	}
+	if p.sets, err = parseAll("set", valueSpec); err != nil {
+		return nil, err
+	}
+	if p.renames, err = parseAll("rename", parseRenameSpec); err != nil {
+		return nil, err
+	}
+	for _, raw := range in.Flags.GetStringArray("drop") {
+		name, keep, _ := strings.Cut(raw, "=")
+		name, keep = strings.TrimSpace(name), strings.TrimSpace(keep)
+		if name == "" || strings.Contains(raw, ":") {
+			return nil, output.ErrValidation(`--drop takes "Dim" or "Dim=value", got %q`, raw)
+		}
+		p.drops = append(p.drops, dropSpec{Name: name, Keep: keep})
+	}
+	for _, raw := range in.Flags.GetStringArray("existing") {
+		name, v, ok := strings.Cut(raw, ":")
+		name, v = strings.TrimSpace(name), strings.TrimSpace(v)
+		if !ok || name == "" || v == "" {
+			return nil, output.ErrValidation(`--existing takes "Dim:value", got %q`, raw)
+		}
+		p.existing[name] = v
+	}
+
+	if p.ov.newPrice, err = parsePerValue("--new-price", in.Flags.GetStringArray("new-price"), true); err != nil {
+		return nil, err
+	}
+	if p.ov.setPrice, err = parsePerValue("--set-price", in.Flags.GetStringArray("set-price"), true); err != nil {
+		return nil, err
+	}
+	if p.ov.newImage, err = parsePerValue("--new-image", in.Flags.GetStringArray("new-image"), false); err != nil {
+		return nil, err
+	}
+	p.ov.skuTemplate = in.Flags.GetString("sku-template")
+	if in.Flags.Changed("set-stock") {
+		p.ov.hasStock, p.ov.stock = true, in.Flags.GetInt("set-stock")
+	}
+	if in.Flags.Changed("new-stock") {
+		p.ov.hasNewStock, p.ov.newStock = true, in.Flags.GetInt("new-stock")
+	}
+	if p.ov.stock < 0 || p.ov.newStock < 0 {
+		return nil, output.ErrValidation("--set-stock and --new-stock must be 0 or more")
+	}
+	if len(p.adds)+len(p.removes)+len(p.sets)+len(p.renames)+len(p.drops) == 0 &&
+		!p.ov.setPrice.any() && !p.ov.hasStock && p.ov.skuTemplate == "" {
+		return nil, output.ErrValidation("nothing to do: pass --add, --remove, --set, --drop, --rename, --set-price, --set-stock or --sku-template (or the older --action/--option form)")
+	}
+	return p, p.checkConflicts()
+}
+
+// checkConflicts refuses combinations whose meaning would depend on order.
+func (p *editPlan) checkConflicts() error {
+	flagsByDim := map[string][]string{}
+	note := func(name, flag string) { flagsByDim[foldKey(name)] = append(flagsByDim[foldKey(name)], flag) }
+	for _, s := range p.adds {
+		note(s.Name, "--add")
+	}
+	for _, s := range p.removes {
+		note(s.Name, "--remove")
+	}
+	for _, s := range p.sets {
+		note(s.Name, "--set")
+	}
+	for _, d := range p.drops {
+		note(d.Name, "--drop")
+	}
+	for name, flags := range flagsByDim {
+		uniq := slices.Compact(slices.Sorted(slices.Values(flags)))
+		if len(uniq) > 1 {
+			return output.ErrValidation("dimension %q is given to %s together — say it with one of them (--set lists the final values)", name, strings.Join(uniq, " and "))
+		}
+		if len(flags) > 1 {
+			return output.ErrValidation("dimension %q is given to %s twice — list its values in one payload", name, uniq[0])
+		}
+	}
+	for _, r := range p.renames {
+		for _, d := range p.drops {
+			if foldKey(d.Name) == foldKey(r.Name) {
+				return output.ErrValidation("dimension %q is both dropped and renamed", r.Name)
+			}
+		}
+		for _, pair := range r.Renames {
+			for _, s := range p.removes {
+				if foldKey(s.Name) == foldKey(r.Name) && slices.Contains(s.Values, pair[0]) {
+					return output.ErrValidation("value %q of %q is both removed and renamed", pair[0], r.Name)
+				}
+			}
+			for _, s := range p.sets {
+				if foldKey(s.Name) == foldKey(r.Name) && !slices.Contains(s.Values, pair[0]) {
+					return output.ErrValidation("value %q of %q is renamed but not kept by --set — list its current name in --set", pair[0], r.Name)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// apply runs the plan in its fixed order, every name resolving as read.
+func (p *editPlan) apply(m *matrix) error {
+	dim := func(name string) (int, error) {
+		d, err := m.findDim(name)
+		if err != nil {
+			return -1, err
+		}
+		if d < 0 {
+			return -1, m.missingDim(name)
+		}
+		return d, nil
+	}
+	for _, s := range p.removes {
+		d, err := dim(s.Name)
+		if err != nil {
+			return err
+		}
+		if err := m.removeValues(d, s.Values); err != nil {
+			return err
+		}
+		p.ov.changes = append(p.ov.changes, fmt.Sprintf("%s: removed %s", m.dims[d].Name, strings.Join(s.Values, ", ")))
+	}
+	for _, s := range p.drops {
+		if err := p.drop(m, s, dim); err != nil {
+			return err
+		}
+	}
+	for _, s := range p.sets {
+		d, err := dim(s.Name)
+		if err != nil {
+			return err
+		}
+		before := slices.Clone(m.dims[d].Values)
+		if err := m.update(d, s.Values); err != nil {
+			return err
+		}
+		p.ov.changes = append(p.ov.changes, fmt.Sprintf("%s: values %s → %s", m.dims[d].Name, strings.Join(before, ", "), strings.Join(s.Values, ", ")))
+	}
+	for _, s := range p.adds {
+		d, err := m.findDim(s.Name)
+		if err != nil {
+			return err
+		}
+		if d < 0 {
+			if err := p.addDimension(m, s); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := m.addValues(d, s.Values); err != nil {
+			return err
+		}
+		p.ov.changes = append(p.ov.changes, fmt.Sprintf("%s: added %s", m.dims[d].Name, strings.Join(s.Values, ", ")))
+	}
+	for name := range p.existing {
+		if !slices.ContainsFunc(p.adds, func(s optionSpec) bool { return s.Name == name }) {
+			return output.ErrValidation("--existing %q names no dimension added by --add", name)
+		}
+	}
+	for _, s := range p.renames {
+		if err := m.apply("rename", s); err != nil {
+			return err
+		}
+		if s.NewName != "" {
+			p.ov.changes = append(p.ov.changes, fmt.Sprintf("dimension %s renamed to %s", s.Name, s.NewName))
+			continue
+		}
+		for _, pair := range s.Renames {
+			p.ov.changes = append(p.ov.changes, fmt.Sprintf("%s: %s renamed to %s", s.Name, pair[0], pair[1]))
+		}
+	}
+	return nil
+}
+
+// drop deletes a dimension, first keeping only the variants with Keep when
+// given; refused when variants would still merge.
+func (p *editPlan) drop(m *matrix, s dropSpec, dim func(string) (int, error)) error {
+	d, err := dim(s.Name)
+	if err != nil {
+		return err
+	}
+	name := m.dims[d].Name
+	if len(m.dims) == 1 {
+		return output.ErrValidation("this would remove every dimension and leave the product without variants — delete the product or keep at least one dimension")
+	}
+	change := fmt.Sprintf("dimension %s dropped", name)
+	if s.Keep != "" {
+		i, err := m.findValue(d, s.Keep)
+		if err != nil {
+			return err
+		}
+		keep := m.dims[d].Values[i]
+		before := len(m.rows)
+		m.rows = slices.DeleteFunc(m.rows, func(r *row) bool { return r.values[d] != keep })
+		m.dims[d].Values = []string{keep}
+		change = fmt.Sprintf("dimension %s dropped, keeping the variants with %s (%d other variants deleted)", name, keep, before-len(m.rows))
+	}
+	seen := map[string]bool{}
+	for _, r := range m.rows {
+		k := tupleKey(slices.Delete(slices.Clone(r.values), d, d+1))
+		if seen[k] {
+			return output.ErrValidation("dropping %q would merge variants that differ only by it — say which value's variants to keep: --drop \"%s=<value>\" (values: %s)",
+				name, name, strings.Join(m.dims[d].Values, ","))
+		}
+		seen[k] = true
+	}
+	if err := m.removeDimension(d); err != nil {
+		return err
+	}
+	p.ov.changes = append(p.ov.changes, change)
+	return nil
+}
+
+// addDimension adds a dimension; with several values --existing names the one
+// existing variants take, and the listed order stays the storefront order.
+func (p *editPlan) addDimension(m *matrix, s optionSpec) error {
+	values, existing := s.Values, s.Values[0]
+	if v, ok := p.existing[s.Name]; ok || (len(values) > 1 && !p.specless) {
+		if !ok {
+			return output.ErrValidation("new dimension %q has several values — pass --existing \"%s:<value>\" to say which one the existing variants take (values: %s)",
+				s.Name, s.Name, strings.Join(values, ","))
+		}
+		i := slices.Index(values, v)
+		if i < 0 {
+			return output.ErrValidation("--existing %q is not one of the values added to %q (%s)", v, s.Name, strings.Join(values, ","))
+		}
+		existing = v
+		values = append([]string{v}, slices.Delete(slices.Clone(values), i, i+1)...)
+	}
+	if err := m.addDimension(s.Name, values); err != nil {
+		return err
+	}
+	m.dims[len(m.dims)-1].Values = slices.Clone(s.Values)
+	p.ov.changes = append(p.ov.changes, fmt.Sprintf("dimension %s added (%s); existing variants take %s", s.Name, strings.Join(s.Values, ", "), existing))
+	return nil
+}
+
+func execEditPlan(ctx context.Context, in common.ExecInput, id string, p *editPlan) (common.ExecResult, error) {
+	getPlan, prod, err := readMatrix(ctx, in, id)
+	if err != nil {
+		return common.ExecResult{}, err
+	}
+	m := newMatrix(prod.dims, prod.variants)
+	p.specless = len(prod.dims) == 0
+	if err := p.apply(m); err != nil {
+		return common.ExecResult{}, err
+	}
+	return writeMatrix(ctx, in, id, "", getPlan, prod, m, p.ov)
+}
+
+// ── per-value flags ───────────────────────────────────────────────────────────
+
+// perValue is a flag taking a plain value, a per-value "Dim:v=x,..." form
+// keyed on one dimension of the edited matrix, or both (plain = fallback).
+type perValue struct {
+	flag    string
+	isPrice bool
+	scalar  string
+	dim     string
+	pairs   [][2]string
+	d       int               // the dimension's index once bound, -1 if none
+	byValue map[string]string // value (as on the edited matrix) → raw
+}
+
+func newPerValue(flag string) perValue {
+	return perValue{flag: flag, d: -1}
+}
+
+func parsePerValue(flag string, raws []string, isPrice bool) (perValue, error) {
+	p := newPerValue(flag)
+	p.isPrice = isPrice
+	for _, raw := range raws {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		if p.plainForm(raw) {
+			if p.scalar != "" {
+				return p, output.ErrValidation("%s is given two plain values (%q, %q)", flag, p.scalar, raw)
+			}
+			if isPrice {
+				if _, err := parsePrice(flag, raw); err != nil {
+					return p, err
+				}
+			}
+			p.scalar = raw
+			continue
+		}
+		if p.dim != "" {
+			return p, output.ErrValidation(`%s names one dimension per value form, got %q and %q`, flag, p.dim, raw)
+		}
+		name, rest, _ := strings.Cut(raw, ":")
+		p.dim = strings.TrimSpace(name)
+		for pair := range strings.SplitSeq(rest, ",") {
+			if strings.TrimSpace(pair) == "" {
+				continue
+			}
+			v, x, ok := strings.Cut(pair, "=")
+			v, x = strings.TrimSpace(v), strings.TrimSpace(x)
+			if !ok || v == "" || x == "" {
+				return p, output.ErrValidation(`%s per value takes "Dim:value=x,...", got %q`, flag, raw)
+			}
+			if isPrice {
+				if _, err := parsePrice(flag, x); err != nil {
+					return p, err
+				}
+			}
+			p.pairs = append(p.pairs, [2]string{v, x})
+		}
+		if p.dim == "" || len(p.pairs) == 0 {
+			return p, output.ErrValidation(`%s per value takes "Dim:value=x,...", got %q`, flag, raw)
+		}
+	}
+	return p, nil
+}
+
+// plainForm tells a plain value (a number, an image id or URL) from "Dim:v=x".
+func (p perValue) plainForm(raw string) bool {
+	if p.isPrice {
+		return !strings.Contains(raw, ":")
+	}
+	return !strings.Contains(raw, ":") || strings.HasPrefix(raw, "//") ||
+		strings.HasPrefix(raw, "http:") || strings.HasPrefix(raw, "https:")
+}
+
+func (p perValue) any() bool { return p.scalar != "" || p.dim != "" }
+
+// bind resolves the per-value form against the edited matrix.
+func (p *perValue) bind(m *matrix) error {
+	if p.dim == "" {
+		return nil
+	}
+	d, err := m.findDim(p.dim)
+	if err != nil {
+		return err
+	}
+	if d < 0 {
+		return output.ErrValidation("%s: option %q does not exist after the edit (dimensions: %s)", p.flag, p.dim, m.describe())
+	}
+	p.d, p.byValue = d, map[string]string{}
+	for _, pair := range p.pairs {
+		i, err := m.findValue(d, pair[0])
+		if err != nil {
+			return output.ErrValidation("%s: %s", p.flag, err.Error())
+		}
+		p.byValue[m.dims[d].Values[i]] = pair[1]
+	}
+	return nil
+}
+
+// forRow returns the raw value that applies to r.
+func (p perValue) forRow(r *row) (string, bool) {
+	if p.d >= 0 {
+		if x, ok := p.byValue[r.values[p.d]]; ok {
+			return x, true
+		}
+	}
+	return p.scalar, p.scalar != ""
+}
+
+func (p perValue) raws() []string {
+	var out []string
+	if p.scalar != "" {
+		out = append(out, p.scalar)
+	}
+	for _, x := range p.byValue {
+		out = append(out, x)
+	}
+	return out
+}
+
+func (p perValue) String() string {
+	parts := make([]string, 0, len(p.pairs)+1)
+	for _, pair := range p.pairs {
+		parts = append(parts, pair[0]+"="+pair[1])
+	}
+	s := strings.Join(parts, ", ")
+	if p.dim != "" {
+		s = p.dim + ": " + s
+	}
+	if p.scalar != "" {
+		if s != "" {
+			return s + "; others " + p.scalar
+		}
+		return p.scalar
+	}
+	return s
+}
+
+func priceValue(raw string) float64 {
+	f, _ := strconv.ParseFloat(raw, 64) // validated by parsePerValue
+	return f
+}
+
 // ── execution ─────────────────────────────────────────────────────────────────
 
-const unusedPriceWarning = "--price was not used: no new variant needed a price, and it never changes existing prices (use products +set-price)"
+func unusedPriceWarning(flag string) string {
+	return flag + " was not used: no new variant needed a price, and it never changes existing prices (use --set-price)"
+}
 
 // cloneFields are copied onto a sibling created by adding a dimension; sku,
 // barcode and stock identify one physical item and are never copied.
 var cloneFields = []string{"price", "compare_at_price", "cost_price", "weight", "weight_unit"}
 
-func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action string, specs []optionSpec, ov matrixOverrides) (common.ExecResult, error) {
-	// Read in dry-run too — the full-replace body depends on the current matrix.
+// readMatrix reads the product (in dry-run too — the full-replace body
+// depends on the current matrix).
+func readMatrix(ctx context.Context, in common.ExecInput, id string) (common.PlannedRequest, productMatrix, error) {
 	getPlan := PlanGet(id)
 	getResp, err := common.Send(ctx, in.Client, getPlan)
 	if err != nil {
-		return common.ExecResult{}, err
+		return getPlan, productMatrix{}, err
 	}
 	prod := readProductMatrix(getResp)
 	for _, d := range prod.dims {
 		if len(d.Values) == 0 {
-			return common.ExecResult{}, output.ErrValidation("option %q has no values on this product, so its variants cannot be mapped — fix the product's options first", d.Name)
+			return getPlan, prod, output.ErrValidation("option %q has no values on this product, so its variants cannot be mapped — fix the product's options first", d.Name)
 		}
 	}
+	return getPlan, prod, nil
+}
 
+func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action string, specs []optionSpec, ov matrixOverrides) (common.ExecResult, error) {
+	getPlan, prod, err := readMatrix(ctx, in, id)
+	if err != nil {
+		return common.ExecResult{}, err
+	}
 	m := newMatrix(prod.dims, prod.variants)
 	for _, s := range specs {
 		if err := m.apply(action, s); err != nil {
@@ -971,25 +1461,44 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 			}
 		}
 	}
+	return writeMatrix(ctx, in, id, action, getPlan, prod, m, ov)
+}
+
+// writeMatrix validates the edited matrix and writes it in one PUT.
+func writeMatrix(ctx context.Context, in common.ExecInput, id, action string, getPlan common.PlannedRequest,
+	prod productMatrix, m *matrix, ov matrixOverrides) (common.ExecResult, error) {
 	if len(m.rows) == 0 {
 		return common.ExecResult{}, output.ErrValidation("this would delete every variant — delete the product instead, or keep at least one value")
 	}
 	if err := validateSKUTemplate(ov.skuTemplate, m.dims); err != nil {
 		return common.ExecResult{}, err
 	}
+	for _, p := range []*perValue{&ov.newPrice, &ov.setPrice, &ov.newImage} {
+		if err := p.bind(m); err != nil {
+			return common.ExecResult{}, err
+		}
+	}
+	if ov.setPrice.any() {
+		ov.changes = append(ov.changes, "price set to "+ov.setPrice.String())
+	}
+	if ov.hasStock {
+		ov.changes = append(ov.changes, fmt.Sprintf("stock of every variant set to %d", ov.stock))
+	}
 
 	// No effective change and no per-variant override: skip the write.
-	if m.unchanged(prod.dims, prod.variants) && ov.skuTemplate == "" && !ov.hasStock {
+	if m.unchanged(prod.dims, prod.variants) && ov.skuTemplate == "" && !ov.hasStock && !ov.setPrice.any() {
 		summary := matrixSummary(id, m.dims, len(prod.variants))
-		summary["action"] = action
+		if action != "" {
+			summary["action"] = action
+		}
 		summary["dimension_change"] = false
 		summary["kept"] = len(prod.variants)
 		summary["created"] = 0
 		summary["deleted"] = 0
 		summary["no_change"] = true
-		if ov.hasPrice {
+		if ov.newPrice.any() {
 			summary["price_applied"] = 0
-			summary["warnings"] = []string{unusedPriceWarning}
+			summary["warnings"] = []string{unusedPriceWarning(ov.newPrice.flag)}
 		}
 		if in.DryRun {
 			return common.ExecResult{Plans: []common.PlannedRequest{getPlan}, Summary: summary}, nil
@@ -1004,7 +1513,10 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 	if err := m.sortRows(); err != nil {
 		return common.ExecResult{}, err
 	}
-	imageID, err := checkNewRows(m, prod, ov)
+	if len(m.rows) > maxVariants {
+		return common.ExecResult{}, output.ErrValidation("the edit would leave %d variants; a product allows at most %d", len(m.rows), maxVariants)
+	}
+	imageIDs, err := checkNewRows(m, prod, ov)
 	if err != nil {
 		return common.ExecResult{}, err
 	}
@@ -1052,12 +1564,22 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 		}
 		if r.src == nil {
 			if _, ok := v["price"]; !ok {
-				v["price"] = ov.price
-				priceApplied++
+				if x, ok := ov.newPrice.forRow(r); ok {
+					v["price"] = priceValue(x)
+					priceApplied++
+				}
 			}
 			if _, ok := v["image_id"]; !ok && prod.needImage {
-				v["image_id"] = imageID
+				if x, ok := ov.newImage.forRow(r); ok {
+					v["image_id"] = imageIDs[x]
+				}
 			}
+			if ov.hasNewStock {
+				v["inventory_quantity"] = ov.newStock
+			}
+		}
+		if x, ok := ov.setPrice.forRow(r); ok {
+			v["price"] = priceValue(x)
 		}
 		if ov.skuTemplate != "" {
 			sku := renderSKU(ov.skuTemplate, m.dims, r.values)
@@ -1094,7 +1616,9 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 	updatePlan := PlanUpdate(id, body)
 
 	summary := matrixSummary(id, m.dims, len(m.rows))
-	summary["action"] = action
+	if action != "" {
+		summary["action"] = action
+	}
 	summary["dimension_change"] = m.reshaped
 	summary["kept"] = kept
 	summary["created"] = created
@@ -1109,10 +1633,10 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 	if len(pruned) > 0 {
 		summary["pruned_values"] = pruned
 	}
-	if ov.hasPrice {
+	if ov.newPrice.any() {
 		summary["price_applied"] = priceApplied
 		if priceApplied == 0 {
-			summary["warnings"] = []string{unusedPriceWarning}
+			summary["warnings"] = []string{unusedPriceWarning(ov.newPrice.flag)}
 		}
 	}
 	if ov.skuTemplate != "" {
@@ -1120,6 +1644,10 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 	}
 	if ov.hasStock {
 		summary["stock_applied"] = ov.stock
+	}
+	if action == "" {
+		summary["changes"] = append(ov.changes, fmt.Sprintf("variants: %d kept, %d new, %d deleted (%d → %d)",
+			kept, cloned+created, len(deletedDetail), len(prod.variants), len(m.rows)))
 	}
 
 	if in.DryRun {
@@ -1133,39 +1661,45 @@ func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action strin
 	return common.ExecResult{Body: summary}, nil
 }
 
-// checkNewRows enforces --price and --image for rows that have nothing to copy
-// them from, and resolves --image to an image id.
-func checkNewRows(m *matrix, prod productMatrix, ov matrixOverrides) (string, error) {
+// checkNewRows enforces a price and (where required) an image for new rows
+// that have nothing to copy them from, and resolves the image references.
+func checkNewRows(m *matrix, prod productMatrix, ov matrixOverrides) (map[string]string, error) {
 	var needPrice, needImage []string
 	for _, r := range m.rows {
 		if r.src != nil {
 			continue
 		}
 		combo := strings.Join(r.values, "/")
-		if r.clone == nil || r.clone.Price == nil {
+		_, hasNew := ov.newPrice.forRow(r)
+		_, hasSet := ov.setPrice.forRow(r)
+		if (r.clone == nil || r.clone.Price == nil) && !hasNew && !hasSet {
 			needPrice = append(needPrice, combo)
 		}
-		if prod.needImage && (r.clone == nil || r.clone.ImageID == "") {
+		if _, ok := ov.newImage.forRow(r); prod.needImage && (r.clone == nil || r.clone.ImageID == "") && !ok {
 			needImage = append(needImage, combo)
 		}
 	}
-	if len(needPrice) > 0 && !ov.hasPrice {
-		return "", output.ErrValidation("new variant(s) would be created with no price to copy (e.g. %q) — pass --price to give them one", needPrice[0])
+	if len(needPrice) > 0 {
+		return nil, output.ErrValidation("new variant(s) would be created with no price to copy (e.g. %q) — pass %s to give them one", needPrice[0], ov.newPrice.flag)
 	}
-	if ov.image == "" {
-		if len(needImage) > 0 {
-			return "", output.ErrValidation("this product requires a variant image and new variant(s) have none to copy (e.g. %q) — pass --image with one of the product's images", needImage[0])
-		}
-		return "", nil
+	if len(needImage) > 0 {
+		return nil, output.ErrValidation("this product requires a variant image and new variant(s) have none to copy (e.g. %q) — pass %s with one of the product's images", needImage[0], ov.newImage.flag)
+	}
+	if !ov.newImage.any() {
+		return nil, nil
 	}
 	if !prod.needImage {
-		return "", output.ErrValidation("--image applies only to products that require a variant image; this one does not")
+		return nil, output.ErrValidation("%s applies only to products that require a variant image; this one does not", ov.newImage.flag)
 	}
-	imageID, ok := resolveImage(prod.images, ov.image)
-	if !ok {
-		return "", output.ErrValidation("--image %q is not one of the product's images — add it first with products images create", ov.image)
+	ids := map[string]string{}
+	for _, ref := range ov.newImage.raws() {
+		imageID, ok := resolveImage(prod.images, ref)
+		if !ok {
+			return nil, output.ErrValidation("%s %q is not one of the product's images — add it first with products images create", ov.newImage.flag, ref)
+		}
+		ids[ref] = imageID
 	}
-	return imageID, nil
+	return ids, nil
 }
 
 // resolveImage maps an image id or src onto one of the product's images.

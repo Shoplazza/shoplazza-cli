@@ -1178,3 +1178,269 @@ func TestSetVariants_UpdatePayloadsKeepListedValues(t *testing.T) {
 		})
 	}
 }
+
+// ── combined form ─────────────────────────────────────────────────────────────
+
+// runEdit runs the combined form; args are raw flags ("--drop=lenses=6lenses").
+func runEdit(t *testing.T, product map[string]any, args ...string) (common.ExecResult, map[string]any, error) {
+	t.Helper()
+	srv := newEditServer(t)
+	return srv.run(t, product, args...)
+}
+
+// editServer serves one product per run from a single listener, so a loop of
+// runs does not open a socket each.
+type editServer struct {
+	product  map[string]any
+	captured map[string]any
+	url      string
+}
+
+func newEditServer(t *testing.T) *editServer {
+	t.Helper()
+	s := &editServer{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			json.NewEncoder(w).Encode(map[string]any{"product": s.product})
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&s.captured); err != nil {
+			t.Errorf("decode captured body: %v", err)
+		}
+		json.NewEncoder(w).Encode(s.captured)
+	}))
+	t.Cleanup(srv.Close)
+	s.url = srv.URL
+	return s
+}
+
+// run executes +set-variants with flags registered from the shortcut itself,
+// so the test sees the real flag set.
+func (s *editServer) run(t *testing.T, product map[string]any, args ...string) (common.ExecResult, map[string]any, error) {
+	t.Helper()
+	cmd := &cobra.Command{Use: "test", RunE: func(*cobra.Command, []string) error { return nil }}
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	for _, f := range setVariantsShortcut.Flags {
+		switch f.Type {
+		case common.FlagStringArray:
+			cmd.Flags().StringArray(f.Name, nil, "")
+		case common.FlagInt:
+			cmd.Flags().Int(f.Name, 0, "")
+		default:
+			cmd.Flags().String(f.Name, "", "")
+		}
+	}
+	cmd.SetArgs(append([]string{"--id=p-1"}, args...))
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("cmd.Execute: %v", err)
+	}
+	s.product, s.captured = product, nil
+	in := common.ExecInput{Flags: common.NewCobraFlagSet(cmd), Client: client.New(s.url)}
+	res, err := setVariantsShortcut.Execute(context.Background(), in)
+	return res, s.captured, err
+}
+
+// lensProduct: Style(Ocean,Galaxy) × lenses × Color(Black 19.9, White 39.9), variant images required.
+func lensProduct(lenses ...string) map[string]any {
+	var variants []any
+	for _, s := range []string{"Ocean", "Galaxy"} {
+		for _, l := range lenses {
+			for _, c := range []string{"Black", "White"} {
+				price := 19.9
+				if c == "White" {
+					price = 39.9
+				}
+				variants = append(variants, map[string]any{"id": "v-" + s + "-" + l + "-" + c, "option1": s, "option2": l, "option3": c,
+					"sku": "-" + s + "-" + l + "-" + c, "price": price, "image_id": "img-" + c, "inventory_quantity": float64(3)})
+			}
+		}
+	}
+	lensValues := []any{}
+	for _, l := range lenses {
+		lensValues = append(lensValues, l)
+	}
+	return map[string]any{
+		"id": "p-1", "need_variant_image": true,
+		"images": []any{map[string]any{"id": "img-Black", "src": "//b.webp"}, map[string]any{"id": "img-White", "src": "//w.webp"}},
+		"options": []any{
+			map[string]any{"name": "Style", "values": []any{"Ocean", "Galaxy"}, "position": float64(1)},
+			map[string]any{"name": "lenses", "values": lensValues, "position": float64(2)},
+			map[string]any{"name": "Color", "values": []any{"Black", "White"}, "position": float64(3)},
+		},
+		"variants": variants,
+	}
+}
+
+func optionsJSON(t *testing.T, captured map[string]any) string {
+	t.Helper()
+	b, _ := json.Marshal(captured["product"].(map[string]any)["options"])
+	return string(b)
+}
+
+func TestSetVariants_CombinedEditInOneWrite(t *testing.T) {
+	res, captured, err := runEdit(t, lensProduct("6lenses", "12lenses"),
+		"--drop=lenses=6lenses", "--set=Style:Ocean", "--rename=Style:Ocean=2 lenses", "--set-price=19.9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	variants := capturedVariants(t, captured)
+	if len(variants) != 2 {
+		t.Fatalf("want 2 variants, got %+v", variants)
+	}
+	for _, c := range []string{"Black", "White"} {
+		v := variantByOptions(t, variants, "2 lenses", c, "")
+		if v["id"] != "v-Ocean-6lenses-"+c || v["option3"] != "" || v["price"] != 19.9 {
+			t.Errorf("%s: want the 6lenses variant kept, slot 3 cleared, price 19.9: %+v", c, v)
+		}
+	}
+	if got := optionsJSON(t, captured); got != `[{"name":"Style","values":["2 lenses"]},{"name":"Color","values":["Black","White"]}]` {
+		t.Errorf("options: %s", got)
+	}
+	want := []string{
+		"dimension lenses dropped, keeping the variants with 6lenses (4 other variants deleted)",
+		"Style: values Ocean, Galaxy → Ocean",
+		"Style: Ocean renamed to 2 lenses",
+		"price set to 19.9",
+		"variants: 2 kept, 0 new, 6 deleted (8 → 2)",
+	}
+	if !reflect.DeepEqual(res.Body["changes"], want) {
+		t.Errorf("changes = %q", res.Body["changes"])
+	}
+	if _, ok := res.Body["action"]; ok {
+		t.Error("the combined form reports changes, not an action")
+	}
+}
+
+func TestSetVariants_DropNeedsKeepWhenVariantsMerge(t *testing.T) {
+	_, captured, err := runEdit(t, lensProduct("6lenses", "12lenses"), "--drop=lenses")
+	if err == nil || !strings.Contains(err.Error(), `--drop "lenses=<value>"`) || captured != nil {
+		t.Fatalf("want a refusal naming the =value form, got %v", err)
+	}
+	_, captured, err = runEdit(t, lensProduct("6lenses"), "--drop=lenses")
+	if err != nil || len(capturedVariants(t, captured)) != 4 {
+		t.Fatalf("a drop that merges nothing keeps every variant: %v", err)
+	}
+}
+
+func TestSetVariants_AddDimensionWithExisting(t *testing.T) {
+	_, _, err := runEdit(t, colorSizeProduct(), "--add=Fit:Slim,Regular")
+	if err == nil || !strings.Contains(err.Error(), "--existing") {
+		t.Fatalf("several values need --existing, got %v", err)
+	}
+	_, captured, err := runEdit(t, colorSizeProduct(), "--add=Fit:Slim,Regular,Loose", "--existing=Fit:Regular")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range capturedVariants(t, captured) {
+		if _, kept := v["id"]; kept && v["option3"] != "Regular" {
+			t.Errorf("kept variant must take Regular: %+v", v)
+		}
+	}
+	if got := optionsJSON(t, captured); !strings.Contains(got, `["Slim","Regular","Loose"]`) {
+		t.Errorf("the listed order is the storefront order: %s", got)
+	}
+	// A product with no dimension yet (fresh +create): its one variant takes
+	// the first value of each added dimension, no --existing needed.
+	specless := map[string]any{"id": "p-1", "options": []any{},
+		"variants": []any{map[string]any{"id": "v-0", "price": "29.99", "sku": "DEF"}}}
+	_, captured, err = runEdit(t, specless, "--add=Color:Red,Blue", "--add=Size:S,M")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := variantByOptions(t, capturedVariants(t, captured), "Red", "S", ""); v["id"] != "v-0" {
+		t.Errorf("the default variant must become Red/S: %+v", v)
+	}
+}
+
+func TestSetVariants_PerValuePriceAndImage(t *testing.T) {
+	// New colors with their own price and image; the rest fall back to the plain value.
+	_, captured, err := runEdit(t, lensProduct("6lenses"), "--add=Color:Red,Green",
+		"--new-price=Color:Red=9", "--new-price=7", "--new-image=Color:Red=https://b.webp", "--new-image=img-White", "--new-stock=8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	variants := capturedVariants(t, captured)
+	red := variantByOptions(t, variants, "Ocean", "6lenses", "Red")
+	green := variantByOptions(t, variants, "Ocean", "6lenses", "Green")
+	if red["price"] != 9.0 || red["image_id"] != "img-Black" || red["inventory_quantity"] != 8.0 {
+		t.Errorf("red: %+v", red)
+	}
+	if green["price"] != 7.0 || green["image_id"] != "img-White" {
+		t.Errorf("green: %+v", green)
+	}
+	// --set-price per value reprices existing variants with that value only.
+	_, captured, err = runEdit(t, colorSizeProduct(), "--set-price=Size:S=20,M=30")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range capturedVariants(t, captured) {
+		if want := map[string]float64{"S": 20, "M": 30}[v["option2"].(string)]; v["price"] != want {
+			t.Errorf("want %v: %+v", want, v)
+		}
+	}
+	_, captured, err = runEdit(t, colorSizeProduct(), "--set-price=Size:S=20")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustNotHave(t, variantByOptions(t, capturedVariants(t, captured), "Red", "M", ""), "price")
+}
+
+func TestSetVariants_CombinedRefusals(t *testing.T) {
+	cases := []struct {
+		name    string
+		product map[string]any
+		args    []string
+		want    string
+	}{
+		{"one dimension in two edits", colorSizeProduct(), []string{"--set=Color:Red", "--add=Color:Green", "--new-price=1"}, "together"},
+		{"one dimension twice", colorSizeProduct(), []string{"--remove=Color:Red", "--remove=Color:Blue"}, "twice"},
+		{"removed and renamed", colorSizeProduct(), []string{"--remove=Color:Red", "--rename=Color:Red=Wine"}, "both removed and renamed"},
+		{"renamed but not kept by --set", colorSizeProduct(), []string{"--set=Color:Blue", "--rename=Color:Red=Wine"}, "not kept by --set"},
+		{"dropped and renamed", colorSizeProduct(), []string{"--drop=Size", "--rename=Size=Fit"}, "both dropped and renamed"},
+		{"missing dimension", colorSizeProduct(), []string{"--remove=Colour:Red"}, "does not exist"},
+		{"nothing to do", colorSizeProduct(), nil, "nothing to do"},
+		{"mixed with the older form", colorSizeProduct(), []string{"--action=add", "--option=Color:Green", "--new-price=1"}, "cannot be mixed"},
+		{"drop the last dimension", existingColorProduct(), []string{"--drop=Color"}, "every dimension"},
+		{"--existing for no added dimension", colorSizeProduct(), []string{"--add=Color:Green", "--existing=Fit:Slim", "--new-price=1"}, "--existing"},
+		{"new value without a price", colorSizeProduct(), []string{"--add=Color:Green"}, "--new-price"},
+		{"per-value price not covering a new value", colorSizeProduct(), []string{"--add=Color:Green,Pink", "--new-price=Color:Green=1"}, "Pink"},
+		{"new variant without an image", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9"}, "--new-image"},
+		{"image not on the product", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=//x.webp"}, "not one of the product's images"},
+		{"per-value price on a missing value", colorSizeProduct(), []string{"--set-price=Size:XL=5"}, "no value"},
+		{"per-value forms on two dimensions", colorSizeProduct(), []string{"--set-price=Size:S=5", "--set-price=Color:Red=6"}, "one dimension"},
+		{"more than 300 variants", colorSizeProduct(), []string{"--add=A:" + manyValues(80), "--existing=A:a0", "--new-price=1"}, "at most 300"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, captured, err := runEdit(t, tc.product, tc.args...)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("want error containing %q, got %v", tc.want, err)
+			}
+			if captured != nil {
+				t.Error("the PUT must not be sent when validation fails")
+			}
+		})
+	}
+}
+
+// Every edit names dimensions as read: a rename does not change what the
+// other flags refer to.
+func TestSetVariants_CombinedNamesResolveAsRead(t *testing.T) {
+	_, captured, err := runEdit(t, colorSizeProduct(), "--rename=Color=Colour", "--add=Color:Green", "--new-price=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := optionsJSON(t, captured); !strings.Contains(got, `{"name":"Colour","values":["Red","Blue","Green"]}`) {
+		t.Errorf("options: %s", got)
+	}
+}
+
+func manyValues(n int) string {
+	values := make([]string, n)
+	for i := range values {
+		values[i] = fmt.Sprintf("a%d", i)
+	}
+	return strings.Join(values, ",")
+}
