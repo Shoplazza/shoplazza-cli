@@ -75,6 +75,34 @@ func newEditServer(t *testing.T) *editServer {
 				pageSections = append(pageSections, map[string]any{"id": id, "type": "rich_text", "display": true,
 					"settings": map[string]any{}, "blocks": []any{}})
 			}
+			// An add that carried target lands in the header group when the
+			// anchor is the header card (real server: same-group insert).
+			headerSections := []any{
+				map[string]any{"id": "hsec1", "type": "header_bar", "display": true, "settings": map[string]any{}, "blocks": []any{}},
+			}
+			for _, mv := range es.moves {
+				if anyToString(mv["move_target"]) != "hsec1" {
+					continue
+				}
+				rest := make([]any, 0, len(pageSections))
+				var moved any
+				for _, sec := range pageSections {
+					if anyToString(sec.(map[string]any)["id"]) == anyToString(mv["target"]) {
+						moved = sec
+					} else {
+						rest = append(rest, sec)
+					}
+				}
+				if moved == nil {
+					continue
+				}
+				pageSections = rest
+				if mv["position"] == "before" {
+					headerSections = append([]any{moved}, headerSections...)
+				} else {
+					headerSections = append(headerSections, moved)
+				}
+			}
 			// Replay recorded move_sections so a re-read sees the final layout.
 			for _, mv := range es.moves {
 				var moved map[string]any
@@ -122,10 +150,8 @@ func newEditServer(t *testing.T) *editServer {
 					"page_sections": pageSections,
 					// dedicated header group (real df423620 shape — numeric ids, not the
 					// semantic-id fixed group). Exercises sectionsByArea's group path.
-					"header_sections": []any{
-						map[string]any{"id": "hsec1", "type": "header_bar", "display": true, "settings": map[string]any{}, "blocks": []any{}},
-					},
-					"sections": []any{}, // truly-fixed cards (cart_drawer etc.)
+					"header_sections": headerSections,
+					"sections":        []any{}, // truly-fixed cards (cart_drawer etc.)
 				},
 			}})
 		case strings.HasSuffix(p, "/operations") && r.Method == http.MethodPost:
@@ -141,7 +167,14 @@ func newEditServer(t *testing.T) *editServer {
 				if fr, ok := es.failResults[i]; ok {
 					res = fr
 				} else if om["op"] == "add_section" {
-					es.added = append(es.added, fmt.Sprintf("sec_new%d", len(es.added)+1))
+					id := fmt.Sprintf("sec_new%d", len(es.added)+1)
+					es.added = append(es.added, id)
+					// Real server: target + position place the new card in the
+					// anchor's group on insert; replay it as a synthetic move.
+					if om["target"] != nil {
+						es.moves = append(es.moves, map[string]any{"op": "move_section", "target": id,
+							"position": om["position"], "move_target": om["target"]})
+					}
 				} else if om["op"] == "move_section" {
 					es.moves = append(es.moves, om)
 				}
@@ -791,8 +824,10 @@ func TestEdit_PositionTranslationAndPlacement(t *testing.T) {
 		t.Errorf("move entry = %v, want before/hsec1 (first of its area)", mv)
 	}
 
-	// add_section with a position: the server always appends, so the CLI
-	// issues a follow-up move batch once the new id is recovered.
+	// add_section with a position: the server inserts relative to target in
+	// one go, so the add entry carries {target, position} and no follow-up
+	// placement batch is sent (a second write request is what the
+	// store-agent staging gate refuses).
 	es.mu.Lock()
 	es.writes = nil
 	es.mu.Unlock()
@@ -801,24 +836,57 @@ func TestEdit_PositionTranslationAndPlacement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("add after: %v", err)
 	}
+	batches := editBatches(es)
+	if len(batches) != 1 {
+		t.Fatalf("batches = %d, want exactly one (add carries its own placement)", len(batches))
+	}
+	add := batches[0]["operations"].([]any)[0].(map[string]any)
+	if add["op"] != "add_section" || add["target"] != "111" || add["position"] != "after" {
+		t.Errorf("add entry = %v, want target=111 position=after", add)
+	}
+	row := body["applied"].([]map[string]any)[0]
+	if row["new_section_id"] != "sec_new1" || row["to_index_id"] != "111" {
+		t.Errorf("applied row = %v, want new_section_id=sec_new1 to_index_id=111", row)
+	}
+}
+
+// editBatches returns the bodies of every batch-ops request sent, in order.
+func editBatches(es *editServer) []map[string]any {
 	var batches []map[string]any
 	es.mu.Lock()
+	defer es.mu.Unlock()
 	for _, wr := range es.writes {
 		if strings.HasSuffix(fmt.Sprint(wr["path"]), "/operations") {
 			batches = append(batches, wr["body"].(map[string]any))
 		}
 	}
-	es.mu.Unlock()
-	if len(batches) != 2 {
-		t.Fatalf("batches = %d, want add batch + placement batch", len(batches))
+	return batches
+}
+
+// TestEdit_AddSectionIntoHeaderGroup pins the cross-group case behind the
+// prod ticket: a page card can never be moved into the header/footer group
+// (the server moves within one group only), but an add anchored on a header
+// member lands in that group directly.
+func TestEdit_AddSectionIntoHeaderGroup(t *testing.T) {
+	es := newEditServer(t)
+	defer es.srv.Close()
+
+	body, err := editExec(t, es, map[string]any{"template": "index",
+		"ops": `[{"op":"add_section","name":"shoplazza://apps/x/blocks/lang/1","position":"after:hsec1"}]`})
+	if err != nil {
+		t.Fatalf("add into header: %v", err)
 	}
-	place := batches[1]["operations"].([]any)[0].(map[string]any)
-	if place["op"] != "move_section" || place["target"] != "sec_new1" ||
-		place["position"] != "after" || place["move_target"] != "111" {
-		t.Errorf("placement move = %v", place)
+	batches := editBatches(es)
+	if len(batches) != 1 {
+		t.Fatalf("batches = %d, want 1", len(batches))
 	}
-	if body["applied"].([]map[string]any)[0]["new_section_id"] != "sec_new1" {
-		t.Errorf("new_section_id = %v", body["applied"])
+	add := batches[0]["operations"].([]any)[0].(map[string]any)
+	if add["target"] != "hsec1" || add["position"] != "after" {
+		t.Errorf("add entry = %v, want target=hsec1 position=after", add)
+	}
+	row := body["applied"].([]map[string]any)[0]
+	if row["new_section_id"] != "sec_new1" || row["to_index_id"] != "hsec1" {
+		t.Errorf("applied row = %v, want new_section_id=sec_new1 to_index_id=hsec1", row)
 	}
 }
 

@@ -76,10 +76,12 @@ cards — see [page-builder.md](page-builder.md).
 ## Placement
 
 Put `position` in the same `add_section` op: `first` · `last` · `before:<sid>` · `after:<sid>`.
-The anchor is an existing card of the area the new card should join, from the whole-page read.
-Without `position` the card goes to the end of the page area. `placement_warning` in the
-response → the card was added but not placed: `move_section` with `before:` / `after:` on
-`applied[].new_section_id`.
+The anchor is an existing card of the area the new card should join, from the whole-page read;
+the card lands in the anchor's area. This is the only way into the header / footer area:
+`move_section` never crosses areas, so a card added to the page area cannot be moved there
+afterwards. Without `position` the card goes to the end of the page area. `placement_warning`
+in the response → the card was added and placed, but its new id could not be read back:
+re-read the page to find it.
 
 ## Content
 
