@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-09-23T08:21:02Z",
+  "generated_at": "2026-10-09T07:59:22Z",
   "modules": [
     {
       "name": "billing",
@@ -8984,9 +8984,9 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "schema": "google.protobuf.Struct"
+                  "schema": "v202601.MenuItemInput"
                 },
-                "description": "Menu items tree. Each item has `title`, `type` (required, e.g. `home`, `collection`, `page`), `url`, `children`, etc."
+                "description": "Menu items tree"
               }
             ]
           },
@@ -9038,7 +9038,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Optional menu ids to filter; empty = all menus"
+              "description": "Optional menu ids to filter, e.g. `?ids=header\u0026ids=1790649397502042737`"
             },
             {
               "name": "hide_disabled",
@@ -9105,9 +9105,9 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "schema": "google.protobuf.Struct"
+                  "schema": "v202601.MenuItemInput"
                 },
-                "description": "Menu items tree. Omitted or an empty array both keep the current items"
+                "description": "Menu items tree. When provided, it replaces all current items and existing items not included are deleted; omitted keeps the current items; an empty array clears all items"
               }
             ]
           },
@@ -20911,6 +20911,10 @@
           "name": "charge_interval_days",
           "type": "integer",
           "format": "int32"
+        },
+        {
+          "name": "update_capped_amount_url",
+          "type": "string"
         }
       ]
     },
@@ -24124,7 +24128,7 @@
         {
           "name": "menu",
           "type": "object",
-          "schema": "google.protobuf.Struct"
+          "schema": "v202601.MenuSummary"
         }
       ]
     },
@@ -25344,7 +25348,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "schema": "google.protobuf.Struct"
+            "schema": "v202601.Menu"
           }
         },
         {
@@ -26089,6 +26093,168 @@
             "type": "object",
             "schema": "v202601.RuleModuleParam"
           }
+        }
+      ]
+    },
+    "v202601.Menu": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "category",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "children",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.MenuItem"
+          }
+        }
+      ]
+    },
+    "v202601.MenuItem": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "origin_type",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "source_id",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "pid",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "name": "status",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "disabled",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "target",
+          "type": "string"
+        },
+        {
+          "name": "url_obj",
+          "type": "object",
+          "schema": "v202601.MenuUrlObj"
+        },
+        {
+          "name": "expanded",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.MenuItemInput": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "target",
+          "type": "string"
+        },
+        {
+          "name": "disabled",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "url_obj",
+          "type": "object",
+          "schema": "v202601.MenuUrlObjInput"
+        },
+        {
+          "name": "children",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.MenuItemInput"
+          }
+        }
+      ]
+    },
+    "v202601.MenuSummary": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.MenuUrlObj": {
+      "fields": [
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "source_id",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.MenuUrlObjInput": {
+      "fields": [
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "source_id",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "type": "string"
         }
       ]
     },
@@ -27668,7 +27834,7 @@
         {
           "name": "menu",
           "type": "object",
-          "schema": "google.protobuf.Struct"
+          "schema": "v202601.MenuSummary"
         }
       ]
     },
