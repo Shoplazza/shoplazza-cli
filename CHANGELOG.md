@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.3.0 - 2026-10-16
+## 2.2.2 - 2026-10-16
 
 ### Changed
 - `products +set-variants` keeps existing variants through dimension changes. Adding a dimension puts every existing variant on its first value, keeping its id and with it the sku, stock, image and every other field; the other values get new variants copying price, compare-at price, weight and image (never sku, barcode or stock). Dropping a dimension keeps each variant when no two of them land on the same combination, and is refused — naming the colliding variants — when they would, instead of keeping the first and deleting the rest. Previously any dimension change deleted and recreated every variant: stock, barcode, weight and compare-at price were wiped, and products that require variant images rejected the edit.
