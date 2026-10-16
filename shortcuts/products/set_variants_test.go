@@ -883,7 +883,7 @@ func TestSetVariants_RefusesWithoutWriting(t *testing.T) {
 		{"remove a missing dimension", existingColorProduct(), []string{"尺码:S"},
 			map[string]string{"id": "p-1", "action": "remove"}, "existing: Color[Red,Blue]"},
 		{"remove every value of a dimension", colorSizeProduct(), []string{"Size:S,M"},
-			map[string]string{"id": "p-1", "action": "remove"}, `bare name --option "Size"`},
+			map[string]string{"id": "p-1", "action": "remove"}, `--drop "Size"`},
 		{"remove a dimension that would merge variants", colorSizeProduct(), []string{"Size"},
 			map[string]string{"id": "p-1", "action": "remove"}, `merge variants into the same combination (Red/S + Red/M; Blue/S + Blue/M)`},
 		{"remove the last dimension", existingColorProduct(), []string{"Color"},

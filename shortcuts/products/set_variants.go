@@ -79,11 +79,11 @@ and renamed, a dimension both dropped and renamed, a drop that would merge
 variants, more than 3 dimensions or 300 variants, no dimension left, a new
 variant without a price, or without an image on a product that requires one.
 
-The older form --action add|remove|update|rename with --option payloads (and
---price/--image/--stock) still works: add = --add, remove = --remove or a bare
-"Dim" for --drop, update = --set, rename = --rename; a dimension added this way
-puts existing variants on its first value. It cannot be mixed with the flags
-above.
+Deprecated: --action add|remove|update|rename with --option payloads (and
+--price/--image/--stock) still works but will be removed. Use add = --add,
+remove = --remove or a bare "Dim" for --drop, update = --set, rename = --rename;
+a dimension added this way puts existing variants on its first value. It cannot
+be mixed with the flags above.
 
 Deleted variants do not break past orders (line items are snapshotted). The
 output is a bounded summary ({kept, cloned, created, deleted} + details, and
@@ -104,12 +104,12 @@ output is a bounded summary ({kept, cloned, created, deleted} + details, and
 		{Name: "set-price", Type: common.FlagStringArray, Description: `Price for EVERY variant: a number, or "Dim:v=price,..." for the variants with those values.`},
 		{Name: "set-stock", Type: common.FlagInt, Description: "Inventory quantity for EVERY variant (absolute, default location)."},
 		{Name: "sku-template", Type: common.FlagString, Description: `SKU pattern with {Option Name} placeholders (names after the edit), e.g. "TS-{Color}-{Size}". Applied to EVERY variant.`},
-		{Name: "action", Type: common.FlagString, Description: "Older form: add, remove, update or rename, applied to the --option payloads.",
+		{Name: "action", Type: common.FlagString, Description: "Deprecated: use --add/--remove/--set/--drop/--rename. add, remove, update or rename, applied to the --option payloads.",
 			Completions: []string{"add", "remove", "update", "rename"}},
-		{Name: "option", Type: common.FlagStringArray, Description: `Older form: "Name:v1,v2,..." per dimension; bare "Name" with --action remove; "Name:old=new" or "Old=New" with --action rename.`},
-		{Name: "price", Type: common.FlagString, Description: "Older form of --new-price."},
-		{Name: "image", Type: common.FlagString, Description: "Older form of --new-image."},
-		{Name: "stock", Type: common.FlagInt, Description: "Older form of --set-stock."},
+		{Name: "option", Type: common.FlagStringArray, Description: `Deprecated: use --add/--remove/--set/--drop/--rename. "Name:v1,v2,..." per dimension; bare "Name" with --action remove; "Name:old=new" or "Old=New" with --action rename.`},
+		{Name: "price", Type: common.FlagString, Description: "Deprecated: use --new-price."},
+		{Name: "image", Type: common.FlagString, Description: "Deprecated: use --new-image."},
+		{Name: "stock", Type: common.FlagInt, Description: "Deprecated: use --set-stock."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		id := strings.TrimSpace(in.Flags.GetString("id"))
@@ -739,7 +739,7 @@ func (m *matrix) removeValues(d int, values []string) error {
 	}
 	dim := &m.dims[d]
 	if len(drop) == len(dim.Values) {
-		return output.ErrValidation("removing every value of %q would delete all its variants — to drop the dimension and keep the variants use the bare name --option %q", dim.Name, dim.Name)
+		return output.ErrValidation("removing every value of %q would delete all its variants — to drop the dimension and keep the variants use --drop %q", dim.Name, dim.Name)
 	}
 	dim.Values = slices.DeleteFunc(dim.Values, func(v string) bool { return drop[v] })
 	m.rows = slices.DeleteFunc(m.rows, func(r *row) bool { return drop[r.values[d]] })
@@ -1064,7 +1064,7 @@ func parseEditFlags(in common.ExecInput) (*editPlan, error) {
 	}
 	if len(p.adds)+len(p.removes)+len(p.sets)+len(p.renames)+len(p.drops) == 0 &&
 		!p.ov.setPrice.any() && !p.ov.hasStock && p.ov.skuTemplate == "" {
-		return nil, output.ErrValidation("nothing to do: pass --add, --remove, --set, --drop, --rename, --set-price, --set-stock or --sku-template (or the older --action/--option form)")
+		return nil, output.ErrValidation("nothing to do: pass --add, --remove, --set, --drop, --rename, --set-price, --set-stock or --sku-template")
 	}
 	return p, p.checkConflicts()
 }
