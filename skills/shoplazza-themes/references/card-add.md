@@ -83,6 +83,13 @@ afterwards. Without `position` the card goes to the end of the page area. `place
 in the response → the card was added and placed, but its new id could not be read back:
 re-read the page to find it.
 
+Whether a theme has a header / footer area to add into shows in the whole-page read: header
+members with numeric ids are an area and render new cards in order; a theme whose header member
+is literally `header` / `footer` has no such area — the CLI refuses those words as anchors, and
+the server would not render the card. Fall back to the page area instead: `before:` the first
+page card (or `after:` the last one for the footer), and tell the user the card is on this page
+only; repeat per page if it has to be store-wide.
+
 ## Content
 
 1. **Decide the content.** Marketing copy the user didn't give (title, subtitle, button text)
