@@ -1252,6 +1252,11 @@ func TestValidateOps_Table(t *testing.T) {
 		{"add_section blocks not array", `[{"op":"add_section","name":"rich_text","value":{"blocks":{}}}]`, "value.blocks must be an array"},
 		{"add_section block needs type", `[{"op":"add_section","name":"rich_text","value":{"blocks":[{"type":"a"},{"settings":{}}]}}]`, "value.blocks[1].type is required"},
 		{"add_section value ok", `[{"op":"add_section","name":"rich_text","value":{"settings":{"k":"v"},"blocks":[{"type":"a","settings":{}}]}}]`, ""},
+		{"add_section position ok", `[{"op":"add_section","name":"rich_text","position":"after:1752722305773"}]`, ""},
+		// The legacy header/footer section names and the group keywords are not anchors.
+		{"add_section position literal header", `[{"op":"add_section","name":"rich_text","position":"after:header"}]`, "not a section id"},
+		{"add_section position group keyword", `[{"op":"add_section","name":"rich_text","position":"before:header_sections"}]`, "not a section id"},
+		{"move_section position literal footer", `[{"op":"move_section","target":"s","position":"after:footer"}]`, "not a section id"},
 		{"move needs to_index", `[{"op":"move_section","target":"s"}]`, "to_index"},
 		{"visibility needs visible", `[{"op":"set_visibility","target":"s"}]`, "visible is required"},
 		{"update_pb needs inner ops", `[{"op":"update_pb","target":"s"}]`, "ops is required"},

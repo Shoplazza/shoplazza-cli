@@ -98,6 +98,10 @@ components used).
    - Without `--target` the CLI adds a new container at the end of the page and places the card
      in it. Pass `--target <sid>.blocks` only when the user wants the card inside a specific
      existing section.
+   - `--position before:<sid>` / `after:<sid>` puts that new container next to an existing card
+     (anchor from the whole-page read); it lands in the anchor's area, so anchoring on a header /
+     footer member puts the card in the header / footer area. Area rules and the fallback for
+     themes whose header member is literally `header`: [card-add.md → Placement](../card-add.md#placement).
    - `--section-name` is what merchants see for that container in the editor's structure tree;
      without it they see `_blocks`.
    - From here on, the card is the returned `type` / `doc.id`; the local file name means nothing to
