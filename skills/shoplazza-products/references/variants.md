@@ -6,7 +6,8 @@ weight, barcode. All commands here are spec leaves — for price changes prefer 
 touching the option matrix (adding/removing spec values or dimensions, multi-spec creation)
 the `products +set-variants` shortcut (all in SKILL.md). Never hand-write a `variants` array
 in a `products update` body: it is a full replace — unlisted variants are deleted, and listed
-variants without their `id` are recreated with sku/stock reset.
+variants without their `id` are matched by option values (exact, case-sensitive) and recreated
+with sku/stock reset when nothing matches.
 Each takes `--variant-id`, `--sku`, or `--product-id`, so you rarely need to resolve by hand.
 
 ## Command surface
