@@ -82,11 +82,6 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 			}
 			// Local shortcuts declare AuthFree (stamped by Mount); all other
 			// leaves stay gated.
-			// Lane routing is independent of auth and must also cover the
-			// shortcut tier (AuthFree, authenticates inside its own engine).
-			if mod.Name == "themes" {
-				cmdutil.SetThemeRF(factory.Client)
-			}
 			if cmd.Annotations[cmdutil.AnnotationAuthFree] == "true" {
 				return nil
 			}
