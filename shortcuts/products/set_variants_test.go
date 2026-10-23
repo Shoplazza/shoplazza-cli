@@ -18,60 +18,6 @@ import (
 
 // ── flag/plumbing helpers ─────────────────────────────────────────────────────
 
-// newSetVariantsInput builds an ExecInput for setVariantsShortcut. options uses
-// StringArray semantics (one element per --option occurrence, commas kept).
-func newSetVariantsInput(t *testing.T, options []string, values map[string]string, dryRun bool) common.ExecInput {
-	t.Helper()
-	cmd := &cobra.Command{Use: "test", RunE: func(*cobra.Command, []string) error { return nil }}
-	cmd.SilenceErrors = true
-	cmd.SilenceUsage = true
-	cmd.Flags().StringArray("option", nil, "")
-	cmd.Flags().String("action", "", "")
-	cmd.Flags().String("id", "", "")
-	cmd.Flags().String("title", "", "")
-	cmd.Flags().String("image", "", "")
-	cmd.Flags().String("price", "", "")
-	cmd.Flags().String("sku-template", "", "")
-	cmd.Flags().Int("stock", 0, "")
-	cmd.Flags().Bool("published", false, "")
-	var args []string
-	for _, o := range options {
-		args = append(args, "--option="+o)
-	}
-	for name, val := range values {
-		args = append(args, "--"+name+"="+val)
-	}
-	cmd.SetArgs(args)
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("cmd.Execute: %v", err)
-	}
-	return common.ExecInput{Flags: common.NewCobraFlagSet(cmd), DryRun: dryRun}
-}
-
-// matrixServer serves GET /products/{id} from product and captures the PUT/POST
-// body into captured.
-func matrixServer(t *testing.T, product map[string]any, captured *map[string]any, putResponse map[string]any) *httptest.Server {
-	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodGet:
-			json.NewEncoder(w).Encode(map[string]any{"product": product})
-		case http.MethodPut, http.MethodPost:
-			if err := json.NewDecoder(r.Body).Decode(captured); err != nil {
-				t.Errorf("decode captured body: %v", err)
-			}
-			resp := putResponse
-			if resp == nil {
-				resp = *captured
-			}
-			json.NewEncoder(w).Encode(resp)
-		default:
-			t.Errorf("unexpected method %s", r.Method)
-		}
-	}))
-}
-
 func capturedVariants(t *testing.T, captured map[string]any) []map[string]any {
 	t.Helper()
 	prod, _ := captured["product"].(map[string]any)
@@ -104,85 +50,6 @@ func variantByOptions(t *testing.T, variants []map[string]any, o1, o2, o3 string
 }
 
 // ── parsing ───────────────────────────────────────────────────────────────────
-
-func TestParseOptionSpecs(t *testing.T) {
-	specs, err := parseOptionSpecs([]string{"Color:Red, Blue", "Size:S,M,"}, "add")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []optionSpec{
-		{Name: "Color", Values: []string{"Red", "Blue"}},
-		{Name: "Size", Values: []string{"S", "M"}},
-	}
-	if !reflect.DeepEqual(specs, want) {
-		t.Errorf("got %+v, want %+v", specs, want)
-	}
-}
-
-func TestParseOptionSpecs_BareName(t *testing.T) {
-	specs, err := parseOptionSpecs([]string{"Size"}, "remove")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(specs) != 1 || specs[0].Name != "Size" || specs[0].Values != nil {
-		t.Errorf("bare name must parse to nil values under remove, got %+v", specs)
-	}
-	if _, err := parseOptionSpecs([]string{"Size"}, "add"); err == nil {
-		t.Error("bare name must be rejected outside remove")
-	}
-}
-
-// Values that differ only by case are distinct on the server.
-func TestParseOptionSpecs_CaseOnlyValuesAreDistinct(t *testing.T) {
-	specs, err := parseOptionSpecs([]string{"Size:S,s"}, "add")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(specs[0].Values, []string{"S", "s"}) {
-		t.Errorf("got %v", specs[0].Values)
-	}
-}
-
-func TestParseOptionSpecs_Errors(t *testing.T) {
-	cases := []struct {
-		name   string
-		specs  []string
-		action string
-		want   string
-	}{
-		{"empty", nil, "add", "--option"},
-		{"empty name", []string{":Red"}, "add", `"Name:v1,v2,..."`},
-		{"no values", []string{"Color: ,"}, "add", "no values"},
-		{"dup name", []string{"Color:Red", "color:Blue"}, "add", "duplicate option name"},
-		{"dup value", []string{"Color:Red,Red"}, "add", "duplicate value"},
-		{"four dims", []string{"A:1", "B:2", "C:3", "D:4"}, "add", "at most 3"},
-		{"rename without pair", []string{"Color:Red"}, "rename", `"old=new"`},
-		{"rename empty side", []string{"Color="}, "rename", "OldName=NewName"},
-		{"rename twice", []string{"Color:Red=A,Red=B"}, "rename", "twice"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := parseOptionSpecs(tc.specs, tc.action)
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Errorf("want error containing %q, got %v", tc.want, err)
-			}
-		})
-	}
-}
-
-func TestParseOptionSpecs_Rename(t *testing.T) {
-	specs, err := parseOptionSpecs([]string{"Color:Red=Wine Red, Blue=Navy", "Size=Fit"}, "rename")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []optionSpec{
-		{Name: "Color", Renames: [][2]string{{"Red", "Wine Red"}, {"Blue", "Navy"}}},
-		{Name: "Size", NewName: "Fit"},
-	}
-	if !reflect.DeepEqual(specs, want) {
-		t.Errorf("got %+v, want %+v", specs, want)
-	}
-}
 
 func TestLookup(t *testing.T) {
 	have := []string{"S", "s", "Red"}
@@ -344,31 +211,6 @@ func imageProduct() map[string]any {
 	return p
 }
 
-// ── runner ────────────────────────────────────────────────────────────────────
-
-// runSetVariants runs the shortcut against a stub serving product; the second
-// return is the captured write body, nil when no write was sent.
-func runSetVariants(t *testing.T, product map[string]any, options []string, values map[string]string) (common.ExecResult, map[string]any, error) {
-	t.Helper()
-	return execSetVariants(t, product, options, values, false)
-}
-
-func dryRunSetVariants(t *testing.T, product map[string]any, options []string, values map[string]string) (common.ExecResult, map[string]any, error) {
-	t.Helper()
-	return execSetVariants(t, product, options, values, true)
-}
-
-func execSetVariants(t *testing.T, product map[string]any, options []string, values map[string]string, dryRun bool) (common.ExecResult, map[string]any, error) {
-	t.Helper()
-	var captured map[string]any
-	srv := matrixServer(t, product, &captured, nil)
-	t.Cleanup(srv.Close)
-	in := newSetVariantsInput(t, options, values, dryRun)
-	in.Client = client.New(srv.URL)
-	res, err := setVariantsShortcut.Execute(context.Background(), in)
-	return res, captured, err
-}
-
 func capturedOptions(t *testing.T, captured map[string]any) map[string][]any {
 	t.Helper()
 	prod, _ := captured["product"].(map[string]any)
@@ -391,35 +233,10 @@ func mustNotHave(t *testing.T, v map[string]any, keys ...string) {
 	}
 }
 
-// ── flag gates (refused before the product is read) ───────────────────────────
-
-func TestSetVariants_FlagGates(t *testing.T) {
-	cases := []struct {
-		name   string
-		values map[string]string
-		want   string
-	}{
-		{"missing id", map[string]string{"action": "add"}, "--id"},
-		{"missing action", map[string]string{"id": "p-1"}, "--action"},
-		{"unknown action", map[string]string{"id": "p-1", "action": "merge"}, "unknown --action"},
-		{"unparsable price", map[string]string{"id": "p-1", "action": "add", "price": "abc"}, "--price"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			in := newSetVariantsInput(t, []string{"Color:Red"}, tc.values, false)
-			_, err := setVariantsShortcut.Execute(context.Background(), in)
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Errorf("want error containing %q, got %v", tc.want, err)
-			}
-		})
-	}
-}
-
 // ── values on an unchanged dimension set ──────────────────────────────────────
 
 func TestSetVariants_AddValue(t *testing.T) {
-	res, captured, err := runSetVariants(t, existingColorProduct(),
-		[]string{"Color:White"}, map[string]string{"id": "p-1", "action": "add", "price": "10"})
+	res, captured, err := runEdit(t, existingColorProduct(), "--add=Color:White", "--new-price=10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -436,13 +253,13 @@ func TestSetVariants_AddValue(t *testing.T) {
 	white := variantByOptions(t, variants, "White", "", "")
 	mustNotHave(t, white, "id")
 	if white["price"] != float64(10) {
-		t.Errorf("new combo needs --price, got %v", white["price"])
+		t.Errorf("new combo needs --new-price, got %v", white["price"])
 	}
 
 	if res.Body["kept"] != 2 || res.Body["created"] != 1 || res.Body["deleted"] != 0 || res.Body["price_applied"] != 1 {
 		t.Errorf("summary counts wrong: %+v", res.Body)
 	}
-	if res.Body["action"] != "add" || res.Body["dimension_change"] != false {
+	if res.Body["dimension_change"] != false {
 		t.Errorf("summary wrong: %+v", res.Body)
 	}
 	if d := res.Body["created_detail"].([]map[string]any); len(d) != 1 || d[0]["options"] != "White" {
@@ -461,8 +278,7 @@ func TestSetVariants_AddValueFollowsExistingCombinations(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.option, func(t *testing.T) {
-			res, captured, err := runSetVariants(t, colorSizeProduct("Red/M"),
-				[]string{tc.option}, map[string]string{"id": "p-1", "action": "add", "price": "5"})
+			res, captured, err := runEdit(t, colorSizeProduct("Red/M"), "--add="+tc.option, "--new-price=5")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -486,8 +302,7 @@ func TestSetVariants_AddValueFollowsExistingCombinations(t *testing.T) {
 }
 
 func TestSetVariants_RemoveValueReportsDeleted(t *testing.T) {
-	res, _, err := runSetVariants(t, existingColorProduct(),
-		[]string{"Color:Blue"}, map[string]string{"id": "p-1", "action": "remove"})
+	res, _, err := runEdit(t, existingColorProduct(), "--remove=Color:Blue")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,12 +317,11 @@ func TestSetVariants_RemoveValueReportsDeleted(t *testing.T) {
 	}
 }
 
-// Removing a value never needs --price, and a value left with no variant is dropped.
+// Removing a value never needs --new-price, and a value left with no variant is dropped.
 func TestSetVariants_RemoveValueOnSparseProductPrunes(t *testing.T) {
-	res, captured, err := runSetVariants(t, colorSizeProduct("Red/M"),
-		[]string{"Size:S"}, map[string]string{"id": "p-1", "action": "remove"})
+	res, captured, err := runEdit(t, colorSizeProduct("Red/M"), "--remove=Size:S")
 	if err != nil {
-		t.Fatalf("a pure delete creates nothing, so --price must not be required: %v", err)
+		t.Fatalf("a pure delete creates nothing, so --new-price must not be required: %v", err)
 	}
 	variants := capturedVariants(t, captured)
 	if len(variants) != 1 || variants[0]["id"] != "v-Blue-M" {
@@ -524,8 +338,7 @@ func TestSetVariants_RemoveValueOnSparseProductPrunes(t *testing.T) {
 
 // S and s are distinct values: an unrelated edit must keep both as they are.
 func TestSetVariants_CaseTwinsStayDistinct(t *testing.T) {
-	res, captured, err := runSetVariants(t, caseTwinProduct(),
-		[]string{"Color:Blue"}, map[string]string{"id": "p-1", "action": "add", "price": "5"})
+	res, captured, err := runEdit(t, caseTwinProduct(), "--add=Color:Blue", "--new-price=5")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -543,8 +356,7 @@ func TestSetVariants_CaseTwinsStayDistinct(t *testing.T) {
 }
 
 func TestSetVariants_RemoveExactCaseTwin(t *testing.T) {
-	res, captured, err := runSetVariants(t, caseTwinProduct(),
-		[]string{"Size:s"}, map[string]string{"id": "p-1", "action": "remove"})
+	res, captured, err := runEdit(t, caseTwinProduct(), "--remove=Size:s")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -558,9 +370,8 @@ func TestSetVariants_RemoveExactCaseTwin(t *testing.T) {
 }
 
 // Value matching falls back to case-insensitive; the written value is the caller's.
-func TestSetVariants_UpdateRespellsInPlace(t *testing.T) {
-	res, captured, err := runSetVariants(t, existingColorProduct(),
-		[]string{"Color: RED , blue "}, map[string]string{"id": "p-1", "action": "update"})
+func TestSetVariants_SetRespellsInPlace(t *testing.T) {
+	res, captured, err := runEdit(t, existingColorProduct(), "--set=Color: RED , blue ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -576,22 +387,10 @@ func TestSetVariants_UpdateRespellsInPlace(t *testing.T) {
 	}
 }
 
-func TestSetVariants_UpdateReplacesValues(t *testing.T) {
-	res, _, err := runSetVariants(t, existingColorProduct(),
-		[]string{"Color:Crimson,Blue"}, map[string]string{"id": "p-1", "action": "update", "price": "10"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res.Body["created"] != 1 || res.Body["kept"] != 1 || res.Body["deleted"] != 1 {
-		t.Errorf("update must delete Red and create Crimson: %+v", res.Body)
-	}
-}
-
 // New values are laid out against the combinations that exist before the
 // replaced values go.
-func TestSetVariants_UpdateReplacingEveryValue(t *testing.T) {
-	res, captured, err := runSetVariants(t, colorSizeProduct(),
-		[]string{"Color:Green"}, map[string]string{"id": "p-1", "action": "update", "price": "5"})
+func TestSetVariants_SetReplacingEveryValue(t *testing.T) {
+	res, captured, err := runEdit(t, colorSizeProduct(), "--set=Color:Green", "--new-price=5")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -619,8 +418,7 @@ func TestSetVariants_NonContiguousPositionsStillMatch(t *testing.T) {
 			map[string]any{"id": "v-1", "option1": "Red", "option3": "Slim", "sku": "K", "inventory_quantity": float64(3)},
 		},
 	}
-	res, captured, err := runSetVariants(t, product,
-		[]string{"Color:Green"}, map[string]string{"id": "p-1", "action": "add", "price": "7"})
+	res, captured, err := runEdit(t, product, "--add=Color:Green", "--new-price=7")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -636,41 +434,14 @@ func TestSetVariants_NonContiguousPositionsStillMatch(t *testing.T) {
 	}
 }
 
-// A delta that is already satisfied converges without a write (retry safety).
-func TestSetVariants_ConvergesWithoutWrite(t *testing.T) {
-	cases := []struct {
-		name   string
-		option string
-		values map[string]string
-	}{
-		{"add a value that already exists", "Color:Red", map[string]string{"id": "p-1", "action": "add", "price": "10"}},
-		{"update with the same values", "Color:Red,Blue", map[string]string{"id": "p-1", "action": "update"}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			res, captured, err := runSetVariants(t, existingColorProduct(), []string{tc.option}, tc.values)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if captured != nil {
-				t.Error("a no-change delta must not send the PUT")
-			}
-			if res.Body["no_change"] != true || res.Body["kept"] != 2 {
-				t.Errorf("summary wrong: %+v", res.Body)
-			}
-		})
-	}
-}
-
 // ── dimension changes ─────────────────────────────────────────────────────────
 
-// Existing variants take the new dimension's first value and keep their id;
+// Existing variants take the --existing value and keep their id;
 // the other values get siblings copying everything but sku/barcode/stock.
-func TestSetVariants_AddDimensionPinsFirstValue(t *testing.T) {
-	res, captured, err := runSetVariants(t, existingColorProduct(),
-		[]string{"Size:S,M"}, map[string]string{"id": "p-1", "action": "add"})
+func TestSetVariants_AddDimensionKeepsExistingVariants(t *testing.T) {
+	res, captured, err := runEdit(t, existingColorProduct(), "--add=Size:S,M", "--existing=Size:S")
 	if err != nil {
-		t.Fatalf("every sibling has a price to copy, so --price must not be required: %v", err)
+		t.Fatalf("every sibling has a price to copy, so --new-price must not be required: %v", err)
 	}
 	variants := capturedVariants(t, captured)
 	if len(variants) != 4 {
@@ -697,7 +468,7 @@ func TestSetVariants_AddDimensionPinsFirstValue(t *testing.T) {
 		t.Errorf("summary wrong: %+v", res.Body)
 	}
 	if _, ok := res.Body["price_applied"]; ok {
-		t.Error("price_applied is reported only when --price is passed")
+		t.Error("price_applied is reported only when --new-price is passed")
 	}
 	remapped := res.Body["remapped_detail"].([]map[string]any)
 	if len(remapped) != 2 || remapped[0]["from"] != "Red" || remapped[0]["to"] != "Red/S" {
@@ -709,34 +480,9 @@ func TestSetVariants_AddDimensionPinsFirstValue(t *testing.T) {
 	}
 }
 
-// The default variant of a product with no options takes the first combination.
-func TestSetVariants_DefaultVariantTakesFirstCombination(t *testing.T) {
-	product := map[string]any{
-		"id":       "p-1",
-		"options":  []any{},
-		"variants": []any{map[string]any{"id": "v-0", "price": "29.99", "sku": "DEF", "inventory_quantity": float64(4)}},
-	}
-	res, captured, err := runSetVariants(t, product,
-		[]string{"Color:Red,Blue"}, map[string]string{"id": "p-1", "action": "add"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	variants := capturedVariants(t, captured)
-	if red := variantByOptions(t, variants, "Red", "", ""); red["id"] != "v-0" {
-		t.Errorf("the default variant must become Red, got %+v", red)
-	}
-	if blue := variantByOptions(t, variants, "Blue", "", ""); blue["price"] != "29.99" {
-		t.Errorf("Blue must copy the default variant's price, got %+v", blue)
-	}
-	if res.Body["kept"] != 1 || res.Body["cloned"] != 1 || res.Body["deleted"] != 0 {
-		t.Errorf("summary wrong: %+v", res.Body)
-	}
-}
-
 // A dimension can be dropped when every remaining combination keeps one variant.
-func TestSetVariants_RemoveDimensionOneToOne(t *testing.T) {
-	res, captured, err := runSetVariants(t, colorSizeProduct("Red/M", "Blue/S"),
-		[]string{"Size"}, map[string]string{"id": "p-1", "action": "remove"})
+func TestSetVariants_DropDimensionOneToOne(t *testing.T) {
+	res, captured, err := runEdit(t, colorSizeProduct("Red/M", "Blue/S"), "--drop=Size")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -758,8 +504,7 @@ func TestSetVariants_RemoveDimensionOneToOne(t *testing.T) {
 }
 
 func TestSetVariants_RenameValue(t *testing.T) {
-	res, captured, err := runSetVariants(t, colorSizeProduct(),
-		[]string{"Color:red=Wine"}, map[string]string{"id": "p-1", "action": "rename"})
+	res, captured, err := runEdit(t, colorSizeProduct(), "--rename=Color:red=Wine")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -787,8 +532,7 @@ func TestSetVariants_RenameValue(t *testing.T) {
 }
 
 func TestSetVariants_RenameDimension(t *testing.T) {
-	res, captured, err := runSetVariants(t, colorSizeProduct(),
-		[]string{"Color=Colour"}, map[string]string{"id": "p-1", "action": "rename"})
+	res, captured, err := runEdit(t, colorSizeProduct(), "--rename=Color=Colour")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -806,36 +550,12 @@ func TestSetVariants_RenameDimension(t *testing.T) {
 // ── images ────────────────────────────────────────────────────────────────────
 
 func TestSetVariants_ImageCopiedToSiblings(t *testing.T) {
-	_, captured, err := runSetVariants(t, imageProduct(),
-		[]string{"Size:S,M"}, map[string]string{"id": "p-1", "action": "add"})
+	_, captured, err := runEdit(t, imageProduct(), "--add=Size:S,M", "--existing=Size:S")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if v := variantByOptions(t, capturedVariants(t, captured), "Blue", "M", ""); v["image_id"] != "img-2" {
 		t.Errorf("Blue/M must copy Blue's image, got %+v", v)
-	}
-}
-
-func TestSetVariants_NewVariantImage(t *testing.T) {
-	values := map[string]string{"id": "p-1", "action": "add", "price": "5"}
-	if _, captured, err := runSetVariants(t, imageProduct(), []string{"Color:Green"}, values); err == nil ||
-		!strings.Contains(err.Error(), "--image") || captured != nil {
-		t.Errorf("a required image must be asked for before writing, got %v", err)
-	}
-
-	values["image"] = "https://cdn.example/b.png"
-	_, captured, err := runSetVariants(t, imageProduct(), []string{"Color:Green"}, values)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if v := variantByOptions(t, capturedVariants(t, captured), "Green", "", ""); v["image_id"] != "img-2" {
-		t.Errorf("--image must resolve to the product image id, got %+v", v)
-	}
-
-	values["image"] = "https://cdn.example/new.png"
-	if _, _, err := runSetVariants(t, imageProduct(), []string{"Color:Green"}, values); err == nil ||
-		!strings.Contains(err.Error(), "products images create") {
-		t.Errorf("an image outside the product must be refused, got %v", err)
 	}
 }
 
@@ -860,79 +580,45 @@ func TestSetVariants_RefusesWithoutWriting(t *testing.T) {
 	cases := []struct {
 		name    string
 		product map[string]any
-		options []string
-		values  map[string]string
+		args    []string
 		want    string
 	}{
-		{"brand-new value needs a price", existingColorProduct(), []string{"Color:White"},
-			map[string]string{"id": "p-1", "action": "add"}, "--price"},
 		{"brand-new value needs a price mid-reshape",
 			redOnlyProduct(map[string]any{"id": "v-red", "option1": "Red", "price": "88.00"}),
-			[]string{"Color:Green", "Size:S"}, map[string]string{"id": "p-1", "action": "add"}, "--price"},
+			[]string{"--add=Color:Green", "--add=Size:S"}, "--new-price"},
 		{"sibling with no price to copy needs one",
 			redOnlyProduct(map[string]any{"id": "v-red", "option1": "Red", "sku": "SKU-RED"}),
-			[]string{"Size:S,M"}, map[string]string{"id": "p-1", "action": "add"}, "--price"},
-		{"value differing only by case", existingColorProduct(), []string{"Color:red"},
-			map[string]string{"id": "p-1", "action": "add", "price": "5"}, "only by case"},
-		{"update asserts the dimension exists", existingColorProduct(), []string{"Fit:Slim"},
-			map[string]string{"id": "p-1", "action": "update", "price": "9"}, "--action add"},
-		{"remove by a case-folded spelling", existingColorProduct(), []string{"Color:red"},
-			map[string]string{"id": "p-1", "action": "remove"}, `did you mean "Red"?`},
-		{"remove a missing value", existingColorProduct(), []string{"Color:Green"},
-			map[string]string{"id": "p-1", "action": "remove"}, "existing: Red,Blue"},
-		{"remove a missing dimension", existingColorProduct(), []string{"尺码:S"},
-			map[string]string{"id": "p-1", "action": "remove"}, "existing: Color[Red,Blue]"},
-		{"remove every value of a dimension", colorSizeProduct(), []string{"Size:S,M"},
-			map[string]string{"id": "p-1", "action": "remove"}, `--drop "Size"`},
-		{"remove a dimension that would merge variants", colorSizeProduct(), []string{"Size"},
-			map[string]string{"id": "p-1", "action": "remove"}, `merge variants into the same combination (Red/S + Red/M; Blue/S + Blue/M)`},
-		{"remove the last dimension", existingColorProduct(), []string{"Color"},
-			map[string]string{"id": "p-1", "action": "remove"}, "every dimension"},
-		{"rename onto a case twin", existingColorProduct(), []string{"Color:Red=blue"},
-			map[string]string{"id": "p-1", "action": "rename"}, "only by case"},
-		{"rename onto another dimension", colorSizeProduct(), []string{"Color=size"},
-			map[string]string{"id": "p-1", "action": "rename"}, "already exists"},
-		{"rename a missing value", existingColorProduct(), []string{"Color:Green=Lime"},
-			map[string]string{"id": "p-1", "action": "rename"}, "no value"},
-		{"repeat of an applied rename", existingColorProduct(), []string{"Color:Crimson=Red"},
-			map[string]string{"id": "p-1", "action": "rename"}, "was it renamed already?"},
-		{"repeat of an applied dimension rename", existingColorProduct(), []string{"Colour=Color"},
-			map[string]string{"id": "p-1", "action": "rename"}, "was it renamed already?"},
-		{"rename onto an existing value", existingColorProduct(), []string{"Color:Red=Blue"},
-			map[string]string{"id": "p-1", "action": "rename"}, `"Blue" already exists`},
-		{"rename swap", existingColorProduct(), []string{"Color:Red=Blue,Blue=Red"},
-			map[string]string{"id": "p-1", "action": "rename"}, "already exists"},
-		{"rename chain", existingColorProduct(), []string{"Color:Red=Green,Green=Yellow"},
-			map[string]string{"id": "p-1", "action": "rename"}, `no value "Green"`},
-		{"two values renamed to one", existingColorProduct(), []string{"Color:Red=X,Blue=X"},
-			map[string]string{"id": "p-1", "action": "rename"}, `two values to "X"`},
-		{"dimension rename chain", colorSizeProduct(), []string{"Color=Colour", "Colour:Red=Wine"},
-			map[string]string{"id": "p-1", "action": "rename"}, `"Colour" does not exist`},
-		{"update matching one value twice by case", existingColorProduct(), []string{"Color:red,RED"},
-			map[string]string{"id": "p-1", "action": "update", "price": "5"}, "both match"},
-		{"update adding a case twin", existingColorProduct(), []string{"Color:Red,Blue,red"},
-			map[string]string{"id": "p-1", "action": "update", "price": "5"}, "differ only by case"},
-		{"new dimension with case twins", existingColorProduct(), []string{"Size:S,s"},
-			map[string]string{"id": "p-1", "action": "add", "price": "5"}, "differ only by case"},
-		{"negative --stock", existingColorProduct(), []string{"Color:Green"},
-			map[string]string{"id": "p-1", "action": "add", "price": "5", "stock": "-1"}, "--stock"},
+			[]string{"--add=Size:S,M", "--existing=Size:S"}, "--new-price"},
+		{"value differing only by case", existingColorProduct(), []string{"--add=Color:red", "--new-price=5"}, "only by case"},
+		{"remove by a case-folded spelling", existingColorProduct(), []string{"--remove=Color:red"}, `did you mean "Red"?`},
+		{"remove a missing value", existingColorProduct(), []string{"--remove=Color:Green"}, "existing: Red,Blue"},
+		{"remove every value of a dimension", colorSizeProduct(), []string{"--remove=Size:S,M"}, `--drop "Size"`},
+		{"rename onto a case twin", existingColorProduct(), []string{"--rename=Color:Red=blue"}, "only by case"},
+		{"rename onto another dimension", colorSizeProduct(), []string{"--rename=Color=size"}, "already exists"},
+		{"rename a missing value", existingColorProduct(), []string{"--rename=Color:Green=Lime"}, "no value"},
+		{"repeat of an applied rename", existingColorProduct(), []string{"--rename=Color:Crimson=Red"}, "was it renamed already?"},
+		{"repeat of an applied dimension rename", existingColorProduct(), []string{"--rename=Colour=Color"}, "was it renamed already?"},
+		{"rename onto an existing value", existingColorProduct(), []string{"--rename=Color:Red=Blue"}, `"Blue" already exists`},
+		{"rename swap", existingColorProduct(), []string{"--rename=Color:Red=Blue,Blue=Red"}, "already exists"},
+		{"rename chain", existingColorProduct(), []string{"--rename=Color:Red=Green,Green=Yellow"}, `no value "Green"`},
+		{"two values renamed to one", existingColorProduct(), []string{"--rename=Color:Red=X,Blue=X"}, `two values to "X"`},
+		{"dimension rename chain", colorSizeProduct(), []string{"--rename=Color=Colour", "--rename=Colour:Red=Wine"}, `"Colour" does not exist`},
+		{"set matching one value twice by case", existingColorProduct(), []string{"--set=Color:red,RED", "--new-price=5"}, "both match"},
+		{"set adding a case twin", existingColorProduct(), []string{"--set=Color:Red,Blue,red", "--new-price=5"}, "differ only by case"},
+		{"new dimension with case twins", existingColorProduct(), []string{"--add=Size:S,s", "--existing=Size:S"}, "differ only by case"},
+		{"negative --set-stock", existingColorProduct(), []string{"--add=Color:Green", "--new-price=5", "--set-stock=-1"}, "--set-stock"},
 		{"two variants on one combination", map[string]any{"id": "p-1", "options": []any{},
 			"variants": []any{map[string]any{"id": "v-1", "price": "1"}, map[string]any{"id": "v-2", "price": "1"}}},
-			[]string{"Color:Red"}, map[string]string{"id": "p-1", "action": "add"}, "both have options"},
-		{"new variant on a stale stored combination", staleSlotProduct(), []string{"Size:M,S"},
-			map[string]string{"id": "p-1", "action": "add", "price": "5"}, "stale options"},
-		{"a dimension with no values", valuelessDimension, []string{"Size:S,M"},
-			map[string]string{"id": "p-1", "action": "add", "price": "5"}, `"Color"`},
-		{"a fourth dimension", threeDims, []string{"D:d"},
-			map[string]string{"id": "p-1", "action": "add", "price": "5"}, "at most 3"},
-		{"--image on a product without variant images", existingColorProduct(), []string{"Color:Green"},
-			map[string]string{"id": "p-1", "action": "add", "price": "5", "image": "x"}, "--image applies only"},
-		{"--sku-template rendering duplicates", existingColorProduct(), []string{"Size:S,M"},
-			map[string]string{"id": "p-1", "action": "add", "sku-template": "TS-{Color}"}, "reference every dimension"},
+			[]string{"--add=Color:Red"}, "both have options"},
+		{"new variant on a stale stored combination", staleSlotProduct(), []string{"--add=Size:M,S", "--existing=Size:M", "--new-price=5"}, "stale options"},
+		{"a dimension with no values", valuelessDimension, []string{"--add=Size:S,M"}, `"Color"`},
+		{"a fourth dimension", threeDims, []string{"--add=D:d", "--new-price=5"}, "at most 3"},
+		{"--new-image on a product without variant images", existingColorProduct(), []string{"--add=Color:Green", "--new-price=5", "--new-image=x"}, "--new-image applies only"},
+		{"--sku-template rendering duplicates", existingColorProduct(), []string{"--add=Size:S,M", "--existing=Size:S", "--sku-template=TS-{Color}"}, "reference every dimension"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, captured, err := runSetVariants(t, tc.product, tc.options, tc.values)
+			_, captured, err := runEdit(t, tc.product, tc.args...)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("want error containing %q, got %v", tc.want, err)
 			}
@@ -943,10 +629,9 @@ func TestSetVariants_RefusesWithoutWriting(t *testing.T) {
 	}
 }
 
-// --price never touches an existing price; passing it when nothing needs it warns.
+// --new-price never touches an existing price; passing it when nothing needs it warns.
 func TestSetVariants_UnusedPriceWarns(t *testing.T) {
-	res, captured, err := runSetVariants(t, existingColorProduct(),
-		[]string{"Size:S"}, map[string]string{"id": "p-1", "action": "add", "price": "19.9"})
+	res, captured, err := runEdit(t, existingColorProduct(), "--add=Size:S", "--new-price=19.9")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -954,18 +639,16 @@ func TestSetVariants_UnusedPriceWarns(t *testing.T) {
 		mustNotHave(t, v, "price")
 	}
 	if res.Body["price_applied"] != 0 || res.Body["warnings"] == nil {
-		t.Errorf("an unused --price must be reported: %+v", res.Body)
+		t.Errorf("an unused --new-price must be reported: %+v", res.Body)
 	}
 }
 
 // ── sku template ──────────────────────────────────────────────────────────────
 
-// A template may reference dimensions not named in --option, so validation
+// A template may reference dimensions not named in --add, so validation
 // runs against the merged matrix.
 func TestSetVariants_SkuTemplateValidatedAgainstMergedDims(t *testing.T) {
-	_, captured, err := runSetVariants(t, existingColorProduct(), []string{"Size:S"}, map[string]string{
-		"id": "p-1", "action": "add", "sku-template": "X-{Color}-{Size}",
-	})
+	_, captured, err := runEdit(t, existingColorProduct(), "--add=Size:S", "--sku-template=X-{Color}-{Size}")
 	if err != nil {
 		t.Fatalf("template referencing an existing dim must validate: %v", err)
 	}
@@ -978,8 +661,7 @@ func TestSetVariants_SkuTemplateValidatedAgainstMergedDims(t *testing.T) {
 
 // Dry-run reads the product and previews the real body.
 func TestSetVariants_DryRunPreviewsTheRealBody(t *testing.T) {
-	res, captured, err := dryRunSetVariants(t, existingColorProduct(),
-		[]string{"Color:White"}, map[string]string{"id": "p-1", "action": "add", "price": "9"})
+	res, captured, err := dryRunEdit(t, existingColorProduct(), "--add=Color:White", "--new-price=9")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1001,8 +683,7 @@ func TestSetVariants_DryRunPreviewsTheRealBody(t *testing.T) {
 
 // Nothing to do: the preview shows the read and no write at all.
 func TestSetVariants_DryRunNoChangeHasNoWrite(t *testing.T) {
-	res, _, err := dryRunSetVariants(t, existingColorProduct(),
-		[]string{"Color:Red"}, map[string]string{"id": "p-1", "action": "add", "price": "9"})
+	res, _, err := dryRunEdit(t, existingColorProduct(), "--add=Color:Red", "--new-price=9")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1034,8 +715,7 @@ func TestSetVariants_DetailCap(t *testing.T) {
 		"variants": oldVars,
 	}
 
-	res, _, err := runSetVariants(t, product, []string{"Color:" + strings.Join(drop, ",")},
-		map[string]string{"id": "p-1", "action": "remove"})
+	res, _, err := runEdit(t, product, "--remove=Color:"+strings.Join(drop, ","))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1068,8 +748,7 @@ func idleValueProduct() map[string]any {
 
 // A value listed with no variant is left alone by unrelated edits.
 func TestSetVariants_IdleValuesSurviveUnrelatedEdits(t *testing.T) {
-	res, captured, err := runSetVariants(t, idleValueProduct(),
-		[]string{"Color:Blue"}, map[string]string{"id": "p-1", "action": "remove"})
+	res, captured, err := runEdit(t, idleValueProduct(), "--remove=Color:Blue")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1082,14 +761,11 @@ func TestSetVariants_IdleValuesSurviveUnrelatedEdits(t *testing.T) {
 	}
 }
 
-// Adding or updating to a value that exists without variants gives it variants.
+// Adding or setting a value that exists without variants gives it variants.
 func TestSetVariants_IdleValueGetsVariants(t *testing.T) {
-	for _, tc := range []struct {
-		action, option string
-	}{{"add", "Color:Green"}, {"update", "Color:Red,Blue,Green"}} {
-		t.Run(tc.action, func(t *testing.T) {
-			res, captured, err := runSetVariants(t, idleValueProduct(),
-				[]string{tc.option}, map[string]string{"id": "p-1", "action": tc.action, "price": "5"})
+	for _, arg := range []string{"--add=Color:Green", "--set=Color:Red,Blue,Green"} {
+		t.Run(arg, func(t *testing.T) {
+			res, captured, err := runEdit(t, idleValueProduct(), arg, "--new-price=5")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1107,7 +783,7 @@ func TestSetVariants_IdleValueGetsVariants(t *testing.T) {
 func TestSetVariants_VariantValueMissingFromOptions(t *testing.T) {
 	p := existingColorProduct()
 	p["variants"] = append(p["variants"].([]any), map[string]any{"id": "v-RED", "option1": "RED", "price": "1"})
-	_, captured, err := runSetVariants(t, p, []string{"Color:RED"}, map[string]string{"id": "p-1", "action": "remove"})
+	_, captured, err := runEdit(t, p, "--remove=Color:RED")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1131,11 +807,11 @@ func TestSetVariants_NonContiguousNoOp(t *testing.T) {
 		},
 		"variants": []any{map[string]any{"id": "v-1", "option1": "Red", "option3": "Slim", "price": "1"}},
 	}
-	res, captured, err := runSetVariants(t, product, []string{"Color:Red"}, map[string]string{"id": "p-1", "action": "add"})
+	res, captured, err := runEdit(t, product, "--add=Color:Red")
 	if err != nil || captured != nil || res.Body["no_change"] != true {
 		t.Fatalf("want no_change without a write, got err=%v write=%v %+v", err, captured != nil, res.Body)
 	}
-	res, _, err = runSetVariants(t, product, []string{"Color:Green"}, map[string]string{"id": "p-1", "action": "add", "price": "2"})
+	res, _, err = runEdit(t, product, "--add=Color:Green", "--new-price=2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1144,28 +820,26 @@ func TestSetVariants_NonContiguousNoOp(t *testing.T) {
 	}
 }
 
-// An unused --price is reported even when nothing is written.
+// An unused --new-price is reported even when nothing is written.
 func TestSetVariants_UnusedPriceOnNoOp(t *testing.T) {
-	res, _, err := runSetVariants(t, existingColorProduct(), []string{"Color:Red"},
-		map[string]string{"id": "p-1", "action": "add", "price": "9"})
+	res, _, err := runEdit(t, existingColorProduct(), "--add=Color:Red", "--new-price=9")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if res.Body["no_change"] != true || res.Body["price_applied"] != 0 || res.Body["warnings"] == nil {
-		t.Errorf("want no_change with the unused --price reported: %+v", res.Body)
+		t.Errorf("want no_change with the unused --new-price reported: %+v", res.Body)
 	}
 }
 
-// Several update payloads: a value one payload lists keeps variants even when a
+// Several --set payloads: a value one payload lists keeps variants even when a
 // later payload removes the ones it had, whatever the order.
-func TestSetVariants_UpdatePayloadsKeepListedValues(t *testing.T) {
-	for _, options := range [][]string{
-		{"Size:S,L", "Color:Blue"},
-		{"Color:Blue", "Size:S,L"},
+func TestSetVariants_SetPayloadsKeepListedValues(t *testing.T) {
+	for _, args := range [][]string{
+		{"--set=Size:S,L", "--set=Color:Blue"},
+		{"--set=Color:Blue", "--set=Size:S,L"},
 	} {
-		t.Run(strings.Join(options, "+"), func(t *testing.T) {
-			_, captured, err := runSetVariants(t, colorSizeProduct("Blue/S"), options,
-				map[string]string{"id": "p-1", "action": "update", "price": "5"})
+		t.Run(strings.Join(args, "+"), func(t *testing.T) {
+			_, captured, err := runEdit(t, colorSizeProduct("Blue/S"), append(args, "--new-price=5")...)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1179,12 +853,21 @@ func TestSetVariants_UpdatePayloadsKeepListedValues(t *testing.T) {
 	}
 }
 
-// ── combined form ─────────────────────────────────────────────────────────────
+// ── combined edits ────────────────────────────────────────────────────────────
 
-// runEdit runs the combined form; args are raw flags ("--drop=lenses=6lenses").
+// runEdit runs the shortcut against a stub serving product; args are raw flags
+// ("--drop=lenses=6lenses"). The second return is the captured write body, nil
+// when no write was sent.
 func runEdit(t *testing.T, product map[string]any, args ...string) (common.ExecResult, map[string]any, error) {
 	t.Helper()
 	srv := newEditServer(t)
+	return srv.run(t, product, args...)
+}
+
+func dryRunEdit(t *testing.T, product map[string]any, args ...string) (common.ExecResult, map[string]any, error) {
+	t.Helper()
+	srv := newEditServer(t)
+	srv.dryRun = true
 	return srv.run(t, product, args...)
 }
 
@@ -1194,6 +877,7 @@ type editServer struct {
 	product  map[string]any
 	captured map[string]any
 	url      string
+	dryRun   bool
 }
 
 func newEditServer(t *testing.T) *editServer {
@@ -1237,7 +921,7 @@ func (s *editServer) run(t *testing.T, product map[string]any, args ...string) (
 		t.Fatalf("cmd.Execute: %v", err)
 	}
 	s.product, s.captured = product, nil
-	in := common.ExecInput{Flags: common.NewCobraFlagSet(cmd), Client: client.New(s.url)}
+	in := common.ExecInput{Flags: common.NewCobraFlagSet(cmd), Client: client.New(s.url), DryRun: s.dryRun}
 	res, err := setVariantsShortcut.Execute(context.Background(), in)
 	return res, s.captured, err
 }
@@ -1307,9 +991,6 @@ func TestSetVariants_CombinedEditInOneWrite(t *testing.T) {
 	}
 	if !reflect.DeepEqual(res.Body["changes"], want) {
 		t.Errorf("changes = %q", res.Body["changes"])
-	}
-	if _, ok := res.Body["action"]; ok {
-		t.Error("the combined form reports changes, not an action")
 	}
 }
 
@@ -1401,7 +1082,6 @@ func TestSetVariants_CombinedRefusals(t *testing.T) {
 		{"dropped and renamed", colorSizeProduct(), []string{"--drop=Size", "--rename=Size=Fit"}, "both dropped and renamed"},
 		{"missing dimension", colorSizeProduct(), []string{"--remove=Colour:Red"}, "does not exist"},
 		{"nothing to do", colorSizeProduct(), nil, "nothing to do"},
-		{"mixed with the older form", colorSizeProduct(), []string{"--action=add", "--option=Color:Green", "--new-price=1"}, "cannot be mixed"},
 		{"drop the last dimension", existingColorProduct(), []string{"--drop=Color"}, "every dimension"},
 		{"--existing for no added dimension", colorSizeProduct(), []string{"--add=Color:Green", "--existing=Fit:Slim", "--new-price=1"}, "--existing"},
 		{"new value without a price", colorSizeProduct(), []string{"--add=Color:Green"}, "--new-price"},

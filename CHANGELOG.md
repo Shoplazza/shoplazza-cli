@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+- `products +set-variants` `--action` / `--option` / `--price` / `--image` / `--stock`, deprecated in 2.2.2. Use `--add` / `--remove` / `--set` / `--drop` / `--rename` and `--new-price` / `--new-image` / `--set-stock`.
+
+### Fixed
+- `products +set-variants` with several `--set`: a value one of them lists keeps its variants even when another `--set` removes the ones it had (it was dropped from its dimension).
+
 ## 2.2.2 - 2026-10-16
 
 ### Changed

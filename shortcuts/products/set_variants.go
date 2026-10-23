@@ -79,12 +79,6 @@ and renamed, a dimension both dropped and renamed, a drop that would merge
 variants, more than 3 dimensions or 300 variants, no dimension left, a new
 variant without a price, or without an image on a product that requires one.
 
-Deprecated: --action add|remove|update|rename with --option payloads (and
---price/--image/--stock) still works but will be removed. Use add = --add,
-remove = --remove or a bare "Dim" for --drop, update = --set, rename = --rename;
-a dimension added this way puts existing variants on its first value. It cannot
-be mixed with the flags above.
-
 Deleted variants do not break past orders (line items are snapshotted). The
 output is a bounded summary ({kept, cloned, created, deleted} + details, and
 "changes" describing the edit in plain words), never the full product body.
@@ -104,61 +98,17 @@ output is a bounded summary ({kept, cloned, created, deleted} + details, and
 		{Name: "set-price", Type: common.FlagStringArray, Description: `Price for EVERY variant: a number, or "Dim:v=price,..." for the variants with those values.`},
 		{Name: "set-stock", Type: common.FlagInt, Description: "Inventory quantity for EVERY variant (absolute, default location)."},
 		{Name: "sku-template", Type: common.FlagString, Description: `SKU pattern with {Option Name} placeholders (names after the edit), e.g. "TS-{Color}-{Size}". Applied to EVERY variant.`},
-		{Name: "action", Type: common.FlagString, Description: "Deprecated: use --add/--remove/--set/--drop/--rename. add, remove, update or rename, applied to the --option payloads.",
-			Completions: []string{"add", "remove", "update", "rename"}},
-		{Name: "option", Type: common.FlagStringArray, Description: `Deprecated: use --add/--remove/--set/--drop/--rename. "Name:v1,v2,..." per dimension; bare "Name" with --action remove; "Name:old=new" or "Old=New" with --action rename.`},
-		{Name: "price", Type: common.FlagString, Description: "Deprecated: use --new-price."},
-		{Name: "image", Type: common.FlagString, Description: "Deprecated: use --new-image."},
-		{Name: "stock", Type: common.FlagInt, Description: "Deprecated: use --set-stock."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		id := strings.TrimSpace(in.Flags.GetString("id"))
 		if id == "" {
 			return common.ExecResult{}, output.ErrValidation("--id is required")
 		}
-		legacy := in.Flags.GetString("action") != "" || len(in.Flags.GetStringArray("option")) > 0 ||
-			in.Flags.GetString("price") != "" || in.Flags.GetString("image") != "" || in.Flags.Changed("stock")
-		if !legacy {
-			plan, err := parseEditFlags(in)
-			if err != nil {
-				return common.ExecResult{}, err
-			}
-			return execEditPlan(ctx, in, id, plan)
-		}
-		if usedEditFlags(in) {
-			return common.ExecResult{}, output.ErrValidation("--action/--option/--price/--image/--stock cannot be mixed with --add/--remove/--set/--drop/--rename/--existing/--new-*/--set-* — use one form")
-		}
-		action := strings.TrimSpace(in.Flags.GetString("action"))
-		switch action {
-		case "add", "remove", "update", "rename":
-		default:
-			return common.ExecResult{}, output.ErrValidation("unknown --action %q: use add, remove, update, or rename", action)
-		}
-
-		price, hasPrice, err := parseOptionalPrice(in.Flags.GetString("price"))
+		plan, err := parseEditFlags(in)
 		if err != nil {
 			return common.ExecResult{}, err
 		}
-		specs, err := parseOptionSpecs(in.Flags.GetStringArray("option"), action)
-		if err != nil {
-			return common.ExecResult{}, err
-		}
-		if in.Flags.Changed("stock") && in.Flags.GetInt("stock") < 0 {
-			return common.ExecResult{}, output.ErrValidation("--stock must be 0 or more, got %d", in.Flags.GetInt("stock"))
-		}
-		ov := matrixOverrides{
-			newPrice:    newPerValue("--price"),
-			setPrice:    newPerValue("--set-price"),
-			newImage:    newPerValue("--image"),
-			skuTemplate: in.Flags.GetString("sku-template"),
-			hasStock:    in.Flags.Changed("stock"),
-			stock:       in.Flags.GetInt("stock"),
-		}
-		if hasPrice {
-			ov.newPrice.scalar = strconv.FormatFloat(price, 'f', -1, 64)
-		}
-		ov.newImage.scalar = strings.TrimSpace(in.Flags.GetString("image"))
-		return execUpdateMatrix(ctx, in, id, action, specs, ov)
+		return execEditPlan(ctx, in, id, plan)
 	},
 }
 
@@ -207,51 +157,20 @@ func (d *optionDim) moveIdle(respell map[string]string) {
 	}
 }
 
-// optionSpec is one parsed --option payload.
+// optionSpec is one parsed --add/--remove/--set/--rename payload.
 type optionSpec struct {
 	Name    string
-	Values  []string    // nil: a bare name (remove only)
+	Values  []string
 	Renames [][2]string // rename: old → new value
 	NewName string      // rename: new dimension name
 }
 
-// parseOptionSpecs parses the repeated --option payloads for action.
-func parseOptionSpecs(specs []string, action string) ([]optionSpec, error) {
-	if len(specs) == 0 {
-		return nil, output.ErrValidation(`at least one --option "Name:v1,v2,..." is required`)
-	}
-	out := make([]optionSpec, 0, len(specs))
-	seenNames := map[string]bool{}
-	for _, raw := range specs {
-		var s optionSpec
-		var err error
-		if action == "rename" {
-			s, err = parseRenameSpec(raw)
-		} else {
-			s, err = parseValueSpec(raw, action == "remove")
-		}
-		if err != nil {
-			return nil, err
-		}
-		if key := foldKey(s.Name); seenNames[key] {
-			return nil, output.ErrValidation("duplicate option name %q", s.Name)
-		} else {
-			seenNames[key] = true
-		}
-		out = append(out, s)
-	}
-	if len(out) > 3 && action != "remove" {
-		return nil, output.ErrValidation("at most 3 option dimensions are supported (the platform caps variants at option1/2/3), got %d", len(out))
-	}
-	return out, nil
-}
-
-// parseValueSpec parses `Name:v1,v2`; a bare `Name` is allowed for remove.
-func parseValueSpec(spec string, allowBareName bool) (optionSpec, error) {
+// parseValueSpec parses `Name:v1,v2`.
+func parseValueSpec(spec string) (optionSpec, error) {
 	name, rawValues, hasColon := strings.Cut(spec, ":")
 	name = strings.TrimSpace(name)
-	if name == "" {
-		return optionSpec{}, output.ErrValidation(`--option must be "Name:v1,v2,...", got %q`, spec)
+	if name == "" || !hasColon {
+		return optionSpec{}, output.ErrValidation(`takes "Dim:v1,v2,...", got %q`, spec)
 	}
 	var values []string
 	for v := range strings.SplitSeq(rawValues, ",") {
@@ -264,16 +183,10 @@ func parseValueSpec(spec string, allowBareName bool) (optionSpec, error) {
 		}
 		values = append(values, v)
 	}
-	if len(values) > 0 {
-		return optionSpec{Name: name, Values: values}, nil
+	if len(values) == 0 {
+		return optionSpec{}, output.ErrValidation("option %q has no values", name)
 	}
-	if !hasColon && allowBareName {
-		return optionSpec{Name: name}, nil
-	}
-	if !hasColon {
-		return optionSpec{}, output.ErrValidation(`--option must be "Name:v1,v2,..." (a bare name is only valid with --action remove), got %q`, spec)
-	}
-	return optionSpec{}, output.ErrValidation("option %q has no values", name)
+	return optionSpec{Name: name, Values: values}, nil
 }
 
 // parseRenameSpec parses `Name:old=new,...` (values) or `Old=New` (a dimension).
@@ -283,13 +196,13 @@ func parseRenameSpec(spec string) (optionSpec, error) {
 		old, newName, ok := strings.Cut(spec, "=")
 		old, newName = strings.TrimSpace(old), strings.TrimSpace(newName)
 		if !ok || old == "" || newName == "" {
-			return optionSpec{}, output.ErrValidation(`--action rename takes "Name:old=new,..." or "OldName=NewName", got %q`, spec)
+			return optionSpec{}, output.ErrValidation(`takes "Dim:old=new,..." or "OldDim=NewDim", got %q`, spec)
 		}
 		return optionSpec{Name: old, NewName: newName}, nil
 	}
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return optionSpec{}, output.ErrValidation(`--action rename takes "Name:old=new,..." or "OldName=NewName", got %q`, spec)
+		return optionSpec{}, output.ErrValidation(`takes "Dim:old=new,..." or "OldDim=NewDim", got %q`, spec)
 	}
 	var pairs [][2]string
 	for p := range strings.SplitSeq(rawPairs, ",") {
@@ -340,19 +253,6 @@ func lookup(have []string, s string) (idx int, ambiguous bool) {
 
 func tupleKey(values []string) string {
 	return strings.Join(values, "\x00")
-}
-
-// parseOptionalPrice parses --price when present. hasPrice=false means the
-// flag was omitted (allowed until a new variant actually needs it).
-func parseOptionalPrice(s string) (float64, bool, error) {
-	if strings.TrimSpace(s) == "" {
-		return 0, false, nil
-	}
-	p, err := parsePrice("--price", s)
-	if err != nil {
-		return 0, false, err
-	}
-	return p, true, nil
 }
 
 // validateSKUTemplate rejects placeholders that name no dimension of the final matrix.
@@ -519,44 +419,22 @@ func (m *matrix) missingDim(name string) error {
 	return output.ErrValidation("option %q does not exist on this product (existing: %s)", name, m.describe())
 }
 
-// apply runs one --option payload against the matrix.
-func (m *matrix) apply(action string, s optionSpec) error {
+// rename runs one --rename payload against the matrix.
+func (m *matrix) rename(s optionSpec) error {
 	d, err := m.findDim(s.Name)
 	if err != nil {
 		return err
 	}
-	switch action {
-	case "add":
-		if d < 0 {
-			return m.addDimension(s.Name, s.Values)
-		}
-		return m.addValues(d, s.Values)
-	case "update":
-		if d < 0 {
-			return output.ErrValidation("option %q does not exist on this product (existing: %s) — to add a new dimension use --action add", s.Name, m.describe())
-		}
-		return m.update(d, s.Values)
-	case "remove":
-		if d < 0 {
-			return m.missingDim(s.Name)
-		}
-		if s.Values == nil {
-			return m.removeDimension(d)
-		}
-		return m.removeValues(d, s.Values)
-	case "rename":
-		if d >= 0 && m.renamed[m.dims[d].Name] { // names resolve as read, so renames never chain
-			d = -1
-		}
-		if s.NewName != "" {
-			return m.renameDimension(d, s.Name, s.NewName)
-		}
-		if d < 0 {
-			return m.missingDim(s.Name)
-		}
-		return m.renameValues(d, s.Renames)
+	if d >= 0 && m.renamed[m.dims[d].Name] { // names resolve as read, so renames never chain
+		d = -1
 	}
-	return nil
+	if s.NewName != "" {
+		return m.renameDimension(d, s.Name, s.NewName)
+	}
+	if d < 0 {
+		return m.missingDim(s.Name)
+	}
+	return m.renameValues(d, s.Renames)
 }
 
 // projections returns the distinct value tuples of the rows with dimension d
@@ -620,7 +498,7 @@ func (m *matrix) addValues(d int, values []string) error {
 func (m *matrix) rejectCaseTwin(d int, v string) error {
 	for _, h := range m.dims[d].Values {
 		if foldKey(h) == foldKey(v) {
-			return output.ErrValidation("value %q differs from existing %q of %q only by case — use --action rename to respell it", v, h, m.dims[d].Name)
+			return output.ErrValidation("value %q differs from existing %q of %q only by case — use --rename to respell it", v, h, m.dims[d].Name)
 		}
 	}
 	return nil
@@ -746,50 +624,13 @@ func (m *matrix) removeValues(d int, values []string) error {
 	return nil
 }
 
-// removeDimension drops dimension d; refused when two rows would merge into
-// one combination, since only one of them could keep its data.
-func (m *matrix) removeDimension(d int) error {
-	dim := m.dims[d]
-	if len(m.dims) == 1 {
-		return output.ErrValidation("this would remove every dimension and leave the product without variants — delete the product or keep at least one dimension")
-	}
-	groups := map[string][]*row{}
-	var order []string
-	for _, r := range m.rows {
-		k := tupleKey(slices.Delete(slices.Clone(r.values), d, d+1))
-		if _, ok := groups[k]; !ok {
-			order = append(order, k)
-		}
-		groups[k] = append(groups[k], r)
-	}
-	var merges []string
-	for _, k := range order {
-		g := groups[k]
-		if len(g) < 2 {
-			continue
-		}
-		labels := make([]string, len(g))
-		for i, r := range g {
-			labels[i] = strings.Join(r.values, "/")
-		}
-		merges = append(merges, strings.Join(labels, " + "))
-	}
-	if len(merges) > 0 {
-		shown := merges[:min(len(merges), 3)]
-		more := ""
-		if len(merges) > len(shown) {
-			more = fmt.Sprintf(" and %d more", len(merges)-len(shown))
-		}
-		return output.ErrValidation(
-			"removing %q would merge variants into the same combination (%s%s) — first remove the values whose variants should go (--action remove --option \"%s:<value>\") so each combination keeps one variant, then remove the dimension",
-			dim.Name, strings.Join(shown, "; "), more, dim.Name)
-	}
+// removeDimension drops dimension d; the caller has refused merges.
+func (m *matrix) removeDimension(d int) {
 	for _, r := range m.rows {
 		r.values = slices.Delete(r.values, d, d+1)
 	}
 	m.dims = slices.Delete(m.dims, d, d+1)
 	m.reshaped = true
-	return nil
 }
 
 // renameValues renames values of dimension d in place; pairs resolve against
@@ -976,13 +817,6 @@ func (m *matrix) sortRows() error {
 
 const maxVariants = 300
 
-// editFlags are the flags of the combined form; any of them selects it.
-var editFlags = []string{"add", "remove", "set", "drop", "rename", "existing", "new-price", "new-image", "new-stock", "set-price", "set-stock"}
-
-func usedEditFlags(in common.ExecInput) bool {
-	return slices.ContainsFunc(editFlags, in.Flags.Changed)
-}
-
 // dropSpec is one --drop payload; Keep is the value whose variants survive.
 type dropSpec struct {
 	Name, Keep string
@@ -1012,15 +846,14 @@ func parseEditFlags(in common.ExecInput) (*editPlan, error) {
 		}
 		return out, nil
 	}
-	valueSpec := func(raw string) (optionSpec, error) { return parseValueSpec(raw, false) }
 	var err error
-	if p.adds, err = parseAll("add", valueSpec); err != nil {
+	if p.adds, err = parseAll("add", parseValueSpec); err != nil {
 		return nil, err
 	}
-	if p.removes, err = parseAll("remove", valueSpec); err != nil {
+	if p.removes, err = parseAll("remove", parseValueSpec); err != nil {
 		return nil, err
 	}
-	if p.sets, err = parseAll("set", valueSpec); err != nil {
+	if p.sets, err = parseAll("set", parseValueSpec); err != nil {
 		return nil, err
 	}
 	if p.renames, err = parseAll("rename", parseRenameSpec); err != nil {
@@ -1154,6 +987,16 @@ func (p *editPlan) apply(m *matrix) error {
 		}
 		p.ov.changes = append(p.ov.changes, fmt.Sprintf("%s: values %s → %s", m.dims[d].Name, strings.Join(before, ", "), strings.Join(s.Values, ", ")))
 	}
+	// A later --set can strip a value an earlier one listed of its last variant.
+	for _, s := range p.sets {
+		d, _ := m.findDim(s.Name)
+		for _, v := range s.Values {
+			if d >= 0 && !m.uses(d, v) {
+				delete(m.dims[d].idle, v)
+				m.addRowsFor(d, v)
+			}
+		}
+	}
 	for _, s := range p.adds {
 		d, err := m.findDim(s.Name)
 		if err != nil {
@@ -1176,7 +1019,7 @@ func (p *editPlan) apply(m *matrix) error {
 		}
 	}
 	for _, s := range p.renames {
-		if err := m.apply("rename", s); err != nil {
+		if err := m.rename(s); err != nil {
 			return err
 		}
 		if s.NewName != "" {
@@ -1222,9 +1065,7 @@ func (p *editPlan) drop(m *matrix, s dropSpec, dim func(string) (int, error)) er
 		}
 		seen[k] = true
 	}
-	if err := m.removeDimension(d); err != nil {
-		return err
-	}
+	m.removeDimension(d)
 	p.ov.changes = append(p.ov.changes, change)
 	return nil
 }
@@ -1263,7 +1104,7 @@ func execEditPlan(ctx context.Context, in common.ExecInput, id string, p *editPl
 	if err := p.apply(m); err != nil {
 		return common.ExecResult{}, err
 	}
-	return writeMatrix(ctx, in, id, "", getPlan, prod, m, p.ov)
+	return writeMatrix(ctx, in, id, getPlan, prod, m, p.ov)
 }
 
 // ── per-value flags ───────────────────────────────────────────────────────────
@@ -1437,35 +1278,8 @@ func readMatrix(ctx context.Context, in common.ExecInput, id string) (common.Pla
 	return getPlan, prod, nil
 }
 
-func execUpdateMatrix(ctx context.Context, in common.ExecInput, id, action string, specs []optionSpec, ov matrixOverrides) (common.ExecResult, error) {
-	getPlan, prod, err := readMatrix(ctx, in, id)
-	if err != nil {
-		return common.ExecResult{}, err
-	}
-	m := newMatrix(prod.dims, prod.variants)
-	for _, s := range specs {
-		if err := m.apply(action, s); err != nil {
-			return common.ExecResult{}, err
-		}
-	}
-	if action == "update" {
-		// A later payload can strip a value an earlier one listed of its last
-		// variant; a listed value always ends up with variants.
-		for _, s := range specs {
-			d, _ := m.findDim(s.Name)
-			for _, v := range s.Values {
-				if d >= 0 && !m.uses(d, v) {
-					delete(m.dims[d].idle, v)
-					m.addRowsFor(d, v)
-				}
-			}
-		}
-	}
-	return writeMatrix(ctx, in, id, action, getPlan, prod, m, ov)
-}
-
 // writeMatrix validates the edited matrix and writes it in one PUT.
-func writeMatrix(ctx context.Context, in common.ExecInput, id, action string, getPlan common.PlannedRequest,
+func writeMatrix(ctx context.Context, in common.ExecInput, id string, getPlan common.PlannedRequest,
 	prod productMatrix, m *matrix, ov matrixOverrides) (common.ExecResult, error) {
 	if len(m.rows) == 0 {
 		return common.ExecResult{}, output.ErrValidation("this would delete every variant — delete the product instead, or keep at least one value")
@@ -1488,9 +1302,6 @@ func writeMatrix(ctx context.Context, in common.ExecInput, id, action string, ge
 	// No effective change and no per-variant override: skip the write.
 	if m.unchanged(prod.dims, prod.variants) && ov.skuTemplate == "" && !ov.hasStock && !ov.setPrice.any() {
 		summary := matrixSummary(id, m.dims, len(prod.variants))
-		if action != "" {
-			summary["action"] = action
-		}
 		summary["dimension_change"] = false
 		summary["kept"] = len(prod.variants)
 		summary["created"] = 0
@@ -1616,9 +1427,6 @@ func writeMatrix(ctx context.Context, in common.ExecInput, id, action string, ge
 	updatePlan := PlanUpdate(id, body)
 
 	summary := matrixSummary(id, m.dims, len(m.rows))
-	if action != "" {
-		summary["action"] = action
-	}
 	summary["dimension_change"] = m.reshaped
 	summary["kept"] = kept
 	summary["created"] = created
@@ -1645,10 +1453,8 @@ func writeMatrix(ctx context.Context, in common.ExecInput, id, action string, ge
 	if ov.hasStock {
 		summary["stock_applied"] = ov.stock
 	}
-	if action == "" {
-		summary["changes"] = append(ov.changes, fmt.Sprintf("variants: %d kept, %d new, %d deleted (%d → %d)",
-			kept, cloned+created, len(deletedDetail), len(prod.variants), len(m.rows)))
-	}
+	summary["changes"] = append(ov.changes, fmt.Sprintf("variants: %d kept, %d new, %d deleted (%d → %d)",
+		kept, cloned+created, len(deletedDetail), len(prod.variants), len(m.rows)))
 
 	if in.DryRun {
 		return common.ExecResult{Plans: []common.PlannedRequest{getPlan, updatePlan}, Summary: summary}, nil
