@@ -211,8 +211,7 @@ func parseBlockEditInput(in common.ExecInput) (blockEditInput, error) {
 // resolveBlockPageContext reads the page the block lands on: the resolved theme
 // and doc, the section tree, the target container's size and, when updating,
 // the targeted instance's current settings. Without --template there is no page
-// to read and only the theme id comes back. inner is the pre-batch section
-// tree, kept so the echo can resolve a --position anchor to its to_index_id.
+// to read and only the theme id comes back. inner is the pre-batch tree.
 func resolveBlockPageContext(ctx context.Context, c *client.Client, b blockEditInput) (
 	themeID, docID string, inner, current map[string]any, containerLen int, err error) {
 	fail := func(err error) (string, string, map[string]any, map[string]any, int, error) {
@@ -456,8 +455,7 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 		inst["section_name"] = sectionName
 	}
 	if kind, anchor, ok := splitPosition(position); ok {
-		// Same echo as +edit's add_section: the id the new container now follows
-		// ("" = first in its group), resolved against the pre-batch layout.
+		// to_index_id as in +edit's add_section.
 		if to, ok := toIndexIDOf(inner, kind, anchor, ""); ok {
 			inst["to_index_id"] = to
 		}
@@ -548,11 +546,8 @@ func revertPlacement(ctx context.Context, c *client.Client, oseid, docID, revert
 	return "", true
 }
 
-// containerAddOp is the add_section that creates the "_blocks" container the
-// CLI places a new block in. A position rides on the add itself as the server's
-// target + position pair: the container is inserted next to the anchor, inside
-// the anchor's group (page flow, header or footer); without one it appends to
-// the page flow.
+// containerAddOp adds the "_blocks" container: next to the anchor when a
+// position is given, else at the end of the page flow.
 func containerAddOp(sid, position string) map[string]any {
 	op := map[string]any{
 		"op": "add_section", "section_id": sid,

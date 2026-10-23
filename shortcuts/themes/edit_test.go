@@ -75,8 +75,7 @@ func newEditServer(t *testing.T) *editServer {
 				pageSections = append(pageSections, map[string]any{"id": id, "type": "rich_text", "display": true,
 					"settings": map[string]any{}, "blocks": []any{}})
 			}
-			// An add that carried target lands in the header group when the
-			// anchor is the header card (real server: same-group insert).
+			// An add targeting a header member lands in the header group.
 			headerSections := []any{
 				map[string]any{"id": "hsec1", "type": "header_bar", "display": true, "settings": map[string]any{}, "blocks": []any{}},
 			}
@@ -169,8 +168,7 @@ func newEditServer(t *testing.T) *editServer {
 				} else if om["op"] == "add_section" {
 					id := fmt.Sprintf("sec_new%d", len(es.added)+1)
 					es.added = append(es.added, id)
-					// Real server: target + position place the new card in the
-					// anchor's group on insert; replay it as a synthetic move.
+					// Insert next to target in its group, replayed as a move.
 					if om["target"] != nil {
 						es.moves = append(es.moves, map[string]any{"op": "move_section", "target": id,
 							"position": om["position"], "move_target": om["target"]})
@@ -178,14 +176,13 @@ func newEditServer(t *testing.T) *editServer {
 				} else if om["op"] == "move_section" {
 					es.moves = append(es.moves, om)
 				}
-				// revert_id per entry, as the server will echo it once undo ships.
+				// One revert_id per entry.
 				results = append(results, map[string]any{"op": om["op"], "result": res, "revert_id": fmt.Sprintf("rv%d", i)})
 			}
 			es.mu.Unlock()
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"data": results}})
 		case strings.HasSuffix(p, "/theme-templates") && r.Method == http.MethodGet:
-			// One unbound custom template; the id is a 19-digit integer in the
-			// real API, so it must survive as digits, not a float.
+			// One unbound custom template; its 19-digit id must stay digits.
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"theme_templates": []any{
 				map[string]any{"id": json.Number("1234567890123456789"), "type": r.URL.Query().Get("type"), "suffix": "custom", "obj_id": nil},
 			}}})
@@ -824,10 +821,7 @@ func TestEdit_PositionTranslationAndPlacement(t *testing.T) {
 		t.Errorf("move entry = %v, want before/hsec1 (first of its area)", mv)
 	}
 
-	// add_section with a position: the server inserts relative to target in
-	// one go, so the add entry carries {target, position} and no follow-up
-	// placement batch is sent (a second write request is what the
-	// store-agent staging gate refuses).
+	// add_section with a position carries {target, position}; no placement batch follows.
 	es.mu.Lock()
 	es.writes = nil
 	es.mu.Unlock()
@@ -863,10 +857,8 @@ func editBatches(es *editServer) []map[string]any {
 	return batches
 }
 
-// TestEdit_AddSectionIntoHeaderGroup pins the cross-group case behind the
-// prod ticket: a page card can never be moved into the header/footer group
-// (the server moves within one group only), but an add anchored on a header
-// member lands in that group directly.
+// TestEdit_AddSectionIntoHeaderGroup: an add anchored on a header member lands
+// in the header group, which move_section can't reach.
 func TestEdit_AddSectionIntoHeaderGroup(t *testing.T) {
 	es := newEditServer(t)
 	defer es.srv.Close()
@@ -890,10 +882,8 @@ func TestEdit_AddSectionIntoHeaderGroup(t *testing.T) {
 	}
 }
 
-// TestEdit_EchoFieldsForConsumers pins the fields a consumer mirrors the
-// change from without re-reading the page: to_index_id (the section the moved
-// or added one now follows, "" = first), visible, per-op revert_id, doc_id and
-// the custom template's id.
+// TestEdit_EchoFieldsForConsumers checks to_index_id, visible, revert_id, doc_id
+// and template_id.
 func TestEdit_EchoFieldsForConsumers(t *testing.T) {
 	es := newEditServer(t)
 	defer es.srv.Close()

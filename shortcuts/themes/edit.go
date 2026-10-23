@@ -185,12 +185,8 @@ func preflightCards(ctx context.Context, c *client.Client, ops []editOp, inner m
 }
 
 // foldBatchResults folds the server's per-entry results back onto the source
-// ops, returning the applied list and the indexes that did not succeed. Each
-// row also echoes what a consumer needs to mirror the change without
-// re-reading the page: visible for set_visibility, to_index_id for a
-// move_section (resolved against inner, the pre-batch layout), and the
-// server's revert_id once it emits one (revert_ids when the op expanded to
-// several entries).
+// ops, returning the applied list and the indexes that did not succeed. Rows
+// also echo visible, to_index_id and revert_id(s).
 func foldBatchResults(ops []editOp, entries []serverOp, newTargets map[int]string,
 	inner, resp map[string]any) ([]map[string]any, []int) {
 	perOp := mapBatchResults(len(ops), entries, resp)
@@ -219,8 +215,7 @@ func foldBatchResults(ops []editOp, entries []serverOp, newTargets map[int]strin
 		}
 		applied = append(applied, entry)
 	}
-	// ponytail: resolved against the pre-batch snapshot; two move_sections
-	// crossing each other in one batch can misreport the second.
+	// Resolved against the pre-batch layout: crossing moves in one batch can misreport.
 	for _, e := range entries {
 		if e.entry["op"] != "move_section" || e.source >= len(applied) {
 			continue

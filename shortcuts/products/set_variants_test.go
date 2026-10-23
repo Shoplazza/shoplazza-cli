@@ -855,9 +855,8 @@ func TestSetVariants_SetPayloadsKeepListedValues(t *testing.T) {
 
 // ── combined edits ────────────────────────────────────────────────────────────
 
-// runEdit runs the shortcut against a stub serving product; args are raw flags
-// ("--drop=lenses=6lenses"). The second return is the captured write body, nil
-// when no write was sent.
+// runEdit runs the shortcut against a stub serving product and returns the
+// captured write body (nil when nothing was written).
 func runEdit(t *testing.T, product map[string]any, args ...string) (common.ExecResult, map[string]any, error) {
 	t.Helper()
 	srv := newEditServer(t)

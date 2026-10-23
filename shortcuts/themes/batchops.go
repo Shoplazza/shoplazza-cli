@@ -20,10 +20,8 @@ import (
 //   - block paths use dot indexes ("sid.blocks.0"), not brackets
 //   - block props merge via replace_props with a block dot-path (the server's
 //     update_slot swaps child slots — a different op)
-//   - add_section without target appends to the page flow; with target +
-//     position it inserts before/after that section inside its group, which
-//     is the only way into the header/footer groups (move_section never
-//     crosses groups)
+//   - add_section appends to the page flow, or with target + position inserts
+//     next to target in its group; move_section never crosses groups
 //   - the server assigns section ids; client-supplied ids are ignored
 
 // serverOp is one translated ThemeOperation plus its source op index
@@ -140,9 +138,7 @@ func successorOf(inner map[string]any, sid string) string {
 	return ""
 }
 
-// predecessorOf returns the id of the section right before sid in its area
-// layout, skipping the section named skip (the one being moved, when a
-// "before" move lands next to itself). "" when sid is first or unknown.
+// predecessorOf returns the section before sid in its area, ignoring skip ("" if none).
 func predecessorOf(inner map[string]any, sid, skip string) string {
 	if inner == nil {
 		return ""
@@ -166,9 +162,7 @@ func predecessorOf(inner map[string]any, sid, skip string) string {
 	return ""
 }
 
-// toIndexIDOf renders a server {position, move_target} pair as the echo's
-// to_index_id: the id of the section the moved one now follows ("" = first in
-// its area). inner is the layout the pair was resolved against.
+// toIndexIDOf turns a {position, move_target} pair into to_index_id ("" = first).
 func toIndexIDOf(inner map[string]any, position, moveTarget, moved string) (string, bool) {
 	switch position {
 	case "after":
@@ -272,9 +266,7 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 				}
 			}
 			entry := map[string]any{"op": "add_section", "value": value}
-			// A requested position rides on the add itself: the server inserts
-			// before/after target inside target's group (page, header or
-			// footer). Plain "last" is the page-flow append.
+			// With a position the add inserts next to target in its group; "last" appends.
 			if op.Position != "" && op.Position != "last" || op.ToIndex != nil {
 				if pos, ref := resolveMoveRef(inner, op); pos != "" && ref != "" {
 					entry["target"], entry["position"] = ref, pos
@@ -302,8 +294,7 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 			if card == nil {
 				return nil, nil, fail(i, "internal: no generated theme card for update_pb")
 			}
-			// Replace in place: drop the old card, then insert the generated
-			// one before the old card's successor (append when it was last).
+			// Replace in place: remove the old card, add the new one before its successor.
 			add := map[string]any{"op": "add_section", "value": card}
 			if succ := successorOf(inner, op.ref.SectionID); succ != "" {
 				add["target"], add["position"] = succ, "before"
@@ -319,8 +310,7 @@ func translateOps(ops []editOp, inner map[string]any, cards map[int]map[string]a
 	return entries, newTargets, nil
 }
 
-// batchResultItems pulls the ordered per-entry result objects out of a
-// batch-ops response, tolerating the {data:{data:[{op,result,…}…]}} envelope.
+// batchResultItems returns the ordered per-entry results of a batch-ops response.
 func batchResultItems(resp map[string]any) []map[string]any {
 	root := resp
 	for range 2 {
@@ -344,9 +334,7 @@ func batchResultStrings(resp map[string]any) []string {
 	return out
 }
 
-// batchOutcome is one source op's folded result: the (first non-success)
-// result string plus the per-entry undo handles the server echoed, in entry
-// order. revertIDs stays empty until the server emits revert_id.
+// batchOutcome is one source op's folded result and its per-entry revert ids.
 type batchOutcome struct {
 	result    string
 	revertIDs []string
@@ -387,17 +375,14 @@ func hasAdds(entries []serverOp) bool {
 	return false
 }
 
-// recoverSectionIDs re-reads the session once to recover the server-assigned
-// ids of added sections and report each one's neighbour; a failed read
-// degrades to a warning (the batch itself already persisted).
+// recoverSectionIDs re-reads the session for added sections' ids and neighbours;
+// a failed read only warns.
 func recoverSectionIDs(ctx context.Context, c *client.Client, oseid, docID string, entries []serverOp, preIDs map[string]bool, applied []map[string]any) string {
 	inner, err := fetchSections(ctx, c, oseid, docID)
 	if err != nil {
 		return "could not re-read the session to recover new section ids: " + err.Error()
 	}
-	// Adds are created in batch order and the server mints ids as
-	// millisecond timestamps, so ascending id = creation order (layout order
-	// no longer is, since an add can insert mid-page or into another group).
+	// New ids ascend in batch order, unlike their layout positions.
 	newIDs := newSectionIDs(inner, preIDs)
 	sort.Slice(newIDs, func(i, j int) bool { return idLess(newIDs[i], newIDs[j]) })
 	k := 0
@@ -529,8 +514,7 @@ func buildThemeCard(resp map[string]any, old map[string]any) map[string]any {
 	return card
 }
 
-// idLess orders section ids numerically when both parse (server ids are
-// timestamps), falling back to string order.
+// idLess compares section ids numerically, falling back to string order.
 func idLess(a, b string) bool {
 	x, errA := strconv.ParseInt(a, 10, 64)
 	y, errB := strconv.ParseInt(b, 10, 64)

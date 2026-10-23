@@ -88,9 +88,7 @@ func validatePosition(pos string) error {
 		if id == "" {
 			return fmt.Errorf("position %q is missing a section id after ':'", pos)
 		}
-		// The group names and the legacy header/footer section names are not
-		// anchors: the server either rejects them (target_not_found) or, for the
-		// group keywords, appends into a group a legacy layout never renders.
+		// Group names and legacy header/footer names are not valid anchors.
 		switch id {
 		case "header", "footer", "header_sections", "footer_sections":
 			return fmt.Errorf("position %q: %q is not a section id; anchor on a header/footer member id from `themes +page` — a theme whose header member is literally %q has no header/footer group to add into", pos, id, id)

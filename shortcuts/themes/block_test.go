@@ -336,11 +336,8 @@ func TestBlockEdit_CreateWithoutTargetAddsSectionThenAppends(t *testing.T) {
 	}
 }
 
-// TestBlockEdit_CreateWithPositionRidesOnTheAdd: --position goes onto the
-// add_section that creates the container, as the server's target + position
-// pair, so the container is inserted next to the anchor inside the anchor's
-// group in the same single batch. The echo carries to_index_id like +edit's
-// add_section does: the id the container now follows.
+// TestBlockEdit_CreateWithPositionRidesOnTheAdd: --position rides on the
+// container's add_section in one batch; the echo carries to_index_id.
 func TestBlockEdit_CreateWithPositionRidesOnTheAdd(t *testing.T) {
 	cases := []struct {
 		name, position, wantTarget, wantPos, wantToIndex string
@@ -375,7 +372,7 @@ func TestBlockEdit_CreateWithPositionRidesOnTheAdd(t *testing.T) {
 			}
 		})
 	}
-	// Without --position the add carries no target: the server appends to the page flow.
+	// Without --position the add carries no target.
 	bs := newBlockServer(t)
 	body, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index"})
 	if err != nil {

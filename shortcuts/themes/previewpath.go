@@ -65,9 +65,7 @@ func resolvePreviewPath(ctx context.Context, c *client.Client, themeID, template
 	return path
 }
 
-// resolvePreviewTarget is resolvePreviewPath plus the theme-templates id of a
-// custom resource template ("" for static pages, default templates, or when
-// the lookup fails) — the id the editor's template view is keyed by.
+// resolvePreviewTarget is resolvePreviewPath plus a custom template's id ("" if none).
 func resolvePreviewTarget(ctx context.Context, c *client.Client, themeID, template, file string) (path, templateID string) {
 	page, suffix := previewPageName(template, file)
 	if page == "" {
@@ -115,8 +113,7 @@ func previewPageName(template, file string) (page, suffix string) {
 // boundPath resolves a custom template to the storefront path of the object it
 // is bound to: the template list carries obj_id once bound, and that object's
 // detail carries the handle. Path is "" when the theme is unknown, the template
-// is unbound, or either call fails; templateID is the matching template's id
-// whenever the list call succeeded. Bounded by previewPathTimeout.
+// is unbound, or either call fails; bounded by previewPathTimeout.
 func boundPath(ctx context.Context, c *client.Client, themeID, page, suffix, queryPath, prefix string) (path, templateID string) {
 	if themeID == "" {
 		return "", ""
