@@ -49,7 +49,8 @@ themes +page -t <theme_id> --list
 Custom templates are `<type>.<suffix>` (`product.<suffix>`, `collection.<suffix>`,
 `page.<suffix>`); take the name from `--list` (or `themes template list`), never build it. In
 `--list`, `type` is `system` or the custom type, and `title` is the merchant-facing name (often
-Chinese) — match the user's wording against `title` to find a custom template.
+Chinese) — match the user's wording against `title` to find a custom template. Custom rows also
+carry `template_id` (and `obj_title` once bound).
 
 - `customers/*` templates are customer-account pages (login, register, addresses, orders…). The
   preview opens the login page; changes show only after signing in as a customer — say so in
@@ -77,7 +78,9 @@ Chinese) — match the user's wording against `title` to find a custom template.
    `section_id` equals their `type` string (e.g. `announcement`), copy it as is. Colloquial names
    overlap ("弹窗 / popup" may fit several) → read the group with `--include schema` and pick the
    card whose schema really has the named field. They can be edited, not added.
-7. **Header and footer** rows have `section_id` `header` / `footer`.
+7. **Header and footer** rows carry `area` `header` / `footer`. A theme with header / footer
+   areas lists each member with a numeric `section_id`; an older theme has one row whose
+   `section_id` is literally `header` / `footer`. Copy the `section_id` as shown.
 
 ### Which cards contain a text? (match by current values)
 
@@ -91,7 +94,7 @@ themes +page -t <theme_id> --template index --session <oseid> \
 
 Each hit gives the `op`, `target` and field keys to write; build the ops directly from it (no
 per-card read needed). Write the current value with only the old text swapped (keep wrappers
-such as `<p>…</p>`). Hits on `header`, `footer` or global-area rows change every page — say so.
+such as `<p>…</p>`). Hits on header-, footer- or global-area rows change every page — say so.
 `contains` is case-sensitive.
 
 ## Reading the result

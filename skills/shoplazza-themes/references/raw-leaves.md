@@ -19,7 +19,8 @@ themes file tree --params '{"theme_id":"<id>"}' --jq '.data.templates[] | select
   `type` + `.` + `suffix` matches.
 - `"index"` fails on these leaves (404 `b_record_not_found`, 422 `request_param_error`, or 500).
   Only `session get-config` / `update-config` ignore `doc_id` (`"index"` works there).
-- `+page` resolves this itself and does not print it.
+- `+page` resolves this itself and does not print it; `+edit` and `block +edit --template` echo
+  it as `doc_id`.
 
 ## When a raw leaf is the right tool
 

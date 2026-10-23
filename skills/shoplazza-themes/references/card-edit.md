@@ -18,7 +18,13 @@ themes +edit -t <theme_id> --template index --session <oseid> --ops '[
 - `--ops`: inline JSON array, a file path, or `-` (stdin). Long or quote-heavy text → a file.
 - Always pass the task's `--session` and the same `-t`. Without `--session` a new, empty session
   is created (`session_created:true`) and the earlier drafts are not in it.
-- Success: `{oseid, session_created, applied:[{op, target, result:"success", new_target? | new_section_id?}], preview_url, promoted, placement_warning?, published?}`.
+- Success: `{oseid, session_created, doc_id, template_id?, applied:[{op, target, result:"success", new_target? | new_section_id?, to_index_id?, visible?, revert_id? | revert_ids?}], preview_url, promoted, placement_warning?, published?, revoke_publish_id?}`.
+  - `doc_id`: the template file id (the `doc_id` raw leaves need). `template_id`: the custom
+    template's id, only on a `<type>.<suffix>` page.
+  - `applied[].to_index_id` (`add_section`, `move_section`): the `section_id` the card now
+    follows; `""` = first in its area. `visible` echoes `set_visibility`.
+  - `applied[].revert_id`: the server's undo handle for that op, present only when the server
+    returns one; `revert_ids` when one op is sent as several (`update_pb`).
 
 ## Card types
 
@@ -28,7 +34,7 @@ themes +edit -t <theme_id> --template index --session <oseid> --ops '[
 | Block row `type: blocks/gen_<id>` inside a `type: "_blocks"` section | AI card | The card is that block row: its fields → `update_slot` on its `target` (e.g. `<sid>.blocks[0]`); its own blocks are `<target>.blocks[N]`. Layout, structure or new settings → [block/edit-block.md](block/edit-block.md) |
 | `type` is `shoplazza://apps/<app>/…`, not `page-builder` | App card | Same ops as a theme card; keys only from current values and schema |
 | `type` starts with `shoplazza://apps/page-builder/`, row `kind: "pb"` | Page-builder card | Content → `update_pb`, see [page-builder.md](page-builder.md). Remove / move / hide as for any card |
-| `section_id` `header`, `footer`, or a global-area type (`announcement`…) | Global card | The ops here, with that `section_id` as the target. `session update-config` can't reach these cards |
+| `area` `header` / `footer` (numeric `section_id` on themes with header / footer areas, literally `header` / `footer` on older ones), or a global-area type (`announcement`…) | Global card | The ops here, with that `section_id` as the target. `session update-config` can't reach these cards |
 
 Remove / move / hide a whole card works on every kind by `section_id`.
 
@@ -55,7 +61,7 @@ block), not on the card — check the schema's block list for where it lives.
 | `move_array_item` | Reorder a block within its container | `target`, `to_index` (0-based) | Block row `target` |
 | `add_section` | Add a card | `name` [+ `value`, `position`] | See [card-add.md](card-add.md) |
 | `remove_section` | Delete a whole card — name it in the summary | `target` | `section_id` |
-| `move_section` | Reorder a card | `target`, `position` | `first` · `last` · `before:<sid>` · `after:<sid>`. Don't use `to_index` (lands one short when moving down) |
+| `move_section` | Reorder a card within its area | `target`, `position` | `first` · `last` · `before:<sid>` · `after:<sid>`; the anchor is a card id, never `header` / `footer` / `header_sections` / `footer_sections`. Don't use `to_index` (lands one short when moving down) |
 | `set_visibility` | Show / hide a card | `target`, `visible` (bool) | `section_id` (blocks have no visibility switch) |
 | `update_pb` | Page-builder card content | `target`, `ops` | See [page-builder.md](page-builder.md) |
 
@@ -136,15 +142,16 @@ re-read shows (field `label`s, old → new), not what was sent. `success` but th
 | Exit 2, `type:"validation"`, `invalid_op:<n>`, e.g. `op #0 (replace_props): target must be a section id, got "<sid>.blocks[0]"` | Op / target shape wrong; nothing sent | Keep the target, use the block-level op with the same meaning (field → `update_slot`, drop the block → `remove_array_item`). No equivalent → report that item as not done |
 | `op #0 (<op>): unknown op` | Op name not in the table; nothing sent | Pick by purpose from Ops. Never add a second card to hold an item meant for this card |
 | `invalid position "<p>" (use first \| last \| after:<section_id> \| before:<section_id>)` | Bad `position` | Fix it |
+| `position "after:header": "header" is not a section id; …` | Anchor is an area name, not a card | Anchor on a header / footer member id from the whole-page read; none → the theme has no such area, see [card-add.md → Placement](card-add.md#placement) |
 | `block type "<t>" is not allowed in "<card>" (schema allows: <types>)` | Block type not in the schema | Use an allowed type; none fits → say so |
 | `--ops is empty and nothing else was requested` · `--ops is empty, so --session is required` | Empty batch without `--promote`, or without `--session` | Pass ops, or `--session <oseid> --promote` |
 | Exit 1, `N of M ops failed`, `failed:[i…]`, per-op `results[].result` | Those ops rejected; the rest are saved in the session | Fix and resend **only** the failed ops, same `--session` |
 | ↳ `invalid_field:<key>` | No such field at this level | Re-read the schema, find the level that has the `label`, change target / op |
 | ↳ `invalid_value:<key>` | Out of range, off `step`, or not in `options` | User's value → state the range; your own pick → choose a legal one |
 | ↳ `target_not_found` | Stale block index or unknown section | Re-read, copy the target again |
-| `placement_warning` on success | Card added but not placed | `move_section` with `before:` / `after:` |
+| `placement_warning` on success | Card added and placed, but its new id could not be read back (no `new_section_id` / `to_index_id`) | Re-read the whole page to find it. Don't move it |
 | `promote conflict: the theme draft changed since this edit session was created`, `conflict:true` | Ops applied (previewable); the theme draft changed since the session opened | Ask. Forcing overwrites those draft changes. With consent (dry-run → restate → wait): `themes session promote --params '{"oseid":"<oseid>"}' --data '{"force":true}'`. |
-| `the edit was promoted to the theme draft but publishing failed: …`, `promoted:true, published:false` | Saved, not live | Don't redo ops; resend `+edit … --session <oseid> --ops '[]' --promote --publish` once (same consent) |
+| `the edit was promoted to the theme draft but publishing failed: …`, `promoted:true, published:false` | Saved, not live | Don't redo ops; retry publish alone, as the hint says: `themes publish --params '{"theme_id":"<theme_id>"}'` once (same consent) |
 | 404 `b_record_not_found` on a call with `--session` | `-t` isn't the theme the session was opened on | Pass that theme's id |
 | `b_invalid_themeid` | `-t` doesn't match the session, or the session is gone | Check `-t` is the session's theme; if it is, handle it as the next row |
 | 403 `b_invalid_request` (hint says log in again) or `SESSION_NOT_FOUND` | Session unknown or expired — not an auth problem | Tell the user its drafts are gone; with their OK, open a new session (`+page` without `--session`) and redo the changes |
