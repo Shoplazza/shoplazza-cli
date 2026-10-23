@@ -164,7 +164,7 @@ func newBlockServer(t *testing.T) *blockServer {
 					}
 					bs.added = append(bs.added, sid)
 				}
-				results = append(results, map[string]any{"op": om["op"], "result": res})
+				results = append(results, map[string]any{"op": om["op"], "result": res, "revert_id": fmt.Sprintf("rv%d", i)})
 			}
 			bs.mu.Unlock()
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"data": results}})
@@ -277,6 +277,12 @@ func TestBlockEdit_CreateAndPlace(t *testing.T) {
 	if body["ops"] != nil {
 		t.Errorf("ops should be nil when --ops is absent: %v", body["ops"])
 	}
+	if body["doc_id"] != "d_index" {
+		t.Errorf("doc_id = %v, want d_index", body["doc_id"])
+	}
+	if applied, _ := body["applied"].([]map[string]any); len(applied) != 1 || applied[0]["revert_id"] != "rv0" {
+		t.Errorf("applied = %v, want one row carrying revert_id rv0", body["applied"])
+	}
 }
 
 func TestBlockEdit_CreateWithOpsAppendsReplaceProps(t *testing.T) {
@@ -327,6 +333,56 @@ func TestBlockEdit_CreateWithoutTargetAddsSectionThenAppends(t *testing.T) {
 	inst := mapField(body, "instance")
 	if inst["section_created"] != true || inst["target"] != sid+".blocks[0]" {
 		t.Errorf("instance: %v", inst)
+	}
+}
+
+// TestBlockEdit_CreateWithPositionRidesOnTheAdd: --position rides on the
+// container's add_section in one batch; the echo carries to_index_id.
+func TestBlockEdit_CreateWithPositionRidesOnTheAdd(t *testing.T) {
+	cases := []struct {
+		name, position, wantTarget, wantPos, wantToIndex string
+	}{
+		{"after", "after:111", "111", "after", "111"},
+		{"before", "before:222", "222", "before", "111"},
+		{"before-first", "before:111", "111", "before", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			bs := newBlockServer(t)
+			body, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index", "position": tc.position})
+			if err != nil {
+				t.Fatalf("err: %v", err)
+			}
+			if n := len(bs.writesTo("/operations", http.MethodPost)); n != 1 {
+				t.Fatalf("want one batch, got %d", n)
+			}
+			ops := bs.operations(t)
+			if len(ops) != 2 || ops[0]["op"] != "add_section" || ops[1]["op"] != "append_array_item" {
+				t.Fatalf("want add_section + append_array_item, got %v", ops)
+			}
+			if ops[0]["target"] != tc.wantTarget || ops[0]["position"] != tc.wantPos {
+				t.Errorf("add_section target/position = %v/%v, want %s/%s", ops[0]["target"], ops[0]["position"], tc.wantTarget, tc.wantPos)
+			}
+			if ops[1]["target"] != getString(ops[0], "section_id")+".blocks" {
+				t.Errorf("append must target the section just added: %v", ops[1])
+			}
+			inst := mapField(body, "instance")
+			if inst["section_created"] != true || inst["to_index_id"] != tc.wantToIndex {
+				t.Errorf("instance: %v, want to_index_id %q", inst, tc.wantToIndex)
+			}
+		})
+	}
+	// Without --position the add carries no target.
+	bs := newBlockServer(t)
+	body, err := blockEditExec(t, bs, map[string]any{"session": "ose_x", "content": writeTempLiquid(t, testGenSchema), "template": "index"})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if ops := bs.operations(t); ops[0]["target"] != nil || ops[0]["position"] != nil {
+		t.Errorf("no --position must mean no target/position on the add: %v", ops[0])
+	}
+	if _, has := mapField(body, "instance")["to_index_id"]; has {
+		t.Errorf("no --position must mean no to_index_id in the echo: %v", body["instance"])
 	}
 }
 
@@ -630,6 +686,13 @@ func TestBlockEdit_ValidationRefusesBeforeAnyRequest(t *testing.T) {
 		{"settings-type-mismatch", map[string]any{"session": "ose_x", "id": "gen_aaa", "content": content, "settings": `{"type":"blocks/gen_zzz"}`}, "does not match"},
 		{"ops-array", map[string]any{"session": "ose_x", "content": content, "template": "index", "target": "111.blocks", "ops": `[{"op":"x"}]`}, "JSON object"},
 		{"section-name-without-template", map[string]any{"session": "ose_x", "content": content, "section-name": "商品推荐"}, "--section-name requires --template"},
+		{"position-without-template", map[string]any{"session": "ose_x", "content": content, "position": "after:111"}, "--position requires --template"},
+		{"position-with-target", map[string]any{"session": "ose_x", "content": content, "template": "index", "target": "111.blocks", "position": "after:111"}, "cannot be combined with --target"},
+		{"position-on-update", map[string]any{"session": "ose_x", "id": "gen_aaa", "content": content, "template": "index", "target": "111.blocks[1]", "position": "after:111"}, "only applies when creating"},
+		{"position-first", map[string]any{"session": "ose_x", "content": content, "template": "index", "position": "first"}, "not supported here"},
+		{"position-malformed", map[string]any{"session": "ose_x", "content": content, "template": "index", "position": "top"}, "invalid position"},
+		{"position-literal-header", map[string]any{"session": "ose_x", "content": content, "template": "index", "position": "after:header"}, "not a section id"},
+		{"position-group-keyword", map[string]any{"session": "ose_x", "content": content, "template": "index", "position": "after:footer_sections"}, "not a section id"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -825,8 +888,10 @@ func TestBlockEdit_DryRunSendsNothing(t *testing.T) {
 		// no --target: the CLI adds the container itself, so the batch is
 		// add_section + append_array_item (the path with no golden before).
 		"new-section": {"session": "ose_x", "content": content, "template": "index"},
-		"edit":        {"session": "ose_x", "id": "gen_aaa", "content": content, "template": "index", "target": "111.blocks.1", "theme": "t1"},
-		"file":        {"session": "ose_x", "content": content},
+		// --position: the add carries the anchor as target + position.
+		"new-section-position": {"session": "ose_x", "content": content, "template": "index", "position": "after:111"},
+		"edit":                 {"session": "ose_x", "id": "gen_aaa", "content": content, "template": "index", "target": "111.blocks.1", "theme": "t1"},
+		"file":                 {"session": "ose_x", "content": content},
 	} {
 		t.Run(name, func(t *testing.T) {
 			res, err := blockEditExecute(context.Background(), common.ExecInput{DryRun: true, Flags: shortcutFlags(t, blockEditShortcut, vals)})

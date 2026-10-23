@@ -13,7 +13,7 @@ name `<type>.<suffix>`. Bound objects use the template; everything else keeps th
 | Create | `themes template create --params '{"theme_id":"<theme_id>"}' --data '{"type":"<type>","title":"<title>","from":"default","relations":["<id>"]}'` → `.data.theme_template.id` |
 | Change bindings | `themes template update --params '{"theme_id":"<theme_id>","template_id":"<template_id>"}' --data '{"type":"<type>","relations":["<id1>","<id2>"]}'` → `data:{}` |
 | Delete (consent) | `themes template delete --params '{"theme_id":"<theme_id>","template_id":"<template_id>"}'` → `data:{}` |
-| Template name for editing | `themes +page -t <theme_id> --list` → `.data.templates[]` whose `type` is the custom type; `template` = `<type>.<suffix>` |
+| Template name for editing | `themes +page -t <theme_id> --list` → `.data.templates[]` whose `type` is the custom type; `template` = `<type>.<suffix>`, `template_id` = its id |
 
 ## The three types
 
@@ -101,4 +101,5 @@ Needs consent (SKILL.md → Rules for every operation, 8): `--dry-run` → resta
   `theme_templates`).
 - `create`: `.data.theme_template.id`.
 - `update` / `delete`: `data:{}` — confirm with `list`, then summarize.
-- `+page --list`: custom templates carry their own `type`; standard pages have `type:"system"`.
+- `+page --list`: custom templates carry their own `type` and `template_id`; standard pages have
+  `type:"system"`. Bindings (`obj_id`, `relations`) come only from `list`.

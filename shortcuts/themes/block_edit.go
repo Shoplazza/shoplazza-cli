@@ -17,7 +17,7 @@ import (
 var blockEditShortcut = common.Shortcut{
 	Service: "themes block",
 	Command: "+edit",
-	Use:     "+edit --session <oseid> --content <file|-> [--id <gen_id>] [--template <name> [--target <path>]]",
+	Use:     "+edit --session <oseid> --content <file|-> [--id <gen_id>] [--template <name> [--target <path> | --position <before:|after:section_id>]]",
 	Short:   "Write a generated block file (create or update) and place it on a template page",
 	Long: `Write a generated block's liquid source inside an edit session and, when
 --template is given, place it on that page in the same call.
@@ -42,10 +42,19 @@ call: the block landed, and their names come back in degraded.
 block sits in, stored as that section's cname: it names the container the
 CLI adds, and renames the one addressed by --target.
 
+--position places the container the CLI adds (create, no --target):
+before:<section_id> / after:<section_id>, anchored on a section id from
+'themes +page'. The container lands in the anchor's group — the page flow, or
+the header/footer group when the anchor is a member of it. Omit to append at
+the end of the page flow.
+
 Saving and publishing stay with the shared session:
 "themes +edit --session <oseid> --ops '[]' --promote [--publish]".`,
 	Example: `  # Write a generated block and place it on the index page
   shoplazza themes block +edit --session <oseid> --content ./card.liquid --template index
+
+  # Write a generated block and place it right after the header (the anchor is the header member's id from 'themes +page')
+  shoplazza themes block +edit --session <oseid> --content ./card.liquid --template index --position after:<header_section_id>
 
   # Rewrite that block's source, carrying the instance's settings onto the new schema
   shoplazza themes block +edit --session <oseid> --id gen_1a0d523 --content ./card.liquid --template index --target <section_id>.blocks[0]`,
@@ -55,6 +64,7 @@ Saving and publishing stay with the shared session:
 		{Name: "id", Type: common.FlagString, Description: "Block id to update (file name without extension, e.g. gen_1a0d523). Omit to create."},
 		{Name: "template", Type: common.FlagString, Description: "Template page to place the block on, e.g. index / product. Omit to write the file only."},
 		{Name: "target", Type: common.FlagString, Description: "Where to place: a container path (<sid>.blocks) when creating, the instance path (<sid>.blocks[N]) when updating. Omit when creating and a \"_blocks\" container is added for it."},
+		{Name: "position", Type: common.FlagString, Description: "Create only, without --target: where the \"_blocks\" container the CLI adds goes — before:<section_id> | after:<section_id>, the anchor being a section id from 'themes +page'. The container lands in the anchor's group (page flow, header or footer). Omit to append at the end of the page flow. Requires --template."},
 		{Name: "content", Type: common.FlagString, Required: true, Description: "Liquid source: a file path, or '-' for stdin. Must contain a {% schema %} tag."},
 		{Name: "settings", Type: common.FlagString, Description: "Update only: the instance's current settings (JSON object or file). Defaults to the values read from --target."},
 		{Name: "ops", Type: common.FlagString, Description: "Setting keys to change on the placed instance (JSON object or file), merged server-side. Requires --template and --target."},
@@ -70,6 +80,7 @@ type blockEditInput struct {
 	id             string
 	template       string
 	target         string
+	position       string
 	sectionName    string
 	cardType       string
 	content        string
@@ -87,6 +98,7 @@ func parseBlockEditInput(in common.ExecInput) (blockEditInput, error) {
 	id := in.Flags.GetString("id")
 	template := in.Flags.GetString("template")
 	target := in.Flags.GetString("target")
+	position := in.Flags.GetString("position")
 	contentArg := in.Flags.GetString("content")
 	settingsArg := in.Flags.GetString("settings")
 	opsArg := in.Flags.GetString("ops")
@@ -103,6 +115,24 @@ func parseBlockEditInput(in common.ExecInput) (blockEditInput, error) {
 	}
 	if target != "" && template == "" {
 		return blockEditInput{}, output.ErrValidation("--target requires --template")
+	}
+	if position != "" {
+		switch {
+		case template == "":
+			return blockEditInput{}, output.ErrValidation("--position requires --template")
+		case id != "":
+			return blockEditInput{}, output.ErrValidation("--position only applies when creating a block").
+				WithHint("an update keeps its instance where it is; to move the container use `themes +edit` with a move_section op")
+		case target != "":
+			return blockEditInput{}, output.ErrValidation("--position cannot be combined with --target").
+				WithHint("--target appends into an existing container; --position places the container the CLI adds. Pass one of them")
+		case position == "first" || position == "last":
+			return blockEditInput{}, output.ErrValidation("--position %q is not supported here", position).
+				WithHint("anchor on a section id instead: before:<first section id> / after:<last section id> from `themes +page`; omitting --position appends at the end of the page flow")
+		}
+		if err := validatePosition(position); err != nil {
+			return blockEditInput{}, output.ErrValidation("--position: %v", err)
+		}
 	}
 	if opsArg != "" && (template == "" || target == "") {
 		return blockEditInput{}, output.ErrValidation("--ops requires --template and --target").
@@ -172,7 +202,7 @@ func parseBlockEditInput(in common.ExecInput) (blockEditInput, error) {
 		return blockEditInput{}, err
 	}
 	return blockEditInput{
-		themeID: themeID, oseid: oseid, id: id, template: template, target: target,
+		themeID: themeID, oseid: oseid, id: id, template: template, target: target, position: position,
 		sectionName: sectionName, cardType: cardType, content: content, ref: ref,
 		settings: settings, ops: ops, containerProps: containerProps,
 	}, nil
@@ -181,14 +211,14 @@ func parseBlockEditInput(in common.ExecInput) (blockEditInput, error) {
 // resolveBlockPageContext reads the page the block lands on: the resolved theme
 // and doc, the section tree, the target container's size and, when updating,
 // the targeted instance's current settings. Without --template there is no page
-// to read and only the theme id comes back.
+// to read and only the theme id comes back. inner is the pre-batch tree.
 func resolveBlockPageContext(ctx context.Context, c *client.Client, b blockEditInput) (
-	themeID, docID string, current map[string]any, containerLen int, err error) {
-	fail := func(err error) (string, string, map[string]any, int, error) {
-		return "", "", nil, 0, err
+	themeID, docID string, inner, current map[string]any, containerLen int, err error) {
+	fail := func(err error) (string, string, map[string]any, map[string]any, int, error) {
+		return "", "", nil, nil, 0, err
 	}
 	if b.template == "" {
-		return b.themeID, "", nil, 0, nil
+		return b.themeID, "", nil, nil, 0, nil
 	}
 	themeID, docID, err = resolveThemeAndDoc(ctx, c, b.themeID, b.template, "")
 	if err != nil {
@@ -199,7 +229,7 @@ func resolveBlockPageContext(ctx context.Context, c *client.Client, b blockEditI
 		return fail(ferr)
 	}
 	if b.target == "" {
-		return themeID, docID, nil, 0, nil
+		return themeID, docID, inner, nil, 0, nil
 	}
 	section := findSectionByID(inner, b.ref.SectionID)
 	if section == nil {
@@ -212,7 +242,7 @@ func resolveBlockPageContext(ctx context.Context, c *client.Client, b blockEditI
 	}
 	containerLen = len(children)
 	if b.id == "" {
-		return themeID, docID, nil, containerLen, nil
+		return themeID, docID, inner, nil, containerLen, nil
 	}
 	if b.ref.BlockIndex >= len(children) {
 		return fail(output.ErrValidation("--target %q is out of range: the container holds %d blocks", b.target, len(children)).
@@ -223,7 +253,7 @@ func resolveBlockPageContext(ctx context.Context, c *client.Client, b blockEditI
 		return fail(output.ErrValidation("the block at %q is %q, not %s", b.target, got, b.cardType).
 			WithHint("re-read the instance with `themes block +get --id " + b.id + " --section " + b.ref.SectionID + "`"))
 	}
-	return themeID, docID, mapField(blk, "settings"), containerLen, nil
+	return themeID, docID, inner, mapField(blk, "settings"), containerLen, nil
 }
 
 // writeGenBlock writes the block's liquid source: a create, or an update that
@@ -267,16 +297,16 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	}
 	themeID, oseid, id, template, target := b.themeID, b.oseid, b.id, b.template, b.target
 	cardType, ref, content, settings, ops := b.cardType, b.ref, b.content, b.settings, b.ops
-	containerProps, sectionName := b.containerProps, b.sectionName
+	containerProps, sectionName, position := b.containerProps, b.sectionName, b.position
 	if in.DryRun {
-		return common.ExecResult{Plans: blockEditDryRunPlans(themeID, oseid, cardType, template, containerProps, ref, content, settings, ops)}, nil
+		return common.ExecResult{Plans: blockEditDryRunPlans(themeID, oseid, cardType, template, position, containerProps, ref, content, settings, ops)}, nil
 	}
 
 	// Page context: only when placing.
 	var docID string
-	var current map[string]any
+	var inner, current map[string]any
 	var containerLen int
-	themeID, docID, current, containerLen, err = resolveBlockPageContext(ctx, in.Client, b)
+	themeID, docID, inner, current, containerLen, err = resolveBlockPageContext(ctx, in.Client, b)
 	if err != nil {
 		return common.ExecResult{}, err
 	}
@@ -312,6 +342,9 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	if ops != nil {
 		body["ops"] = ops
 	}
+	if docID != "" {
+		body["doc_id"] = docID
+	}
 	if branched {
 		body["previous_type"] = cardType
 	}
@@ -346,10 +379,7 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 			sid := newSectionID()
 			containerSID = sid
 			container, at, base = sid+".blocks", 0, sid+".blocks"
-			add("add_section", map[string]any{
-				"op": "add_section", "section_id": sid,
-				"value": map[string]any{"type": genSectionType, "name": genSectionType, "settings": map[string]any{}, "blocks": []any{}},
-			})
+			add("add_section", containerAddOp(sid, position))
 		}
 		instTarget = fmt.Sprintf("%s[%d]", base, at)
 		instDot = fmt.Sprintf("%s.%d", container, at)
@@ -424,11 +454,20 @@ func blockEditExecute(ctx context.Context, in common.ExecInput) (common.ExecResu
 	if sectionName != "" && !slices.Contains(degraded, "section_name") {
 		inst["section_name"] = sectionName
 	}
+	if kind, anchor, ok := splitPosition(position); ok {
+		// to_index_id as in +edit's add_section.
+		if to, ok := toIndexIDOf(inner, kind, anchor, ""); ok {
+			inst["to_index_id"] = to
+		}
+	}
 	body["instance"] = inst
 	if len(degraded) > 0 {
 		body["degraded"] = degraded
 	}
-	body["preview_url"] = previewURLFor(themeID, oseid)
+	body["preview_url"], body["template_id"] = previewURLFor(themeID, oseid)
+	if body["template_id"] == "" {
+		delete(body, "template_id")
+	}
 	return common.ExecResult{Body: body}, nil
 }
 
@@ -445,15 +484,18 @@ func runOps(ctx context.Context, c *client.Client, oseid, docID string, operatio
 	if err != nil {
 		return out, err
 	}
-	results := batchResultStrings(resp)
+	items := batchResultItems(resp)
 	for i, op := range operations {
-		res := ""
-		if i < len(results) {
-			res = results[i]
+		res, revertID := "", ""
+		if i < len(items) {
+			res, revertID = getString(items[i], "result"), anyToString(items[i]["revert_id"])
 		}
 		entry := map[string]any{"op": op["op"], "result": res}
 		if t, ok := op["target"]; ok {
 			entry["target"] = t
+		}
+		if revertID != "" {
+			entry["revert_id"] = revertID
 		}
 		*applied = append(*applied, entry)
 		out[names[i]] = res
@@ -504,6 +546,19 @@ func revertPlacement(ctx context.Context, c *client.Client, oseid, docID, revert
 	return "", true
 }
 
+// containerAddOp adds the "_blocks" container: next to the anchor when a
+// position is given, else at the end of the page flow.
+func containerAddOp(sid, position string) map[string]any {
+	op := map[string]any{
+		"op": "add_section", "section_id": sid,
+		"value": map[string]any{"type": genSectionType, "name": genSectionType, "settings": map[string]any{}, "blocks": []any{}},
+	}
+	if kind, anchor, ok := splitPosition(position); ok {
+		op["target"], op["position"] = anchor, kind
+	}
+	return op
+}
+
 // containerCName renders --section-name as the container's cname, which sits
 // beside settings — hence update_slot, not replace_props.
 func containerCName(name string) (map[string]any, error) {
@@ -521,7 +576,7 @@ func containerCName(name string) (map[string]any, error) {
 }
 
 // blockEditDryRunPlans lists every intended request without sending any.
-func blockEditDryRunPlans(themeID, oseid, cardType, template string, containerProps map[string]any, ref targetRef, content string, settings, ops map[string]any) []common.PlannedRequest {
+func blockEditDryRunPlans(themeID, oseid, cardType, template, position string, containerProps map[string]any, ref targetRef, content string, settings, ops map[string]any) []common.PlannedRequest {
 	var plans []common.PlannedRequest
 	themeRef := themeID
 	if template != "" {
@@ -555,10 +610,7 @@ func blockEditDryRunPlans(themeID, oseid, cardType, template string, containerPr
 		if ref.SectionID == "" { // no --target: the CLI adds the container first
 			containerSID = phSectionID
 			container, dot = phSectionID+".blocks", phSectionID+".blocks.0"
-			operations = append(operations, map[string]any{
-				"op": "add_section", "section_id": phSectionID,
-				"value": map[string]any{"type": genSectionType, "name": genSectionType, "settings": map[string]any{}, "blocks": []any{}},
-			})
+			operations = append(operations, containerAddOp(phSectionID, position))
 		}
 		operations = append(operations, map[string]any{"op": "append_array_item", "target": container, "value": instance})
 	default:

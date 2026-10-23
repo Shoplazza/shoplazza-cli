@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-10-09T07:59:22Z",
+  "generated_at": "2026-10-09T10:23:40Z",
   "modules": [
     {
       "name": "billing",
@@ -10951,13 +10951,20 @@
             }
           ],
           "body": {
-            "required": true,
             "fields": [
               {
                 "name": "revert_id",
                 "type": "string",
-                "required": true,
                 "description": "32-character token taken from any write response (create / update / delete / revert itself); pass it back as-is. The same id may be used repeatedly"
+              },
+              {
+                "name": "revert_ids",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Batch form of `revert_id`, at most 20. Executed in array order. Takes precedence when both are given; at least one of the two is required",
+                "max_length": 20
               }
             ]
           },
@@ -27204,6 +27211,10 @@
             "type": "integer",
             "format": "int64"
           }
+        },
+        {
+          "name": "revert_id",
+          "type": "string"
         }
       ]
     },
@@ -27216,11 +27227,55 @@
         }
       ]
     },
+    "v202601.RevertGenBlockChange": {
+      "fields": [
+        {
+          "name": "type",
+          "type": "string"
+        },
+        {
+          "name": "location",
+          "type": "string"
+        },
+        {
+          "name": "action",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.RevertGenBlockResponse": {
+      "fields": [
+        {
+          "name": "data",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.RevertGenBlockResult"
+          }
+        }
+      ]
+    },
+    "v202601.RevertGenBlockResult": {
       "fields": [
         {
           "name": "revert_id",
           "type": "string"
+        },
+        {
+          "name": "result",
+          "type": "string"
+        },
+        {
+          "name": "new_revert_id",
+          "type": "string"
+        },
+        {
+          "name": "changed",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.RevertGenBlockChange"
+          }
         }
       ]
     },
@@ -27311,6 +27366,10 @@
           "name": "block",
           "type": "object",
           "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "revert_id",
+          "type": "string"
         }
       ]
     },
@@ -27479,6 +27538,10 @@
         {
           "name": "html",
           "type": "string"
+        },
+        {
+          "name": "revert_id",
+          "type": "string"
         }
       ]
     },
@@ -27578,6 +27641,10 @@
         },
         {
           "name": "result",
+          "type": "string"
+        },
+        {
+          "name": "revert_id",
           "type": "string"
         }
       ]
@@ -27793,6 +27860,10 @@
           "name": "template_data",
           "type": "object",
           "schema": "google.protobuf.Struct"
+        },
+        {
+          "name": "revert_id",
+          "type": "string"
         }
       ]
     },
@@ -28041,6 +28112,10 @@
         },
         {
           "name": "html",
+          "type": "string"
+        },
+        {
+          "name": "revert_id",
           "type": "string"
         }
       ]

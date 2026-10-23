@@ -81,6 +81,8 @@
           },
           {
             "op": "add_section",
+            "position": "before",
+            "target": "\u003cfirst_section_id\u003e",
             "value": {
               "type": "\u003cpb_template_type_uri\u003e"
             }
@@ -112,21 +114,6 @@
             "value": {
               "type": "\u003cgenerated_theme_card\u003e"
             }
-          }
-        ]
-      },
-      "method": "POST",
-      "path": "/openapi/2026-01/themes/edit-sessions/\u003coseid\u003e/files/\u003cdoc_id\u003e/operations",
-      "query": null
-    },
-    {
-      "body": {
-        "operations": [
-          {
-            "move_target": "\u003cfirst_section_id\u003e",
-            "op": "move_section",
-            "position": "before",
-            "target": "\u003cnew_section_id\u003e"
           }
         ]
       },

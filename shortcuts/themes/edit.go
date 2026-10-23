@@ -185,24 +185,45 @@ func preflightCards(ctx context.Context, c *client.Client, ops []editOp, inner m
 }
 
 // foldBatchResults folds the server's per-entry results back onto the source
-// ops, returning the applied list and the indexes that did not succeed.
+// ops, returning the applied list and the indexes that did not succeed. Rows
+// also echo visible, to_index_id and revert_id(s).
 func foldBatchResults(ops []editOp, entries []serverOp, newTargets map[int]string,
-	resp map[string]any) ([]map[string]any, []int) {
+	inner, resp map[string]any) ([]map[string]any, []int) {
 	perOp := mapBatchResults(len(ops), entries, resp)
 	applied := make([]map[string]any, 0, len(ops))
 	var failedIdx []int
 	for i := range ops {
-		entry := map[string]any{"op": ops[i].Op, "result": perOp[i]}
+		entry := map[string]any{"op": ops[i].Op, "result": perOp[i].result}
 		if ops[i].Target != "" {
 			entry["target"] = ops[i].Target
 		}
 		if nt := newTargets[i]; nt != "" {
 			entry["new_target"] = nt
 		}
-		if perOp[i] != "success" {
+		if ops[i].Op == "set_visibility" && ops[i].Visible != nil {
+			entry["visible"] = *ops[i].Visible
+		}
+		switch len(perOp[i].revertIDs) {
+		case 0:
+		case 1:
+			entry["revert_id"] = perOp[i].revertIDs[0]
+		default:
+			entry["revert_ids"] = perOp[i].revertIDs
+		}
+		if perOp[i].result != "success" {
 			failedIdx = append(failedIdx, i)
 		}
 		applied = append(applied, entry)
+	}
+	// Resolved against the pre-batch layout: crossing moves in one batch can misreport.
+	for _, e := range entries {
+		if e.entry["op"] != "move_section" || e.source >= len(applied) {
+			continue
+		}
+		if to, ok := toIndexIDOf(inner, anyToString(e.entry["position"]), anyToString(e.entry["move_target"]),
+			anyToString(e.entry["target"])); ok {
+			applied[e.source]["to_index_id"] = to
+		}
 	}
 	return applied, failedIdx
 }
@@ -277,7 +298,7 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	if err != nil {
 		return fail(err)
 	}
-	entries, moves, newTargets, err := translateOps(e.ops, inner, cards)
+	entries, newTargets, err := translateOps(e.ops, inner, cards)
 	if err != nil {
 		return fail(err)
 	}
@@ -305,23 +326,25 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		}
 		return fail(err)
 	}
-	applied, failedIdx := foldBatchResults(e.ops, entries, newTargets, resp)
+	applied, failedIdx := foldBatchResults(e.ops, entries, newTargets, inner, resp)
 	if len(failedIdx) > 0 {
 		return common.ExecResult{}, batchFailErr(oseid, created, applied, failedIdx)
 	}
 
-	// Recover server-assigned ids for added sections and restore requested
-	// placement (the server always appends) with one follow-up batch.
+	// Recover server-assigned ids for added sections with one re-read.
 	var placementWarning string
 	if hasAdds(entries) {
-		placementWarning = placeSections(ctx, in.Client, oseid, docID, entries, moves, preIDs, applied)
+		placementWarning = recoverSectionIDs(ctx, in.Client, oseid, docID, entries, preIDs, applied)
 	}
 
-	previewURL := previewURLFor(themeID, oseid)
+	previewURL, templateID := previewURLFor(themeID, oseid)
 
 	body := map[string]any{
-		"oseid": oseid, "session_created": created,
+		"oseid": oseid, "session_created": created, "doc_id": docID,
 		"applied": applied, "preview_url": previewURL, "promoted": false,
+	}
+	if templateID != "" {
+		body["template_id"] = templateID
 	}
 	if placementWarning != "" {
 		body["placement_warning"] = placementWarning
@@ -503,8 +526,7 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote, publish boo
 	if opsNeedImplicitRead(ops) {
 		plans = append(plans, PlanSchemasList(oseidRef, phDocID))
 	}
-	// pb pre-flight plans, then the whole batch as one request, plus the
-	// placement follow-up when adds carry a position.
+	// pb pre-flight plans, then the whole batch as one request.
 	cards := map[int]map[string]any{}
 	for i := range ops {
 		switch {
@@ -522,22 +544,13 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote, publish boo
 			cards[i] = map[string]any{"type": "<pb_template_type_uri>"}
 		}
 	}
-	if entries, moves, _, err := translateOps(ops, nil, cards); err == nil {
+	if entries, _, err := translateOps(ops, nil, cards); err == nil {
 		operations := make([]map[string]any, len(entries))
 		for i, e := range entries {
 			operations[i] = e.entry
 		}
 		if len(entries) > 0 { // an empty batch sends no request at all
 			plans = append(plans, PlanBatchOps(oseidRef, phDocID, operations))
-		}
-		if len(moves) > 0 {
-			moveOps := make([]map[string]any, 0, len(moves))
-			for _, mv := range moves {
-				moveOps = append(moveOps, map[string]any{
-					"op": "move_section", "target": "<new_section_id>", "position": mv.position, "move_target": mv.moveTarget,
-				})
-			}
-			plans = append(plans, PlanBatchOps(oseidRef, phDocID, moveOps))
 		}
 	}
 	if promote {
