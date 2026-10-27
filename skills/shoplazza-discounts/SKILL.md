@@ -292,10 +292,12 @@ in shoplazza-common → Authentication.
 
 | Operation | Needs | Grant |
 |---|---|---|
-| read (`get` / `get-by-code` / `list` / `+search`) | `discounts` read scope | `auth login --domain discounts` |
-| write (`create-*` / `+*` / `cancel` / `restart` / `delete` / `batch-delete` / `update-*` / `combine` / `coupons`) | `discounts` write scope | `auth login --domain discounts` |
+| read (`get` / `get-by-code` / `list` / `+search`) | `read_price_rules` | `auth login --domain discounts` |
+| write (`create-*` / `+*` / `cancel` / `restart` / `delete` / `batch-delete` / `update-*` / `combine` / `coupons`) | `write_price_rules` | `auth login --domain discounts` |
 
-Look up exact scope literals with `shoplazza auth scopes`; `--domain discounts` expands into them.
+The discounts scopes are named `read_price_rules` / `write_price_rules` — there is no scope with
+"discount" in its name. Check `granted_scopes` in `shoplazza auth scopes` for those two;
+`--domain discounts` expands into them.
 
 ## Gotchas
 
@@ -304,6 +306,7 @@ shoplazza-common).
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
+| 403 `PermissionDenied` "check if a store is a new marketing store" on every `discounts` call, reads included | A store-side check, not a scope: this store isn't enabled for the discounts API. The envelope's generic re-login `hint` does not apply | Don't re-login or retry. Confirm `read_price_rules` / `write_price_rules` are in `auth scopes` → `granted_scopes` (the discounts scopes; none is named "discount"); if they are, tell the user discounts can't be managed through the CLI on this store and stop |
 | `null` after `get` / `get-by-code` | discount object is nested under `.data.discount` | Start jq at `.data.discount.discount_info.…` |
 | `--discount-type rebate` matches nothing | "rebate" is not an enum | Use `rebate_cta_otr` / `rebate_ctq_otr` / `rebate_cta_otp` / `rebate_ctq_otp` |
 | `--limit-max must be > 0 (got -1)` | Caps are positive-only; `-1` is rejected | **Omit** the cap entirely for "no limit" — don't pass `-1` |

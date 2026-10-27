@@ -1,19 +1,19 @@
 ---
 name: shoplazza-shop
 description: >-
-  Store-level configuration and content for a shoplazza store — use when the user works on:
-  shop info / settings (店铺信息 / 店铺设置 / 主域名 / 币种 / 客服邮箱 / customer email);
-  sales & traffic analytics (销量 / 销售额 / 流量 / 报表 / 数据分析 / analytics / sales
-  report / PV UV / conversion / SKU 排行 / best-selling SKU); the media library & file
-  uploads (素材库 / 媒体库 / 上传文件 / files / upload file — store assets, NOT product
-  images); metafields / 元字段 / 自定义字段 — ALL metafields live HERE, including
-  metafields ON products / orders / customers (给商品加字段); blogs & articles (博客 /
-  文章 / 发文章 / blog post); custom storefront pages (自定义页面 / 关于我们 / About Us /
-  policy page); URL redirects (重定向 / 301 / URL 跳转); markets (市场 / 多市场 /
-  发布到日本市场); store languages (语言 / 多语言 / 翻译 / 开通日语); real-time
-  shipping-rate carrier services (实时运费报价 / 承运商 / carrier service). NOT product
-  catalog / 商品图片 (→ shoplazza-products); NOT 优惠码 (→ shoplazza-discounts); NOT
-  order search / 订单统计 / 物流查询 (→ orders domain); NOT theme editing / 装修 / page templates (→ shoplazza-themes).
+  Store-level config & content for a shoplazza store — use for: shop info / settings
+  (店铺信息 / 店铺设置 / 主域名 / 币种 / 客服邮箱 / customer email); sales & traffic analytics
+  (销量 / 销售额 / 流量 / 流量渠道 / 搜索词 / 报表 / 数据分析 / analytics / PV UV / conversion /
+  SKU 排行 / best-selling SKU); media library & file uploads (素材库 / 媒体库 / 上传文件 /
+  upload file — store assets, NOT product images); metafields / 元字段 / 自定义字段 — ALL
+  metafields live HERE, incl. ones ON products / orders / customers (给商品加字段); blogs &
+  articles (博客 / 文章 / blog post); custom storefront pages (自定义页面 / 关于我们 / About Us /
+  policy page); navigation menus (导航菜单 / 菜单项 / menu items); URL redirects (重定向 / 301 /
+  URL 跳转); markets (市场 / 多市场 / 发布到日本市场); store languages (语言 / 多语言 / 翻译 /
+  开通日语); real-time rate carrier services (实时运费报价 / 承运商 / carrier service). NOT
+  product catalog / 商品图片 (→ shoplazza-products); NOT 优惠码 (→ shoplazza-discounts); NOT
+  order search / 订单统计 / 物流查询 (→ orders domain); NOT theme editing / 装修 / page
+  templates (→ shoplazza-themes).
 ---
 
 # shoplazza CLI — shop module
@@ -27,8 +27,8 @@ profiles, and the safety protocol. This file covers only the shop domain and nev
 
 The `shop` module is the store-level **config & content** domain: shop info/settings,
 sales & traffic analytics, the media library (files), metafields (all three families),
-blogs & articles, custom pages, URL redirects, markets, store languages, and real-time
-shipping-rate carrier services. Broad and shallow — this file is the router; per-sub-area
+blogs & articles, custom pages, navigation menus, URL redirects, markets, store languages,
+and real-time shipping-rate carrier services. Broad and shallow — this file is the router; per-sub-area
 depth lives in [`references/`](#references).
 
 The **only shortcut is `+upload-file`** — everything else is a spec leaf
@@ -46,6 +46,8 @@ Intent → command, highest-fit tier first. Authoritative flags/params live in
 | **Analytics** — 销售额/订单数报表 for a date range | `shop analytics overview --data '{"begin_time":"<unix-str>","end_time":"<unix-str>","indicator":["sales","orders"]}'` → [references/analytics.md](references/analytics.md) |
 | SKU 销量排行 / best-selling SKU | `shop analytics by-sku --data '{…,"sort_by":"sales_total","sort_direction":"desc"}'` |
 | SPU / landing-page / UTM breakdown | `shop analytics by-spu` (extra required `type`) / `by-land-page` (required `dimensions`) / `by-utm` |
+| 搜索词分析 / 搜了没结果的词 / on-site search keywords | `shop analytics search-keyword --data '{…,"sort_by":"count","sort_direction":"desc"}'` (`has_result` is a string `"0"`/`"1"`) |
+| 流量渠道 / 流量来源 / traffic by channel | `shop analytics traffic-channel` (required `dimensions` + `metrics`); valid channel names: `shop analytics traffic-channel-options` |
 | **Media library** — 上传文件到素材库 (public URL only) | `shop +upload-file --source-url <url> [--source-url <url> …] [--folder <name>]` |
 | Check an upload task / 上传进度 | `shop files task --params '{"task_id":"<id>"}'` (the shortcut already fetches it once) |
 | Browse the media library / 看素材库 | `shop files list` (folder defaults to `all_upload`; `page_size` ≤ 300) |
@@ -56,6 +58,10 @@ Intent → command, highest-fit tier first. Authoritative flags/params live in
 | **Blog content** — 发博客文章 / new blog post | `shop articles create --data '{"article":{"title":"…","content":"…","blog_ids":["…"]}}'` → [references/blogs-articles.md](references/blogs-articles.md) |
 | Manage blogs (containers of articles) | `shop blogs list` / `shop blogs create --data '{"blog":{"Title":"…"}}'` (title key is capital **`Title`**) |
 | **Custom pages** — 自定义页面 / 关于我们 / About Us | `shop pages create --data '{"page":{"title":"…","content":"…"}}'` → [references/pages-redirects.md](references/pages-redirects.md) |
+| **Navigation menus** — 看导航菜单 / list menus & items | `shop menu list` (built-ins have ids `header` / `footer`; one menu: `--params '{"ids":["header"]}'`) |
+| 新建菜单 / create a custom menu | `shop menu create --data '{"title":"…","children":[…]}'` (custom menus only) |
+| 改菜单名 / 改菜单项 / edit a menu | `shop menu update --params '{"id":"<menu-id>"}' --data '{"title":"…"}'` — sending `children` **replaces the whole item tree** (see Gotchas) |
+| 删菜单 / delete a custom menu | `shop menu delete --params '{"id":"<menu-id>"}'` (built-in `header` / `footer` can't be deleted) |
 | **URL redirect** — 301 / 跳转 | `shop redirects create --data '{"redirect":{"from_url":"…","redirect_url":"…","status":"…"}}'` (`status` required — see Gotchas) |
 | **Markets** — 建市场 / 发布到某国 | `shop markets create --data '{"name":"…","countries":["JP"]}'` → [references/markets.md](references/markets.md) |
 | **Languages** — 开通语言 / 多语言 | `shop languages supported` → `add` → `enable` → `publish` → [references/languages.md](references/languages.md) |
@@ -78,10 +84,12 @@ about defaulted/optional fields.
 | `carrier-services create` | `name`, `callback_url` (the user's own endpoint — never invent), `carrier_code` | `active`, `logo`, `short_desc` |
 | `languages add` | the language(s); resolve IETF codes via `languages supported` | — |
 | `info update` | the new `customer_email` | `shop_id` — resolve it yourself via `info get`, don't ask |
+| `menu create` | `title`; each item's title + link target (resolve ids yourself) | `category` (always custom `3`), `target`, `disabled` |
+| `menu update` | which menu (resolve the id via `menu list`), the change | `title` / `category` — omit to keep them |
 
 Destructive leaves (`pages batch-delete`, `markets delete` — irreversible, `files delete`,
-`redirects delete`, `metafields-* delete`) → `--dry-run` first + restate, per
-shoplazza-common → Safety protocol.
+`redirects delete`, `metafields-* delete`, `menu delete`, `menu update` with `children`) →
+`--dry-run` first + restate, per shoplazza-common → Safety protocol.
 
 ## Boundaries
 
@@ -97,6 +105,8 @@ Reads like another domain (or another domain reads like shop):
 | 实时运费报价承运商 / rate-quoting carrier at checkout | **HERE** | `shop carrier-services …` |
 | 物流商查询 / 运单追踪 / fulfillment tracking carriers, shipping zones | orders domain | `orders tracking-carriers` / `orders shipping-schemas` |
 | 自定义页面 / 关于我们 / brand-story page | **HERE** (content, not theming) | `shop pages create` |
+| 导航菜单 / 菜单项 / add a link to the main menu | **HERE** (menu content) | `shop menu list` → `shop menu update` |
+| 页头显示哪个菜单 / bind a menu to the header card | `shoplazza-themes` | `themes +edit` (the card's `link_list` setting) |
 | 改模板 / 装修 / theme & template editing, layout of a custom page | `shoplazza-themes` | `themes +page` / `themes +edit` / `themes template …` |
 | 博客/文章 blog & articles | **HERE** (not product reviews) | `shop blogs` / `shop articles` |
 | 买家评价 / product reviews | `shoplazza-products` | `products comments …` |
@@ -121,7 +131,11 @@ shoplazza-common).
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Analytics call rejected / empty | All 5 `analytics` endpoints are **POST**: filters go in `--data`, not `--params`; `begin_time`/`end_time` are **unix-second timestamps passed as STRINGS** (`"1782864000"`) | Compute the timestamps, quote them as strings, send via `--data` |
+| Analytics call rejected / empty | Every `analytics` report is **POST** (only `traffic-channel-options` is a GET): filters go in `--data`, not `--params`; `begin_time`/`end_time` are **unix-second timestamps passed as STRINGS** (`"1782864000"`) | Compute the timestamps, quote them as strings, send via `--data` |
+| `traffic-channel` 400 `cannot unmarshal object … filters of type string` | Its `filters` is a JSON object **encoded as a string**; `search-keyword`'s `has_result` is also a string | `"filters":"{\"last_referrer_first_show\":{\"operator\":\"in\",\"value\":[\"Social\"]}}"`; `"has_result":"0"` — see [references/analytics.md](references/analytics.md) |
+| Menu items lost after `menu update` | `children` **replaces the whole item tree**: items left out are deleted, `[]` clears the menu | Read the menu first, edit the full tree, send all of it back (keep each existing item's `id`); omit `children` to change only the title |
+| Nested menu items came back flat / nesting lost | `menu list` returns items **flat** — a sub-item points at its parent via `pid`; writes take nesting only as nested `children` (no `pid` field) | Rebuild the tree from `pid` before sending `children` |
+| Unsure what to put in a menu item's `url_obj` | The link `type` values are not enumerated in the schema | Copy `url_obj` from an existing item of the same kind in `menu list` (`type` + `source_id` + `url`); never invent a `type` or `source_id` |
 | Tried to update shop name/address | `info update` exposes **one** editable field: `shop.customer_email` | Anything else is not updatable via this endpoint; say so |
 | `info update` needs a `shop_id` the user can't know | `shop_id` is a required path param | Resolve first: `shop info get --jq '.data.id'` |
 | Asked to upload a **local** file | `+upload-file` takes **public URLs, NOT local files** (verbatim in its help); the API fetches the URL | Degrade: no write; ask for a public link or suggest hosting it first |
@@ -173,11 +187,15 @@ shop languages add --data '{"codes":["ja-JP"]}'
 shop languages enable --params '{"language_code":"ja-JP"}'
 MARKET_ID=$(shop markets list --jq '.data.markets[] | select(.name=="Japan") | .id')
 shop languages publish --params '{"language_code":"ja-JP"}' --data "{\"market_ids\":[\"$MARKET_ID\"]}"
+
+# 11. Rename a custom menu without touching its items (no children = items kept)
+shop menu list --jq '[.data.menus[] | {id, title, category}]'   # category 3 = custom
+shop menu update --params '{"id":"<menu-id>"}' --data '{"title":"Footer links"}'
 ```
 
 ## References
 
-- [references/analytics.md](references/analytics.md) — 5 POST endpoints, indicators/dimensions, sort enums, timestamp rules
+- [references/analytics.md](references/analytics.md) — 7 POST reports + the channel-options lookup, indicators/dimensions, sort enums, timestamp rules
 - [references/metafields.md](references/metafields.md) — definitions vs resource vs shop metafields, owner_resource enum, type enums
 - [references/blogs-articles.md](references/blogs-articles.md) — blogs (containers) vs articles (posts); blog title key is capital `Title`
 - [references/pages-redirects.md](references/pages-redirects.md) — custom pages CRUD/batch, redirects & the undocumented status enum
