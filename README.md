@@ -6,7 +6,7 @@
 
 [中文版](./README.zh.md) | [English](./README.md)
 
-The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — built for humans and AI Agents. Develop apps and themes, manage products, discounts, orders and customers, all from the terminal with structured output designed for AI Agent integration.
+The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — built for humans and AI Agents. Develop apps and themes, and manage products, discounts, orders and customers, with structured output designed for AI Agent integration.
 
 [Install](#installation--quick-start) · [Auth](#authentication) · [Development](#development-workflows) · [Commands](#three-layer-command-system) · [Agent Skills](#agent-skills) · [Advanced](#advanced-usage) · [Contributing](#contributing)
 
@@ -14,9 +14,10 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 
 - **Agent-Native Design** — Structured JSON output out of the box; AI Agents can operate Shoplazza stores with zero extra setup
 - **Agent Skills Included** — One command installs [skills](#agent-skills) that teach AI agents this CLI's commands, safety rules, and per-domain gotchas
-- **E-Commerce Focused** — Products, Discounts, Orders, Customers with full CRUD and 20+ shortcut commands for high-frequency operations
+- **E-Commerce Focused** — Products, Discounts, Orders, Customers with full CRUD and 30+ shortcut commands for high-frequency operations
 - **Full Developer Workflow** — App creation, extension scaffolding (checkout / theme / function), local dev server over an auto tunnel, one-command deploy; plus theme init, live reload, multi-environment, and packaging
-- **Secure & Controllable** — Input injection protection, OS-native keychain credential storage, token auto-refresh
+- **Secure & Controllable** — Encrypted local credential storage, automatic store-token refresh, `--dry-run` previews, and a confirmation prompt before destructive commands
+- **Interactive When You Need It** — Missing required flags are prompted for and id flags open a fuzzy picker; scripts and agents never see a prompt
 - **Three-Layer Architecture** — Shortcuts (human & AI friendly) → API Commands (OpenAPI-synced) → Raw API (full coverage)
 - **Up and Running in 3 Minutes** — Interactive login, from install to first API call in 3 steps
 
@@ -24,17 +25,18 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 
 | Domain | Capabilities |
 |--------|-------------|
-| 🛍️ Products | Catalog, variants, inventory, collections, images, gift cards, reviews |
+| 🛍️ Products | Catalog, variants, inventory, collections, images, gift cards, reviews, locations, suppliers & procurement |
 | 🏷️ Discounts | Automatic and code discounts, flash sales, coupon campaigns |
-| 📦 Orders | Orders, fulfillment, refunds, transactions, risk, shipping zones |
+| 📦 Orders | Orders, fulfillment, refunds, transactions, risk, post-sales, shipping zones, tracking carriers |
 | 👤 Customers | Customer profiles, addresses, marketing subscription |
-| 🏪 Shop | Shop info, blogs & articles, pages, files, metafields, markets, languages, redirects, analytics |
+| 🏪 Shop | Shop info, blogs & articles, pages, menus, files, metafields, markets, languages, redirects, carrier services, analytics |
 | 💳 Billing | Application charges: one-time, recurring, usage-based |
 | 🔔 Webhooks | Webhook subscription CRUD |
-| 🎨 Themes | Local dev loop with live reload, multi-environment targeting, page & block editing |
+| 🎨 Themes | Local dev loop with live reload and multi-environment targeting; store themes (market, publish, files, versions); page, card & AI block editing |
 | 🧩 App | Full lifecycle: init → extension create → dev → deploy; extensions: checkout, theme, function |
+| 🧱 Extensions | Standalone `checkout-extension` and `theme-extension` projects: scaffold, dev / serve, version, deploy / release |
 
-Every domain also carries `+` shortcuts on top of its generated commands — run
+Most domains also carry `+` shortcuts on top of their generated commands — run
 `shoplazza <domain> --help` to see the ones it has.
 
 ## Installation & Quick Start
@@ -122,7 +124,7 @@ shoplazza auth store use --store-domain another-store.myshoplazza.com
 shoplazza auth status
 ```
 
-Access tokens are stored in the OS-native keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service).
+Credentials (the account UAT and store tokens) are encrypted with AES-256-GCM and kept under your user config directory (`shoplazza-cli/`) with owner-only permissions.
 
 ### Multi-store profiles
 
@@ -144,8 +146,8 @@ shoplazza products list --profile prod-us   # per-invocation override, no switch
 The CLI covers the full app lifecycle: create, configure, develop, and deploy.
 
 ```bash
-# 1. Create a new app project (creates a sub-directory)
-shoplazza app init --name "My App" --partner <partner-id>
+# 1. Create a new app project (creates a sub-directory; add --partner <id> if your account has several partners)
+shoplazza app init --name "My App"
 
 # 2. Add extensions (theme / checkout / function)
 cd my-app
@@ -169,16 +171,36 @@ shoplazza app versions
 ```bash
 shoplazza app list                              # List apps in your account
 shoplazza app info                              # Print app and extension info
-shoplazza app config use --config alt.toml      # Switch active app config (persistent)
+shoplazza app config use --config alt           # Switch active app config to shoplazza.app.alt.toml (persistent)
 shoplazza app dev --config staging              # Run against one config for this invocation only (not persisted); dev/deploy/function too
 shoplazza app config link --client-id <id>      # Link an existing app (pulls its dashboard settings into [dashboard])
 shoplazza app config push                       # Push [dashboard] (name / app_url / redirect_url / embed) to the Partner dashboard
 shoplazza app dev --write-urls                  # Also record the tunnel URLs in [dashboard], then `app config push` them
 
 # Function extensions (compile/release individually)
-shoplazza app function compile --extension my-fn
-shoplazza app function release --extension my-fn
+shoplazza app function compile --name my-fn
+shoplazza app function release --name my-fn
 shoplazza app function list
+```
+
+</details>
+
+<details>
+<summary>Standalone extension projects (checkout / theme)</summary>
+
+```bash
+# Checkout extension: scaffold, dev server with HMR, upload a version, then activate it
+shoplazza checkout-extension init --name my-checkout-ext --extension banner
+shoplazza checkout-extension dev --extension-name banner
+shoplazza checkout-extension push --name banner
+shoplazza checkout-extension deploy --extension-id <id> --version 1.0
+
+# Theme extension (alias: te): scaffold, live preview, build a version, link to an app and release
+shoplazza theme-extension create --name my-te --type embed
+shoplazza te serve --theme-id <theme-id>
+shoplazza te build --version 1.0.0 --description "initial release"
+shoplazza te connect --client-id <client-id>
+shoplazza te release
 ```
 
 </details>
@@ -203,7 +225,8 @@ shoplazza themes package
 # 4. Upload as a preview
 shoplazza themes share
 
-# 5. AI-generated blocks: write a block file and place it on a page in one call
+# 5. AI-generated blocks: read a page (returns an edit session id), then write a block file and place it in one call
+shoplazza themes +page --template index
 shoplazza themes block +edit --session <oseid> --content card.liquid --template index --target <section_id>.blocks
 shoplazza themes block +get  --session <oseid> --id gen_1a0d523 --section <section_id>
 ```
@@ -214,7 +237,7 @@ shoplazza themes block +get  --session <oseid> --id gen_1a0d523 --section <secti
 Record named environments (store, theme id, path, ignore) in `shoplazza.theme.toml` and target one with `-e`:
 
 ```bash
-shoplazza themes env add --name staging     # interactive; validates before writing
+shoplazza themes env add staging --store <domain>   # prompts for what's missing; validates before writing
 shoplazza themes env list                    # list configured environments
 shoplazza themes env check                   # validate all environments offline
 shoplazza themes push -e staging             # run against that environment (store + theme + path)
@@ -235,7 +258,7 @@ Prefixed with `+`, designed to be friendly for both humans and AI, with smart de
 
 ```bash
 shoplazza products +search --keyword "shirt"
-shoplazza discounts +percent-code --code "SAVE20" --percentage 20
+shoplazza discounts +percent-code --target order --percent 20 --code SAVE20
 shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 
@@ -248,11 +271,11 @@ Auto-generated from OpenAPI metadata — commands mapped 1:1 to platform endpoin
 
 ```bash
 shoplazza products list
-shoplazza products get <product-id>
+shoplazza products get --params '{"product_id":"<product-id>"}'
 shoplazza products create --data @product.json
 
 shoplazza discounts list
-shoplazza discounts create-discount --data @discount.json
+shoplazza discounts create-non-automatic --data @discount.json
 
 # All domains: products, discounts, orders, customers, billing, shop, themes, webhook
 shoplazza orders list
@@ -283,18 +306,20 @@ npx skills add Shoplazza/shoplazza-cli -g
 ```
 
 Installs all skills below into `~/.agents/skills/` and links them into your agent's skill
-directory, for use across every project.
+directory, for use across every project. `shoplazza update` refreshes installed skills, and the
+same skills ship inside the binary: `shoplazza skills list` / `shoplazza skills read <skill>`.
 
 ### Available skills
 
 | Skill | Covers |
 |-------|--------|
 | `shoplazza-common` | **Base skill — required by all the others.** Auth & profiles, the three command tiers, the output envelope, `--dry-run` safety, `schema` introspection |
-| `shoplazza-products` | Products, variants, inventory, collections, comments, gift cards |
-| `shoplazza-orders` | Orders, fulfillments, refunds, transactions, draft orders |
+| `shoplazza-products` | Products, variants, inventory, collections, images, reviews, gift cards, locations, suppliers |
+| `shoplazza-orders` | Orders, fulfillments, refunds, transactions, risk, post-sales, shipping zones |
 | `shoplazza-customers` | Customers and their addresses |
 | `shoplazza-discounts` | Automatic and code discounts, coupon campaigns |
-| `shoplazza-shop` | Shop info, blogs & articles, pages, files, metafields, markets, languages, redirects, analytics |
+| `shoplazza-shop` | Shop info, blogs & articles, pages, files, metafields, markets, languages, redirects, carrier services, analytics |
+| `shoplazza-themes` | Store themes: page & card editing, theme settings, app embeds, custom templates, AI blocks, market & versions |
 | `shoplazza-billing` | Application charges (one-time, recurring, usage-based) |
 | `shoplazza-webhook` | Webhook subscriptions |
 
@@ -310,6 +335,7 @@ before use.
 | `--format json\|pretty\|table\|ndjson\|csv` | All commands | Output format. Default auto-detects: `pretty` at a terminal, `json` when piped/CI (or set `SHOPLAZZA_CLI_FORMAT`). `json` is the machine contract; `pretty`/`table` are for humans |
 | `--no-input` | All commands | Never prompt; fail fast on missing input (scripts/agents). Same as `SHOPLAZZA_CLI_NO_INTERACTIVE=1` |
 | `--profile <name>` | All commands | Profile for this invocation (beats `SHOPLAZZA_CLI_PROFILE` and the current profile) |
+| `--data` / `--params` | API commands | Request body / path & query parameters as JSON: inline, `@file`, or `-` for stdin |
 | `--dry-run` | API & shortcut commands | Preview request without executing |
 | `--jq "expr"` / `-q` | API & shortcut commands | Filter JSON output with jq expression |
 
@@ -326,8 +352,9 @@ shoplazza schema products.list                # Inspect a method
 ### Updating
 
 ```bash
-shoplazza update            # update the binary (npm installs) and refresh the API metadata
+shoplazza update            # update the binary (npm installs), refresh the API metadata and installed Agent Skills
 shoplazza update --check    # report current/latest versions only, no install
+shoplazza doctor check      # diagnose CLI health
 ```
 
 ### Environment Variables
@@ -335,11 +362,16 @@ shoplazza update --check    # report current/latest versions only, no install
 | Variable | Description |
 |----------|-------------|
 | `SHOPLAZZA_UAT` | User Access Token for non-interactive login (equivalent to `--uat`) |
+| `SHOPLAZZA_ACCESS_TOKEN` | Use this store access token directly, skipping login (CI). Needs a store target: `SHOPLAZZA_CLI_API_BASE_URL` or a profile |
+| `SHOPLAZZA_CLI_API_BASE_URL` | Store base URL used with `SHOPLAZZA_ACCESS_TOKEN` (e.g. `https://my-store.myshoplazza.com`) |
 | `SHOPLAZZA_CLI_PROFILE` | Profile to use (overridden by `--profile`) |
 | `SHOPLAZZA_CLI_FORMAT` | Pin the default output format (`json`/`pretty`/`table`/`ndjson`/`csv`), overriding TTY auto-detection; `--format` still overrides it. Use `=json` to force machine output in a pty |
 | `SHOPLAZZA_CLI_NO_INTERACTIVE` | Disable interactive prompts (set it in Agent harnesses that allocate a pty; or pass `--no-input`) |
 | `SHOPLAZZA_CLI_NO_UPDATE_CHECK` | Disable the background new-version check |
 | `SHOPLAZZA_CLI_NO_META_UPDATE` | Disable background API-metadata refreshes |
+| `SHOPLAZZA_CLI_NO_NOTICE` | Drop the `_notice` block (stale CLI / skills) from json output |
+| `SHOPLAZZA_CLI_SKIP_SKILLS` | Skip refreshing installed Agent Skills after `shoplazza update` |
+| `NO_COLOR` | Disable colored output |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | Override auth base URL (default: `https://partners.shoplazza.com`) |
 | `SHOPLAZZA_CLI_USER_ID` | Override the `cli-user-id` request header (audit attribution). Defaults to the user id captured at login; set it when `SHOPLAZZA_ACCESS_TOKEN` injects a token, which carries no login state |
 
@@ -354,12 +386,14 @@ The CLI auto-detects the audience from where stdout goes (like `gh`/`docker`/`ku
 - **Scripts & agents**: piping stdout already yields JSON. If your harness allocates a **pty** for stdout, force it with `--format json` or `SHOPLAZZA_CLI_FORMAT=json`, and pass `--no-input` (or set `SHOPLAZZA_CLI_NO_INTERACTIVE=1` / `CI=1`) so no prompt can block. Don't set `SHOPLAZZA_CLI_FORMAT=pretty` in a shared shell profile — child processes inherit it.
 - **Errors** follow the same split. At a `pretty`/`table` terminal a failure prints a readable `Error:` / `Hint:` line (plus the failing endpoint and request id when the server returned them); piped, in CI, with `--no-input`, or in any `json`/`ndjson`/`csv` mode, stderr carries the `{"ok":false,"error":{…}}` envelope. Both a human format **and** a terminal on stderr are required for the readable line, so a redirected stderr always stays JSON — scripts and agents keep parsing it.
 
+The full machine contract (envelopes, error subtypes, exit codes) is in [AGENTS.md](./AGENTS.md).
+
 ## Security & Risk Warnings
 
 > Read Before Use
 
 - **AI Agent Automation Risk** — When AI Agents operate the CLI on your behalf, all API calls carry real consequences (creating products, modifying orders, deleting discounts). Always review the Agent's proposed commands before execution.
-- **Credential Safety** — Tokens are stored in the OS-native keychain. Never share your UAT or store tokens. Rotate credentials immediately if you suspect exposure.
+- **Credential Safety** — Tokens are encrypted on local disk. Never share your UAT or store tokens. Rotate credentials immediately if you suspect exposure.
 - **Scope Control** — Use `--scope` or `--domain` to limit the permissions granted during login. Grant only the scopes your workflow requires.
 
 ## Contributing
