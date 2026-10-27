@@ -1,15 +1,16 @@
 ---
 name: shoplazza-common
 description: >-
-  Shared foundation for the shoplazza CLI: authentication (auth login — account-level and
-  store-level), auth status/scopes/logout, store switching (auth store use), multi-store
-  profiles (add/list/use/rename/remove/info), the three access tiers (+shortcut / spec leaf /
-  api rest), the output envelope ({ok,data} / .data), --dry-run / --jq / --fields / --format,
-  schema introspection, api rest fallback, update notice, the safety protocol, and how to trust
-  a filtered list read (pagination / has_more / cursor, silently-dropped filters, the exact-match
-  precision ladder). Read this FIRST on first use of the shoplazza CLI, when logging in /
-  authorizing / switching store or profile, on permission errors, when a search or filter looks
-  like it returned too much, and before using any domain skill.
+  Shared foundation for the shoplazza CLI: installing the CLI (安装 CLI / command not found),
+  authentication (auth login — account-level and store-level; 登录 / 授权), auth
+  status/scopes/logout, store switching (auth store use; 切换店铺 / 换店), multi-store profiles
+  (add/list/use/rename/remove/info), the three access tiers (+shortcut / spec leaf / api rest),
+  the output envelope ({ok,data} / .data), --dry-run / --jq / --fields / --format, schema
+  introspection, api rest fallback, update notice, the safety protocol, and how to trust a
+  filtered list read (pagination / has_more / cursor, silently-dropped filters, the exact-match
+  precision ladder). Read this FIRST on first use of the shoplazza CLI, when the CLI is missing,
+  when logging in / authorizing / switching store or profile, on permission errors, when a
+  search or filter looks like it returned too much, and before using any domain skill.
 ---
 
 # shoplazza CLI — shared foundation (shoplazza-common)
@@ -157,6 +158,40 @@ Supports `--params` / `--data` (incl. `-` for stdin, `@file` for a file), `--dry
 (→ `6.69…e+17`) and the request is rejected. Applies anywhere an id exceeds ~15 digits
 (e.g. `shop redirects`).
 
+## Installation
+
+### CLI preflight
+
+If `shoplazza` is not found (`command not found`) or `shoplazza --version` fails, the CLI is
+not installed. Installing changes the user's machine: say which method you'll use and wait for
+a yes. Pick by what the machine already has:
+
+| Method | Command | When |
+|---|---|---|
+| npm (recommended) | `npm install -g shoplazza-cli` | Node.js ≥ 16 present (`node -v`) |
+| Homebrew | `brew install Shoplazza/tap/shoplazza-cli` | macOS / Linux with `brew` |
+| Install script | `curl -fsSL https://raw.githubusercontent.com/Shoplazza/shoplazza-cli/main/install.sh \| bash` | macOS / Linux without Node; installs to `/usr/local/bin` (`INSTALL_DIR=<dir>` to change) |
+| Release binary | download from `https://github.com/Shoplazza/shoplazza-cli/releases` | any other platform; put it on `PATH` |
+
+Then confirm with `shoplazza --version` and continue with the login flow below.
+
+- **One installer only.** Two installs leave two `shoplazza` binaries on `PATH` running
+  different versions; `which -a shoplazza` lists them. Keep one.
+- **Update with the installer you used.** `shoplazza update` always reinstalls via npm — on a
+  Homebrew or script install it adds that second copy. Use `brew upgrade shoplazza-cli` or
+  re-run the script instead.
+
+### First-time setup, end to end
+
+```bash
+shoplazza --version                                               # installed?
+shoplazza auth login -s my-store.myshoplazza.com --domain products,orders   # login + bind a store
+shoplazza auth status                                             # logged_in: true, the store under profiles
+```
+
+Run the login in the background and hand the user the authorization URL (Agent-driven login
+flow below). Ask which store and which modules the user needs; don't guess a store domain.
+
 ## Authentication (auth)
 
 ### Login-state preflight
@@ -185,8 +220,8 @@ shoplazza auth login -s my-store.myshoplazza.com --domain discounts
 ```
 
 - `--domain <module,…>`: authorize by **top-level command name**; the CLI expands each into the
-  OAuth scopes that module needs. Options: `billing, checkout, customers, discounts, orders,
-  products, shop, themes, webhook, all`. **Preferred** — you don't memorize scope literals.
+  OAuth scopes that module needs. Options: `app, billing, checkout, customers, discounts,
+  orders, products, shop, themes, webhook, all`. **Preferred** — you don't memorize scope literals.
 - `--scope <literal,…>`: fine-grained OAuth scopes (e.g. `read_product,write_product`),
   least-privilege.
 - **Re-login REPLACES the grant** (verified live: a 22-scope grant re-authorized with one
@@ -238,6 +273,19 @@ shoplazza auth store use -s another-store.myshoplazza.com [--scope …]  # excha
 shoplazza auth logout                                                  # log out of the current store
 ```
 
+Which command switches the store:
+
+| Want | Command |
+|---|---|
+| Which store am I on? | `auth status` — the profile with `current: true` (`store_domain`) |
+| A store used before (has a profile) | `profile list` → `profile use --name <name>` (`--previous` switches back) |
+| A store with no profile yet | `auth store use -s <store-domain>` — creates or reuses its profile and makes it current |
+| One command against another store | add `--profile <name>` to that command; the current profile stays |
+
+`auth store use` and `profile add` need an account login first, and a profile's scopes must be
+a subset of the account grant — missing scopes → `auth login --domain <module> --merge-scopes`,
+then switch again.
+
 ### Handling insufficient permissions
 
 On 401/403 for a write, the error envelope's `hint` says what's missing. Grant it as directed:
@@ -273,6 +321,8 @@ latest version and offer to update:
 shoplazza update            # update via npm (--check only reports versions, no install)
 # or: npm install -g shoplazza-cli@latest
 ```
+
+Installed with Homebrew or the install script? Update the same way instead (see Installation).
 
 (Set `SHOPLAZZA_CLI_NO_UPDATE_CHECK` to disable the check.)
 
