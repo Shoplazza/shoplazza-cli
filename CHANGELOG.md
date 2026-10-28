@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.3.0 - 2026-10-28
+
+### Added
+- The Agent Skills now ship as a plugin for Claude Code, Codex, GitHub Copilot (CLI and VS Code), Cursor, Antigravity, CodeBuddy, Qoder and Kimi Code CLI, kept up to date by the agent's own plugin manager. The README lists the install command for each agent; every release also attaches `shoplazza-plugin-<version>.zip` for the Codex plugin store.
+- `--version`, the `_notice` skills hint and `doctor` count a plugin install as installed skills. `doctor` reports `installed as a plugin`, and warns with the `npx skills remove` command when the skills are installed both ways, since the agent then sees two copies.
+
+### Changed
+- Bundled skills: `shoplazza-shop` covers navigation menus (`shop menu`) and the `analytics search-keyword` / `traffic-channel` / `traffic-channel-options` reports; `shoplazza-common` covers installing and updating the CLI; `shoplazza-discounts` names the real scopes (`read_price_rules` / `write_price_rules`) and explains the store-side 403 that no re-login fixes.
+
 ## 2.2.3 - 2026-10-23
 
 ### Removed
