@@ -70,6 +70,11 @@ type Extension struct {
 	// (v1 field name). json:"-" — the version-task/PUT bodies are hand-built maps,
 	// so this is a pure internal carrier and never marshals into any request body.
 	Exts string `json:"-"`
+	// MetafieldsQuery is a function extension's declared metafield reads, uploaded
+	// as the input_query field in UpsertFunction. json:"-" so it rides along to the
+	// function upsert WITHOUT leaking into the Dashboard/cobra deploy body — the
+	// declaration is stored only on the functions-api function version.
+	MetafieldsQuery []MetafieldsQueryItem `json:"-"`
 }
 
 type PartnersResp struct {

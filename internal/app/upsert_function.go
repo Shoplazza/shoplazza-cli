@@ -76,6 +76,18 @@ func UpsertFunction(ctx context.Context, ext Extension, partner *client.Client, 
 			return UpsertResult{}, output.ErrInternal("build function form: %s", ferr.Error())
 		}
 	}
+	// The function's declared metafield reads ride along as input_query (JSON
+	// string). Validation fails loud so a bad toml is caught at release/deploy;
+	// an empty declaration omits the field entirely.
+	inputQuery, iqErr := BuildInputQuery(ext.MetafieldsQuery)
+	if iqErr != nil {
+		return UpsertResult{}, output.ErrValidation("function %q input_query: %s", ext.ExtensionName, iqErr.Error())
+	}
+	if inputQuery != "" {
+		if ferr := b.AddField("input_query", inputQuery); ferr != nil {
+			return UpsertResult{}, output.ErrInternal("build function form: %s", ferr.Error())
+		}
+	}
 	wasm, werr := os.Open(wasmPath)
 	if werr != nil {
 		return UpsertResult{}, output.ErrInternal("cannot open function wasm %s: %s", wasmPath, werr.Error())

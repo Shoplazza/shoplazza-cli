@@ -248,7 +248,11 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 			// function's current one — it 400s "Version not match" otherwise), so bump
 			// the patch of the recorded version. The backend returns the authoritative
 			// version, which we write back for the next bump.
-			ext := app.Extension{ExtensionName: target.Name, ExtensionType: "function"}
+			ext := app.Extension{
+				ExtensionName:   target.Name,
+				ExtensionType:   "function",
+				MetafieldsQuery: target.MetafieldsQuery,
+			}
 			if target.ExtensionID != "" {
 				ext.ExtensionID = target.ExtensionID
 				ext.ExtensionVersion = nextPatchVersion(target.Version)

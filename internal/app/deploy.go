@@ -279,6 +279,7 @@ func buildUploadUpsert(ctx context.Context, deps DeployDeps) ([]DeployedExt, str
 				ExtensionName:    p.Local.Name,
 				ExtensionType:    "function",
 				ExtensionVersion: version,
+				MetafieldsQuery:  p.Local.MetafieldsQuery,
 			}
 			r, fErr := UpsertFunction(ctx, ext, deps.Partner, entry, artifact)
 			if fErr != nil {
