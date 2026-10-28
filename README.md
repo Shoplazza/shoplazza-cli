@@ -370,13 +370,14 @@ The repository root doubles as the plugin. Each file is read by:
 
 | File | Read by |
 |------|---------|
-| `plugin.json` | Codex, Copilot, Cursor, Antigravity |
+| `plugin.json` | Codex, Copilot, Antigravity |
 | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | Claude Code, Copilot, CodeBuddy |
 | `.agents/plugins/marketplace.json` | Codex |
 | `.codebuddy-plugin/marketplace.json` | CodeBuddy |
 | `.qoder-plugin/` | Qoder |
 | `.kimi-plugin/plugin.json` | Kimi Code CLI |
-| `assets/icon.png` | Claude and Codex store listings |
+| `.cursor-plugin/plugin.json` | Cursor (adds the plugin icon, which `plugin.json` has no field for) |
+| `assets/icon.png` | Claude and Codex store listings, Cursor plugin icon |
 | `assets/logo.png` | Store forms that ask for a logo on a background plate, such as Cursor's |
 
 Their `version` matches `package.json`; `scripts/tag-release.sh` refuses to tag otherwise.

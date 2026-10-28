@@ -48,7 +48,7 @@ echo "Preparing to tag: ${TAG}"
 # ── 校验：插件清单版本号与 package.json 一致 ─────────────────────────────────
 
 MISMATCH=0
-for f in plugin.json .claude-plugin/plugin.json .qoder-plugin/plugin.json .kimi-plugin/plugin.json; do
+for f in plugin.json .claude-plugin/plugin.json .qoder-plugin/plugin.json .kimi-plugin/plugin.json .cursor-plugin/plugin.json; do
     V=$(git show "HEAD:${f}" 2>/dev/null | sed -n 's/^  "version": "\([^"]*\)".*/\1/p' | head -n 1 || true)
     if [[ "$V" != "$VERSION" ]]; then
         echo "Error: ${f} version is '${V:-missing}' in HEAD, expected '${VERSION}'." >&2

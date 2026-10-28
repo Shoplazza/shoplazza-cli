@@ -364,13 +364,14 @@ npx skills remove --global shoplazza-billing shoplazza-common shoplazza-customer
 
 | 文件 | 读取方 |
 |------|-------|
-| `plugin.json` | Codex、Copilot、Cursor、Antigravity |
+| `plugin.json` | Codex、Copilot、Antigravity |
 | `.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json` | Claude Code、Copilot、CodeBuddy |
 | `.agents/plugins/marketplace.json` | Codex |
 | `.codebuddy-plugin/marketplace.json` | CodeBuddy |
 | `.qoder-plugin/` | Qoder |
 | `.kimi-plugin/plugin.json` | Kimi Code CLI |
-| `assets/icon.png` | Claude 和 Codex 商城展示的图标 |
+| `.cursor-plugin/plugin.json` | Cursor（多了插件图标，`plugin.json` 没有图标字段） |
+| `assets/icon.png` | Claude 和 Codex 商城展示的图标、Cursor 插件图标 |
 | `assets/logo.png` | 要求带底色 Logo 的商城申请表，比如 Cursor |
 
 它们的 `version` 与 `package.json` 一致；不一致时 `scripts/tag-release.sh` 拒绝打 tag。
