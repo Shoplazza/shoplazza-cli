@@ -371,6 +371,7 @@ npx skills remove --global shoplazza-billing shoplazza-common shoplazza-customer
 | `.qoder-plugin/` | Qoder |
 | `.kimi-plugin/plugin.json` | Kimi Code CLI |
 | `assets/icon.png` | Claude 和 Codex 商城展示的图标 |
+| `assets/logo.png` | 要求带底色 Logo 的商城申请表，比如 Cursor |
 
 它们的 `version` 与 `package.json` 一致；不一致时 `scripts/tag-release.sh` 拒绝打 tag。
 
