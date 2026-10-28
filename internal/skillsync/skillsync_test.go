@@ -114,6 +114,8 @@ func TestPluginInstalled_ToolLayouts(t *testing.T) {
 		".copilot/installed-plugins/shoplazza-cli/shoplazza/skills",
 		".copilot/installed-plugins/awesome-copilot/shoplazza/skills",
 		".codebuddy/plugins/cache/shoplazza-cli/shoplazza/2.2.3/skills",
+		".qoder/plugins/cache/shoplazza-cli/shoplazza/2.2.3/skills",
+		".gemini/config/plugins/shoplazza/skills",
 	} {
 		t.Run(dir, func(t *testing.T) {
 			isolateHome(t)
@@ -161,6 +163,38 @@ func TestPluginInstalled_SkipsOrphanedVersion(t *testing.T) {
 	seed("2.2.4")
 	if !PluginInstalled() {
 		t.Error("PluginInstalled() = false with a live version next to an orphaned one")
+	}
+}
+
+// Kimi Code CLI is read from its install record, which drops a removed plugin
+// while its files stay on disk; a disabled plugin does not count either.
+func TestPluginInstalled_KimiRecord(t *testing.T) {
+	for _, tc := range []struct {
+		record string
+		want   bool
+	}{
+		{`{"version":1,"plugins":[{"id":"shoplazza","enabled":true}]}`, true},
+		{`{"version":1,"plugins":[{"id":"shoplazza","enabled":false}]}`, false},
+		{`{"version":1,"plugins":[]}`, false},
+		{`not json`, false},
+	} {
+		isolateHome(t)
+		home, _ := os.UserHomeDir()
+		dir := filepath.Join(home, ".kimi-code", "plugins")
+		// The files a removal leaves behind must not count on their own.
+		skill := filepath.Join(dir, "managed", "shoplazza", "skills", "shoplazza-orders")
+		if err := os.MkdirAll(skill, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(skill, "SKILL.md"), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "installed.json"), []byte(tc.record), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := PluginInstalled(); got != tc.want {
+			t.Errorf("PluginInstalled() = %v for record %s, want %v", got, tc.record, tc.want)
+		}
 	}
 }
 

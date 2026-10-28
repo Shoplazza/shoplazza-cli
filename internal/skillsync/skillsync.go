@@ -5,6 +5,7 @@ package skillsync
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -93,7 +94,9 @@ var pluginGlobs = []string{
 	".claude/plugins/cache/*/shoplazza/*/skills",    // Claude Code
 	".codex/plugins/cache/*/shoplazza/*/skills",     // Codex
 	".copilot/installed-plugins/*/shoplazza/skills", // GitHub Copilot CLI and VS Code
-	".codebuddy/plugins/cache/*/shoplazza/*/skills", // CodeBuddy, per its docs; not verified
+	".codebuddy/plugins/cache/*/shoplazza/*/skills", // CodeBuddy
+	".qoder/plugins/cache/*/shoplazza/*/skills",     // Qoder
+	".gemini/config/plugins/shoplazza/skills",       // Antigravity
 }
 
 // PluginInstalled reports whether any agent tool installed the skills as a
@@ -107,12 +110,36 @@ func PluginInstalled() bool {
 	for _, g := range pluginGlobs {
 		matches, _ := filepath.Glob(filepath.Join(home, g, namePrefix+"*", "SKILL.md"))
 		for _, m := range matches {
-			// Claude Code keeps an uninstalled or superseded version's files and
-			// marks the version directory with .orphaned_at.
+			// Claude Code, CodeBuddy and Qoder keep an uninstalled or superseded
+			// version's files and mark the version directory with .orphaned_at.
 			root := filepath.Dir(filepath.Dir(filepath.Dir(m)))
 			if _, err := os.Stat(filepath.Join(root, ".orphaned_at")); err != nil {
 				return true
 			}
+		}
+	}
+	return kimiInstalled(home)
+}
+
+// kimiInstalled reads Kimi Code CLI's install record instead of its plugin
+// directory: removing a plugin there keeps the files on disk.
+func kimiInstalled(home string) bool {
+	b, err := os.ReadFile(filepath.Join(home, ".kimi-code", "plugins", "installed.json"))
+	if err != nil {
+		return false
+	}
+	var rec struct {
+		Plugins []struct {
+			ID      string `json:"id"`
+			Enabled bool   `json:"enabled"`
+		} `json:"plugins"`
+	}
+	if json.Unmarshal(b, &rec) != nil {
+		return false
+	}
+	for _, p := range rec.Plugins {
+		if p.ID == "shoplazza" && p.Enabled {
+			return true
 		}
 	}
 	return false
