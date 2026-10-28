@@ -86,6 +86,38 @@ func Installed() (bool, error) {
 	return len(names) > 0, err
 }
 
+// pluginGlobs are where agent tools keep the skills of an installed shoplazza
+// plugin, relative to the home directory. The `*` segments cover the
+// marketplace name and the plugin version.
+var pluginGlobs = []string{
+	".claude/plugins/cache/*/shoplazza/*/skills",    // Claude Code
+	".codex/plugins/cache/*/shoplazza/*/skills",     // Codex
+	".copilot/installed-plugins/*/shoplazza/skills", // GitHub Copilot CLI and VS Code
+	".codebuddy/plugins/cache/*/shoplazza/*/skills", // CodeBuddy, per its docs; not verified
+}
+
+// PluginInstalled reports whether any agent tool installed the skills as a
+// shoplazza plugin. Those copies are updated by the tool itself, so Refresh
+// leaves them alone and only Installed drives it.
+func PluginInstalled() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	for _, g := range pluginGlobs {
+		matches, _ := filepath.Glob(filepath.Join(home, g, namePrefix+"*", "SKILL.md"))
+		for _, m := range matches {
+			// Claude Code keeps an uninstalled or superseded version's files and
+			// marks the version directory with .orphaned_at.
+			root := filepath.Dir(filepath.Dir(filepath.Dir(m)))
+			if _, err := os.Stat(filepath.Join(root, ".orphaned_at")); err != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Result describes what Refresh did. Ran=false means EnvSkip suppressed it.
 type Result struct {
 	Installed bool
@@ -130,4 +162,11 @@ func Refresh(ctx context.Context) (Result, error) {
 func ManualCommand() string {
 	names, _ := installedNames()
 	return "npx skills add " + Source() + " -g -y -s " + strings.Join(names, " ")
+}
+
+// RemoveCommand removes the ~/.agents/skills copy, for users who also have the
+// skills installed as a plugin.
+func RemoveCommand() string {
+	names, _ := installedNames()
+	return "npx skills remove --global " + strings.Join(names, " ")
 }

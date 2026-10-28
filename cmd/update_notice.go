@@ -32,10 +32,10 @@ func buildNotice(update *updatecheck.Info) map[string]any {
 	}
 	// A missing skills dir reads as (false, nil); an unreadable one errors — in
 	// either error case we simply say nothing rather than guess.
-	if installed, err := skillsync.Installed(); err == nil && !installed {
+	if installed, err := skillsync.Installed(); err == nil && !installed && !skillsync.PluginInstalled() {
 		n["skills"] = map[string]any{
 			"installed": false,
-			"message":   "Agent Skills not installed — run 'npx skills add Shoplazza/shoplazza-cli -g' for CLI-aware guidance.",
+			"message":   "Agent Skills not installed — install the Shoplazza plugin for your agent (see the README) or run 'npx skills add Shoplazza/shoplazza-cli -g' for CLI-aware guidance.",
 		}
 	}
 	if len(n) == 0 {
@@ -110,7 +110,7 @@ func skillLine() string {
 	switch {
 	case err != nil:
 		return "skills unreadable"
-	case installed:
+	case installed || skillsync.PluginInstalled():
 		return "skills installed"
 	default:
 		return "skills not installed"

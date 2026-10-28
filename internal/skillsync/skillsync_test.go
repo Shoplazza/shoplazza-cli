@@ -104,6 +104,85 @@ func TestInstalled_UnreadableDirIsAnError(t *testing.T) {
 	}
 }
 
+// Each tool's real install layout is recognised, and a plugin install never
+// counts as the ~/.agents/skills copy that Refresh drives.
+func TestPluginInstalled_ToolLayouts(t *testing.T) {
+	for _, dir := range []string{
+		".claude/plugins/cache/shoplazza-cli/shoplazza/2.2.3/skills",
+		".claude/plugins/cache/synced/shoplazza/2.2.3/skills",
+		".codex/plugins/cache/shoplazza-cli/shoplazza/2.2.3/skills",
+		".copilot/installed-plugins/shoplazza-cli/shoplazza/skills",
+		".copilot/installed-plugins/awesome-copilot/shoplazza/skills",
+		".codebuddy/plugins/cache/shoplazza-cli/shoplazza/2.2.3/skills",
+	} {
+		t.Run(dir, func(t *testing.T) {
+			isolateHome(t)
+			home, _ := os.UserHomeDir()
+			skill := filepath.Join(home, dir, "shoplazza-orders")
+			if err := os.MkdirAll(skill, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(skill, "SKILL.md"), []byte("x"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if !PluginInstalled() {
+				t.Error("PluginInstalled() = false for a plugin install")
+			}
+			if installed, err := Installed(); installed || err != nil {
+				t.Errorf("Installed() = (%v, %v), a plugin install must not count", installed, err)
+			}
+		})
+	}
+}
+
+// Claude Code leaves an uninstalled version on disk, marked .orphaned_at; only a
+// live version counts.
+func TestPluginInstalled_SkipsOrphanedVersion(t *testing.T) {
+	isolateHome(t)
+	home, _ := os.UserHomeDir()
+	seed := func(version string) string {
+		root := filepath.Join(home, ".claude/plugins/cache/shoplazza-cli/shoplazza", version)
+		skill := filepath.Join(root, "skills", "shoplazza-orders")
+		if err := os.MkdirAll(skill, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(skill, "SKILL.md"), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return root
+	}
+	old := seed("2.2.3")
+	if err := os.WriteFile(filepath.Join(old, ".orphaned_at"), []byte("1793157129775"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if PluginInstalled() {
+		t.Error("PluginInstalled() = true with only an orphaned version")
+	}
+	seed("2.2.4")
+	if !PluginInstalled() {
+		t.Error("PluginInstalled() = false with a live version next to an orphaned one")
+	}
+}
+
+// Another plugin in the same cache, or no plugin at all, is not ours.
+func TestPluginInstalled_OtherOrNone(t *testing.T) {
+	isolateHome(t)
+	if PluginInstalled() {
+		t.Error("PluginInstalled() = true on an empty home")
+	}
+	home, _ := os.UserHomeDir()
+	other := filepath.Join(home, ".claude/plugins/cache/acme/acme/1.0.0/skills/acme-orders")
+	if err := os.MkdirAll(other, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(other, "SKILL.md"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if PluginInstalled() {
+		t.Error("PluginInstalled() = true for another vendor's plugin")
+	}
+}
+
 // Refresh returns before it would even look for npx. An empty PATH makes that
 // observable: reaching the exec would fail LookPath and surface an error.
 func TestRefresh_NotInstalled_NeverShellsOut(t *testing.T) {
