@@ -56,3 +56,15 @@ jobs:
       # that orphans skill docs fails the PR here.
       - name: Skills drift lint (L0)
         run: make skills-lint
+
+      # Plugin manifests: validate the Claude manifest against the directory's
+      # checks, then install the plugin into Codex and Copilot from this
+      # checkout, so a broken manifest fails the PR instead of a store review.
+      - name: Plugin manifests
+        run: |
+          npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
+          claude plugin validate --strict --profile directory .
+          codex plugin marketplace add ./
+          codex plugin add shoplazza@shoplazza-cli
+          copilot plugin marketplace add "$PWD"
+          copilot plugin install shoplazza@shoplazza-cli

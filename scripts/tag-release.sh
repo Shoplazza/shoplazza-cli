@@ -9,6 +9,7 @@
 # 前置要求：
 #   - 当前分支为 main
 #   - package.json 已提交（无 uncommitted changes）
+#   - 4 个插件清单的 version 与 package.json 一致，且已提交
 #   - 当前分支已与 remote 同步
 #   - 对应标签尚未存在
 # =============================================================================
@@ -43,6 +44,21 @@ VERSION="${VERSION#v}"
 TAG="v${VERSION}"
 
 echo "Preparing to tag: ${TAG}"
+
+# ── 校验：插件清单版本号与 package.json 一致 ─────────────────────────────────
+
+MISMATCH=0
+for f in plugin.json .claude-plugin/plugin.json .qoder-plugin/plugin.json .kimi-plugin/plugin.json; do
+    V=$(git show "HEAD:${f}" 2>/dev/null | sed -n 's/^  "version": "\([^"]*\)".*/\1/p' | head -n 1 || true)
+    if [[ "$V" != "$VERSION" ]]; then
+        echo "Error: ${f} version is '${V:-missing}' in HEAD, expected '${VERSION}'." >&2
+        MISMATCH=1
+    fi
+done
+if [[ "$MISMATCH" -ne 0 ]]; then
+    echo "  Set every plugin manifest version to ${VERSION}, commit, then retry." >&2
+    exit 1
+fi
 
 # ── 校验：必须在 main 分支 ──────────────────────────────────────────────────
 
@@ -90,6 +106,7 @@ echo
 echo "  Branch:  ${BRANCH} (in sync with origin)"
 echo "  Tag:     ${TAG}"
 echo "  Commit:  ${LOCAL}"
+echo "  Also:    ${TAG} commit pushed to branch plugin-release"
 echo
 read -r -p "Push tag ${TAG}? [y/N] " CONFIRM
 if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
@@ -101,6 +118,13 @@ fi
 
 git tag -a "${TAG}" -m "Release ${TAG}"
 git push origin "${TAG}"
+
+# Claude 官方商城跟踪 plugin-release 分支，只在发版时更新它
+if ! git push origin "${TAG}^{commit}:refs/heads/plugin-release"; then
+    echo "Error: tag ${TAG} is pushed, but branch plugin-release was not updated." >&2
+    echo "  Fix the cause, then run: git push origin ${TAG}^{commit}:refs/heads/plugin-release" >&2
+    exit 1
+fi
 
 echo
 echo "Tag ${TAG} pushed — GitHub Actions release workflow will trigger shortly."

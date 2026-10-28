@@ -8,12 +8,12 @@
 
 Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能操作 Shoplazza 店铺。开发应用和主题、管理商品、折扣、订单和客户，结构化输出天然适配 AI Agent 集成。
 
-[安装](#安装与快速开始) · [认证](#认证) · [开发工作流](#开发工作流) · [命令](#三层命令调用) · [Agent Skills](#agent-skills) · [进阶用法](#进阶用法) · [贡献](#贡献)
+[安装](#安装与快速开始) · [认证](#认证) · [开发工作流](#开发工作流) · [命令](#三层命令调用) · [Agent 插件与 Skills](#ai-agent-插件与-skills) · [进阶用法](#进阶用法) · [贡献](#贡献)
 
 ## 为什么选 shoplazza-cli？
 
 - **为 Agent 原生设计** — 结构化 JSON 输出开箱即用，AI Agent 无需额外适配即可操作 Shoplazza 店铺
-- **内置 Agent Skills** — 一条命令即可安装 [skills](#agent-skills)，让 AI Agent 掌握本 CLI 的命令体系、安全规则与各业务域的易错点
+- **内置 Agent Skills** — 一个插件或一条命令即可安装 [skills](#ai-agent-插件与-skills)，让 AI Agent 掌握本 CLI 的命令体系、安全规则与各业务域的易错点
 - **电商全域覆盖** — 商品、折扣、订单、客户完整 CRUD，30+ 快捷命令覆盖高频操作
 - **完整开发者工作流** — App 创建、扩展脚手架（checkout / theme / function）、经自动隧道的本地开发服务器、一键部署；主题 init、实时热重载、多环境与打包
 - **安全可控** — 凭证本地加密存储、店铺 Token 自动刷新、`--dry-run` 预览请求，破坏性命令执行前需确认
@@ -83,7 +83,7 @@ shoplazza products list --format table
 
 ### 快速开始（AI Agent）
 
-先装 [Agent Skills](#agent-skills) —— Agent 会从 skill 里拿到安装、授权引导和命令调用的全部规则：
+先装 [Agent Skills](#ai-agent-插件与-skills)（作为 Agent 的插件安装，或用下面这条命令）—— Agent 会从 skill 里拿到安装、授权引导和命令调用的全部规则：
 
 ```bash
 npx skills add Shoplazza/shoplazza-cli -g
@@ -290,19 +290,57 @@ shoplazza api rest POST /openapi/2026-01/products \
   --data '{"product": {"title": "新商品", "status": "active"}}'
 ```
 
-## Agent Skills
+## AI Agent 插件与 Skills
 
 开箱即用的 [Agent Skills](https://agentskills.io)，教会 AI 编码 Agent 正确驱动本 CLI：
 三层命令该选哪一层、`{"ok":true,"data":…}` 输出信封怎么读、写操作前必须 `--dry-run` 的
 安全规则，以及各业务域里容易踩错的坑。适用于 Claude Code、Codex、Cursor 等。
 
-### 安装
+使用前请先安装 CLI 并登录（`shoplazza auth login`）：skill 要在你自己的电脑上调用 CLI，所以在
+claude.ai、ChatGPT 网页版这类网页对话里用不了。
+
+### 作为插件安装
+
+插件里打包了下列全部 skill，由 Agent 自己的插件管理负责更新。
+
+| Agent | 安装方式 |
+|-------|---------|
+| Claude Code | `claude plugin install shoplazza --marketplace Shoplazza/shoplazza-cli` |
+| Codex | `codex plugin marketplace add Shoplazza/shoplazza-cli`，再 `codex plugin add shoplazza@shoplazza-cli` |
+| GitHub Copilot CLI | `copilot plugin marketplace add Shoplazza/shoplazza-cli`，再 `copilot plugin install shoplazza@shoplazza-cli` |
+| VS Code（Copilot） | 打开 `chat.plugins.enabled`，执行 **Chat: Install Plugin From Source**，填 `Shoplazza/shoplazza-cli` |
+| Cursor（团队版 / 企业版） | 后台 Dashboard → Plugins & MCPs → Add Marketplace → Import from Repo → `Shoplazza/shoplazza-cli` |
+| Antigravity | `agy plugin install https://github.com/Shoplazza/shoplazza-cli` |
+| CodeBuddy | `codebuddy plugin marketplace add Shoplazza/shoplazza-cli`，再 `codebuddy plugin install shoplazza@shoplazza-cli` |
+| Qoder | `qoder plugins marketplace add Shoplazza/shoplazza-cli`，再 `qoder plugins install shoplazza` |
+| Kimi Code CLI | 在会话里输入：`/plugins install https://github.com/Shoplazza/shoplazza-cli` |
+
+Claude Code 2.1.275 以前的版本要分两步：先 `claude plugin marketplace add Shoplazza/shoplazza-cli`，
+再 `claude plugin install shoplazza@shoplazza-cli`。
+
+### 用 `npx skills add` 安装
+
+其他 Agent，或者你不想用插件时：
 
 ```bash
 npx skills add Shoplazza/shoplazza-cli -g
 ```
 
 将下列全部 skill 装到 `~/.agents/skills/`，并软链到 Agent 的 skill 目录，所有项目均可使用。`shoplazza update` 会顺带刷新已安装的 skill；二进制里也内置了同一套 skill：`shoplazza skills list` / `shoplazza skills read <skill>`。
+
+只想装给某一个 Agent 时加 `-a <名字>`，例如 `-a trae`（TRAE）、`-a trae-cn`（TRAE 国内版）、
+`-a hermes-agent`、`-a openclaw`、`-a pi`、`-a gemini-cli`。DeepSeek Harness 会直接读
+`~/.agents/skills`，用上面这条命令就够了。
+
+### 二选一
+
+插件和 `npx skills add` 只装一种：两种都装的话，Agent 会看到每个 skill 各两份（在 Claude Code 里是
+`shoplazza-orders` 和 `shoplazza:shoplazza-orders`）。`shoplazza doctor` 发现两种都装了会给出警告。
+已经两种都装了的，留下插件，删掉另一份：
+
+```bash
+npx skills remove --global shoplazza-billing shoplazza-common shoplazza-customers shoplazza-discounts shoplazza-orders shoplazza-products shoplazza-shop shoplazza-themes shoplazza-webhook
+```
 
 ### Skill 列表
 
@@ -319,6 +357,22 @@ npx skills add Shoplazza/shoplazza-cli -g
 | `shoplazza-webhook` | Webhook 订阅 |
 
 源文件在 [`skills/`](./skills)。Skill 以 Agent 的完整权限运行，使用前请先阅读其内容。
+
+### 插件清单文件
+
+仓库根目录本身就是插件。各文件给谁读：
+
+| 文件 | 读取方 |
+|------|-------|
+| `plugin.json` | Codex、Copilot、Cursor、Antigravity |
+| `.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json` | Claude Code、Copilot、CodeBuddy |
+| `.agents/plugins/marketplace.json` | Codex |
+| `.codebuddy-plugin/marketplace.json` | CodeBuddy |
+| `.qoder-plugin/` | Qoder |
+| `.kimi-plugin/plugin.json` | Kimi Code CLI |
+| `assets/icon.png` | Claude 和 Codex 商城展示的图标 |
+
+它们的 `version` 与 `package.json` 一致；不一致时 `scripts/tag-release.sh` 拒绝打 tag。
 
 ## 进阶用法
 
