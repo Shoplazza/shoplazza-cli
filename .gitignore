@@ -25,7 +25,8 @@ tags
 CLAUDE.md
 .claude/
 .cursor/
-.agents/
+.agents/*
+!.agents/plugins/
 
 # Internal docs are kept local, not published
 /docs/

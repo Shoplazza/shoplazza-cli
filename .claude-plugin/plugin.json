@@ -1,0 +1,23 @@
+{
+  "name": "shoplazza",
+  "displayName": "Shoplazza",
+  "version": "2.2.3",
+  "description": "Agent skills for the Shoplazza CLI: manage products, orders, customers, discounts, shop settings, themes, billing and webhooks on a Shoplazza store. Requires the shoplazza CLI installed locally. Does not work in claude.ai on the web.",
+  "author": {
+    "name": "Shoplazza",
+    "url": "https://www.shoplazza.dev"
+  },
+  "homepage": "https://www.shoplazza.dev",
+  "repository": "https://github.com/Shoplazza/shoplazza-cli",
+  "license": "MIT",
+  "keywords": [
+    "shoplazza",
+    "ecommerce",
+    "cli"
+  ],
+  "icon": "./assets/icon.png",
+  "documentationUrl": "https://www.shoplazza.dev/docs/app/developer-tools/ai-toolkit",
+  "supportUrl": "https://www.shoplazza.dev/support",
+  "privacyPolicyUrl": "https://www.shoplazza.com/privacy",
+  "termsOfServiceUrl": "https://www.shoplazza.com/terms"
+}
