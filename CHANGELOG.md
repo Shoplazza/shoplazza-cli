@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.3.0 - 2026-10-28
+## 2.2.4 - 2026-10-28
 
 ### Added
 - The Agent Skills now ship as a plugin for Claude Code, Codex, GitHub Copilot (CLI and VS Code), Cursor, Antigravity, CodeBuddy, Qoder and Kimi Code CLI, kept up to date by the agent's own plugin manager. The README lists the install command for each agent; every release also attaches `shoplazza-plugin-<version>.zip` for the Codex plugin store.
