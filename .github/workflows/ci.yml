@@ -43,7 +43,9 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Claude Code needs Node 22+; on 20, npm falls back to a release without
+          # `plugin validate --profile`.
+          node-version: '22'
 
       # ./tests/... is excluded from the unit-test job's package list, so without
       # this step the spec guards (shortcut paths / query keys) and the read-only
