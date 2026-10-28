@@ -377,6 +377,7 @@ The repository root doubles as the plugin. Each file is read by:
 | `.qoder-plugin/` | Qoder |
 | `.kimi-plugin/plugin.json` | Kimi Code CLI |
 | `assets/icon.png` | Claude and Codex store listings |
+| `assets/logo.png` | Store forms that ask for a logo on a background plate, such as Cursor's |
 
 Their `version` matches `package.json`; `scripts/tag-release.sh` refuses to tag otherwise.
 
