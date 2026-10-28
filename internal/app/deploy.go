@@ -51,6 +51,9 @@ type DeployedExt struct {
 	Version     string `json:"version"`
 	VersionID   string `json:"version_id"`
 	ResourceURL string `json:"resource_url"`
+	// InputQuery is a function extension's declared metafield reads (input_query
+	// JSON string); carried into the cobra deploy payload. Empty for others.
+	InputQuery string `json:"input_query,omitempty"`
 }
 
 type DeployResult struct {
@@ -77,6 +80,7 @@ func Deploy(ctx context.Context, deps DeployDeps) (DeployResult, *output.ExitErr
 			ExtensionID: d.ExtensionID, ExtensionName: d.Name,
 			ExtensionType: d.Type, ExtensionVersion: d.Version,
 			ExtensionVersionID: flexStr(d.VersionID), ResourceURL: d.ResourceURL,
+			InputQuery: d.InputQuery,
 		})
 	}
 	appPayload := map[string]any{"version": appVersion, "extensions": exts}
@@ -272,6 +276,14 @@ func buildUploadUpsert(ctx context.Context, deps DeployDeps) ([]DeployedExt, str
 			// 404 but a populated one still fails (404/500, non-deterministic), so a
 			// dev /deploy never completed a function deploy. We match v1 regardless.
 			entry := functionEntryPath(deps.ProjectRoot, p.Local.Dir)
+			// Validate + serialize the declared metafield reads up front so a bad
+			// toml fails before any upload. The declaration travels to cobra in the
+			// deploy payload below (functions-api does not store it).
+			inputQuery, iqErr := BuildInputQuery(p.Local.MetafieldsQuery)
+			if iqErr != nil {
+				ups.Fail()
+				return nil, "", wrapExtErr(p.Local, output.ErrValidation("function %q input_query: %s", p.Local.Name, iqErr.Error()))
+			}
 			// extID + the generated version drive upsertFunction's commit path; an
 			// add (empty extID, version "1.0.0") takes the create path.
 			ext := Extension{
@@ -279,7 +291,6 @@ func buildUploadUpsert(ctx context.Context, deps DeployDeps) ([]DeployedExt, str
 				ExtensionName:    p.Local.Name,
 				ExtensionType:    "function",
 				ExtensionVersion: version,
-				MetafieldsQuery:  p.Local.MetafieldsQuery,
 			}
 			r, fErr := UpsertFunction(ctx, ext, deps.Partner, entry, artifact)
 			if fErr != nil {
@@ -289,6 +300,7 @@ func buildUploadUpsert(ctx context.Context, deps DeployDeps) ([]DeployedExt, str
 			deployed = append(deployed, DeployedExt{
 				ExtensionID: r.ExtensionID, Name: p.Local.Name, Type: "function",
 				Version: versionOrDefault(version), VersionID: r.ExtensionVersionID, ResourceURL: resourceURL,
+				InputQuery: inputQuery,
 			})
 		default:
 			ups.Fail()
