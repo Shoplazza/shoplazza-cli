@@ -32,3 +32,5 @@ CLAUDE.md
 
 # End-to-end scripts run against a real dev store, kept local
 /tests/e2e/
+
+.dt/
