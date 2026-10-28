@@ -18,7 +18,7 @@ description: >-
 
 # shoplazza CLI — shop module
 
-**CRITICAL — before anything else, use Read on [`../shoplazza-common/SKILL.md`](../shoplazza-common/SKILL.md).**
+**CRITICAL — before anything else, use Read on `../shoplazza-common/SKILL.md`.**
 It owns every cross-cutting mechanic: the three access tiers, the output envelope (`.data`),
 `--dry-run`, `--jq` (incl. "don't pass `-r`"), `--fields`, `schema`, `api rest`, auth /
 profiles, and the safety protocol. This file covers only the shop domain and never repeats them.
