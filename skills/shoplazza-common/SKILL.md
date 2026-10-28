@@ -173,7 +173,9 @@ a yes. Pick by what the machine already has:
 | Install script | `curl -fsSL https://raw.githubusercontent.com/Shoplazza/shoplazza-cli/main/install.sh \| bash` | macOS / Linux without Node; installs to `/usr/local/bin` (`INSTALL_DIR=<dir>` to change) |
 | Release binary | download from `https://github.com/Shoplazza/shoplazza-cli/releases` | any other platform; put it on `PATH` |
 
-Then confirm with `shoplazza --version` and continue with the login flow below.
+Then confirm with `shoplazza --version` and continue with the login flow below. If the install
+fails — a sandbox blocks it, permission is denied, or it needs `sudo` — stop and hand the user
+the exact command to run in their own terminal.
 
 - **One installer only.** Two installs leave two `shoplazza` binaries on `PATH` running
   different versions; `which -a shoplazza` lists them. Keep one.

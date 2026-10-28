@@ -1,0 +1,11 @@
+{
+  "name": "shoplazza",
+  "version": "2.2.3",
+  "description": "Agent skills for the Shoplazza CLI: manage products, orders, customers, discounts, shop settings, themes, billing and webhooks on a Shoplazza store. Requires the shoplazza CLI installed locally.",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Shoplazza",
+    "shortDescription": "Manage your Shoplazza store",
+    "developerName": "Shoplazza"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "shoplazza-cli",
+  "interface": {
+    "displayName": "Shoplazza"
+  },
+  "plugins": [
+    {
+      "name": "shoplazza",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Business & Operations"
+    }
+  ]
+}

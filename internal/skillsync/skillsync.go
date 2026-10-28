@@ -5,6 +5,7 @@ package skillsync
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -86,6 +87,64 @@ func Installed() (bool, error) {
 	return len(names) > 0, err
 }
 
+// pluginGlobs are where agent tools keep the skills of an installed shoplazza
+// plugin, relative to the home directory. The `*` segments cover the
+// marketplace name and the plugin version.
+var pluginGlobs = []string{
+	".claude/plugins/cache/*/shoplazza/*/skills",    // Claude Code
+	".codex/plugins/cache/*/shoplazza/*/skills",     // Codex
+	".copilot/installed-plugins/*/shoplazza/skills", // GitHub Copilot CLI and VS Code
+	".codebuddy/plugins/cache/*/shoplazza/*/skills", // CodeBuddy
+	".qoder/plugins/cache/*/shoplazza/*/skills",     // Qoder
+	".gemini/config/plugins/shoplazza/skills",       // Antigravity
+}
+
+// PluginInstalled reports whether any agent tool installed the skills as a
+// shoplazza plugin. Those copies are updated by the tool itself, so Refresh
+// leaves them alone and only Installed drives it.
+func PluginInstalled() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	for _, g := range pluginGlobs {
+		matches, _ := filepath.Glob(filepath.Join(home, g, namePrefix+"*", "SKILL.md"))
+		for _, m := range matches {
+			// Claude Code, CodeBuddy and Qoder keep an uninstalled or superseded
+			// version's files and mark the version directory with .orphaned_at.
+			root := filepath.Dir(filepath.Dir(filepath.Dir(m)))
+			if _, err := os.Stat(filepath.Join(root, ".orphaned_at")); err != nil {
+				return true
+			}
+		}
+	}
+	return kimiInstalled(home)
+}
+
+// kimiInstalled reads Kimi Code CLI's install record instead of its plugin
+// directory: removing a plugin there keeps the files on disk.
+func kimiInstalled(home string) bool {
+	b, err := os.ReadFile(filepath.Join(home, ".kimi-code", "plugins", "installed.json"))
+	if err != nil {
+		return false
+	}
+	var rec struct {
+		Plugins []struct {
+			ID      string `json:"id"`
+			Enabled bool   `json:"enabled"`
+		} `json:"plugins"`
+	}
+	if json.Unmarshal(b, &rec) != nil {
+		return false
+	}
+	for _, p := range rec.Plugins {
+		if p.ID == "shoplazza" && p.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
 // Result describes what Refresh did. Ran=false means EnvSkip suppressed it.
 type Result struct {
 	Installed bool
@@ -130,4 +189,11 @@ func Refresh(ctx context.Context) (Result, error) {
 func ManualCommand() string {
 	names, _ := installedNames()
 	return "npx skills add " + Source() + " -g -y -s " + strings.Join(names, " ")
+}
+
+// RemoveCommand removes the ~/.agents/skills copy, for users who also have the
+// skills installed as a plugin.
+func RemoveCommand() string {
+	names, _ := installedNames()
+	return "npx skills remove --global " + strings.Join(names, " ")
 }

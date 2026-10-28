@@ -8,12 +8,12 @@
 
 The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — built for humans and AI Agents. Develop apps and themes, and manage products, discounts, orders and customers, with structured output designed for AI Agent integration.
 
-[Install](#installation--quick-start) · [Auth](#authentication) · [Development](#development-workflows) · [Commands](#three-layer-command-system) · [Agent Skills](#agent-skills) · [Advanced](#advanced-usage) · [Contributing](#contributing)
+[Install](#installation--quick-start) · [Auth](#authentication) · [Development](#development-workflows) · [Commands](#three-layer-command-system) · [Agent Plugin & Skills](#ai-agent-plugin--skills) · [Advanced](#advanced-usage) · [Contributing](#contributing)
 
 ## Why shoplazza-cli?
 
 - **Agent-Native Design** — Structured JSON output out of the box; AI Agents can operate Shoplazza stores with zero extra setup
-- **Agent Skills Included** — One command installs [skills](#agent-skills) that teach AI agents this CLI's commands, safety rules, and per-domain gotchas
+- **Agent Skills Included** — One plugin or one command installs [skills](#ai-agent-plugin--skills) that teach AI agents this CLI's commands, safety rules, and per-domain gotchas
 - **E-Commerce Focused** — Products, Discounts, Orders, Customers with full CRUD and 30+ shortcut commands for high-frequency operations
 - **Full Developer Workflow** — App creation, extension scaffolding (checkout / theme / function), local dev server over an auto tunnel, one-command deploy; plus theme init, live reload, multi-environment, and packaging
 - **Secure & Controllable** — Encrypted local credential storage, automatic store-token refresh, `--dry-run` previews, and a confirmation prompt before destructive commands
@@ -84,7 +84,7 @@ shoplazza products list --format table
 
 ### Quick Start (AI Agent)
 
-Start by installing the [Agent Skills](#agent-skills) — they give the Agent everything it needs: installation, the authorization walkthrough, and how to drive the commands.
+Start by installing the [Agent Skills](#ai-agent-plugin--skills), as a plugin for your agent or with the command below — they give the Agent everything it needs: installation, the authorization walkthrough, and how to drive the commands.
 
 ```bash
 npx skills add Shoplazza/shoplazza-cli -g
@@ -292,14 +292,38 @@ shoplazza api rest POST /openapi/2026-01/products \
   --data '{"product": {"title": "New Product", "status": "active"}}'
 ```
 
-## Agent Skills
+## AI Agent Plugin & Skills
 
 Ready-made [Agent Skills](https://agentskills.io) that teach an AI coding agent how to drive
 this CLI properly: which of the three command tiers to reach for, the `{"ok":true,"data":…}`
 output envelope, the `--dry-run`-before-writes safety rule, and the per-domain gotchas that
 are easy to get wrong. Works with Claude Code, Codex, Cursor and others.
 
-### Install
+Before you start, install the CLI and log in (`shoplazza auth login`): the skills drive the CLI
+on your own machine, so they do not work in web chat such as claude.ai or ChatGPT on the web.
+
+### Install as a plugin
+
+The plugin bundles every skill below and is kept up to date by your agent's own plugin manager.
+
+| Agent | Install |
+|-------|---------|
+| Claude Code | `claude plugin install shoplazza --marketplace Shoplazza/shoplazza-cli` |
+| Codex | `codex plugin marketplace add Shoplazza/shoplazza-cli`, then `codex plugin add shoplazza@shoplazza-cli` |
+| GitHub Copilot CLI | `copilot plugin marketplace add Shoplazza/shoplazza-cli`, then `copilot plugin install shoplazza@shoplazza-cli` |
+| VS Code (Copilot) | Enable `chat.plugins.enabled`, run **Chat: Install Plugin From Source**, enter `Shoplazza/shoplazza-cli` |
+| Cursor (Teams / Enterprise) | Dashboard → Plugins & MCPs → Add Marketplace → Import from Repo → `Shoplazza/shoplazza-cli` |
+| Antigravity | `agy plugin install https://github.com/Shoplazza/shoplazza-cli` |
+| CodeBuddy | `codebuddy plugin marketplace add Shoplazza/shoplazza-cli`, then `codebuddy plugin install shoplazza@shoplazza-cli` |
+| Qoder | `qoder plugins marketplace add Shoplazza/shoplazza-cli`, then `qoder plugins install shoplazza` |
+| Kimi Code CLI | In a session: `/plugins install https://github.com/Shoplazza/shoplazza-cli` |
+
+Claude Code before 2.1.275 takes two steps: `claude plugin marketplace add Shoplazza/shoplazza-cli`,
+then `claude plugin install shoplazza@shoplazza-cli`.
+
+### Install with `npx skills add`
+
+For any other agent, or if you prefer skills without a plugin:
 
 ```bash
 npx skills add Shoplazza/shoplazza-cli -g
@@ -308,6 +332,20 @@ npx skills add Shoplazza/shoplazza-cli -g
 Installs all skills below into `~/.agents/skills/` and links them into your agent's skill
 directory, for use across every project. `shoplazza update` refreshes installed skills, and the
 same skills ship inside the binary: `shoplazza skills list` / `shoplazza skills read <skill>`.
+
+Add `-a <agent>` to install for one agent only, for example `-a trae` (TRAE), `-a trae-cn`
+(TRAE CN), `-a hermes-agent`, `-a openclaw`, `-a pi` or `-a gemini-cli`. DeepSeek Harness reads
+`~/.agents/skills` directly, so the command above is all it needs.
+
+### Pick one
+
+Install the plugin or `npx skills add`, not both: with both, your agent sees every skill twice
+(in Claude Code, `shoplazza-orders` and `shoplazza:shoplazza-orders`). `shoplazza doctor` warns
+when it finds both. If you already have both, keep the plugin and remove the other copy:
+
+```bash
+npx skills remove --global shoplazza-billing shoplazza-common shoplazza-customers shoplazza-discounts shoplazza-orders shoplazza-products shoplazza-shop shoplazza-themes shoplazza-webhook
+```
 
 ### Available skills
 
@@ -325,6 +363,22 @@ same skills ship inside the binary: `shoplazza skills list` / `shoplazza skills 
 
 The sources live in [`skills/`](./skills). Skills run with full agent permissions — read them
 before use.
+
+### Plugin manifests
+
+The repository root doubles as the plugin. Each file is read by:
+
+| File | Read by |
+|------|---------|
+| `plugin.json` | Codex, Copilot, Cursor, Antigravity |
+| `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | Claude Code, Copilot, CodeBuddy |
+| `.agents/plugins/marketplace.json` | Codex |
+| `.codebuddy-plugin/marketplace.json` | CodeBuddy |
+| `.qoder-plugin/` | Qoder |
+| `.kimi-plugin/plugin.json` | Kimi Code CLI |
+| `assets/icon.png` | Claude and Codex store listings |
+
+Their `version` matches `package.json`; `scripts/tag-release.sh` refuses to tag otherwise.
 
 ## Advanced Usage
 

@@ -43,7 +43,9 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Claude Code needs Node 22+; on 20, npm falls back to a release without
+          # `plugin validate --profile`.
+          node-version: '22'
 
       # ./tests/... is excluded from the unit-test job's package list, so without
       # this step the spec guards (shortcut paths / query keys) and the read-only
@@ -56,3 +58,15 @@ jobs:
       # that orphans skill docs fails the PR here.
       - name: Skills drift lint (L0)
         run: make skills-lint
+
+      # Plugin manifests: validate the Claude manifest against the directory's
+      # checks, then install the plugin into Codex and Copilot from this
+      # checkout, so a broken manifest fails the PR instead of a store review.
+      - name: Plugin manifests
+        run: |
+          npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
+          claude plugin validate --strict --profile directory .
+          codex plugin marketplace add ./
+          codex plugin add shoplazza@shoplazza-cli
+          copilot plugin marketplace add "$PWD"
+          copilot plugin install shoplazza@shoplazza-cli
