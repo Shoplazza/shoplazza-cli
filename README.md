@@ -376,8 +376,8 @@ The repository root doubles as the plugin. Each file is read by:
 | `.codebuddy-plugin/marketplace.json` | CodeBuddy |
 | `.qoder-plugin/` | Qoder |
 | `.kimi-plugin/plugin.json` | Kimi Code CLI |
-| `.cursor-plugin/plugin.json` | Cursor (adds the plugin icon, which `plugin.json` has no field for) |
-| `assets/icon.png` | Claude and Codex store listings, Cursor plugin icon |
+| `.cursor-plugin/plugin.json` | Cursor |
+| `assets/icon.png` | Plugin icon for Claude, Codex and Cursor |
 | `assets/logo.png` | Store forms that ask for a logo on a background plate, such as Cursor's |
 
 Their `version` matches `package.json`; `scripts/tag-release.sh` refuses to tag otherwise.
