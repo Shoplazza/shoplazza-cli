@@ -70,6 +70,10 @@ type Extension struct {
 	// (v1 field name). json:"-" — the version-task/PUT bodies are hand-built maps,
 	// so this is a pure internal carrier and never marshals into any request body.
 	Exts string `json:"-"`
+	// InputQuery is a function extension's declared metafield reads (input_query
+	// JSON string). It is sent in the deploy payload and stored on the extension
+	// version, then read back at install time to bind the cart-transform function.
+	InputQuery string `json:"input_query,omitempty"`
 }
 
 type PartnersResp struct {
