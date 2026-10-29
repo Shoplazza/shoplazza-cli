@@ -1,0 +1,15 @@
+{
+  "name": "shoplazza-cli",
+  "owner": {
+    "name": "Shoplazza"
+  },
+  "description": "Official Shoplazza CLI plugin marketplace",
+  "plugins": [
+    {
+      "name": "shoplazza",
+      "source": "./",
+      "description": "Agent skills for the Shoplazza CLI: manage products, orders, customers, discounts, shop settings, themes, billing and webhooks on a Shoplazza store. Requires the shoplazza CLI installed locally.",
+      "category": "development"
+    }
+  ]
+}

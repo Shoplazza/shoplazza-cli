@@ -87,7 +87,7 @@ func pageServer(t *testing.T, counters *pageServerCounters, sectionsPayload []by
 		case strings.HasSuffix(p, "/theme-templates"):
 			counters.listTemplates.Add(1)
 			_ = json.NewEncoder(w).Encode(map[string]any{"theme_templates": []any{
-				map[string]any{"type": "page", "suffix": "summer", "title": "夏日大促", "obj_title": "夏日大促页", "updated_at": "2026-07-01T10:00:00Z"},
+				map[string]any{"id": json.Number("9007199254740993"), "type": "page", "suffix": "summer", "title": "夏日大促", "obj_title": "夏日大促页", "updated_at": "2026-07-01T10:00:00Z"},
 			}})
 		default:
 			t.Errorf("unexpected request: %s %s", r.Method, p)
@@ -585,6 +585,9 @@ func TestPage_List(t *testing.T) {
 	}
 	if custom == nil || custom["title"] != "夏日大促" || custom["updated_at"] == nil {
 		t.Errorf("custom entry = %v", custom)
+	}
+	if custom["template_id"] != "9007199254740993" { // above 2^53: must not round through float64
+		t.Errorf("template_id = %v, want 9007199254740993", custom["template_id"])
 	}
 	if c.listTemplates.Load() != 1 {
 		t.Errorf("list-templates calls = %d, want 1", c.listTemplates.Load())

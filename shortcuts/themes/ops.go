@@ -84,8 +84,14 @@ func validatePosition(pos string) error {
 		return nil
 	}
 	if strings.HasPrefix(pos, "after:") || strings.HasPrefix(pos, "before:") {
-		if strings.TrimSpace(pos[strings.IndexByte(pos, ':')+1:]) == "" {
+		id := strings.TrimSpace(pos[strings.IndexByte(pos, ':')+1:])
+		if id == "" {
 			return fmt.Errorf("position %q is missing a section id after ':'", pos)
+		}
+		// Group names and legacy header/footer names are not valid anchors.
+		switch id {
+		case "header", "footer", "header_sections", "footer_sections":
+			return fmt.Errorf("position %q: %q is not a section id; anchor on a header/footer member id from `themes +page` — a theme whose header member is literally %q has no header/footer group to add into", pos, id, id)
 		}
 		return nil
 	}

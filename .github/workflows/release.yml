@@ -30,3 +30,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      # The Codex plugin store takes uploads as a ZIP; attach one to every
+      # release. The two maintenance folders under skills/ are not skills.
+      - name: Upload Codex plugin ZIP
+        run: |
+          ZIP="shoplazza-plugin-${GITHUB_REF_NAME#v}.zip"
+          zip -r "$ZIP" plugin.json skills assets README.md LICENSE -x 'skills/_template*' 'skills/shoplazza-skill-eval*'
+          gh release upload "$GITHUB_REF_NAME" "$ZIP" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -38,11 +38,15 @@ only when a value is missing; never invent one.
 | `--id` | no | The `gen_<id>` to update (a `blocks/` prefix is accepted). Omit to create. |
 | `--template` | no | The page to place on (`index`, `product`, …). Omit to write the file only. |
 | `--target` | no | Container path when creating, instance path when updating. Needs `--template`. |
+| `--position` | no | Create only, without `--target`: `before:<sid>` / `after:<sid>` places the new `_blocks` container next to that card, in the anchor's area (page, header or footer). Needs `--template`. Omit to append to the end of the page area. |
 | `--settings` | no | Update only: the instance's current values (JSON object or file), used instead of the values read from `--target`. An object with a `type` key is sent as-is, and that `type` must be `blocks/<gen_id>` of `--id`. Rarely needed. |
 | `--ops` | no | Setting values to change on the placed instance — only the keys that change (JSON object or file), merged server-side. Needs `--template` and `--target`. Value formats: [setting-values.md](../setting-values.md). |
 | `--section-name` | no | Display name of the `_blocks` container in the editor's structure tree (stored as its `cname`). Needs `--template`. A bilingual object `{"zh-CN":"…","en-US":"…"}`, or a bare name that fills both locales. Without `--target` it names the new container (otherwise merchants see `_blocks`); with `--target` it renames that existing container — don't pass it then unless asked. |
 
 **Checked locally, before any request** (a failure sends nothing): `--target` needs `--template`;
+`--position` needs `--template`, is refused with `--target` or `--id`, takes only `before:` /
+`after:` (not `first` / `last`), and refuses `header` / `footer` / `header_sections` /
+`footer_sections` as anchors (they are not section ids);
 `--ops` needs `--template` and `--target`; `--section-name` needs `--template`; `--id` with
 `--template` needs `--target`; `--settings` only with `--id`; only one of `--content` /
 `--settings` / `--ops` may be `-`; `--id` must be a `gen_*` id; `--target` must be a container
@@ -88,6 +92,7 @@ themes block +edit -t <theme_id> --session <oseid> --id gen_<id> --content ./gen
   "branched": false,
   "revert_id": "<revert_id>",
   "oseid": "<oseid>",
+  "doc_id": "<doc_id>",
   "instance": { "template": "index", "target": "<sid>.blocks[0]", "section_created": true, "section_name": "…" },
   "applied": [
     { "op": "add_section", "result": "success" },
@@ -104,10 +109,11 @@ themes block +edit -t <theme_id> --session <oseid> --id gen_<id> --content ./gen
 | `settings` | The instance values the placement used: the preset values when creating; when updating, the current values carried onto the new schema (keys the new schema no longer declares are dropped, new ones take their preset value). |
 | `ops` | The `--ops` object as sent, or `null`. |
 | `branched` / `previous_type` | A fork happened (Fork below). |
-| `revert_id` | Undo token for this write (`block revert-gen`). |
-| `instance` | `template`; `target` — the instance position, index chosen by the server; use it verbatim as a later update's `--target`; `section_created` — the CLI added a container; `section_name` — present when `--section-name` landed. `null` without `--template`. |
+| `revert_id` | Undo token for the card file write (`block revert-gen`). |
+| `doc_id` / `template_id` | With `--template`: the page's template file id; `template_id` only on a custom `<type>.<suffix>` page. |
+| `instance` | `template`; `target` — the instance position, index chosen by the server; use it verbatim as a later update's `--target`; `section_created` — the CLI added a container; `section_name` — present when `--section-name` landed; `to_index_id` — with `--position`, the `section_id` the new container follows (`""` = first in its area). `null` without `--template`. |
 | `settings_defaulted` | `true` when an update had no current values to carry (no `--template`, no `--settings`). |
-| `applied` | One row per page op: `op`, `result`, `target`. |
+| `applied` | One row per page op: `op`, `result`, `target`, and `revert_id` when the server returns one (that page op's handle, not the top-level `revert_id`). |
 | `degraded` | Extras that didn't land (`ops`, `section_name`); the card is placed anyway. |
 | `preview_url` | Preview link; quote it verbatim. For a card on a `customers/*` page, the preview opens a login page first: log in as a customer and refresh. |
 

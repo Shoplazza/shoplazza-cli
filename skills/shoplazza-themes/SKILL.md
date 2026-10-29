@@ -17,7 +17,7 @@ description: >-
 
 # shoplazza CLI — themes module (store theme operations)
 
-**CRITICAL — before anything else, use Read on [`../shoplazza-common/SKILL.md`](../shoplazza-common/SKILL.md).**
+**CRITICAL — before anything else, use Read on `../shoplazza-common/SKILL.md`.**
 It owns every cross-cutting mechanic: the three access tiers, the output envelope (`.data`),
 `--dry-run`, `--jq` (incl. "don't pass `-r`"), `schema`, `api rest`, auth / profiles, and the
 safety protocol. This file covers only the themes domain and never repeats them.
@@ -171,7 +171,7 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 | Operation | Must ASK if unspecified | Infer if possible | Default silently |
 |---|---|---|---|
 | `+edit` value change | a value with no direction ("调一下") — ask for that field only | direction ("更大", "深一点") → pick from `min`/`max`/`options` | other fields stay untouched |
-| `add_section` | which card, when several candidates fit | the card from name / need; position from wording (`position: before:/after:<sid>`, `first`) | position (end of area) |
+| `add_section` | which card, when several candidates fit | the card from name / need; position from wording (`position: before:/after:<sid>`, `first`) | position (end of the page area) |
 | `themes rename` | the new name; the theme when nothing in the conversation points to one — run `themes list` first and put its rows in the question, even when the new name is missing too (Rules → 1 exception) | the theme | — |
 | `themes duplicate` | — | source theme | `copy_theme_name` is required: send `<source name> copy` unless a name was given |
 | `themes upgrade` | — | the theme (`has_newest_version` must be true) | new theme name |

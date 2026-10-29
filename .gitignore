@@ -25,7 +25,8 @@ tags
 CLAUDE.md
 .claude/
 .cursor/
-.agents/
+.agents/*
+!.agents/plugins/
 
 # Internal docs are kept local, not published
 /docs/
@@ -35,3 +36,4 @@ CLAUDE.md
 
 # Claude Code plugin/skill lockfile — local tooling artifact, not part of the project
 /skills-lock.json
+.dt/

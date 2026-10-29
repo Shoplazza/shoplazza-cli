@@ -1,0 +1,44 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "shoplazza",
+  "version": "2.2.4",
+  "description": "Agent skills for the Shoplazza CLI: manage products, orders, customers, discounts, shop settings, themes, billing and webhooks on a Shoplazza store. Requires the shoplazza CLI installed locally.",
+  "author": {
+    "name": "Shoplazza",
+    "url": "https://www.shoplazza.dev"
+  },
+  "homepage": "https://www.shoplazza.dev",
+  "repository": "https://github.com/Shoplazza/shoplazza-cli",
+  "license": "MIT",
+  "keywords": [
+    "shoplazza",
+    "ecommerce",
+    "cli",
+    "skills"
+  ],
+  "extensions": {
+    "com.openai": {
+      "requires_local_executor": true,
+      "interface": {
+        "displayName": "Shoplazza",
+        "shortDescription": "Manage your Shoplazza store",
+        "longDescription": "The Shoplazza plugin lets your AI agent run your Shoplazza store through conversation. Ask it to add or update products, change prices and stock, look up and ship orders, issue refunds, manage customers, create discount codes and flash sales, edit store pages, blogs and themes, and pull sales and traffic reports. App developers can also manage webhook subscriptions and app billing charges. Every action runs the official shoplazza CLI on your own computer with your own store login, and changes can be previewed before they are applied. Before using it, install the CLI with npm install -g shoplazza-cli and run shoplazza auth login. Desktop only.",
+        "developerName": "Shoplazza",
+        "category": "Business & Operations",
+        "capabilities": [],
+        "logo": "./assets/icon.png",
+        "composerIcon": "./assets/icon.png",
+        "brandColor": "#FF0000",
+        "websiteURL": "https://www.shoplazza.dev",
+        "supportURL": "https://www.shoplazza.dev/support",
+        "privacyPolicyURL": "https://www.shoplazza.com/privacy",
+        "termsOfServiceURL": "https://www.shoplazza.com/terms",
+        "defaultPrompt": [
+          "Show my store's sales for the last 7 days",
+          "List orders from the past week that haven't shipped yet",
+          "Create a 20% off discount code valid until the end of this month"
+        ]
+      }
+    }
+  }
+}

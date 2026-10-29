@@ -61,6 +61,23 @@ func IsolateSkillsDir(t *testing.T) string {
 	return SkillsDir(t)
 }
 
+// SeedPluginSkill installs one shoplazza skill the way the Claude Code plugin
+// lays it out, under the current home. Isolate the home first.
+func SeedPluginSkill(t *testing.T) {
+	t.Helper()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("home dir: %v", err)
+	}
+	dir := filepath.Join(home, ".claude", "plugins", "cache", "shoplazza-cli", "shoplazza", "2.2.3", "skills", "shoplazza-common")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir plugin skill: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("write plugin skill: %v", err)
+	}
+}
+
 // RunMainIsolated is the whole body of a TestMain that needs an isolated config
 // dir for the entire binary — packages whose tests call registry.LoadSpec, so
 // they compare against the embedded spec and never a real user's downloaded

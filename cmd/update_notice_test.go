@@ -77,3 +77,11 @@ func TestSkillLine(t *testing.T) {
 		t.Errorf("skillLine() = %q with a skill present", got)
 	}
 }
+
+func TestSkillLine_PluginOnly(t *testing.T) {
+	testenv.IsolateSkillsDir(t)
+	testenv.SeedPluginSkill(t)
+	if got := skillLine(); got != "skills installed" {
+		t.Errorf("skillLine() = %q with only a plugin install", got)
+	}
+}
