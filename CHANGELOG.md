@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.5 - 2026-10-29
+
+### Added
+- Function extensions can declare the metafields they read: `[[metafields_query]]` blocks in `shoplazza.extension.toml` (`resource` is `product` or `shop`, plus `namespace` and `key`; at most 5) are validated and sent by `app deploy` and `app dev`, so the function gets those metafields in its input once the app is installed. An invalid declaration fails the deploy naming the offending entry. `app function release` does not send it; run `app deploy` after changing the declaration.
+- The plugin shows its icon in Cursor, through a new `.cursor-plugin/plugin.json` manifest that carries the logo.
+
+### Fixed
+- Bundled skills point to `shoplazza-common` by a plain path instead of a Markdown link leaving the skill's own directory, which skill linters reject.
+
 ## 2.2.4 - 2026-10-28
 
 ### Added

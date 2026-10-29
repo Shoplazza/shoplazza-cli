@@ -1,6 +1,6 @@
 {
   "name": "shoplazza",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "displayName": "Shoplazza 店匠",
   "description": "用对话管理你的店匠（Shoplazza）店铺：上下架商品、改价和改库存，查订单、发货和退款，管理客户，创建折扣码和限时促销，编辑店铺页面、博客和主题，查看销售和流量报表；应用开发者还可以管理 Webhook 订阅和应用收费。所有操作都在你的电脑上，通过官方 shoplazza CLI、用你自己的店铺登录来执行，改动前可以先预览。使用前请先安装 CLI（npm install -g shoplazza-cli）并登录。"
 }

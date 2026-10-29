@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "shoplazza",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "description": "Agent skills for the Shoplazza CLI: manage products, orders, customers, discounts, shop settings, themes, billing and webhooks on a Shoplazza store. Requires the shoplazza CLI installed locally.",
   "author": {
     "name": "Shoplazza",
