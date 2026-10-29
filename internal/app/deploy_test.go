@@ -138,7 +138,7 @@ func TestDeploy_CheckoutHappyPath(t *testing.T) {
 
 // TestDeploy_FunctionLeg_InputQueryInPayload proves a function extension's
 // declared [[metafields_query]] is validated, serialized, and carried into the
-// cobra deploy payload as input_query (the cobra-route contract).
+// deploy payload as input_query.
 func TestDeploy_FunctionLeg_InputQueryInPayload(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/cli/v2/partners/p1/apps/cid_1/extension_versions", func(w http.ResponseWriter, r *http.Request) {

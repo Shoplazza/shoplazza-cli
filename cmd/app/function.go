@@ -248,8 +248,8 @@ func newCmdFunctionRelease(f *cmdutil.Factory) *cobra.Command {
 			// function's current one — it 400s "Version not match" otherwise), so bump
 			// the patch of the recorded version. The backend returns the authoritative
 			// version, which we write back for the next bump.
-			// NOTE: metafields_query is uploaded to cobra only via `app deploy`;
-			// single-function `release` does not touch cobra, so a declaration change
+			// NOTE: metafields_query is registered only via `app deploy`;
+			// single-function `release` does not update it, so a declaration change
 			// here is not propagated until the next full deploy.
 			ext := app.Extension{ExtensionName: target.Name, ExtensionType: "function"}
 			if target.ExtensionID != "" {

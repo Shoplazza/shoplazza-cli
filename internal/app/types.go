@@ -71,8 +71,8 @@ type Extension struct {
 	// so this is a pure internal carrier and never marshals into any request body.
 	Exts string `json:"-"`
 	// InputQuery is a function extension's declared metafield reads (input_query
-	// JSON string). It is sent to cobra in the deploy payload and stored on the
-	// extension version; puffer reads it back at install to bind cart-transform.
+	// JSON string). It is sent in the deploy payload and stored on the extension
+	// version, then read back at install time to bind the cart-transform function.
 	InputQuery string `json:"input_query,omitempty"`
 }
 

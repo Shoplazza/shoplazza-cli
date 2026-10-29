@@ -52,7 +52,7 @@ type DeployedExt struct {
 	VersionID   string `json:"version_id"`
 	ResourceURL string `json:"resource_url"`
 	// InputQuery is a function extension's declared metafield reads (input_query
-	// JSON string); carried into the cobra deploy payload. Empty for others.
+	// JSON string); carried into the deploy payload. Empty for others.
 	InputQuery string `json:"input_query,omitempty"`
 }
 
@@ -277,8 +277,8 @@ func buildUploadUpsert(ctx context.Context, deps DeployDeps) ([]DeployedExt, str
 			// dev /deploy never completed a function deploy. We match v1 regardless.
 			entry := functionEntryPath(deps.ProjectRoot, p.Local.Dir)
 			// Validate + serialize the declared metafield reads up front so a bad
-			// toml fails before any upload. The declaration travels to cobra in the
-			// deploy payload below (functions-api does not store it).
+			// toml fails before any upload. The declaration travels in the deploy
+			// payload below.
 			inputQuery, iqErr := BuildInputQuery(p.Local.MetafieldsQuery)
 			if iqErr != nil {
 				ups.Fail()
