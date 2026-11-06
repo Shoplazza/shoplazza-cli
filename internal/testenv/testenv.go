@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -131,6 +132,26 @@ func ConfigPaths(t *testing.T) (configPath, authPath string) {
 	t.Helper()
 	dir := IsolateConfigDir(t)
 	return filepath.Join(dir, "config.json"), filepath.Join(dir, "auth.json")
+}
+
+// RewriteTransport sends every request to srv while the client keeps seeing
+// the original URLs, so redirect checks and final URLs behave as on the real host.
+func RewriteTransport(srv *httptest.Server) http.RoundTripper { return rewriteTransport{srv} }
+
+type rewriteTransport struct{ srv *httptest.Server }
+
+func (t rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	target, err := url.Parse(t.srv.URL)
+	if err != nil {
+		return nil, err
+	}
+	r := req.Clone(req.Context())
+	r.URL.Scheme, r.URL.Host = target.Scheme, target.Host
+	resp, err := http.DefaultTransport.RoundTrip(r)
+	if resp != nil {
+		resp.Request = req
+	}
+	return resp, err
 }
 
 // NewStoreATExchangeStub serves the store access-token exchange envelope,

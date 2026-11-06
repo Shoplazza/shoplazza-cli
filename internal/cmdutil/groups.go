@@ -47,7 +47,7 @@ func RootGroups() []*cobra.Group {
 	return []*cobra.Group{
 		{ID: RootGroupBusiness, Title: "Store & business (operate your store's data):"},
 		{ID: RootGroupDev, Title: "Development (build apps, themes and extensions):"},
-		{ID: RootGroupTools, Title: "Setup & tooling (auth · config · schema · CLI):"},
+		{ID: RootGroupTools, Title: "Setup & tooling (auth · config · schema · docs · CLI):"},
 	}
 }
 
@@ -65,6 +65,6 @@ var RootGroupOf = map[string]string{
 	"checkout-extension": RootGroupDev,
 	// Setup & tooling — everything else.
 	"auth": RootGroupTools, "profile": RootGroupTools, "schema": RootGroupTools,
-	"doctor": RootGroupTools, "update": RootGroupTools, "completion": RootGroupTools,
+	"docs": RootGroupTools, "doctor": RootGroupTools, "update": RootGroupTools, "completion": RootGroupTools,
 	"skills": RootGroupTools,
 }
