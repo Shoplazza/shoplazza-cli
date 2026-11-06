@@ -35,6 +35,7 @@ Shoplazza 开放平台官方 CLI 工具 — 让人类和 AI Agent 都能操作 S
 | 🎨 主题 | 本地开发循环（实时热重载、多环境切换）；店铺主题管理（主题市场、发布、文件、版本）；页面、卡片与 AI 卡片编辑 |
 | 🧩 应用 | 完整生命周期：init → extension create → dev → deploy；扩展类型：checkout、theme、function |
 | 🧱 扩展 | 独立的 `checkout-extension` 与 `theme-extension` 项目：脚手架、本地开发 / 预览、发版、部署 / 发布 |
+| 📚 文档 | 检索和阅读 shoplazza.dev 开发者文档（指南、各版本接口文档、changelog），无需登录 |
 
 大部分业务域在生成的命令之外还提供 `+` 快捷命令，运行 `shoplazza <domain> --help` 查看该域有哪些。
 
@@ -339,14 +340,15 @@ npx skills add Shoplazza/shoplazza-cli -g
 已经两种都装了的，留下插件，删掉另一份：
 
 ```bash
-npx skills remove --global shoplazza-billing shoplazza-common shoplazza-customers shoplazza-discounts shoplazza-orders shoplazza-products shoplazza-shop shoplazza-themes shoplazza-webhook
+npx skills remove --global shoplazza-billing shoplazza-common shoplazza-customers shoplazza-discounts shoplazza-docs shoplazza-orders shoplazza-products shoplazza-shop shoplazza-themes shoplazza-webhook
 ```
 
 ### Skill 列表
 
 | Skill | 覆盖范围 |
 |-------|---------|
-| `shoplazza-common` | **基础 skill，其余全部依赖它。** 认证与 profile、三层命令体系、输出信封、`--dry-run` 安全规则、`schema` 自省 |
+| `shoplazza-common` | **基础 skill，除 `shoplazza-docs` 外其余全部依赖它。** 认证与 profile、三层命令体系、输出信封、`--dry-run` 安全规则、`schema` 自省 |
+| `shoplazza-docs` | 检索 shoplazza.dev 开发者文档：应用开发、OAuth、Webhook、Liquid 与主题开发、changelog。无需登录 |
 | `shoplazza-products` | 商品、变体、库存、合集、图片、买家评价、礼品卡、仓库、供应商 |
 | `shoplazza-orders` | 订单、发货、退款、交易、风控、售后、运费区域 |
 | `shoplazza-customers` | 客户及其地址 |
@@ -399,6 +401,14 @@ shoplazza schema products                     # 查看指定服务
 shoplazza schema products.list                # 查看指定方法
 ```
 
+`schema` 离线，查的是本 CLI 自己的命令。要查 shoplazza.dev 上的开发者文档（指南、各 API 版本的接口文档、changelog），用 `docs`，联网、无需登录：
+
+```bash
+shoplazza docs search --query "webhook hmac verify"            # 最相关的段落，每条附所在页面的 url
+shoplazza docs search --query "product-create" --api-version 2026-01 --limit 10
+shoplazza docs get --url /docs/app/best-practices/security     # 读一整页 Markdown（--output <文件> 写入整页）
+```
+
 ### 更新
 
 ```bash
@@ -424,6 +434,7 @@ shoplazza doctor check      # 诊断 CLI 健康状况
 | `NO_COLOR` | 关闭彩色输出 |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | 覆盖认证服务基础 URL（默认：`https://partners.shoplazza.com`） |
 | `SHOPLAZZA_CLI_USER_ID` | 覆盖请求头 `cli-user-id`（审计归属）。默认取登录时记录的用户 id；用 `SHOPLAZZA_ACCESS_TOKEN` 注入 token 时没有登录态，需显式设置 |
+| `SHOPLAZZA_DOCS_API` | 覆盖 `docs search` 的检索服务地址（默认 `https://eco-agent.shoplazza.com`） |
 
 交互式提问按终端自动判定，且只能关、不能强开 — 不存在对应的 `--interactive` flag。
 

@@ -35,6 +35,7 @@ The official [Shoplazza Open Platform](https://www.shoplazza.dev/) CLI tool — 
 | 🎨 Themes | Local dev loop with live reload and multi-environment targeting; store themes (market, publish, files, versions); page, card & AI block editing |
 | 🧩 App | Full lifecycle: init → extension create → dev → deploy; extensions: checkout, theme, function |
 | 🧱 Extensions | Standalone `checkout-extension` and `theme-extension` projects: scaffold, dev / serve, version, deploy / release |
+| 📚 Docs | Search and read the shoplazza.dev developer docs (guides, API reference for every version, changelog); no login |
 
 Most domains also carry `+` shortcuts on top of their generated commands — run
 `shoplazza <domain> --help` to see the ones it has.
@@ -344,14 +345,15 @@ Install the plugin or `npx skills add`, not both: with both, your agent sees eve
 when it finds both. If you already have both, keep the plugin and remove the other copy:
 
 ```bash
-npx skills remove --global shoplazza-billing shoplazza-common shoplazza-customers shoplazza-discounts shoplazza-orders shoplazza-products shoplazza-shop shoplazza-themes shoplazza-webhook
+npx skills remove --global shoplazza-billing shoplazza-common shoplazza-customers shoplazza-discounts shoplazza-docs shoplazza-orders shoplazza-products shoplazza-shop shoplazza-themes shoplazza-webhook
 ```
 
 ### Available skills
 
 | Skill | Covers |
 |-------|--------|
-| `shoplazza-common` | **Base skill — required by all the others.** Auth & profiles, the three command tiers, the output envelope, `--dry-run` safety, `schema` introspection |
+| `shoplazza-common` | **Base skill — required by all the others except `shoplazza-docs`.** Auth & profiles, the three command tiers, the output envelope, `--dry-run` safety, `schema` introspection |
+| `shoplazza-docs` | Searching the developer docs on shoplazza.dev: app development, OAuth, webhooks, Liquid & theme development, the changelog. Needs no login |
 | `shoplazza-products` | Products, variants, inventory, collections, images, reviews, gift cards, locations, suppliers |
 | `shoplazza-orders` | Orders, fulfillments, refunds, transactions, risk, post-sales, shipping zones |
 | `shoplazza-customers` | Customers and their addresses |
@@ -405,6 +407,16 @@ shoplazza schema products                     # Inspect a service
 shoplazza schema products.list                # Inspect a method
 ```
 
+`schema` is offline and covers this CLI's own commands. For the developer docs on
+shoplazza.dev (guides, the API reference for every API version, the changelog), use `docs`;
+it is online and needs no login:
+
+```bash
+shoplazza docs search --query "webhook hmac verify"            # best-matching passages, each with its page's url
+shoplazza docs search --query "product-create" --api-version 2026-01 --limit 10
+shoplazza docs get --url /docs/app/best-practices/security     # one page as Markdown (--output <file> for the whole page)
+```
+
 ### Updating
 
 ```bash
@@ -430,6 +442,7 @@ shoplazza doctor check      # diagnose CLI health
 | `NO_COLOR` | Disable colored output |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | Override auth base URL (default: `https://partners.shoplazza.com`) |
 | `SHOPLAZZA_CLI_USER_ID` | Override the `cli-user-id` request header (audit attribution). Defaults to the user id captured at login; set it when `SHOPLAZZA_ACCESS_TOKEN` injects a token, which carries no login state |
+| `SHOPLAZZA_DOCS_API` | Override the `docs search` service URL (default: `https://eco-agent.shoplazza.com`) |
 
 Interactive prompts are auto-detected from the terminal and can only be switched **off** — there is no `--interactive` flag to force them on.
 

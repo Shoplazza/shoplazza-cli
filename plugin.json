@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "shoplazza",
   "version": "2.2.5",
-  "description": "Agent skills for the Shoplazza CLI: manage products, orders, customers, discounts, shop settings, themes, billing and webhooks on a Shoplazza store. Requires the shoplazza CLI installed locally.",
+  "description": "Agent skills for the Shoplazza CLI: manage products, orders, customers, discounts, shop settings, themes, billing and webhooks on a Shoplazza store, and search the Shoplazza developer docs. Requires the shoplazza CLI installed locally.",
   "author": {
     "name": "Shoplazza",
     "url": "https://www.shoplazza.dev"
@@ -22,7 +22,7 @@
       "interface": {
         "displayName": "Shoplazza",
         "shortDescription": "Manage your Shoplazza store",
-        "longDescription": "The Shoplazza plugin lets your AI agent run your Shoplazza store through conversation. Ask it to add or update products, change prices and stock, look up and ship orders, issue refunds, manage customers, create discount codes and flash sales, edit store pages, blogs and themes, and pull sales and traffic reports. App developers can also manage webhook subscriptions and app billing charges. Every action runs the official shoplazza CLI on your own computer with your own store login, and changes can be previewed before they are applied. Before using it, install the CLI with npm install -g shoplazza-cli and run shoplazza auth login. Desktop only.",
+        "longDescription": "The Shoplazza plugin lets your AI agent run your Shoplazza store through conversation. Ask it to add or update products, change prices and stock, look up and ship orders, issue refunds, manage customers, create discount codes and flash sales, edit store pages, blogs and themes, and pull sales and traffic reports. App developers can also manage webhook subscriptions and app billing charges, and search the Shoplazza developer docs. Every action runs the official shoplazza CLI on your own computer with your own store login, and changes can be previewed before they are applied. Before using it, install the CLI with npm install -g shoplazza-cli and run shoplazza auth login. Desktop only.",
         "developerName": "Shoplazza",
         "category": "Business & Operations",
         "capabilities": [],
