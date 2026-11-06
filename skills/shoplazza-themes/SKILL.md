@@ -9,8 +9,9 @@ description: >-
   template); AI cards (生成卡片 / 自定义卡片 / 改卡片源码 / generate or edit a liquid block);
   installed themes & the market (主题列表 / 当前主题 / 主题市场 / 安装 / 改名 / 复制 / 删除 /
   升级 / 发布主题 / 预览链接 / theme list, install, rename, duplicate, delete, upgrade, publish,
-  preview); theme files, version history, page builder. NOT local theme development (themes
-  init / serve / push / pull); NOT custom page / blog / menu content (自定义页面内容 / 博客 /
+  preview); theme files, version history, page builder. NOT local theme development or the
+  Liquid reference (本地开发主题 / themes init / serve / push / pull; Liquid 语法 / 对象 / 过滤器
+  → shoplazza-docs); NOT custom page / blog / menu content (自定义页面内容 / 博客 /
   菜单 → shoplazza-shop); NOT product images (商品图片 → shoplazza-products); NOT creating a
   flash sale (→ shoplazza-discounts).
 ---
@@ -200,7 +201,8 @@ Rules → 8.
 | 创建限时促销 / create a flash sale | `shoplazza-discounts` | `discounts +flashsale` (binding it to a card is here) |
 | 上传素材 / media library files | `shoplazza-shop` | `shop +upload-file` / `shop files …` (theme `assets/` files are here) |
 | 应用市场安装 / install an app from the app store | merchant admin | not a CLI action (turning its theme embed on/off is here) |
-| 本地开发主题 / theme dev workflow | `themes init/serve/push/pull` | see `--help` (not covered by this skill) |
+| Liquid 语法 / 对象 / 过滤器 / Liquid reference | `shoplazza-docs` | `docs search --query "<filter or object>"` (writing an AI card's Liquid is here) |
+| 本地开发主题 / theme dev workflow | `shoplazza-docs` for how-to questions | `docs search`; the commands are `themes init/serve/push/pull` (see `--help`, not covered by this skill) |
 
 ## Permissions · Scope
 

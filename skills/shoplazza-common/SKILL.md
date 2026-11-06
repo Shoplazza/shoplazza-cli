@@ -10,7 +10,8 @@ description: >-
   filtered list read (pagination / has_more / cursor, silently-dropped filters, the exact-match
   precision ladder). Read this FIRST on first use of the shoplazza CLI, when the CLI is missing,
   when logging in / authorizing / switching store or profile, on permission errors, when a
-  search or filter looks like it returned too much, and before using any domain skill.
+  search or filter looks like it returned too much, and before using any domain skill. Platform
+  developer-docs questions (an app's OAuth, webhook HMAC, Liquid, changelog) → shoplazza-docs.
 ---
 
 # shoplazza CLI — shared foundation (shoplazza-common)
@@ -139,6 +140,19 @@ shoplazza schema discounts                    # list a module's commands
 shoplazza schema discounts.get                # a command's params / body / response
 shoplazza schema orders.create --view request # request side only (--view all|request|response)
 ```
+
+## Developer docs
+
+Questions about the platform itself (app development, OAuth and scopes, webhooks and their
+signatures, app proxy, theme development and Liquid, an unfamiliar API error, the changelog)
+are answered from the developer docs on shoplazza.dev: use the `shoplazza-docs` skill
+(`shoplazza docs search` / `shoplazza docs get`, no login needed). It complements `schema`,
+it doesn't replace it:
+
+| Question | Use |
+|---|---|
+| A CLI command's params / body / response, or which command to run | `schema` (above): offline, exactly what the CLI sends |
+| Concepts, rules, flows, Liquid, the changelog, APIs the CLI doesn't cover | `docs search` |
 
 ## api rest fallback
 
