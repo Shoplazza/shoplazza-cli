@@ -102,4 +102,4 @@ Needs consent (SKILL.md → Rules for every operation, 8): `--dry-run` → resta
 - `create`: `.data.theme_template.id`.
 - `update` / `delete`: `data:{}` — confirm with `list`, then summarize.
 - `+page --list`: custom templates carry their own `type` and `template_id`; standard pages have
-  `type:"system"`. Bindings (`obj_id`, `relations`) come only from `list`.
+  `type:"system"`; funnel pages (`p.landing-<id>` / `p.checkout-<id>`) have `type:"funnel"`. Bindings (`obj_id`, `relations`) come only from `list`.

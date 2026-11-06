@@ -50,7 +50,10 @@ Custom templates are `<type>.<suffix>` (`product.<suffix>`, `collection.<suffix>
 `page.<suffix>`); take the name from `--list` (or `themes template list`), never build it. In
 `--list`, `type` is `system` or the custom type, and `title` is the merchant-facing name (often
 Chinese) — match the user's wording against `title` to find a custom template. Custom rows also
-carry `template_id` (and `obj_title` once bound).
+carry `template_id` (and `obj_title` once bound). Funnel pages (`/funnel/landing-<id>`,
+`/funnel/checkout-<id>`) are `p.landing-<id>` / `p.checkout-<id>` in the Funnel extension theme;
+`--list` shows them as `type:"funnel"` with their `url`. `themes list` does not return that theme,
+so `-t` must come from the editor context.
 
 - `customers/*` templates are customer-account pages (login, register, addresses, orders…). The
   preview opens the login page; changes show only after signing in as a customer — say so in

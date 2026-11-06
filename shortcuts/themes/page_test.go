@@ -60,6 +60,9 @@ func pageServer(t *testing.T, counters *pageServerCounters, sectionsPayload []by
 			_ = json.NewEncoder(w).Encode(map[string]any{"templates": []any{
 				map[string]any{"id": "d_index", "location": "index.liquid"},
 				map[string]any{"id": "d_custom", "location": "page.summer.liquid"},
+				map[string]any{"id": "d_landing", "location": "p.landing-707472896611598091.liquid"},
+				map[string]any{"id": "d_checkout", "location": "p.checkout-707472896611598091.liquid"},
+				map[string]any{"id": "d_blueprint", "location": "p.default-landing.liquid"},
 			}})
 		case strings.HasSuffix(p, "/edit-sessions") && r.Method == http.MethodPost:
 			counters.createSession.Add(1)
@@ -571,14 +574,28 @@ func TestPage_List(t *testing.T) {
 		t.Fatalf("pageExecute: %v", err)
 	}
 	templates := body["templates"].([]map[string]any)
-	var std, custom map[string]any
+	var std, custom, landing, checkout map[string]any
 	for _, tpl := range templates {
 		switch tpl["template"] {
 		case "index":
 			std = tpl
 		case "page.summer":
 			custom = tpl
+		case "p.landing-707472896611598091":
+			landing = tpl
+		case "p.checkout-707472896611598091":
+			checkout = tpl
+		case "p.default-landing":
+			t.Errorf("p.default-* blueprints must not be listed: %v", tpl)
 		}
+	}
+	// Funnel pages live in the Funnel extension theme as p.<handle> files; they
+	// list as type funnel with the /funnel storefront path.
+	if landing == nil || landing["type"] != "funnel" || landing["title"] != "漏斗落地页" || landing["url"] != "/funnel/landing-707472896611598091" {
+		t.Errorf("funnel landing entry = %v", landing)
+	}
+	if checkout == nil || checkout["title"] != "漏斗结账页" || checkout["url"] != "/funnel/checkout-707472896611598091" {
+		t.Errorf("funnel checkout entry = %v", checkout)
 	}
 	if std == nil || std["type"] != "system" || std["title"] != "首页" || std["url"] != "/" {
 		t.Errorf("standard entry = %v", std)

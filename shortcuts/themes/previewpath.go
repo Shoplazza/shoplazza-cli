@@ -71,6 +71,9 @@ func resolvePreviewTarget(ctx context.Context, c *client.Client, themeID, templa
 	if page == "" {
 		return "", ""
 	}
+	if fp := funnelPagePath(page); fp != "" {
+		return fp, ""
+	}
 	path, ok := previewStaticPaths[page]
 	if !ok {
 		res, known := previewResourcePages[page]
@@ -94,7 +97,8 @@ func resolvePreviewTarget(ctx context.Context, c *client.Client, themeID, templa
 
 // previewPageName splits --template/--file into the page name and the custom
 // template suffix (product.custom → "product", "custom"); a --file counts only
-// when it is a templates-group file.
+// when it is a templates-group file. A funnel page (p.landing-<id>) is one
+// name, not type.suffix, and comes back whole.
 func previewPageName(template, file string) (page, suffix string) {
 	name := template
 	if name == "" {
@@ -103,6 +107,9 @@ func previewPageName(template, file string) (page, suffix string) {
 			return "", ""
 		}
 		name = strings.TrimSuffix(location, ".liquid")
+	}
+	if funnelPagePath(name) != "" {
+		return name, ""
 	}
 	if i := strings.IndexByte(name, '.'); i > 0 {
 		return name[:i], name[i+1:]
