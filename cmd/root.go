@@ -13,6 +13,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/checkoutext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/completion"
+	docscmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/docs"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/doctor"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/dynamic"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/profile"
@@ -68,6 +69,7 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 	rootCmd.AddCommand(api.NewCmdAPI(factory))
 	rootCmd.AddCommand(profile.NewCmdProfile(factory))
 	rootCmd.AddCommand(schema.NewCmdSchema(spec))
+	rootCmd.AddCommand(docscmd.NewCmdDocs())
 	rootCmd.AddCommand(skill.NewCmdSkill())
 	rootCmd.AddCommand(doctor.NewCmdDoctor(factory))
 	rootCmd.AddCommand(completion.NewCmdCompletion(factory))
