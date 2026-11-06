@@ -354,6 +354,8 @@ func TestPreviewPageName(t *testing.T) {
 		{"product.custom", "", "product", "custom"},
 		{"page.20260909144720", "", "page", "20260909144720"},
 		{"", "templates/page.summer.liquid", "page", "summer"},
+		{"p.landing-707472896611598091", "", "p.landing-707472896611598091", ""}, // funnel page: one name, no suffix split
+		{"", "templates/p.checkout-707472896611598091.liquid", "p.checkout-707472896611598091", ""},
 		{"", "sections/foo.liquid", "", ""}, // non-templates group: no storefront page
 		{"", "", "", ""},
 	}
@@ -379,6 +381,9 @@ func TestResolvePreviewPath_LocalOnly(t *testing.T) {
 		{"customers/addresses", "account/addresses"},
 		{"customers/login", "account/login"},
 		{"customers/reset_password", "account/resetpw"},
+		{"p.landing-707472896611598091", "funnel/landing-707472896611598091"},
+		{"p.checkout-707472896611598091", "funnel/checkout-707472896611598091"},
+		{"p.default-landing", ""}, // blueprint, no storefront page
 		{"whatever", ""},
 	}
 	for _, c := range cases {

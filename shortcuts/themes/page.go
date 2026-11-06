@@ -3,6 +3,7 @@ package themes
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -22,6 +23,24 @@ const (
 	phOseid    = "<oseid>"
 	phCustomID = "<custom_id>"
 )
+
+// funnelPageRE matches the funnel page files the Funnel extension theme keeps
+// under templates/: p.landing-<funnel_id> and p.checkout-<funnel_id>. The
+// p.default-* siblings are the blueprints new funnels copy from and never open
+// in the editor, so they stay out.
+var funnelPageRE = regexp.MustCompile(`^p\.((landing|checkout)-\d+)$`)
+
+// funnelPagePath maps a funnel page template name to its storefront path
+// ("funnel/landing-<id>"); "" for any other name.
+func funnelPagePath(name string) string {
+	m := funnelPageRE.FindStringSubmatch(name)
+	if m == nil {
+		return ""
+	}
+	return "funnel/" + m[1]
+}
+
+var funnelPageTitles = map[string]string{"landing": "漏斗落地页", "checkout": "漏斗结账页"}
 
 // standardPageTitles maps standard template names to their display titles for
 // `+page --list` (custom templates carry their own title from the API).
@@ -297,7 +316,15 @@ func pageList(ctx context.Context, in common.ExecInput, themeID string) (common.
 	for _, item := range doctreeGroupItems(treeResp, "templates") {
 		location := getString(item, "location")
 		name := strings.TrimSuffix(location, ".liquid")
-		if name == "" || strings.Contains(name, ".") { // custom suffixed files come from list-templates
+		if name == "" {
+			continue
+		}
+		if fp := funnelPagePath(name); fp != "" {
+			kind := funnelPageRE.FindStringSubmatch(name)[2]
+			templates = append(templates, map[string]any{"template": name, "type": "funnel", "title": funnelPageTitles[kind], "url": "/" + fp})
+			continue
+		}
+		if strings.Contains(name, ".") { // custom suffixed files come from list-templates
 			continue
 		}
 		title := standardPageTitles[name]
