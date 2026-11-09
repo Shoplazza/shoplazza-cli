@@ -3,7 +3,9 @@ package docscmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -267,8 +269,8 @@ func TestGet_Output(t *testing.T) {
 	_, _, err = run(t, "get", "--url", "/api/product-create", "--output", missing)
 	env, _ := fail(t, err)
 	msg, _ := env["message"].(string)
-	if env["param"] != "--output" || msg != "cannot write "+missing+": no such file or directory" {
-		t.Errorf("envelope = %v", env)
+	if env["param"] != "--output" || !strings.HasPrefix(msg, "cannot write "+missing+": ") || strings.Contains(msg, ".tmp") || !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("envelope = %v, cause %v", env, errors.Unwrap(err))
 	}
 }
 
