@@ -261,6 +261,15 @@ func TestGet_Output(t *testing.T) {
 	if _, has := d["markdown"]; has || d["file"] != file || d["total_chars"] != float64(len(pageMD)) || stderr != "" {
 		t.Errorf("data = %v, stderr = %q", d, stderr)
 	}
+
+	// A failed write names the --output path, not the temp file behind it.
+	missing := filepath.Join(t.TempDir(), "no-such-dir", "page.md")
+	_, _, err = run(t, "get", "--url", "/api/product-create", "--output", missing)
+	env, _ := fail(t, err)
+	msg, _ := env["message"].(string)
+	if env["param"] != "--output" || msg != "cannot write "+missing+": no such file or directory" {
+		t.Errorf("envelope = %v", env)
+	}
 }
 
 func TestGet_Errors(t *testing.T) {

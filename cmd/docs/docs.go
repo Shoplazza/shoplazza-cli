@@ -4,9 +4,11 @@ package docscmd
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -141,7 +143,7 @@ Examples:
 					err = fsx.WriteFileAtomic(file, []byte(page.Markdown), 0o644)
 				}
 				if err != nil {
-					return invalidFlag("--output", "cannot write %s: %v", outFile, err).
+					return invalidFlag("--output", "cannot write %s: %v", outFile, fileCause(err)).
 						WithHint("pass a file path in an existing, writable directory")
 				}
 				return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{
@@ -265,6 +267,20 @@ func retryHint(retryAfter string) string {
 		return fmt.Sprintf("rate limited; retry in %d seconds", s)
 	}
 	return "rate limited; retry later"
+}
+
+// fileCause drops the path from a filesystem error: the write goes through a
+// temp file whose name means nothing to the caller.
+func fileCause(err error) error {
+	var pe *fs.PathError
+	if errors.As(err, &pe) {
+		return pe.Err
+	}
+	var le *os.LinkError
+	if errors.As(err, &le) {
+		return le.Err
+	}
+	return err
 }
 
 // writeRaw prints the Markdown verbatim with exactly one trailing newline.
