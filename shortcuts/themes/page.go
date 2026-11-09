@@ -18,10 +18,12 @@ import (
 
 // Placeholders for runtime-resolved ids in --dry-run plans (zero network calls).
 const (
-	phThemeID  = "<theme_id>"
-	phDocID    = "<doc_id>"
-	phOseid    = "<oseid>"
-	phCustomID = "<custom_id>"
+	phThemeID = "<theme_id>"
+	phDocID   = "<doc_id>"
+	// phFunnelPairDocID stands for the other page of the same funnel.
+	phFunnelPairDocID = "<funnel_pair_doc_id>"
+	phOseid           = "<oseid>"
+	phCustomID        = "<custom_id>"
 )
 
 // funnelPageRE matches the funnel page files the Funnel extension theme keeps

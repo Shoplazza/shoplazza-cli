@@ -50,6 +50,9 @@ func newEditServer(t *testing.T) *editServer {
 				map[string]any{"id": "d_index", "location": "index.liquid"},
 				map[string]any{"id": "d_product", "location": "product.liquid"},
 				map[string]any{"id": "d_product_custom", "location": "product.custom.liquid"},
+				map[string]any{"id": "d_funnel", "location": "p.landing-7.liquid"},
+				map[string]any{"id": "d_funnel_co", "location": "p.checkout-7.liquid"},
+				map[string]any{"id": "d_funnel_other", "location": "p.landing-70.liquid"},
 			}})
 		case p == "/openapi/2026-01/products" && r.Method == http.MethodGet:
 			_ = json.NewEncoder(w).Encode(map[string]any{"products": []any{map[string]any{"handle": "demo-product"}}})
@@ -215,8 +218,10 @@ func newEditServer(t *testing.T) *editServer {
 				},
 			}})
 		case strings.HasSuffix(p, "/publish") && r.Method == http.MethodPatch:
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
 			es.mu.Lock()
-			es.writes = append(es.writes, map[string]any{"method": r.Method, "path": p, "body": map[string]any{}})
+			es.writes = append(es.writes, map[string]any{"method": r.Method, "path": p, "body": body})
 			fails := es.publishFails
 			es.mu.Unlock()
 			if fails {
@@ -227,8 +232,10 @@ func newEditServer(t *testing.T) *editServer {
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{
 				"theme": map[string]any{"id": "t_pub", "revoke_publish_id": "t_old"}}})
 		case strings.HasSuffix(p, "/promote"):
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
 			es.mu.Lock()
-			es.writes = append(es.writes, map[string]any{"method": r.Method, "path": p, "body": map[string]any{}})
+			es.writes = append(es.writes, map[string]any{"method": r.Method, "path": p, "body": body})
 			es.mu.Unlock()
 			if es.conflict { // real behavior: HTTP 409, not a {conflict:true} body
 				w.WriteHeader(http.StatusConflict)
@@ -1122,6 +1129,92 @@ func TestEdit_PublishChain(t *testing.T) {
 		}
 		if !strings.Contains(fmt.Sprint(env["hint"]), "themes publish") {
 			t.Errorf("hint = %v, want the standalone publish retry", env["hint"])
+		}
+	})
+}
+
+// TestEdit_FunnelPageScope: a funnel page sits in the store-wide Funnel theme,
+// so promote and publish carry doc_ids = that funnel's landing + checkout (as
+// the funnel editor does); other funnels and regular pages are not in it.
+func TestEdit_FunnelPageScope(t *testing.T) {
+	scopeOf := func(t *testing.T, es *editServer, suffix string) any {
+		t.Helper()
+		es.mu.Lock()
+		defer es.mu.Unlock()
+		for _, wr := range es.writes {
+			if strings.HasSuffix(fmt.Sprint(wr["path"]), suffix) {
+				body, _ := wr["body"].(map[string]any)
+				return body["doc_ids"]
+			}
+		}
+		t.Fatalf("no %s request sent", suffix)
+		return nil
+	}
+	for _, tc := range []struct {
+		name string
+		vals map[string]any
+		want any
+	}{
+		{"landing page brings its checkout", map[string]any{"template": "p.landing-7"}, []any{"d_funnel", "d_funnel_co"}},
+		{"checkout page brings its landing", map[string]any{"template": "p.checkout-7"}, []any{"d_funnel_co", "d_funnel"}},
+		{"funnel page by --file", map[string]any{"file": "templates/p.landing-7.liquid"}, []any{"d_funnel", "d_funnel_co"}},
+		{"a funnel without a checkout page", map[string]any{"template": "p.landing-70"}, []any{"d_funnel_other"}},
+		{"regular page keeps the whole scope", map[string]any{"template": "index"}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			es := newEditServer(t)
+			defer es.srv.Close()
+			vals := map[string]any{"session": "ose_x", "promote": true, "publish": true, "ops": `[]`}
+			for k, v := range tc.vals {
+				vals[k] = v
+			}
+			if _, err := editExec(t, es, vals); err != nil {
+				t.Fatalf("editExecute: %v", err)
+			}
+			for _, suffix := range []string{"/promote", "/publish"} {
+				if got := scopeOf(t, es, suffix); fmt.Sprint(got) != fmt.Sprint(tc.want) {
+					t.Errorf("%s doc_ids = %v, want %v", suffix, got, tc.want)
+				}
+			}
+		})
+	}
+
+	t.Run("publish failure retries this funnel alone", func(t *testing.T) {
+		es := newEditServer(t)
+		defer es.srv.Close()
+		es.publishFails = true
+		_, err := editExec(t, es, map[string]any{"template": "p.landing-7", "session": "ose_x",
+			"promote": true, "publish": true, "ops": `[]`})
+		var exitErr *output.ExitError
+		if !errors.As(err, &exitErr) {
+			t.Fatalf("err = %v, want ExitError", err)
+		}
+		hint := fmt.Sprint(exitErr.Envelope()["hint"])
+		if strings.Contains(hint, "themes publish") || !strings.Contains(hint, `{"doc_ids":["d_funnel","d_funnel_co"]}`) {
+			t.Errorf("hint = %v, want a doc_ids-scoped retry", hint)
+		}
+	})
+
+	t.Run("dry run shows the scope", func(t *testing.T) {
+		res, err := editExecute(context.Background(), common.ExecInput{
+			Flags: editFlags(t, map[string]any{"template": "p.checkout-7", "theme": "t1", "session": "ose_x",
+				"promote": true, "publish": true, "ops": `[]`}),
+			Tool: "edit", DryRun: true, Client: client.New("https://x"),
+		})
+		if err != nil {
+			t.Fatalf("dry run: %v", err)
+		}
+		n := 0
+		for _, p := range res.Plans {
+			if strings.HasSuffix(p.Path, "/promote") || strings.HasSuffix(p.Path, "/publish") {
+				n++
+				if body, _ := p.Body.(map[string]any); fmt.Sprint(body["doc_ids"]) != "[<doc_id> <funnel_pair_doc_id>]" {
+					t.Errorf("%s body = %v, want doc_ids [<doc_id> <funnel_pair_doc_id>]", p.Path, p.Body)
+				}
+			}
+		}
+		if n != 2 {
+			t.Errorf("plans = %v, want promote and publish", res.Plans)
 		}
 	})
 }

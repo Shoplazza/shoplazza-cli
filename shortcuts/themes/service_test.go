@@ -13,7 +13,7 @@ func TestPlanDetail_HitsV2SpecPathWithID(t *testing.T) {
 }
 
 func TestPlanPublish_PATCHWithID(t *testing.T) {
-	p := PlanPublish("abc123")
+	p := PlanPublish("abc123", nil)
 	if p.Method != "PATCH" {
 		t.Errorf("method = %s, want PATCH", p.Method)
 	}

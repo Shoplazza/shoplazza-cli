@@ -2,6 +2,7 @@ package themes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -53,6 +54,12 @@ with --session.
 A promote conflict returns an api error with conflict=true and never forces;
 it also stops --publish before anything goes live.
 
+A funnel page (--template p.landing-<id> / p.checkout-<id>) lives in the
+store-wide Funnel theme, so --promote and --publish carry doc_ids = that
+funnel's landing and checkout pages, as the funnel editor does: both pages are
+saved and published together with the AI blocks they use, other funnels are
+left alone. Other pages keep the whole-session promote and whole-theme publish.
+
 "Already previewed, now ship it" is an empty batch: --ops '[]' with --session
 and --promote [--publish] skips the batch request entirely.`,
 	Example: `  # Change one block setting, reusing the session +page echoed
@@ -94,6 +101,7 @@ type editInput struct {
 	session  string
 	promote  bool
 	publish  bool
+	funnelID string // set for a funnel page: promote/publish only this funnel (doc_ids)
 	ops      []editOp
 }
 
@@ -108,8 +116,12 @@ func parseEditInput(in common.ExecInput) (editInput, error) {
 		promote:  in.Flags.GetBool("promote"),
 		publish:  in.Flags.GetBool("publish"),
 	}
-	if _, _, err := templateLocation(e.template, e.file); err != nil {
+	group, location, err := templateLocation(e.template, e.file)
+	if err != nil {
 		return editInput{}, err
+	}
+	if m := funnelPageRE.FindStringSubmatch(strings.TrimSuffix(location, ".liquid")); group == "templates" && m != nil {
+		_, e.funnelID, _ = strings.Cut(m[1], "-")
 	}
 	raw, err := readOpsInput(in.Flags.GetString("ops"))
 	if err != nil {
@@ -230,10 +242,10 @@ func foldBatchResults(ops []editOp, entries []serverOp, newTargets map[int]strin
 
 // promoteAndPublish saves the edit draft onto the theme draft and, when asked,
 // takes it live. It records what happened on body.
-func promoteAndPublish(ctx context.Context, c *client.Client, e editInput, oseid, themeID string,
+func promoteAndPublish(ctx context.Context, c *client.Client, e editInput, oseid, themeID string, docIDs []string,
 	applied []map[string]any, previewURL string, body map[string]any) error {
 	if e.promote {
-		resp, err := common.Send(ctx, c, PlanPromoteSession(oseid, map[string]any{"force": false}))
+		resp, err := common.Send(ctx, c, PlanPromoteSession(oseid, promoteBody(docIDs)))
 		if err != nil {
 			if isPromoteConflict(err) {
 				return promoteConflictErr(oseid, applied, previewURL)
@@ -248,9 +260,9 @@ func promoteAndPublish(ctx context.Context, c *client.Client, e editInput, oseid
 	// Publish strictly after a clean promote: a conflict returns above, so it
 	// can never go live on top of someone else's draft.
 	if e.publish {
-		resp, err := common.Send(ctx, c, PlanPublish(themeID))
+		resp, err := common.Send(ctx, c, PlanPublish(themeID, docIDs))
 		if err != nil {
-			return publishFailedErr(oseid, themeID, applied, previewURL, err)
+			return publishFailedErr(oseid, themeID, docIDs, applied, previewURL, err)
 		}
 		body["published"] = true
 		if id := revokePublishID(resp); id != "" {
@@ -266,10 +278,10 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		return common.ExecResult{}, err
 	}
 	if in.DryRun {
-		return common.ExecResult{Plans: editDryRunPlans(e.themeID, e.session, e.ops, e.promote, e.publish)}, nil
+		return common.ExecResult{Plans: editDryRunPlans(e)}, nil
 	}
 
-	themeID, docID, err := resolveThemeAndDoc(ctx, in.Client, e.themeID, e.template, e.file)
+	themeID, docID, tree, err := resolveThemeDocTree(ctx, in.Client, e.themeID, e.template, e.file)
 	if err != nil {
 		return common.ExecResult{}, err
 	}
@@ -349,7 +361,7 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	if placementWarning != "" {
 		body["placement_warning"] = placementWarning
 	}
-	if perr := promoteAndPublish(ctx, in.Client, e, oseid, themeID, applied, previewURL, body); perr != nil {
+	if perr := promoteAndPublish(ctx, in.Client, e, oseid, themeID, e.docIDs(tree, docID), applied, previewURL, body); perr != nil {
 		return common.ExecResult{}, perr
 	}
 	return common.ExecResult{Body: body}, nil
@@ -358,14 +370,43 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 // publishFailedErr covers the promote-succeeded-publish-failed window: the work
 // is already on the theme draft, so the caller must retry publish alone rather
 // than redo the ops.
-func publishFailedErr(oseid, themeID string, applied []map[string]any, previewURL string, cause error) *output.ExitError {
+func publishFailedErr(oseid, themeID string, docIDs []string, applied []map[string]any, previewURL string, cause error) *output.ExitError {
+	hint := fmt.Sprintf(`the changes are saved on the theme draft; retry publish alone: themes publish --params '{"theme_id":"%s"}'`, themeID)
+	if len(docIDs) > 0 { // themes publish would take the whole Funnel theme live
+		ids, _ := json.Marshal(map[string]any{"doc_ids": docIDs})
+		hint = fmt.Sprintf(`the changes are saved on the theme draft; retry publishing this funnel alone: api rest PATCH %s/%s/publish --data '%s'`, themeBaseV202601, themeID, ids)
+	}
 	return output.Errorf(output.ExitAPI, output.TypeAPI, "the edit was promoted to the theme draft but publishing failed: %v", cause).
 		WithField("oseid", oseid).
 		WithField("applied", applied).
 		WithField("promoted", true).
 		WithField("published", false).
 		WithField("preview_url", previewURL).
-		WithHint(fmt.Sprintf(`the changes are saved on the theme draft; retry publish alone: themes publish --params '{"theme_id":"%s"}'`, themeID))
+		WithHint(hint)
+}
+
+// docIDs is the promote/publish scope: for a funnel page, the edited page plus
+// its landing/checkout sibling from the doctree (the set the funnel editor
+// saves); nil (whole session / whole theme) otherwise.
+func (e editInput) docIDs(tree map[string]any, docID string) []string {
+	if e.funnelID == "" {
+		return nil
+	}
+	ids := []string{docID}
+	for _, kind := range []string{"landing", "checkout"} {
+		if id := docIDForLocation(tree, "templates", "p."+kind+"-"+e.funnelID+".liquid"); id != "" && id != docID {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func promoteBody(docIDs []string) map[string]any {
+	body := map[string]any{"force": false}
+	if len(docIDs) > 0 {
+		body["doc_ids"] = docIDs
+	}
+	return body
 }
 
 // revokePublishID pulls the replaced theme's id out of a publish response,
@@ -515,7 +556,8 @@ func numberValue(v any) (float64, bool) {
 
 // editDryRunPlans lists every intended request without sending any (strict
 // zero-call + placeholders; op bodies keep locally-derivable values real).
-func editDryRunPlans(themeID, session string, ops []editOp, promote, publish bool) []common.PlannedRequest {
+func editDryRunPlans(e editInput) []common.PlannedRequest {
+	themeID, session, ops := e.themeID, e.session, e.ops
 	themeRef, plans := dryRunThemeRef(themeID)
 	plans = append(plans, PlanDocTree(themeRef))
 	oseidRef := session
@@ -553,11 +595,15 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote, publish boo
 			plans = append(plans, PlanBatchOps(oseidRef, phDocID, operations))
 		}
 	}
-	if promote {
-		plans = append(plans, PlanPromoteSession(oseidRef, map[string]any{"force": false}))
+	var docIDs []string
+	if e.funnelID != "" {
+		docIDs = []string{phDocID, phFunnelPairDocID}
 	}
-	if publish {
-		plans = append(plans, PlanPublish(themeRef))
+	if e.promote {
+		plans = append(plans, PlanPromoteSession(oseidRef, promoteBody(docIDs)))
+	}
+	if e.publish {
+		plans = append(plans, PlanPublish(themeRef, docIDs))
 	}
 	return plans
 }

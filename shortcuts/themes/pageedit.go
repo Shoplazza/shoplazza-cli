@@ -20,27 +20,35 @@ import (
 // resolveThemeAndDoc resolves the working theme and template file id: empty
 // themeID defaults to the published theme; template or file selects the doc.
 func resolveThemeAndDoc(ctx context.Context, c *client.Client, themeID, template, file string) (string, string, error) {
+	themeID, docID, _, err := resolveThemeDocTree(ctx, c, themeID, template, file)
+	return themeID, docID, err
+}
+
+// resolveThemeDocTree is resolveThemeAndDoc that also hands back the doctree
+// response it fetched, for callers that look up sibling files.
+func resolveThemeDocTree(ctx context.Context, c *client.Client, themeID, template, file string) (string, string, map[string]any, error) {
+	fail := func(err error) (string, string, map[string]any, error) { return "", "", nil, err }
 	if themeID == "" {
 		resp, err := common.Send(ctx, c, PlanThemesList(map[string]any{"published": "1"}))
 		if err != nil {
-			return "", "", err
+			return fail(err)
 		}
 		themeID = publishedThemeID(resp)
 		if themeID == "" {
-			return "", "", output.ErrValidation("no published theme found").
-				WithHint("pass --theme-id <theme_id> explicitly (see `themes list`)")
+			return fail(output.ErrValidation("no published theme found").
+				WithHint("pass --theme-id <theme_id> explicitly (see `themes list`)"))
 		}
 	}
 	group, location, err := templateLocation(template, file)
 	if err != nil {
-		return "", "", err
+		return fail(err)
 	}
-	resp, err := common.Send(ctx, c, PlanDocTree(themeID))
+	tree, err := common.Send(ctx, c, PlanDocTree(themeID))
 	if err != nil {
-		return "", "", err
+		return fail(err)
 	}
-	if docID := docIDForLocation(resp, group, location); docID != "" {
-		return themeID, docID, nil
+	if docID := docIDForLocation(tree, group, location); docID != "" {
+		return themeID, docID, tree, nil
 	}
 	// A published theme's doctree is its live snapshot, so a custom template
 	// created through the API — which lives only on the draft until the theme
@@ -51,14 +59,14 @@ func resolveThemeAndDoc(ctx context.Context, c *client.Client, themeID, template
 	if group == "templates" {
 		custom, cerr := common.Send(ctx, c, PlanListTemplates(themeID, map[string]any{"per_page": "100"}))
 		if cerr != nil {
-			return "", "", cerr
+			return fail(cerr)
 		}
 		if docID := docIDForCustomTemplate(custom, location); docID != "" {
-			return themeID, docID, nil
+			return themeID, docID, tree, nil
 		}
 	}
-	return "", "", output.ErrValidation("template file %q not found in theme %s", location, themeID).
-		WithHint("run `themes +page --list` to discover available templates")
+	return fail(output.ErrValidation("template file %q not found in theme %s", location, themeID).
+		WithHint("run `themes +page --list` to discover available templates"))
 }
 
 // docIDForCustomTemplate maps a "<type>.<suffix>.liquid" location onto a custom
