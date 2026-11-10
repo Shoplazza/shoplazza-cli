@@ -56,6 +56,9 @@ For anything on shoplazza.dev, use these rather than WebFetch or a web search. U
 
 ## How to search
 
+When a question is too broad to search well ("商品多规格怎么搞"), search its most likely reading
+and say which reading you answered, or ask one clarifying question.
+
 1. **Write a short query, not the user's sentence.** Name the API, field, error code or
    concept: "webhook hmac verify", "app proxy signature", "product-create variants". Measured on
    the real docs: pasting the whole question gets the right API page into the top 5 about half
@@ -65,13 +68,16 @@ For anything on shoplazza.dev, use these rather than WebFetch or a web search. U
    wording can be in either language.
 3. **Stop as soon as the passages answer the question; search 3 times at most.** Rephrase
    between tries: the exact name, fewer words, the other language. After 3 misses, tell the user
-   the docs don't seem to cover it.
+   the docs don't seem to cover it and point to the closest pages you did find.
 4. **Read `content` first.** Only when the passages aren't enough, `docs get` the top 1–2 pages.
    When a page comes back `truncated: true`, rerun with `--output` set to a new file in the
    system temp dir — never a path in the user's project, since it overwrites without asking —
-   and read that file.
+   and search that file (e.g. `grep`) rather than reading it top to bottom.
 5. **Cite and don't invent.** Give the `url` of every page you used. When nothing relevant came
    back, say so — never fill the gap from memory.
+6. **Name the API version.** API results are the site's default version unless you pass
+   `--api-version`; say which version an answer covers, and search once per version when
+   comparing two.
 
 Reading results:
 
@@ -88,6 +94,10 @@ Reading results:
   as JSON.
 - An endpoint's request and 200 response come back as separate passages, and a large one is
   split further. When the fields you need aren't in the passages you got, `docs get` the page.
+- Changelog questions (does an endpoint still exist in a version, a renamed field, breaking
+  changes): add "changelog" to the query. All versions share one page (`/changelog`), so check
+  the version heading in each passage; when the passages don't settle it, save the page with
+  `docs get --url /changelog --output <temp file>` and search the file.
 
 ## docs vs schema
 
