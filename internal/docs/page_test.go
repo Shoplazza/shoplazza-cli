@@ -94,6 +94,8 @@ func TestGetPage(t *testing.T) {
 			_, _ = io.WriteString(w, "**版本：202607**\n\n# 新页面\n\n正文\n")
 		case "/docs/away.md":
 			http.Redirect(w, r, "https://evil.example.com/away.md", http.StatusFound)
+		case "/docs/downgrade.md":
+			http.Redirect(w, r, "http://"+SiteHost+"/docs/downgrade.md", http.StatusFound)
 		case "/docs/html-only.md":
 			http.Redirect(w, r, SiteURL+"/docs/html-only", http.StatusMovedPermanently)
 		case "/docs/html-only":
@@ -122,6 +124,9 @@ func TestGetPage(t *testing.T) {
 		t.Errorf("off-site redirect: err = %v, want ErrOffSite", err)
 	}
 
+	if _, err := c.GetPage(context.Background(), SiteURL+"/docs/downgrade"); !errors.Is(err, ErrOffSite) {
+		t.Errorf("redirect to plain http: err = %v, want ErrOffSite", err)
+	}
 	if _, err := c.GetPage(context.Background(), SiteURL+"/docs/html-only"); !errors.Is(err, ErrNotMarkdown) || !errors.Is(err, ErrBadResponse) {
 		t.Errorf("HTML answer: err = %v, want ErrNotMarkdown", err)
 	}
