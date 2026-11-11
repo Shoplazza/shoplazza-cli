@@ -46,7 +46,7 @@ func NormalizePageURL(ref string) (string, error) {
 	return SiteURL + path, nil
 }
 
-// GetPage reads pageURL's .md copy, following redirects only on SiteHost.
+// GetPage reads pageURL's .md copy, following redirects only within SiteURL.
 func (c *Client) GetPage(ctx context.Context, pageURL string) (*Page, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL+".md", nil)
 	if err != nil {
@@ -89,7 +89,7 @@ func stayOnSite(req *http.Request, via []*http.Request) error {
 	if len(via) >= 10 {
 		return ErrTooManyRedirects
 	}
-	if !strings.EqualFold(req.URL.Hostname(), SiteHost) {
+	if req.URL.Scheme != "https" || !strings.EqualFold(req.URL.Hostname(), SiteHost) {
 		return fmt.Errorf("%w: %s", ErrOffSite, req.URL.Redacted())
 	}
 	return nil

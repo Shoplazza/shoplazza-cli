@@ -59,7 +59,7 @@ func (e *HTTPError) Error() string {
 }
 
 var (
-	ErrOffSite          = errors.New("redirected off " + SiteHost)
+	ErrOffSite          = errors.New("redirected off " + SiteURL)
 	ErrTooManyRedirects = errors.New("stopped after 10 redirects")
 	ErrSearchAPI        = errors.New("the search service URL is not an http(s) URL")
 	// ErrBadResponse is a 2xx response the CLI can't use.
