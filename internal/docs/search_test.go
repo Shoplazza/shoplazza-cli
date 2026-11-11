@@ -106,3 +106,26 @@ func TestSearch_HTTPError(t *testing.T) {
 		})
 	}
 }
+
+func TestSearch_BadServiceURL(t *testing.T) {
+	for _, api := range []string{"eco-agent.shoplazza.com", "ftp://docs.example.com", "http://", "::"} {
+		c := NewClient("v9.9.9")
+		c.SearchAPI, c.ClientID = api, "11111111-1111-4111-8111-111111111111"
+		if _, err := c.Search(context.Background(), SearchRequest{Query: "x"}); !errors.Is(err, ErrSearchAPI) {
+			t.Errorf("SearchAPI %q: err = %v, want ErrSearchAPI", api, err)
+		}
+	}
+}
+
+func TestSearch_NotJSON(t *testing.T) {
+	for _, body := range []string{"<html>sign in</html>", "null", "[]"} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = io.WriteString(w, body)
+		}))
+		_, err := testClient(srv).Search(context.Background(), SearchRequest{Query: "x"})
+		srv.Close()
+		if !errors.Is(err, ErrBadResponse) {
+			t.Errorf("body %q: err = %v, want ErrBadResponse", body, err)
+		}
+	}
+}

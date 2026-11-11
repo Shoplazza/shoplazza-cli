@@ -221,11 +221,9 @@ func ErrAPI(statusCode int, body, requestID string) *ExitError {
 	return ErrHTTP(statusCode, body, requestID)
 }
 
-// ErrHTTP creates an api-class ExitError from any non-2xx HTTP response, for
-// services the login has nothing to do with (so a 403 stays api-class). It
-// surfaces the clean server-parsed message and business code, falling back to
-// the raw body; 5xx falls back to serverErrorMessage only when the body has
-// none. statusCode + requestID land in error.detail for triage.
+// ErrHTTP creates an api-class ExitError from a non-2xx response of a service
+// that needs no login, so a 403 stays api-class. The message is the
+// server-parsed one, else the raw body (serverErrorMessage for a 5xx).
 func ErrHTTP(statusCode int, body, requestID string) *ExitError {
 	code, msg := parseAPIErrorBody(body)
 	ctx := newErrorContext(statusCode, requestID)

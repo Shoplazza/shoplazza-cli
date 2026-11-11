@@ -1,5 +1,4 @@
-// Package docs searches and reads the Shoplazza developer docs on
-// www.shoplazza.dev, for `shoplazza docs`. Neither needs a login.
+// Package docs searches and reads the developer docs on www.shoplazza.dev.
 package docs
 
 import (
@@ -15,14 +14,10 @@ import (
 )
 
 const (
-	// EnvSearchAPI overrides the search service URL.
-	EnvSearchAPI = "SHOPLAZZA_DOCS_API"
-	// DefaultSearchAPI is the search service URL.
+	EnvSearchAPI     = "SHOPLAZZA_DOCS_API"
 	DefaultSearchAPI = "https://eco-agent.shoplazza.com"
-	// SearchPath is the search endpoint.
-	SearchPath = "/api/docs/search"
+	SearchPath       = "/api/docs/search"
 
-	// SiteHost is the docs site; pages are read from it only.
 	SiteHost = "www.shoplazza.dev"
 	SiteURL  = "https://" + SiteHost
 
@@ -30,15 +25,14 @@ const (
 	maxBodyBytes = 32 << 20
 )
 
-// Client calls the search service and the docs site.
 type Client struct {
-	SearchAPI string // search service URL, no trailing slash
+	SearchAPI string // no trailing slash
 	HTTP      *http.Client
 	ClientID  string // X-Client-Id; empty means ClientID()
 	UserAgent string
 }
 
-// NewClient returns a client for CLI version, honoring SHOPLAZZA_DOCS_API.
+// NewClient honors SHOPLAZZA_DOCS_API.
 func NewClient(version string) *Client {
 	api := strings.TrimRight(strings.TrimSpace(os.Getenv(EnvSearchAPI)), "/")
 	if api == "" {
@@ -51,22 +45,27 @@ func NewClient(version string) *Client {
 	}
 }
 
-// HTTPError is a non-2xx response.
 type HTTPError struct {
 	StatusCode int
 	Method     string
-	Path       string // request path after redirects, without query
+	Path       string // after redirects, without query
 	Body       string
 	TraceID    string // X-Trace-Id, else the body's trace_id
-	RetryAfter string // Retry-After header
+	RetryAfter string
 }
 
 func (e *HTTPError) Error() string {
 	return fmt.Sprintf("%s %s: status %d", e.Method, e.Path, e.StatusCode)
 }
 
-// ErrOffSite reports a redirect that leaves SiteHost.
-var ErrOffSite = errors.New("redirected off " + SiteHost)
+var (
+	ErrOffSite          = errors.New("redirected off " + SiteHost)
+	ErrTooManyRedirects = errors.New("stopped after 10 redirects")
+	ErrSearchAPI        = errors.New("the search service URL is not an http(s) URL")
+	// ErrBadResponse is a 2xx response the CLI can't use.
+	ErrBadResponse = errors.New("unexpected response")
+	ErrNotMarkdown = fmt.Errorf("%w: the site returned HTML, not Markdown", ErrBadResponse)
+)
 
 func newHTTPError(resp *http.Response, body []byte) *HTTPError {
 	return &HTTPError{
@@ -90,14 +89,13 @@ func traceID(h http.Header, body []byte) string {
 	return b.TraceID
 }
 
-// readBody reads at most maxBodyBytes of the response body.
 func readBody(resp *http.Response) ([]byte, error) {
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes+1))
 	if err != nil {
 		return nil, err
 	}
 	if len(data) > maxBodyBytes {
-		return nil, fmt.Errorf("%s %s: response is larger than %d MiB", resp.Request.Method, resp.Request.URL.Redacted(), maxBodyBytes>>20)
+		return nil, fmt.Errorf("%w: %s %s is larger than %d MiB", ErrBadResponse, resp.Request.Method, resp.Request.URL.Redacted(), maxBodyBytes>>20)
 	}
 	return data, nil
 }

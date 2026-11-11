@@ -2,6 +2,7 @@
 package docscmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -28,10 +29,9 @@ const (
 	defaultMaxChars = 20000
 )
 
-// newClient is swappable in tests.
+// Swapped in tests.
 var newClient = func() *docs.Client { return docs.NewClient(build.DisplayVersion()) }
 
-// NewCmdDocs creates the `docs` command group.
 func NewCmdDocs() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "docs",
@@ -111,9 +111,9 @@ func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Read a developer-docs page as Markdown",
-		Long: `Read one docs page as Markdown. A page longer than --max-chars is cut at a line
-break (truncated: true; total_chars counts the whole page); --output saves the
-whole page instead. --format pretty prints the Markdown as is.
+		Long: `Read one docs page as Markdown. A page longer than --max-chars is cut there
+(truncated: true; total_chars counts the whole page); --output saves the whole
+page instead. --format pretty prints the Markdown as is.
 
 Examples:
   shoplazza docs get --url https://www.shoplazza.dev/docs/app/building-blocks/app-proxy/overview
@@ -174,8 +174,7 @@ Examples:
 	return cmd
 }
 
-// noPositional rejects positional arguments and points at flag (cobra.NoArgs
-// would report an unknown command).
+// noPositional points at flag; cobra.NoArgs would report an unknown command.
 func noPositional(flag string) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
@@ -202,14 +201,17 @@ func invalidFlag(flag, format string, args ...any) *output.ExitError {
 		WithParam(flag)
 }
 
-// searchError maps a failed search: 400 invalid_request is a bad flag value
-// (its message lists the valid ones); any other status is api-class.
+// A 400 invalid_request is a bad flag value; its message lists the valid ones.
 func searchError(err error) error {
+	if errors.Is(err, docs.ErrSearchAPI) {
+		return output.ErrValidation("%v", err).
+			WithHint("set " + docs.EnvSearchAPI + " to an http(s) URL, or unset it to use the default")
+	}
 	var he *docs.HTTPError
 	if !errors.As(err, &he) {
 		return transportError(err)
 	}
-	e := output.ErrHTTP(he.StatusCode, he.Body, he.TraceID).WithEndpoint(he.Method, he.Path)
+	e := output.ErrHTTP(he.StatusCode, errorBody(he.Body), he.TraceID).WithEndpoint(he.Method, he.Path)
 	switch {
 	case he.StatusCode == http.StatusBadRequest && e.Detail.Code == "invalid_request":
 		return output.ErrValidation("%s", e.Detail.Message).
@@ -224,7 +226,6 @@ func searchError(err error) error {
 	return e
 }
 
-// getError maps a failed page read.
 func getError(err error, pageURL string) error {
 	if errors.Is(err, docs.ErrOffSite) {
 		var ue *url.Error
@@ -233,6 +234,14 @@ func getError(err error, pageURL string) error {
 		}
 		return invalidFlag("--url", "%s: %v", pageURL, err).
 			WithHint("read pages on " + docs.SiteHost + " only")
+	}
+	if errors.Is(err, docs.ErrNotMarkdown) {
+		return output.Errorf(output.ExitAPI, output.TypeAPI, "%s has no Markdown copy: the site returned HTML", pageURL).
+			WithHint("run 'shoplazza docs search' for the page, or answer from the passages")
+	}
+	if errors.Is(err, docs.ErrTooManyRedirects) {
+		return output.Errorf(output.ExitAPI, output.TypeAPI, "%s: %v", pageURL, docs.ErrTooManyRedirects).
+			WithHint("the docs site keeps redirecting this page; run 'shoplazza docs search' for its current URL")
 	}
 	var he *docs.HTTPError
 	if !errors.As(err, &he) {
@@ -245,15 +254,33 @@ func getError(err error, pageURL string) error {
 			WithEndpoint(he.Method, he.Path).
 			WithStatus(he.StatusCode)
 	case http.StatusTooManyRequests:
-		return output.ErrHTTP(he.StatusCode, he.Body, "").WithEndpoint(he.Method, he.Path).
+		return output.ErrHTTP(he.StatusCode, errorBody(he.Body), "").WithEndpoint(he.Method, he.Path).
 			WithHint(retryHint(he.RetryAfter))
 	}
-	return output.ErrHTTP(he.StatusCode, he.Body, "").WithEndpoint(he.Method, he.Path)
+	return output.ErrHTTP(he.StatusCode, errorBody(he.Body), "").WithEndpoint(he.Method, he.Path)
 }
 
-// transportError maps an error without an HTTP status: net.Error is
-// network-class, anything else internal.
+const maxErrorBodyChars = 300
+
+// errorBody drops an HTML or long error page (a CDN or gateway answering), so
+// the message falls back to the status code.
+func errorBody(body string) string {
+	b := strings.TrimSpace(body)
+	if json.Valid([]byte(b)) {
+		return body
+	}
+	if strings.HasPrefix(b, "<") || utf8.RuneCountInString(b) > maxErrorBodyChars {
+		return ""
+	}
+	return body
+}
+
+// A failed request is always network-class: http.Client.Do returns a
+// *url.Error, which is a net.Error whatever it wraps.
 func transportError(err error) error {
+	if errors.Is(err, docs.ErrBadResponse) {
+		return output.Errorf(output.ExitAPI, output.TypeAPI, "%v", err)
+	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {
 		return output.ErrNetwork("%v", err)
@@ -261,7 +288,6 @@ func transportError(err error) error {
 	return output.ErrInternal("%v", err)
 }
 
-// retryHint turns a Retry-After header into the 429 hint; the CLI never retries.
 func retryHint(retryAfter string) string {
 	if s, err := strconv.Atoi(strings.TrimSpace(retryAfter)); err == nil && s >= 0 {
 		return fmt.Sprintf("rate limited; retry in %d seconds", s)
@@ -269,8 +295,7 @@ func retryHint(retryAfter string) string {
 	return "rate limited; retry later"
 }
 
-// fileCause drops the path from a filesystem error: the write goes through a
-// temp file whose name means nothing to the caller.
+// fileCause drops the path: the write goes through a temp file.
 func fileCause(err error) error {
 	var pe *fs.PathError
 	if errors.As(err, &pe) {
@@ -283,7 +308,6 @@ func fileCause(err error) error {
 	return err
 }
 
-// writeRaw prints the Markdown verbatim with exactly one trailing newline.
 func writeRaw(cmd *cobra.Command, md string) error {
 	w := cmd.OutOrStdout()
 	if _, err := fmt.Fprint(w, md); err != nil {

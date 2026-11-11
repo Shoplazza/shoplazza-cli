@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"net/url"
 	"strings"
-	"unicode/utf8"
 )
 
-// Page is one docs page read as Markdown.
 type Page struct {
 	URL      string // after redirects, without .md
 	Title    string // first H1
@@ -18,9 +17,8 @@ type Page struct {
 	Markdown string
 }
 
-// NormalizePageURL turns a full www.shoplazza.dev URL or a site path ("/...")
-// into the page URL, dropping fragment, query, trailing slash and .md
-// (<page>/.md is a 404).
+// NormalizePageURL turns a www.shoplazza.dev URL or a site path into the page
+// URL, without fragment, query, trailing slash or .md.
 func NormalizePageURL(ref string) (string, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
@@ -48,8 +46,7 @@ func NormalizePageURL(ref string) (string, error) {
 	return SiteURL + path, nil
 }
 
-// GetPage reads pageURL's .md copy. Redirects are followed only on SiteHost
-// (else ErrOffSite); a missing page is a 404 HTTPError.
+// GetPage reads pageURL's .md copy, following redirects only on SiteHost.
 func (c *Client) GetPage(ctx context.Context, pageURL string) (*Page, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL+".md", nil)
 	if err != nil {
@@ -72,6 +69,10 @@ func (c *Client) GetPage(ctx context.Context, pageURL string) (*Page, error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, newHTTPError(resp, body)
 	}
+	// HTML means the page has no .md copy.
+	if mt, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type")); mt == "text/html" || mt == "application/xhtml+xml" {
+		return nil, ErrNotMarkdown
+	}
 
 	final := *resp.Request.URL
 	final.RawQuery, final.Fragment = "", ""
@@ -86,7 +87,7 @@ func (c *Client) GetPage(ctx context.Context, pageURL string) (*Page, error) {
 
 func stayOnSite(req *http.Request, via []*http.Request) error {
 	if len(via) >= 10 {
-		return errors.New("stopped after 10 redirects")
+		return ErrTooManyRedirects
 	}
 	if !strings.EqualFold(req.URL.Hostname(), SiteHost) {
 		return fmt.Errorf("%w: %s", ErrOffSite, req.URL.Redacted())
@@ -94,7 +95,6 @@ func stayOnSite(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
-// LocaleOf returns zh-CN for a path under /zh-CN/, else en.
 func LocaleOf(path string) string {
 	if path == "/zh-CN" || strings.HasPrefix(path, "/zh-CN/") {
 		return "zh-CN"
@@ -102,8 +102,7 @@ func LocaleOf(path string) string {
 	return "en"
 }
 
-// Title returns the first non-empty "# " heading outside fenced code. API
-// pages start with a version line, so it is not always the first line.
+// Title returns the first "# " heading outside fenced code.
 func Title(md string) string {
 	fence := ""
 	for _, line := range strings.Split(md, "\n") {
@@ -139,20 +138,14 @@ func Title(md string) string {
 	return ""
 }
 
-// Truncate cuts md to at most max characters, backing up to the last line
-// break; a first line longer than max is cut at max. It reports whether it cut.
+// Truncate cuts md to max characters and reports whether it cut.
 func Truncate(md string, max int) (string, bool) {
-	if utf8.RuneCountInString(md) <= max {
-		return md, false
+	n := 0
+	for i := range md {
+		if n == max {
+			return md[:i], true
+		}
+		n++
 	}
-	cut := 0
-	for i := 0; i < max; i++ {
-		_, size := utf8.DecodeRuneInString(md[cut:])
-		cut += size
-	}
-	head := md[:cut]
-	if i := strings.LastIndexByte(head, '\n'); i > 0 {
-		head = head[:i+1]
-	}
-	return head, true
+	return md, false
 }

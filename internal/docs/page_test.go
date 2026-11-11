@@ -62,9 +62,9 @@ func TestTruncate(t *testing.T) {
 		cut  bool
 	}{
 		{"abcde", 5, "abcde", false},
-		{"line one\nline two\nline three", 15, "line one\n", true},
-		{"中文\n中文中文", 4, "中文\n", true}, // characters, not bytes
-		{"一二三四五六", 3, "一二三", true},    // no line break: cut at max
+		{"line one\nline two\nline three", 15, "line one\nline t", true},
+		{"中文\n中文中文", 4, "中文\n中", true}, // characters, not bytes
+		{"一二三", 0, "", true},
 	}
 	for _, c := range cases {
 		if got, cut := Truncate(c.md, c.max); got != c.want || cut != c.cut {
@@ -94,6 +94,12 @@ func TestGetPage(t *testing.T) {
 			_, _ = io.WriteString(w, "**版本：202607**\n\n# 新页面\n\n正文\n")
 		case "/docs/away.md":
 			http.Redirect(w, r, "https://evil.example.com/away.md", http.StatusFound)
+		case "/docs/html-only.md":
+			http.Redirect(w, r, SiteURL+"/docs/html-only", http.StatusMovedPermanently)
+		case "/docs/html-only":
+			_, _ = io.WriteString(w, "<!doctype html><html><body>rendered page</body></html>")
+		case "/docs/loop.md":
+			http.Redirect(w, r, SiteURL+"/docs/loop.md", http.StatusFound)
 		default:
 			http.NotFound(w, r)
 		}
@@ -114,6 +120,13 @@ func TestGetPage(t *testing.T) {
 
 	if _, err := c.GetPage(context.Background(), SiteURL+"/docs/away"); !errors.Is(err, ErrOffSite) {
 		t.Errorf("off-site redirect: err = %v, want ErrOffSite", err)
+	}
+
+	if _, err := c.GetPage(context.Background(), SiteURL+"/docs/html-only"); !errors.Is(err, ErrNotMarkdown) || !errors.Is(err, ErrBadResponse) {
+		t.Errorf("HTML answer: err = %v, want ErrNotMarkdown", err)
+	}
+	if _, err := c.GetPage(context.Background(), SiteURL+"/docs/loop"); !errors.Is(err, ErrTooManyRedirects) {
+		t.Errorf("redirect loop: err = %v, want ErrTooManyRedirects", err)
 	}
 
 	_, err = c.GetPage(context.Background(), SiteURL+"/docs/missing")

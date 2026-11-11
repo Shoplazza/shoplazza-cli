@@ -240,7 +240,7 @@ func TestGet_Truncates(t *testing.T) {
 	}
 	d := data(t, out)
 	md, _ := d["markdown"].(string)
-	if len(md) > 50 || !strings.HasSuffix(md, "\n") || d["truncated"] != true || d["total_chars"] != float64(len(pageMD)) {
+	if md != pageMD[:50] || d["truncated"] != true || d["total_chars"] != float64(len(pageMD)) {
 		t.Errorf("data = %v", d)
 	}
 	if !strings.Contains(stderr, "--output") {
@@ -308,5 +308,75 @@ func TestGet_Errors(t *testing.T) {
 func TestDocsHelpPointsAtSchema(t *testing.T) {
 	if !strings.Contains(NewCmdDocs().Long, "shoplazza schema") {
 		t.Error("docs --help must point at schema")
+	}
+}
+
+func TestSearch_BadServiceURL(t *testing.T) {
+	setClient(t, func(c *docs.Client) { c.SearchAPI = "eco-agent.shoplazza.com" })
+	_, _, err := run(t, "search", "--query", "x")
+	env, _ := fail(t, err)
+	hint, _ := env["hint"].(string)
+	if env["type"] != output.TypeValidation || !strings.Contains(hint, docs.EnvSearchAPI) {
+		t.Errorf("envelope = %v, want a validation error naming %s", env, docs.EnvSearchAPI)
+	}
+}
+
+func TestSearch_UnusableResponses(t *testing.T) {
+	const htmlPage = "<!doctype html><html><body>Access denied</body></html>"
+	cases := []struct {
+		name   string
+		status int
+		want   string
+	}{
+		{"200 that is not JSON", 200, "not a JSON object"},
+		{"error page instead of the service", 403, "request failed with status 403"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			withServer(t, func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(c.status)
+				_, _ = io.WriteString(w, htmlPage)
+			})
+			_, _, err := run(t, "search", "--query", "x")
+			env, _ := fail(t, err)
+			msg, _ := env["message"].(string)
+			if env["type"] != output.TypeAPI || !strings.Contains(msg, c.want) || strings.Contains(msg, "<") {
+				t.Errorf("envelope = %v", env)
+			}
+		})
+	}
+}
+
+func TestGet_UnusableResponses(t *testing.T) {
+	const htmlPage = "<!doctype html><html><body>rendered page</body></html>"
+	withServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/docs/html-only.md":
+			http.Redirect(w, r, docs.SiteURL+"/docs/html-only", http.StatusMovedPermanently)
+		case "/docs/html-only":
+			_, _ = io.WriteString(w, htmlPage)
+		case "/docs/loop.md":
+			http.Redirect(w, r, docs.SiteURL+"/docs/loop.md", http.StatusFound)
+		case "/docs/blocked.md":
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = io.WriteString(w, htmlPage)
+		case "/docs/plain.md":
+			w.WriteHeader(http.StatusGone)
+			_, _ = io.WriteString(w, "gone for good\n")
+		}
+	})
+	cases := []struct{ path, want string }{
+		{"/docs/html-only", "no Markdown copy"},
+		{"/docs/loop", "stopped after 10 redirects"},
+		{"/docs/blocked", "request failed with status 403"},
+		{"/docs/plain", "gone for good"},
+	}
+	for _, c := range cases {
+		out, _, err := run(t, "get", "--url", c.path)
+		env, _ := fail(t, err)
+		msg, _ := env["message"].(string)
+		if env["type"] != output.TypeAPI || !strings.Contains(msg, c.want) || strings.Contains(msg, "<") || out != "" {
+			t.Errorf("%s → %v (stdout %q)", c.path, env, out)
+		}
 	}
 }

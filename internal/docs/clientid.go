@@ -15,9 +15,8 @@ const clientIDFile = "client-id"
 
 var uuidRe = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
-// ClientID returns this install's anonymous id: a random UUID in
-// <UserConfigDir>/shoplazza-cli/client-id, created on first use. When the file
-// can't be written, a fresh id serves this process only.
+// ClientID returns this install's anonymous id, a UUID kept in
+// <UserConfigDir>/shoplazza-cli/client-id; unsaved, it lasts one process.
 func ClientID() string {
 	path := clientIDPath()
 	if path != "" {
@@ -44,7 +43,6 @@ func clientIDPath() string {
 	return filepath.Join(dir, "shoplazza-cli", clientIDFile)
 }
 
-// newUUID returns a random version 4 UUID.
 func newUUID() string {
 	var b [16]byte
 	_, _ = rand.Read(b[:])

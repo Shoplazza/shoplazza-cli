@@ -4,15 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 )
 
-// SearchRequest is the search body. Empty fields are omitted, so the service
-// applies its own defaults and a new default needs no CLI release.
+// SearchRequest omits empty fields so the service applies its own defaults.
 type SearchRequest struct {
 	Query      string `json:"query"`
 	Locale     string `json:"locale,omitempty"`
@@ -20,13 +19,11 @@ type SearchRequest struct {
 	Limit      int    `json:"limit,omitempty"`
 }
 
-// Locales are the docs languages.
 var Locales = []string{"en", "zh-CN"}
 
 var dashedVersion = regexp.MustCompile(`^\d{4}-\d{2}$`)
 
-// NormalizeAPIVersion turns 2026-07 into 202607. Other values pass through
-// trimmed; the service validates them.
+// NormalizeAPIVersion turns 2026-07 into 202607; the service validates the rest.
 func NormalizeAPIVersion(v string) string {
 	v = strings.TrimSpace(v)
 	if dashedVersion.MatchString(v) {
@@ -36,12 +33,15 @@ func NormalizeAPIVersion(v string) string {
 }
 
 // Search returns the service's response with each result's url made absolute.
-// Each result is one passage of a page, so a page may appear more than once.
 // "results" is always a list; scores stay json.Number.
 func (c *Client) Search(ctx context.Context, req SearchRequest) (map[string]any, error) {
 	payload, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
+	}
+	// Otherwise a bad SHOPLAZZA_DOCS_API surfaces as a network failure.
+	if u, err := url.Parse(c.SearchAPI); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return nil, fmt.Errorf("%w: %q", ErrSearchAPI, c.SearchAPI)
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.SearchAPI+SearchPath, bytes.NewReader(payload))
 	if err != nil {
@@ -73,11 +73,8 @@ func (c *Client) Search(ctx context.Context, req SearchRequest) (map[string]any,
 	var out map[string]any
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
-	if err := dec.Decode(&out); err != nil {
-		return nil, fmt.Errorf("decode search response: %w", err)
-	}
-	if out == nil {
-		return nil, errors.New("decode search response: not a JSON object")
+	if err := dec.Decode(&out); err != nil || out == nil {
+		return nil, fmt.Errorf("%w: the search response is not a JSON object", ErrBadResponse)
 	}
 	results, _ := out["results"].([]any)
 	if results == nil {
@@ -94,7 +91,7 @@ func (c *Client) Search(ctx context.Context, req SearchRequest) (map[string]any,
 	return out, nil
 }
 
-// AbsoluteURL joins a site path to SiteURL; other values are returned as is.
+// AbsoluteURL leaves anything but a site path as is.
 func AbsoluteURL(path string) string {
 	if strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "//") {
 		return SiteURL + path
