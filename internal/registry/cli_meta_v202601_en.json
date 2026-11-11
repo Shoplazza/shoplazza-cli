@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-10-09T10:23:40Z",
+  "generated_at": "2026-11-09T08:33:35Z",
   "modules": [
     {
       "name": "billing",
@@ -11226,7 +11226,7 @@
               {
                 "name": "type",
                 "type": "string",
-                "description": "The type of file to delete: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales`, `blocks`. Defaults to `assets`",
+                "description": "The type of file to delete: `layout`, `sections`, `snippets`, `assets`, `locales`, `blocks`. Defaults to `assets`",
                 "default": "assets",
                 "min_length": 1
               },
@@ -11266,7 +11266,7 @@
               "name": "type",
               "in": "query",
               "type": "string",
-              "description": "The type of file to retrieve: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales`, `blocks`. Defaults to `layout`",
+              "description": "The type of file to retrieve: `layout`, `sections`, `snippets`, `assets`, `locales`, `blocks`. Defaults to `layout`",
               "min_length": 1
             },
             {
@@ -12950,7 +12950,7 @@
               "name": "type",
               "in": "query",
               "type": "string",
-              "description": "The type of file to list versions for: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales` (`blocks` is not supported here). Defaults to `layout`",
+              "description": "The type of file to list versions for: `layout`, `sections`, `snippets`, `assets`, `locales` (`blocks` is not supported here). Defaults to `layout`",
               "default": "layout",
               "min_length": 1
             },
@@ -17662,6 +17662,23 @@
         {
           "name": "zip",
           "type": "string"
+        },
+        {
+          "name": "iana_timezone",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset",
+          "type": "string"
+        },
+        {
+          "name": "timezone_abbreviation",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset_minutes",
+          "type": "integer",
+          "format": "int32"
         }
       ]
     },
@@ -22903,6 +22920,23 @@
         {
           "name": "zip",
           "type": "string"
+        },
+        {
+          "name": "iana_timezone",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset",
+          "type": "string"
+        },
+        {
+          "name": "timezone_abbreviation",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset_minutes",
+          "type": "integer",
+          "format": "int32"
         }
       ]
     },
