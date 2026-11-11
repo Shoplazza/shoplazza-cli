@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -69,7 +70,7 @@ Examples:
 					WithHint(`pass short search terms, e.g. --query "webhook hmac"`)
 			}
 			if cmd.Flags().Changed("locale") {
-				if !validLocale(locale) {
+				if !slices.Contains(docs.Locales, locale) {
 					return invalidFlag("--locale", "invalid --locale %q", locale).
 						WithHint("valid values: " + strings.Join(docs.Locales, ", "))
 				}
@@ -184,15 +185,6 @@ func noPositional(flag string) cobra.PositionalArgs {
 			WithSubtype(output.SubtypeInvalidArgument).
 			WithHint(fmt.Sprintf("pass it with %s, e.g. %s %s %q", flag, cmd.CommandPath(), flag, strings.Join(args, " ")))
 	}
-}
-
-func validLocale(l string) bool {
-	for _, v := range docs.Locales {
-		if l == v {
-			return true
-		}
-	}
-	return false
 }
 
 func invalidFlag(flag, format string, args ...any) *output.ExitError {
