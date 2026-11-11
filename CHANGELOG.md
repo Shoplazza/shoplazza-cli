@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.6 - 2026-11-11
+
+### Added
+- `shoplazza docs search --query <terms>` searches the developer docs on shoplazza.dev (guides, the API reference for every API version, the changelog) and returns the best-matching passages, each with its page's `url`, `title`, `content` and `score`. `--locale en|zh-CN` picks the docs language, `--api-version` (`202601` or `2026-01`) the API version, `--limit` (1-20) the number of passages; whatever is omitted is left to the search service's defaults. No login needed.
+- `shoplazza docs get --url <url or site path>` reads one docs page as Markdown. A page longer than `--max-chars` (20000 by default) is cut there and marked `truncated: true`, with `total_chars` giving the whole page's length; `--output <file>` saves the whole page and `--format pretty` prints the Markdown as is. Only pages on www.shoplazza.dev are read, and redirects leaving the site are refused.
+- New bundled skill `shoplazza-docs`: when and how an agent searches the developer docs, and how that differs from `schema`. It is the one skill that does not start by reading `shoplazza-common`, since searching the docs needs no login.
+- `SHOPLAZZA_DOCS_API` overrides the `docs search` service URL.
+
+### Changed
+- `schema --help` says it works offline from the OpenAPI spec built into the CLI and points to `docs search` for the developer docs; `shoplazza-common`, `shoplazza-themes` and `shoplazza-webhook` send developer-docs questions to `shoplazza-docs`.
+- The API spec built into the CLI is refreshed: the shop detail and update responses include `iana_timezone`, `timezone_offset`, `timezone_abbreviation` and `timezone_offset_minutes`, and the `type` description of the theme file get / delete / version-list commands no longer lists `templates` and `config`.
+
 ## 2.2.5 - 2026-10-29
 
 ### Added
