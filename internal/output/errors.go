@@ -107,6 +107,21 @@ func (e *ExitError) WithRequestID(id string) *ExitError {
 	return e
 }
 
+// WithStatus attaches the HTTP status code to error.detail; no-op when 0.
+func (e *ExitError) WithStatus(status int) *ExitError {
+	if status == 0 {
+		return e
+	}
+	if e.Detail == nil {
+		e.Detail = &ErrDetail{}
+	}
+	if e.Detail.Detail == nil {
+		e.Detail.Detail = &ErrorContext{}
+	}
+	e.Detail.Detail.StatusCode = status
+	return e
+}
+
 // Envelope returns the user-facing fields of the error as a map, for test
 // introspection; production code uses WriteErrorEnvelope for the wire format.
 // Here "code" is the integer exit code (e.Code), distinct from the wire
@@ -183,12 +198,33 @@ func ErrInternal(format string, args ...any) *ExitError {
 	return Errorf(ExitInternal, TypeInternal, format, args...)
 }
 
-// ErrAPI creates an api-class ExitError from a non-2xx HTTP response. Other
-// statuses surface the clean server-parsed message (falling back to the raw
-// body); 5xx falls back to serverErrorMessage only when the body has none;
-// 403 is reclassified to auth-class with a re-login hint. statusCode +
-// requestID land in error.detail for triage.
+// ErrAPI creates an api-class ExitError from a non-2xx store API response: as
+// ErrHTTP, except that 403 is reclassified to auth-class with a re-login hint.
+// statusCode + requestID land in error.detail for triage.
 func ErrAPI(statusCode int, body, requestID string) *ExitError {
+	if statusCode == 403 {
+		code, msg := parseAPIErrorBody(body)
+		if msg == "" {
+			msg = "forbidden — your access token lacks the required scope"
+		}
+		return &ExitError{
+			Code: ExitAuth,
+			Detail: &ErrDetail{
+				Type:    TypeAuth,
+				Code:    code,
+				Message: msg,
+				Hint:    "Run 'shoplazza auth login' to re-authenticate. Use --domain or --scope to request the needed permission.",
+				Detail:  newErrorContext(statusCode, requestID),
+			},
+		}
+	}
+	return ErrHTTP(statusCode, body, requestID)
+}
+
+// ErrHTTP creates an api-class ExitError from a non-2xx response of a service
+// that needs no login, so a 403 stays api-class. The message is the
+// server-parsed one, else the raw body (serverErrorMessage for a 5xx).
+func ErrHTTP(statusCode int, body, requestID string) *ExitError {
 	code, msg := parseAPIErrorBody(body)
 	ctx := newErrorContext(statusCode, requestID)
 
@@ -201,22 +237,6 @@ func ErrAPI(statusCode int, body, requestID string) *ExitError {
 		return &ExitError{
 			Code:   ExitAPI,
 			Detail: &ErrDetail{Type: TypeAPI, Code: code, Message: msg, Detail: ctx},
-		}
-	}
-
-	if statusCode == 403 {
-		if msg == "" {
-			msg = "forbidden — your access token lacks the required scope"
-		}
-		return &ExitError{
-			Code: ExitAuth,
-			Detail: &ErrDetail{
-				Type:    TypeAuth,
-				Code:    code,
-				Message: msg,
-				Hint:    "Run 'shoplazza auth login' to re-authenticate. Use --domain or --scope to request the needed permission.",
-				Detail:  ctx,
-			},
 		}
 	}
 

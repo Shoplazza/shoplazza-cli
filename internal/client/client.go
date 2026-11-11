@@ -84,12 +84,15 @@ func (r RawResponse) RequestID() string {
 	return ""
 }
 
+// DefaultTimeout bounds one whole request; the docs commands reuse it.
+const DefaultTimeout = 30 * time.Second
+
 // New creates a minimal API client.
 func New(baseURL string) *Client {
 	c := &Client{
 		BaseURL: strings.TrimRight(baseURL, "/"),
 		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: DefaultTimeout,
 		},
 		Headers: map[string]string{},
 	}
