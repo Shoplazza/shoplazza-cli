@@ -18,7 +18,6 @@ func setup(t *testing.T) string {
 	orig := osUserConfigDir
 	osUserConfigDir = func() (string, error) { return dir, nil }
 	t.Cleanup(func() { osUserConfigDir = orig })
-	t.Setenv("SHOPLAZZA_CLI_CONFIG_DIR", "")
 	t.Setenv("SHOPLAZZA_CLI_NO_UPDATE_CHECK", "")
 	t.Setenv("CI", "")
 	t.Setenv("BUILD_NUMBER", "")

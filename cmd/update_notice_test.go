@@ -9,6 +9,7 @@ import (
 )
 
 func TestIsUpdateCheckSkippedCommand(t *testing.T) {
+	testenv.IsolateConfigDir(t) // NewRootCmd's factory migrates/writes config.json
 	root := NewRootCmd()
 	skipped := [][]string{
 		{"update"},

@@ -21,6 +21,7 @@ import (
 
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 
@@ -69,7 +70,18 @@ func sharedBinary(t *testing.T) string {
 }
 
 func TestMain(m *testing.M) {
+	// Package-wide floor: a CLI subprocess run without testenv.IsolateConfigDir
+	// writes its login state (config.json, locks) here, not into the
+	// developer's real or SHOPLAZZA_CLI_CONFIG_DIR dir. IsolateConfigDir
+	// clears the var per test, so isolated tests still follow their temp HOME.
+	stateDir, err := os.MkdirTemp("", "shoplazza-tests-state-")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	os.Setenv(fsx.ConfigDirEnv, stateDir)
 	code := m.Run()
+	os.RemoveAll(stateDir)
 	if sharedBinDir != "" {
 		os.RemoveAll(sharedBinDir)
 	}

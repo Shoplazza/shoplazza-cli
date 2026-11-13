@@ -328,8 +328,9 @@ env var and the current profile.
 
 Profiles share one account login and one config. When other sessions on the same machine may
 use the CLI against another environment or account, give each its own state dir with
-`SHOPLAZZA_CLI_CONFIG_DIR=<dir>` (plus that environment's `SHOPLAZZA_CLI_AUTH_BASE_URL`) on
-every command, and log in once inside it. A re-login or `profile use` then stays in that dir.
+`SHOPLAZZA_CLI_CONFIG_DIR=<absolute dir>` (plus that environment's `SHOPLAZZA_CLI_AUTH_BASE_URL`)
+on every command, and log in once inside it. A re-login or `profile use` then stays in that dir.
+A relative path is rejected with a `validation` error (exit 2); a leading `~` is expanded.
 
 ## Update notice
 

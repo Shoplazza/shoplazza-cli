@@ -433,7 +433,7 @@ shoplazza doctor check      # 诊断 CLI 健康状况
 | `SHOPLAZZA_CLI_SKIP_SKILLS` | `shoplazza update` 后不刷新已安装的 Agent Skills |
 | `NO_COLOR` | 关闭彩色输出 |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | 覆盖认证服务基础 URL（默认：`https://partners.shoplazza.com`） |
-| `SHOPLAZZA_CLI_CONFIG_DIR` | CLI 全部状态（登录、profile、凭证、缓存）的存放目录（默认：`<系统配置目录>/shoplazza-cli`）。多个会话并行操作不同环境时各用一个目录，一个会话重新登录或切店铺不会影响另一个 |
+| `SHOPLAZZA_CLI_CONFIG_DIR` | 登录状态（登录、profile、凭证、元数据缓存）的存放目录（默认：`<系统配置目录>/shoplazza-cli`）。必须是绝对路径（开头的 `~` 会展开）。多个会话并行操作不同环境时各用一个目录，一个会话重新登录或切店铺不会影响另一个 |
 | `SHOPLAZZA_CLI_USER_ID` | 覆盖请求头 `cli-user-id`（审计归属）。默认取登录时记录的用户 id；用 `SHOPLAZZA_ACCESS_TOKEN` 注入 token 时没有登录态，需显式设置 |
 | `SHOPLAZZA_DOCS_API` | 覆盖 `docs search` 的检索服务地址（默认 `https://eco-agent.shoplazza.com`） |
 

@@ -24,6 +24,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/update"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/metasync"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
@@ -130,6 +131,17 @@ func Execute() (exitCode int) {
 			exitCode = output.ExitInternal
 		}
 	}()
+
+	// A bad SHOPLAZZA_CLI_CONFIG_DIR fails every command up front: reading the
+	// state paths would otherwise error deep inside and surface as a misleading
+	// "not logged in".
+	if _, err := fsx.ConfigDirOverride(); err != nil {
+		exitErr := output.ErrValidation("%v", err).
+			WithParam(fsx.ConfigDirEnv).
+			WithHint("set " + fsx.ConfigDirEnv + " to an absolute path (a leading ~ is expanded), or unset it")
+		output.WriteError(os.Stderr, exitErr, defaultOutputFormat())
+		return exitErr.Code
+	}
 
 	rootCmd := NewRootCmd()
 

@@ -18,9 +18,6 @@ const (
 	SourceCached   = "cached"
 )
 
-// osUserConfigDir is overridable in tests.
-var osUserConfigDir = os.UserConfigDir
-
 // canonicalRevision is the only accepted generated_at form: UTC, second
 // precision, Z suffix — so lexical order equals chronological order.
 var canonicalRevision = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$`)
@@ -30,9 +27,11 @@ func IsCanonicalRevision(rev string) bool {
 	return canonicalRevision.MatchString(rev)
 }
 
-// CacheDir returns the directory holding downloaded metadata.
+// CacheDir returns the directory holding downloaded metadata. It follows
+// SHOPLAZZA_CLI_CONFIG_DIR because the metadata is fetched from the
+// environment's auth base URL, so dev and prod dirs must not share it.
 func CacheDir() (string, error) {
-	dir, err := fsx.ConfigDirUnder(osUserConfigDir)
+	dir, err := fsx.ConfigDir()
 	if err != nil {
 		return "", err
 	}

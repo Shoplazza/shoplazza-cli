@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 func TestWriteFileAtomic_CreatesFile(t *testing.T) {
@@ -98,20 +99,54 @@ func TestWriteFileAtomic_MissingDir(t *testing.T) {
 	}
 }
 
-func TestConfigDir_EnvOverrides(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv(fsx.ConfigDirEnv, dir)
-	got, err := fsx.ConfigDirUnder(func() (string, error) { return "/unused", nil })
-	if err != nil || got != dir {
-		t.Fatalf("ConfigDirUnder = %q, %v; want %q", got, err, dir)
+func TestConfigDir_Override(t *testing.T) {
+	testenv.IsolateConfigDir(t)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	abs := t.TempDir()
+	for _, tc := range []struct{ name, env, want string }{
+		{"absolute", abs, abs},
+		{"surrounding whitespace trimmed", " " + abs + "\n", abs},
+		{"cleaned", abs + string(filepath.Separator) + ".", abs},
+		{"tilde expands to home", "~/state/dev", filepath.Join(home, "state", "dev")},
+		{"bare tilde is home", "~", home},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(fsx.ConfigDirEnv, tc.env)
+			got, err := fsx.ConfigDir()
+			if err != nil || got != tc.want {
+				t.Fatalf("ConfigDir() = %q, %v; want %q", got, err, tc.want)
+			}
+		})
 	}
 }
 
-func TestConfigDir_DefaultsUnderUserConfigDir(t *testing.T) {
-	t.Setenv(fsx.ConfigDirEnv, "")
-	base := t.TempDir()
-	got, err := fsx.ConfigDirUnder(func() (string, error) { return base, nil })
-	if want := filepath.Join(base, "shoplazza-cli"); err != nil || got != want {
-		t.Fatalf("ConfigDirUnder = %q, %v; want %q", got, err, want)
+// A relative override would resolve against each command's cwd, splitting one
+// session's state across dirs; it must fail rather than fall back to the
+// shared default dir.
+func TestConfigDir_RelativeOverrideRejected(t *testing.T) {
+	testenv.IsolateConfigDir(t)
+	for _, env := range []string{"state/dev", "./state", "~other/state"} {
+		t.Setenv(fsx.ConfigDirEnv, env)
+		if got, err := fsx.ConfigDir(); err == nil || got != "" {
+			t.Errorf("ConfigDir() with %q = %q, %v; want an error and no dir", env, got, err)
+		}
+	}
+}
+
+func TestConfigDir_BlankOverrideUsesDefault(t *testing.T) {
+	testenv.IsolateConfigDir(t)
+	base, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(base, "shoplazza-cli")
+	for _, env := range []string{"", "  "} {
+		t.Setenv(fsx.ConfigDirEnv, env)
+		if got, err := fsx.ConfigDir(); err != nil || got != want {
+			t.Errorf("ConfigDir() with %q = %q, %v; want %q", env, got, err, want)
+		}
 	}
 }

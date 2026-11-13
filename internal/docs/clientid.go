@@ -16,7 +16,10 @@ const clientIDFile = "client-id"
 var uuidRe = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // ClientID returns this install's anonymous id, a UUID kept in
-// <fsx.ConfigDir()>/client-id; unsaved, it lasts one process.
+// <UserConfigDir>/shoplazza-cli/client-id; unsaved, it lasts one process.
+// It identifies the machine, not a session, so it deliberately ignores
+// SHOPLAZZA_CLI_CONFIG_DIR (fsx.ConfigDir): one id per relocated dir would
+// count one install many times.
 func ClientID() string {
 	path := clientIDPath()
 	if path != "" {
@@ -36,11 +39,11 @@ func ClientID() string {
 }
 
 func clientIDPath() string {
-	dir, err := fsx.ConfigDir()
+	dir, err := os.UserConfigDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, clientIDFile)
+	return filepath.Join(dir, "shoplazza-cli", clientIDFile)
 }
 
 func newUUID() string {

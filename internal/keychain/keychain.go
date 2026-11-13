@@ -2,7 +2,7 @@
 // UAT tokens). Secrets are encrypted with AES-256-GCM using a per-installation
 // master key stored alongside the credentials directory.
 //
-// Storage layout (under fsx.ConfigDir(): $SHOPLAZZA_CLI_CONFIG_DIR or os.UserConfigDir()/shoplazza-cli/):
+// Storage layout (under fsx.ConfigDir(): $SHOPLAZZA_CLI_CONFIG_DIR, else os.UserConfigDir()/shoplazza-cli/):
 //
 //	keychain.key        — 32-byte random master key (0600)
 //	keychain/<hash>.enc — AES-256-GCM ciphertext of {"k":..,"v":..} (0600)
