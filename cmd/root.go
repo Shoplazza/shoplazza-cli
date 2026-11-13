@@ -132,12 +132,8 @@ func Execute() (exitCode int) {
 		}
 	}()
 
-	// A bad SHOPLAZZA_CLI_CONFIG_DIR fails the command up front: reading the
-	// state paths would otherwise error deep inside and surface as a misleading
-	// "not logged in". --help / --version still run — they touch no login
-	// state, and an agent needs --help to find its way. Either way
-	// fsx.ConfigDir keeps refusing the bad value, so nothing falls back to the
-	// shared default dir.
+	// Fail fast on a bad SHOPLAZZA_CLI_CONFIG_DIR, except --help / --version
+	// (no login state). fsx.ConfigDir never falls back to the default dir.
 	if _, err := fsx.ConfigDirOverride(); err != nil && !wantsHelp(os.Args[1:]) && !wantsVersion(os.Args[1:]) {
 		exitErr := output.ErrValidation("%v", err).
 			WithParam(fsx.ConfigDirEnv).

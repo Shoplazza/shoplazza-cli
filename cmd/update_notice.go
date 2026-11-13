@@ -84,9 +84,8 @@ func wantsVersion(args []string) bool {
 	return false
 }
 
-// wantsHelp reports whether this invocation only prints help: no arguments at
-// all (the root has no Run, so Cobra prints help) or -h / --help before the --
-// terminator.
+// wantsHelp reports whether this invocation only prints help: no args, or
+// -h / --help before the -- terminator.
 func wantsHelp(args []string) bool {
 	if len(args) == 0 {
 		return true

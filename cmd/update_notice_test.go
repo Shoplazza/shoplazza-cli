@@ -38,8 +38,7 @@ func TestIsUpdateCheckSkippedCommand(t *testing.T) {
 	}
 }
 
-// wantsHelp lets help through an invalid SHOPLAZZA_CLI_CONFIG_DIR, so it must
-// not fire for ordinary commands.
+// wantsHelp skips the config-dir check, so it must not fire for ordinary commands.
 func TestWantsHelp(t *testing.T) {
 	yes := [][]string{
 		{},

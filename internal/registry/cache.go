@@ -28,8 +28,7 @@ func IsCanonicalRevision(rev string) bool {
 }
 
 // CacheDir returns the directory holding downloaded metadata. It follows
-// SHOPLAZZA_CLI_CONFIG_DIR because the metadata is fetched from the
-// environment's auth base URL, so dev and prod dirs must not share it.
+// SHOPLAZZA_CLI_CONFIG_DIR because metadata differs per environment.
 func CacheDir() (string, error) {
 	dir, err := fsx.ConfigDir()
 	if err != nil {

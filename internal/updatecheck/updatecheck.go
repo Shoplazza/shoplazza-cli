@@ -36,9 +36,7 @@ type state struct {
 	CheckedAt     int64  `json:"checked_at"`
 }
 
-// statePath is machine-wide, deliberately ignoring SHOPLAZZA_CLI_CONFIG_DIR
-// (fsx.ConfigDir): the latest release is the same for every session, so a
-// relocated dir must not re-check and re-notify on its own.
+// statePath ignores SHOPLAZZA_CLI_CONFIG_DIR: the latest release is machine-wide.
 func statePath() (string, error) {
 	dir, err := osUserConfigDir()
 	if err != nil {

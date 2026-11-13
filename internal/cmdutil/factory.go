@@ -39,8 +39,7 @@ func NewDefaultFactory() *Factory {
 	// One-time v1->v2 migration. Errors surface as a stderr warning rather
 	// than blocking: auth-free commands must keep working even on a broken
 	// migration, and login-requiring commands will fail loudly at the gate.
-	// With no locatable config dir (e.g. an invalid SHOPLAZZA_CLI_CONFIG_DIR
-	// on --help) there is nothing to migrate; say why instead.
+	// No config dir (e.g. a bad SHOPLAZZA_CLI_CONFIG_DIR on --help): nothing to migrate.
 	if pathErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: cannot locate config dir: %v\n", pathErr)
 	} else if err := migrate.Run(configPath); err != nil {

@@ -9,18 +9,14 @@ import (
 	"strings"
 )
 
-// ConfigDirEnv names the env var that relocates the CLI's login state:
-// config.json (profiles, current store), auth.json, the keychain and the
-// metadata cache. Point separate sessions at separate dirs to keep their
-// logins and current store apart. Machine-wide state (update check, docs
-// client id) stays in the OS config dir.
+// ConfigDirEnv relocates the CLI's login state (config, auth, keychain,
+// metadata cache) so parallel sessions stay apart. Machine-wide state (update
+// check, docs client id) stays in the OS config dir.
 const ConfigDirEnv = "SHOPLAZZA_CLI_CONFIG_DIR"
 
-// ConfigDir returns the directory holding the CLI's login state: the
-// $SHOPLAZZA_CLI_CONFIG_DIR override when set, otherwise
-// <os.UserConfigDir()>/shoplazza-cli. An invalid override is an error, never a
-// fallback to the shared default — that would put this session's login where
-// another session reads it.
+// ConfigDir returns the login-state dir: the override when set, else
+// <os.UserConfigDir()>/shoplazza-cli. A bad override is an error, never a
+// fallback to the shared default.
 func ConfigDir() (string, error) {
 	dir, err := ConfigDirOverride()
 	if err != nil || dir != "" {
@@ -33,10 +29,9 @@ func ConfigDir() (string, error) {
 	return filepath.Join(base, "shoplazza-cli"), nil
 }
 
-// ConfigDirOverride returns $SHOPLAZZA_CLI_CONFIG_DIR as a clean absolute path,
-// or "" when it is unset or blank. A leading ~ expands to the home dir. Any
-// other relative path is rejected: it would resolve against each command's
-// working directory, so one session's state would split across dirs.
+// ConfigDirOverride returns $SHOPLAZZA_CLI_CONFIG_DIR as a clean absolute path
+// ("" when unset or blank). A leading ~ expands; other relative paths are
+// rejected, as they would resolve against each command's cwd.
 func ConfigDirOverride() (string, error) {
 	dir := strings.TrimSpace(os.Getenv(ConfigDirEnv))
 	if dir == "" {

@@ -123,9 +123,7 @@ func TestConfigDir_Override(t *testing.T) {
 	}
 }
 
-// A relative override would resolve against each command's cwd, splitting one
-// session's state across dirs; it must fail rather than fall back to the
-// shared default dir.
+// A relative override must fail, not fall back to the default dir.
 func TestConfigDir_RelativeOverrideRejected(t *testing.T) {
 	testenv.IsolateConfigDir(t)
 	for _, env := range []string{"state/dev", "./state", "~other/state"} {
