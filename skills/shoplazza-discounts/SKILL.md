@@ -90,9 +90,9 @@ When in doubt, run `<shortcut> --help`: any flag whose line contains "(default .
 |---|---|---|
 | 满X减Y / 订单满X减Y / spend X get Y off | `+rebate --target order --type amount-off` | `--tiers "X:Y"`; multi-tier "满200减20,满500减50" → `"200:20,500:50"` |
 | 商品满X减Y / product spend X get Y | `+rebate --target product --type amount-off` | needs `--products` or `--collections` or `--variants` |
-| 满N件减Y元 / buy N get Y off | `+rebate --type qty-off` | `--tiers "N:Y"` |
+| 满N件减Y元 / buy N get Y off | `+rebate --type qty-off` | `--tiers "N:Y"`; Y ≥ 0 (a 0 tier like `"1:0"` is allowed) |
 | 满X享Y折 / 满X打Y折 / spend X get Y% off | `+rebate --type amount-percent` | Y is the **discount %**, e.g. "8折" → 20 (i.e. 20% off) — **confirm if ambiguous** |
-| 满N件享Y折 / buy N get Y% off | `+rebate --type qty-percent` | |
+| 满N件享Y折 / buy N get Y% off | `+rebate --type qty-percent` | `--tiers "N:Y"`; Y is % off, 0-99 (0 allowed) |
 | 第N件Y折 / 买N件第N件Y折 / Nth item Y% off | `+mn-discount` | `--tiers "N:Y"` where Y is % off |
 | 闪购 / 限时秒杀 / 限时折扣 / flash sale | `+flashsale` | auto-applied, no code; `--value` + `--type`; scope via `--variants`/`--collections` (omit = all products) |
 | 优惠码 + X% off / 折扣码立减Y% / X% off coupon | `+percent-code` | `--percent` is the percent (1-99) |

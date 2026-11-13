@@ -316,17 +316,26 @@ func codeOffFlags() []common.Flag {
 }
 
 // validateLayerObtainValues enforces a numeric range on every layer.ObtainValue.
-// When isPercent is true the bound is [1, 99]; otherwise just > 0. Returns the
-// first failure as a --tiers validation error pointing at the offending tier.
-func validateLayerObtainValues(layers []common.Layer, isPercent bool) error {
+// When isPercent is true the bound is [1, 99]; otherwise just > 0. allowZero
+// lowers the floor to 0 (percent [0, 99], amount >= 0) for quantity-threshold
+// rebates, which must accept a 0-discount tier (e.g. "1:0"). Returns the first
+// failure as a --tiers validation error pointing at the offending tier.
+func validateLayerObtainValues(layers []common.Layer, isPercent, allowZero bool) error {
 	for _, l := range layers {
 		if isPercent {
-			if l.ObtainValue < 1 || l.ObtainValue > 99 {
-				return output.ErrValidation("--tiers: percent must be 1-99 (got %v in tier %v:%v)", l.ObtainValue, l.ConditionValue, l.ObtainValue)
+			floor := 1.0
+			if allowZero {
+				floor = 0
+			}
+			if l.ObtainValue < floor || l.ObtainValue > 99 {
+				return output.ErrValidation("--tiers: percent must be %v-99 (got %v in tier %v:%v)", floor, l.ObtainValue, l.ConditionValue, l.ObtainValue)
 			}
 			continue
 		}
-		if l.ObtainValue <= 0 {
+		if allowZero && l.ObtainValue < 0 {
+			return output.ErrValidation("--tiers: discount must be >= 0 (got %v in tier %v:%v)", l.ObtainValue, l.ConditionValue, l.ObtainValue)
+		}
+		if !allowZero && l.ObtainValue <= 0 {
 			return output.ErrValidation("--tiers: discount must be > 0 (got %v in tier %v:%v)", l.ObtainValue, l.ConditionValue, l.ObtainValue)
 		}
 	}
