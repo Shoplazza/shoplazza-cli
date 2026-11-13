@@ -84,6 +84,24 @@ func wantsVersion(args []string) bool {
 	return false
 }
 
+// wantsHelp reports whether this invocation only prints help: no arguments at
+// all (the root has no Run, so Cobra prints help) or -h / --help before the --
+// terminator.
+func wantsHelp(args []string) bool {
+	if len(args) == 0 {
+		return true
+	}
+	for _, a := range args {
+		switch a {
+		case "--help", "-h":
+			return true
+		case "--":
+			return false // past the terminator these are operands, not flags
+		}
+	}
+	return false
+}
+
 // wantsNoInput reports whether --no-input (or --no-input=true) is present before
 // the -- terminator. Scanned early in Execute so it can force non-interactive
 // mode before any command's interactivity gate is consulted.

@@ -38,6 +38,33 @@ func TestIsUpdateCheckSkippedCommand(t *testing.T) {
 	}
 }
 
+// wantsHelp lets help through an invalid SHOPLAZZA_CLI_CONFIG_DIR, so it must
+// not fire for ordinary commands.
+func TestWantsHelp(t *testing.T) {
+	yes := [][]string{
+		{},
+		{"--help"},
+		{"-h"},
+		{"products", "list", "-h"},
+		{"--format", "json", "auth", "login", "--help"},
+	}
+	for _, args := range yes {
+		if !wantsHelp(args) {
+			t.Errorf("args %v should be a help query", args)
+		}
+	}
+	no := [][]string{
+		{"products", "list"},
+		{"auth", "login"},
+		{"api", "rest", "--", "-h"}, // past the terminator these are operands, not flags
+	}
+	for _, args := range no {
+		if wantsHelp(args) {
+			t.Errorf("args %v should not be a help query", args)
+		}
+	}
+}
+
 // wantsVersion gates a disk read, so it must not fire for ordinary commands.
 func TestWantsVersion(t *testing.T) {
 	yes := [][]string{
