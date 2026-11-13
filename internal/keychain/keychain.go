@@ -2,7 +2,7 @@
 // UAT tokens). Secrets are encrypted with AES-256-GCM using a per-installation
 // master key stored alongside the credentials directory.
 //
-// Storage layout (under os.UserConfigDir()/shoplazza-cli/):
+// Storage layout (under fsx.ConfigDir(): $SHOPLAZZA_CLI_CONFIG_DIR or os.UserConfigDir()/shoplazza-cli/):
 //
 //	keychain.key        — 32-byte random master key (0600)
 //	keychain/<hash>.enc — AES-256-GCM ciphertext of {"k":..,"v":..} (0600)
@@ -64,11 +64,11 @@ type payload struct {
 
 // baseDir returns the directory that holds the master key and encrypted entries.
 func baseDir() (string, error) {
-	cfg, err := os.UserConfigDir()
+	dir, err := fsx.ConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("keychain: cannot locate config dir: %w", err)
 	}
-	return filepath.Join(cfg, "shoplazza-cli"), nil
+	return dir, nil
 }
 
 // keychainDir returns the directory for encrypted secret files.

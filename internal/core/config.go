@@ -128,11 +128,11 @@ func (c *CliConfig) CurrentStoreDomain() string {
 
 // DefaultConfigPath returns the default local JSON config path.
 func DefaultConfigPath() (string, error) {
-	configDir, err := os.UserConfigDir()
+	configDir, err := fsx.ConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(configDir, "shoplazza-cli", "config.json"), nil
+	return filepath.Join(configDir, "config.json"), nil
 }
 
 // LoadConfig loads config from the provided path.

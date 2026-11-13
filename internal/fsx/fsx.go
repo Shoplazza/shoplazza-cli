@@ -7,6 +7,29 @@ import (
 	"path/filepath"
 )
 
+// ConfigDirEnv names the env var that relocates all CLI state (config,
+// profiles, credentials, caches). Point separate sessions at separate dirs to
+// keep their logins and current store apart.
+const ConfigDirEnv = "SHOPLAZZA_CLI_CONFIG_DIR"
+
+// ConfigDir returns the directory holding all CLI state: $SHOPLAZZA_CLI_CONFIG_DIR
+// when set, otherwise <os.UserConfigDir()>/shoplazza-cli.
+func ConfigDir() (string, error) {
+	return ConfigDirUnder(os.UserConfigDir)
+}
+
+// ConfigDirUnder is ConfigDir with the OS config-dir lookup injected (tests).
+func ConfigDirUnder(userConfigDir func() (string, error)) (string, error) {
+	if dir := os.Getenv(ConfigDirEnv); dir != "" {
+		return dir, nil
+	}
+	base, err := userConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, "shoplazza-cli"), nil
+}
+
 // WriteFileAtomic writes data to path via a temp file plus rename, so a crash
 // mid-write never leaves a truncated file at path.
 func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {

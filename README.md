@@ -441,6 +441,7 @@ shoplazza doctor check      # diagnose CLI health
 | `SHOPLAZZA_CLI_SKIP_SKILLS` | Skip refreshing installed Agent Skills after `shoplazza update` |
 | `NO_COLOR` | Disable colored output |
 | `SHOPLAZZA_CLI_AUTH_BASE_URL` | Override auth base URL (default: `https://partners.shoplazza.com`) |
+| `SHOPLAZZA_CLI_CONFIG_DIR` | Directory for all CLI state — login, profiles, credentials, caches (default: `<OS config dir>/shoplazza-cli`). Give parallel sessions on different environments their own dir so one session's login or store switch never affects another |
 | `SHOPLAZZA_CLI_USER_ID` | Override the `cli-user-id` request header (audit attribution). Defaults to the user id captured at login; set it when `SHOPLAZZA_ACCESS_TOKEN` injects a token, which carries no login state |
 | `SHOPLAZZA_DOCS_API` | Override the `docs search` service URL (default: `https://eco-agent.shoplazza.com`) |
 

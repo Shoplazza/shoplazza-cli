@@ -14,6 +14,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	osUserConfigDir = func() (string, error) { return dir, nil }
+	os.Unsetenv("SHOPLAZZA_CLI_CONFIG_DIR")
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)

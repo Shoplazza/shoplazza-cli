@@ -37,11 +37,11 @@ type state struct {
 }
 
 func statePath() (string, error) {
-	dir, err := osUserConfigDir()
+	dir, err := fsx.ConfigDirUnder(osUserConfigDir)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "shoplazza-cli", stateFile), nil
+	return filepath.Join(dir, stateFile), nil
 }
 
 func loadState() (*state, error) {

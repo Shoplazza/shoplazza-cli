@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 )
 
 // Spec provenance values reported by SpecSource.
@@ -30,11 +32,11 @@ func IsCanonicalRevision(rev string) bool {
 
 // CacheDir returns the directory holding downloaded metadata.
 func CacheDir() (string, error) {
-	dir, err := osUserConfigDir()
+	dir, err := fsx.ConfigDirUnder(osUserConfigDir)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "shoplazza-cli", "meta"), nil
+	return filepath.Join(dir, "meta"), nil
 }
 
 // CachedSpecPath is the downloaded spec location (written by metasync, read

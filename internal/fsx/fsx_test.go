@@ -97,3 +97,21 @@ func TestWriteFileAtomic_MissingDir(t *testing.T) {
 		t.Error("expected error writing into a missing directory")
 	}
 }
+
+func TestConfigDir_EnvOverrides(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv(fsx.ConfigDirEnv, dir)
+	got, err := fsx.ConfigDirUnder(func() (string, error) { return "/unused", nil })
+	if err != nil || got != dir {
+		t.Fatalf("ConfigDirUnder = %q, %v; want %q", got, err, dir)
+	}
+}
+
+func TestConfigDir_DefaultsUnderUserConfigDir(t *testing.T) {
+	t.Setenv(fsx.ConfigDirEnv, "")
+	base := t.TempDir()
+	got, err := fsx.ConfigDirUnder(func() (string, error) { return base, nil })
+	if want := filepath.Join(base, "shoplazza-cli"); err != nil || got != want {
+		t.Fatalf("ConfigDirUnder = %q, %v; want %q", got, err, want)
+	}
+}
