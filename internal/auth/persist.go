@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/keychain"
 )
 
@@ -91,11 +92,11 @@ func (m *Manager) persistState(state AuthState) error {
 }
 
 func defaultAuthMetaPath() (string, error) {
-	configDir, err := os.UserConfigDir()
+	configDir, err := fsx.ConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(configDir, "shoplazza-cli", "auth.json"), nil
+	return filepath.Join(configDir, "auth.json"), nil
 }
 
 func loadAuthMeta(path string) (authMeta, error) {

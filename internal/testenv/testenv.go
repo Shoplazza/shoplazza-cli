@@ -26,6 +26,7 @@ func configDirEnv(dir string) [][2]string {
 		{"XDG_CONFIG_HOME", filepath.Join(dir, ".config")},
 		{"AppData", filepath.Join(dir, "AppData", "Roaming")},
 		{"LOCALAPPDATA", filepath.Join(dir, "AppData", "Local")},
+		{"SHOPLAZZA_CLI_CONFIG_DIR", ""},
 	}
 }
 

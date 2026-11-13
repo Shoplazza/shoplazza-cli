@@ -9,6 +9,7 @@ import (
 )
 
 func TestIsUpdateCheckSkippedCommand(t *testing.T) {
+	testenv.IsolateConfigDir(t) // NewRootCmd's factory migrates/writes config.json
 	root := NewRootCmd()
 	skipped := [][]string{
 		{"update"},
@@ -33,6 +34,32 @@ func TestIsUpdateCheckSkippedCommand(t *testing.T) {
 	for _, args := range notSkipped {
 		if isUpdateCheckSkippedCommand(root, args) {
 			t.Errorf("args %v should not be skipped", args)
+		}
+	}
+}
+
+// wantsHelp skips the config-dir check, so it must not fire for ordinary commands.
+func TestWantsHelp(t *testing.T) {
+	yes := [][]string{
+		{},
+		{"--help"},
+		{"-h"},
+		{"products", "list", "-h"},
+		{"--format", "json", "auth", "login", "--help"},
+	}
+	for _, args := range yes {
+		if !wantsHelp(args) {
+			t.Errorf("args %v should be a help query", args)
+		}
+	}
+	no := [][]string{
+		{"products", "list"},
+		{"auth", "login"},
+		{"api", "rest", "--", "-h"}, // past the terminator these are operands, not flags
+	}
+	for _, args := range no {
+		if wantsHelp(args) {
+			t.Errorf("args %v should not be a help query", args)
 		}
 	}
 }

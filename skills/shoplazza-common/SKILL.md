@@ -326,6 +326,13 @@ shoplazza profile update --name prod-us --scope …   # adjust a profile's scope
 Per-invocation override: the `--profile <name>` global flag beats the `SHOPLAZZA_CLI_PROFILE`
 env var and the current profile.
 
+Profiles share one account login and one config. When other sessions on the same machine may
+use the CLI against another environment or account, give each its own state dir with
+`SHOPLAZZA_CLI_CONFIG_DIR=<absolute dir>` (plus that environment's `SHOPLAZZA_CLI_AUTH_BASE_URL`)
+on every command, and log in once inside it. A re-login or `profile use` then stays in that dir.
+A relative path is rejected with a `validation` error (exit 2) on every command but `--help` /
+`--version`; a leading `~` is expanded.
+
 ## Update notice
 
 When the CLI detects a new version after running, it prints a one-line notice **to stderr**
