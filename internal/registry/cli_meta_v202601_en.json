@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-10-09T10:23:40Z",
+  "generated_at": "2026-11-16T10:04:30Z",
   "modules": [
     {
       "name": "billing",
@@ -10327,6 +10327,27 @@
             "method": "GET",
             "path": "/openapi/2026-01/redirects"
           },
+          "parameters": [
+            {
+              "name": "page",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Page number. Defaults to 1",
+              "default": 1,
+              "minimum": 1
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "type": "integer",
+              "format": "int32",
+              "description": "Number of URL redirects returned per page. Defaults to 20 and cannot exceed 250",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 250
+            }
+          ],
           "response_schema": "v202506.ListUrlRedirectResponse"
         },
         {
@@ -11226,7 +11247,7 @@
               {
                 "name": "type",
                 "type": "string",
-                "description": "The type of file to delete: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales`, `blocks`. Defaults to `assets`",
+                "description": "The type of file to delete: `layout`, `sections`, `snippets`, `assets`, `locales`, `blocks`. Defaults to `assets`",
                 "default": "assets",
                 "min_length": 1
               },
@@ -11266,7 +11287,7 @@
               "name": "type",
               "in": "query",
               "type": "string",
-              "description": "The type of file to retrieve: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales`, `blocks`. Defaults to `layout`",
+              "description": "The type of file to retrieve: `layout`, `sections`, `snippets`, `assets`, `locales`, `blocks`. Defaults to `layout`",
               "min_length": 1
             },
             {
@@ -11947,7 +11968,8 @@
           "hidden": false,
           "http": {
             "method": "PATCH",
-            "path": "/openapi/2026-01/themes/{theme_id}/publish"
+            "path": "/openapi/2026-01/themes/{theme_id}/publish",
+            "body": "*"
           },
           "parameters": [
             {
@@ -11958,6 +11980,23 @@
               "description": "Theme's unique identifier"
             }
           ],
+          "body": {
+            "fields": [
+              {
+                "name": "doc_ids",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Page document IDs to publish. Only these documents are published; other unpublished changes in the theme stay unpublished. Omit to publish the whole theme"
+              },
+              {
+                "name": "funnel_id",
+                "type": "string",
+                "description": "ID of the funnel the pages belong to. Pass it when publishing from the funnel editor"
+              }
+            ]
+          },
           "response_schema": "v202506.PublishThemeResponse"
         },
         {
@@ -12499,6 +12538,19 @@
                 "name": "force",
                 "type": "boolean",
                 "description": "Force overwrite even if there is a conflict"
+              },
+              {
+                "name": "doc_ids",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Page document IDs to save. Only these documents are checked for conflicts and saved into the theme's draft; other changes in the session stay in the session. Omit to save the whole session"
+              },
+              {
+                "name": "funnel_id",
+                "type": "string",
+                "description": "ID of the funnel the pages belong to. Pass it when saving from the funnel editor"
               }
             ]
           },
@@ -12950,7 +13002,7 @@
               "name": "type",
               "in": "query",
               "type": "string",
-              "description": "The type of file to list versions for: `layout`, `templates`, `sections`, `snippets`, `assets`, `config`, `locales` (`blocks` is not supported here). Defaults to `layout`",
+              "description": "The type of file to list versions for: `layout`, `sections`, `snippets`, `assets`, `locales` (`blocks` is not supported here). Defaults to `layout`",
               "default": "layout",
               "min_length": 1
             },
@@ -16965,6 +17017,14 @@
         {
           "name": "path",
           "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "error_message",
+          "type": "string"
         }
       ]
     },
@@ -17662,6 +17722,23 @@
         {
           "name": "zip",
           "type": "string"
+        },
+        {
+          "name": "iana_timezone",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset",
+          "type": "string"
+        },
+        {
+          "name": "timezone_abbreviation",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset_minutes",
+          "type": "integer",
+          "format": "int32"
         }
       ]
     },
@@ -18045,6 +18122,14 @@
         },
         {
           "name": "path",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "error_message",
           "type": "string"
         }
       ]
@@ -22903,6 +22988,23 @@
         {
           "name": "zip",
           "type": "string"
+        },
+        {
+          "name": "iana_timezone",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset",
+          "type": "string"
+        },
+        {
+          "name": "timezone_abbreviation",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset_minutes",
+          "type": "integer",
+          "format": "int32"
         }
       ]
     },
