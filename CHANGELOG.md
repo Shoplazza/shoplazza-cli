@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.2.6 - 2026-11-11
+
+### Added
+- `shoplazza docs search --query <terms>` searches the developer docs on shoplazza.dev (guides, the API reference for every API version, the changelog) and returns the best-matching passages, each with its page's `url`, `title`, `content` and `score`. `--locale en|zh-CN` picks the docs language, `--api-version` (`202601` or `2026-01`) the API version, `--limit` (1-20) the number of passages; whatever is omitted is left to the search service's defaults. No login needed.
+- `shoplazza docs get --url <url or site path>` reads one docs page as Markdown. A page longer than `--max-chars` (20000 by default) is cut there and marked `truncated: true`, with `total_chars` giving the whole page's length; `--output <file>` saves the whole page and `--format pretty` prints the Markdown as is. Only pages on www.shoplazza.dev are read, and redirects leaving the site are refused.
+- New bundled skill `shoplazza-docs`: when and how an agent searches the developer docs, and how that differs from `schema`. It is the one skill that does not start by reading `shoplazza-common`, since searching the docs needs no login.
+- `SHOPLAZZA_DOCS_API` overrides the `docs search` service URL.
+
+### Changed
+- `schema --help` says it works offline from the OpenAPI spec built into the CLI and points to `docs search` for the developer docs; `shoplazza-common`, `shoplazza-themes` and `shoplazza-webhook` send developer-docs questions to `shoplazza-docs`.
+- The API spec built into the CLI is refreshed: the shop detail and update responses include `iana_timezone`, `timezone_offset`, `timezone_abbreviation` and `timezone_offset_minutes`, and the `type` description of the theme file get / delete / version-list commands no longer lists `templates` and `config`.
+
+## 2.2.5 - 2026-10-29
+
+### Added
+- Function extensions can declare the metafields they read: `[[metafields_query]]` blocks in `shoplazza.extension.toml` (`resource` is `product` or `shop`, plus `namespace` and `key`; at most 5) are validated and sent by `app deploy` and `app dev`, so the function gets those metafields in its input once the app is installed. An invalid declaration fails the deploy naming the offending entry. `app function release` does not send it; run `app deploy` after changing the declaration.
+- The plugin shows its icon in Cursor, through a new `.cursor-plugin/plugin.json` manifest that carries the logo.
+
+### Fixed
+- Bundled skills point to `shoplazza-common` by a plain path instead of a Markdown link leaving the skill's own directory, which skill linters reject.
+
+## 2.2.4 - 2026-10-28
+
+### Added
+- The Agent Skills now ship as a plugin for Claude Code, Codex, GitHub Copilot (CLI and VS Code), Cursor, Antigravity, CodeBuddy, Qoder and Kimi Code CLI, kept up to date by the agent's own plugin manager. The README lists the install command for each agent; every release also attaches `shoplazza-plugin-<version>.zip` for the Codex plugin store.
+- `--version`, the `_notice` skills hint and `doctor` count a plugin install as installed skills. `doctor` reports `installed as a plugin`, and warns with the `npx skills remove` command when the skills are installed both ways, since the agent then sees two copies.
+
+### Changed
+- Bundled skills: `shoplazza-shop` covers navigation menus (`shop menu`) and the `analytics search-keyword` / `traffic-channel` / `traffic-channel-options` reports; `shoplazza-common` covers installing and updating the CLI; `shoplazza-discounts` names the real scopes (`read_price_rules` / `write_price_rules`) and explains the store-side 403 that no re-login fixes.
+
 ## 2.2.3 - 2026-10-23
 
 ### Removed

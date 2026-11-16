@@ -163,7 +163,7 @@
     "input": "订单创建时回调通知我的系统",
     "expected": {
       "route_to_skill": "shoplazza-webhook",
-      "must_not_route_to": ["shoplazza-orders", "shoplazza-products"],
+      "must_not_route_to": ["shoplazza-orders", "shoplazza-products", "shoplazza-docs"],
       "semantic_rubric": ["If a command is named, it is webhook create (subscribe to an event topic), not an orders/products command"]
     },
     "notes": "webhook/orders/products unbuilt — pass = does not force orders/products."
@@ -272,5 +272,68 @@
       "must_not_route_to": ["shoplazza-themes"],
       "semantic_rubric": ["If a command is named, it is discounts +flashsale"]
     }
+  },
+  {
+    "case_id": "collision.liquid-filter-reference",
+    "type": "routing",
+    "skill": "shoplazza-docs",
+    "scenario": "跨域相似词: Liquid 过滤器的参考资料归 docs, 不归 themes",
+    "input": "Liquid 里 money 和 money_with_symbol 这两个过滤器有什么区别？",
+    "expected": {
+      "route_to_skill": "shoplazza-docs",
+      "must_not_route_to": ["shoplazza-themes"],
+      "semantic_rubric": ["If a command is named, it is docs search with a short query naming the filters, not a themes command"]
+    }
+  },
+  {
+    "case_id": "collision.local-theme-dev-howto",
+    "type": "routing",
+    "skill": "shoplazza-docs",
+    "scenario": "跨域相似词: 本地主题开发的做法归 docs, 不归 themes (店铺主题操作)",
+    "input": "我在本地开发主题，settings_schema.json 里怎么定义一个颜色选择器设置？",
+    "expected": {
+      "route_to_skill": "shoplazza-docs",
+      "must_not_route_to": ["shoplazza-themes"],
+      "semantic_rubric": ["If a command is named, it is docs search (e.g. naming settings_schema / color setting), not themes session update-config or another store theme command"]
+    }
+  },
+  {
+    "case_id": "collision.ai-card-liquid",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "跨域相似词: 给店铺写 Liquid 卡片归 themes (AI 卡片), 不归 docs",
+    "input": "在首页加一个用 Liquid 写的倒计时卡片",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": ["shoplazza-docs"],
+      "semantic_rubric": ["Treats it as adding an AI card to the store's homepage; if a command is named, it is a themes command (+page / block +edit), not docs search"]
+    },
+    "notes": "Mirror of collision.liquid-filter-reference: Liquid in the request does not make it a docs question when the user wants the card on the store."
+  },
+  {
+    "case_id": "collision.store-theme-color",
+    "type": "routing",
+    "skill": "shoplazza-themes",
+    "scenario": "跨域相似词: 改店铺主题的配色归 themes, 不归 docs (本地主题开发)",
+    "input": "把店铺当前主题的主色调改成深蓝色",
+    "expected": {
+      "route_to_skill": "shoplazza-themes",
+      "must_not_route_to": ["shoplazza-docs"],
+      "semantic_rubric": ["If a command is named, it is themes session get-config / update-config, not docs search"]
+    },
+    "notes": "Mirror of collision.local-theme-dev-howto."
+  },
+  {
+    "case_id": "collision.cli-login-scopes",
+    "type": "routing",
+    "skill": "shoplazza-common",
+    "scenario": "跨域相似词: 给 CLI 登录授权归 common, 不归 docs (应用自己的 OAuth)",
+    "input": "帮我登录 shoplazza CLI，授权订单和商品的读写权限",
+    "expected": {
+      "route_to_skill": "shoplazza-common",
+      "must_not_route_to": ["shoplazza-docs"],
+      "semantic_rubric": ["If a command is named, it is shoplazza auth login with --domain orders,products (or the matching scopes), not docs search"]
+    },
+    "notes": "Mirror of routing.docs-01 (an app's own OAuth flow → docs)."
   }
 ]

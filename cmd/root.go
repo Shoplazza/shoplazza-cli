@@ -13,6 +13,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/checkoutext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/completion"
+	docscmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/docs"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/doctor"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/dynamic"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/profile"
@@ -23,6 +24,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/update"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/metasync"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
@@ -68,6 +70,7 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 	rootCmd.AddCommand(api.NewCmdAPI(factory))
 	rootCmd.AddCommand(profile.NewCmdProfile(factory))
 	rootCmd.AddCommand(schema.NewCmdSchema(spec))
+	rootCmd.AddCommand(docscmd.NewCmdDocs())
 	rootCmd.AddCommand(skill.NewCmdSkill())
 	rootCmd.AddCommand(doctor.NewCmdDoctor(factory))
 	rootCmd.AddCommand(completion.NewCmdCompletion(factory))
@@ -128,6 +131,16 @@ func Execute() (exitCode int) {
 			exitCode = output.ExitInternal
 		}
 	}()
+
+	// Fail fast on a bad SHOPLAZZA_CLI_CONFIG_DIR, except --help / --version
+	// (no login state). fsx.ConfigDir never falls back to the default dir.
+	if _, err := fsx.ConfigDirOverride(); err != nil && !wantsHelp(os.Args[1:]) && !wantsVersion(os.Args[1:]) {
+		exitErr := output.ErrValidation("%v", err).
+			WithParam(fsx.ConfigDirEnv).
+			WithHint("set " + fsx.ConfigDirEnv + " to an absolute path (a leading ~ is expanded), or unset it")
+		output.WriteError(os.Stderr, exitErr, defaultOutputFormat())
+		return exitErr.Code
+	}
 
 	rootCmd := NewRootCmd()
 

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 )
 
 // Spec provenance values reported by SpecSource.
@@ -15,9 +17,6 @@ const (
 	SourceEmbedded = "embedded"
 	SourceCached   = "cached"
 )
-
-// osUserConfigDir is overridable in tests.
-var osUserConfigDir = os.UserConfigDir
 
 // canonicalRevision is the only accepted generated_at form: UTC, second
 // precision, Z suffix — so lexical order equals chronological order.
@@ -28,13 +27,14 @@ func IsCanonicalRevision(rev string) bool {
 	return canonicalRevision.MatchString(rev)
 }
 
-// CacheDir returns the directory holding downloaded metadata.
+// CacheDir returns the directory holding downloaded metadata. It follows
+// SHOPLAZZA_CLI_CONFIG_DIR because metadata differs per environment.
 func CacheDir() (string, error) {
-	dir, err := osUserConfigDir()
+	dir, err := fsx.ConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "shoplazza-cli", "meta"), nil
+	return filepath.Join(dir, "meta"), nil
 }
 
 // CachedSpecPath is the downloaded spec location (written by metasync, read

@@ -16,6 +16,9 @@ type LocalExt struct {
 	Version     string // optional; from the extension toml. Diff ignores it.
 	ExtensionID string // optional; set once known
 	AppID       string // v1 extension.config.json `appId`; empty for v2. Diff ignores it.
+	// MetafieldsQuery carries a function extension's declared metafield reads
+	// through to UpsertFunction. Diff ignores it.
+	MetafieldsQuery []MetafieldsQueryItem
 }
 
 // Pair maps a local extension to its remote counterpart. Remote is nil when the

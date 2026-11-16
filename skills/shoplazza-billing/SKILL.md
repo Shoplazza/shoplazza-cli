@@ -10,7 +10,7 @@ description: >-
 
 # shoplazza CLI — billing module
 
-**CRITICAL — before anything else, use Read on [`../shoplazza-common/SKILL.md`](../shoplazza-common/SKILL.md).**
+**CRITICAL — before anything else, use Read on `../shoplazza-common/SKILL.md`.**
 It owns every cross-cutting mechanic: access tiers, the output envelope (`.data`), `--dry-run`,
 `--jq`, `schema`, `api rest`, auth / profiles, and the safety protocol. This file covers only
 the billing domain and never repeats them.

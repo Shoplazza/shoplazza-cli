@@ -58,6 +58,9 @@ Every skill has, in order:
 1. Frontmatter (`name` + `description`).
 2. The **`CRITICAL — before anything else, use Read on ../shoplazza-common/SKILL.md`**
    prerequisite line (English, per §0 — see the template for the exact wording).
+   One exception: `shoplazza-docs` searches the developer docs, which needs no login, store or
+   profile, so it only requires the CLI to be installed and says why in its own prerequisite
+   line. The L0 lint exempts it by name (`COMMON_PREREQ_EXEMPT` in `lint_drift.mjs`).
 3. `## Overview` — what the module does + which tiers apply.
 4. `## Command map` — intent→command table, highest-fit tier first.
 5. `## Permissions · Scope` — read/write → domain grant table.
@@ -102,6 +105,7 @@ Rules of thumb:
 | `description` | **yes** | One line, the routing signal. Formula: **trigger keywords (中文 + English)** + **"当用户需要……时使用"** + **boundary keywords** for any cross-domain lookalike (both the concepts this domain owns and the ones it must not steal). This is the only thing a routing eval sees — keyword coverage here decides routing. |
 | `version` | optional | Semver. **Whether the CLI's skill loader consumes it is UNCONFIRMED** — keep it commented unless you have confirmed the loader reads it. |
 | `requires` | optional | e.g. `requires: { bins: [shoplazza] }`. Same UNCONFIRMED caveat as `version`. |
+| `allowed-tools` | optional | Pre-approves read-only commands, e.g. `allowed-tools: Bash(shoplazza docs *)` (only `shoplazza-docs` uses it). Keep it on one line after `description`: the hand parsers in `internal/skillcontent/reader.go` and `run_case.mjs` end the folded description at the next key. |
 
 The existing `shoplazza-discounts` and `shoplazza-common` use **only `name` + `description`** —
 match that convention unless you have a reason (and confirmation) to add the optional fields.

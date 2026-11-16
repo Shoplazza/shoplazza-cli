@@ -1,0 +1,12 @@
+{
+  "name": "shoplazza-cli",
+  "owner": {
+    "name": "Shoplazza"
+  },
+  "plugins": [
+    {
+      "name": "shoplazza",
+      "source": "./"
+    }
+  ]
+}

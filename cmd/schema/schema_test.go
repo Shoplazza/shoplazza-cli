@@ -192,3 +192,18 @@ func TestNewCmdSchema_ModulePathWithView_PrintsNote(t *testing.T) {
 		t.Errorf("module path with --view must warn on stderr, got %q", errBuf.String())
 	}
 }
+
+// ── help text ─────────────────────────────────────────────────────────────────
+
+// schema and docs split "what does this CLI command take" from "what do the
+// developer docs say"; each help text names the other and schema names the
+// spec version it reads.
+func TestSchemaHelpPointsAtDocs(t *testing.T) {
+	long := NewCmdSchema(registry.LoadSpec()).Long
+	if !strings.Contains(long, "shoplazza docs search") {
+		t.Error("schema --help must point at 'shoplazza docs search'")
+	}
+	if !strings.Contains(long, strings.TrimPrefix(registry.LoadSpec().Version, "v")) {
+		t.Errorf("schema --help must name the built-in spec version:\n%s", long)
+	}
+}

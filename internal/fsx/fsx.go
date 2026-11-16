@@ -3,9 +3,52 @@ package fsx
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+// ConfigDirEnv relocates the CLI's login state (config, auth, keychain,
+// metadata cache) so parallel sessions stay apart. Machine-wide state (update
+// check, docs client id) stays in the OS config dir.
+const ConfigDirEnv = "SHOPLAZZA_CLI_CONFIG_DIR"
+
+// ConfigDir returns the login-state dir: the override when set, else
+// <os.UserConfigDir()>/shoplazza-cli. A bad override is an error, never a
+// fallback to the shared default.
+func ConfigDir() (string, error) {
+	dir, err := ConfigDirOverride()
+	if err != nil || dir != "" {
+		return dir, err
+	}
+	base, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, "shoplazza-cli"), nil
+}
+
+// ConfigDirOverride returns $SHOPLAZZA_CLI_CONFIG_DIR as a clean absolute path
+// ("" when unset or blank). A leading ~ expands; other relative paths are
+// rejected, as they would resolve against each command's cwd.
+func ConfigDirOverride() (string, error) {
+	dir := strings.TrimSpace(os.Getenv(ConfigDirEnv))
+	if dir == "" {
+		return "", nil
+	}
+	if dir == "~" || strings.HasPrefix(dir, "~/") || strings.HasPrefix(dir, "~"+string(filepath.Separator)) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("%s: cannot expand ~: %w", ConfigDirEnv, err)
+		}
+		dir = filepath.Join(home, dir[1:])
+	}
+	if !filepath.IsAbs(dir) {
+		return "", fmt.Errorf("%s must be an absolute path, got %q", ConfigDirEnv, dir)
+	}
+	return filepath.Clean(dir), nil
+}
 
 // WriteFileAtomic writes data to path via a temp file plus rename, so a crash
 // mid-write never leaves a truncated file at path.

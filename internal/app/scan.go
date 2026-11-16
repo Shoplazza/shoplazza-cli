@@ -18,6 +18,9 @@ type scanExtToml struct {
 	Name    string `toml:"name"`
 	Type    string `toml:"type"`
 	Version string `toml:"version"`
+	// MetafieldsQuery is the function extension's declared metafield reads
+	// ([[metafields_query]] blocks); empty for theme/checkout extensions.
+	MetafieldsQuery []MetafieldsQueryItem `toml:"metafields_query"`
 }
 
 // v1ExtConfig is the subset of the legacy v1 extension.config.json the scanner
@@ -54,11 +57,12 @@ func ScanLocalExtensions(root string) ([]LocalExt, *output.ExitError) {
 		_, err := toml.DecodeFile(filepath.Join(dir, e.Name(), "shoplazza.extension.toml"), &et)
 		if err == nil {
 			out = append(out, LocalExt{
-				Dir:         e.Name(),
-				Name:        et.Name,
-				Type:        et.Type,
-				Version:     et.Version,
-				ExtensionID: et.ID,
+				Dir:             e.Name(),
+				Name:            et.Name,
+				Type:            et.Type,
+				Version:         et.Version,
+				ExtensionID:     et.ID,
+				MetafieldsQuery: et.MetafieldsQuery,
 			})
 			continue
 		}

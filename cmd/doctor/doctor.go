@@ -70,15 +70,22 @@ func runChecks(f *cmdutil.Factory) []checkResult {
 	}
 }
 
-// checkSkills reports whether the Agent Skills are installed. Absence is a
-// choice; a directory we cannot read is breakage, so it warns.
+// checkSkills reports whether the Agent Skills are installed, by `npx skills
+// add` or as a plugin. Absence is a choice; a directory we cannot read is
+// breakage, and both installs at once put two copies in front of the agent, so
+// those two warn.
 func checkSkills() checkResult {
 	installed, err := skillsync.Installed()
+	plugin := skillsync.PluginInstalled()
 	switch {
 	case err != nil:
 		return checkResult{"skills", "warn", "directory unreadable: " + err.Error()}
+	case installed && plugin:
+		return checkResult{"skills", "warn", "installed twice, by npx skills add and as a plugin — keep the plugin and run: " + skillsync.RemoveCommand()}
 	case installed:
 		return checkResult{"skills", "ok", "installed"}
+	case plugin:
+		return checkResult{"skills", "ok", "installed as a plugin"}
 	default:
 		return checkResult{"skills", "ok", "not installed"}
 	}

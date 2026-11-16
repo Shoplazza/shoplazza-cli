@@ -36,6 +36,7 @@ type state struct {
 	CheckedAt     int64  `json:"checked_at"`
 }
 
+// statePath ignores SHOPLAZZA_CLI_CONFIG_DIR: the latest release is machine-wide.
 func statePath() (string, error) {
 	dir, err := osUserConfigDir()
 	if err != nil {

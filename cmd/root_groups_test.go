@@ -13,7 +13,7 @@ func TestApplyRootGroups(t *testing.T) {
 	names := []string{
 		"orders", "billing", "webhook", "api", // business (api = raw-HTTP store ops)
 		"app", "themes", "checkout-extension", // dev
-		"auth", "profile", "schema", "skills", // tools
+		"auth", "profile", "schema", "docs", "skills", // tools
 		"futurecmd", // unmapped → stays ungrouped
 	}
 	for _, n := range names {
@@ -31,7 +31,7 @@ func TestApplyRootGroups(t *testing.T) {
 	want := map[string]string{
 		"orders": "business", "billing": "business", "webhook": "business", "api": "business",
 		"app": "dev", "themes": "dev", "checkout-extension": "dev",
-		"auth": "tools", "profile": "tools", "schema": "tools", "skills": "tools",
+		"auth": "tools", "profile": "tools", "schema": "tools", "docs": "tools", "skills": "tools",
 		"futurecmd": "", // unmapped command must not be tagged (no cobra warning)
 	}
 	for _, c := range root.Commands() {

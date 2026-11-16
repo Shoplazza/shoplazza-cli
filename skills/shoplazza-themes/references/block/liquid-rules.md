@@ -2,7 +2,9 @@
 
 Every Liquid rule for writing or editing a block file (`blocks/gen_<id>.liquid`). `{% schema %}`
 rules → [schema-rules.md](schema-rules.md); phone layout → [mobile-rules.md](mobile-rules.md);
-terms → [concepts.md](concepts.md).
+terms → [concepts.md](concepts.md). To look up a Liquid tag, object or filter these files don't
+cover, use `shoplazza docs search --query "<name> filter" --locale <zh-CN|en>` (or `"<name> object"`,
+`"<name> tag"`; the shoplazza-docs skill).
 
 Shoplazza Liquid is highly compatible with Shopify: all standard tags exist and most filters share
 Shopify's names and meaning, so Shopify intuition mostly works. The differences sit in three places:

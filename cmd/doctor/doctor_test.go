@@ -144,6 +144,53 @@ func TestDoctorCheck_SkillsInstalled(t *testing.T) {
 	}
 }
 
+// skillsCheck runs doctor after seed has laid out the skills, and returns its
+// skills entry. seed runs after the factory, whose home redirect would
+// otherwise hide what it wrote.
+func skillsCheck(t *testing.T, seed func()) map[string]any {
+	t.Helper()
+	f, configPath := newTestFactory(t)
+	cfg := core.CliConfig{ConfigVersion: 2}
+	if err := core.SaveConfig(configPath, cfg); err != nil {
+		t.Fatalf("seed config: %v", err)
+	}
+	f.Config = cfg
+	seedAuthLocksDirs(t, configPath)
+	seed()
+	var got map[string]any
+	if err := json.Unmarshal([]byte(runDoctorCmd(t, f, "check")), &got); err != nil {
+		t.Fatalf("output not JSON: %v", err)
+	}
+	checks, _ := got["checks"].([]any)
+	return checks[3].(map[string]any)
+}
+
+// A plugin install alone counts as installed and stays ok.
+func TestDoctorCheck_SkillsPluginOnly(t *testing.T) {
+	skills := skillsCheck(t, func() { testenv.SeedPluginSkill(t) })
+	if skills["status"] != "ok" || skills["message"] != "installed as a plugin" {
+		t.Errorf("skills check should report the plugin install: %v", skills)
+	}
+}
+
+// Both installs put two copies in front of the agent: warn and name the fix.
+func TestDoctorCheck_SkillsInstalledTwice_Warns(t *testing.T) {
+	skills := skillsCheck(t, func() {
+		skillsDir := testenv.SkillsDir(t)
+		if err := os.MkdirAll(filepath.Join(skillsDir, "shoplazza-common"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(skillsDir, "shoplazza-common", "SKILL.md"), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		testenv.SeedPluginSkill(t)
+	})
+	msg, _ := skills["message"].(string)
+	if skills["status"] != "warn" || !strings.Contains(msg, "npx skills remove --global shoplazza-common") {
+		t.Errorf("skills check should warn with the remove command: %v", skills)
+	}
+}
+
 // An unreadable skills dir silences every future refresh — it must not pass as
 // an ok "not installed".
 func TestDoctorCheck_SkillsUnreadable_Warns(t *testing.T) {

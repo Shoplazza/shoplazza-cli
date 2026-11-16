@@ -4,39 +4,37 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
 )
 
-// TestMain redirects osUserConfigDir to a throwaway dir so no test in this
+// TestMain points the config dir at a throwaway dir so no test in this
 // package ever reads a real user's downloaded metadata cache.
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "registry-test-*")
 	if err != nil {
 		os.Exit(1)
 	}
-	osUserConfigDir = func() (string, error) { return dir, nil }
+	os.Setenv(fsx.ConfigDirEnv, dir)
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)
 }
 
-// useTempConfigDir points osUserConfigDir at a fresh per-test dir and resets
+// useTempConfigDir points the config dir at a fresh per-test dir and resets
 // the memoized spec before and after.
 func useTempConfigDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	saved := osUserConfigDir
-	osUserConfigDir = func() (string, error) { return dir, nil }
+	t.Setenv(fsx.ConfigDirEnv, dir)
 	resetLoadSpec()
-	t.Cleanup(func() {
-		osUserConfigDir = saved
-		resetLoadSpec()
-	})
+	t.Cleanup(resetLoadSpec)
 	return dir
 }
 
 func writeCachedSpec(t *testing.T, configDir, content string) {
 	t.Helper()
-	dir := filepath.Join(configDir, "shoplazza-cli", "meta")
+	dir := filepath.Join(configDir, "meta")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +168,7 @@ func TestCachedSpecPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(dir, "shoplazza-cli", "meta", "cli_meta.json")
+	want := filepath.Join(dir, "meta", "cli_meta.json")
 	if p != want {
 		t.Fatalf("CachedSpecPath() = %q, want %q", p, want)
 	}

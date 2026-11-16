@@ -136,6 +136,87 @@ func TestDeploy_CheckoutHappyPath(t *testing.T) {
 	}
 }
 
+// TestDeploy_FunctionLeg_InputQueryInPayload proves a function extension's
+// declared [[metafields_query]] is validated, serialized, and carried into the
+// deploy payload as input_query.
+func TestDeploy_FunctionLeg_InputQueryInPayload(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/cli/v2/partners/p1/apps/cid_1/extension_versions", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success", "data": map[string]any{"extensions": []any{}}})
+	})
+	var ossURL string
+	mux.HandleFunc("/openapi/checkout_extensions/file/sign", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"write_host": ossURL, "read_host": "https://read.example/", "policy": "P", "access_id": "AK", "sign": "SG"})
+	})
+	mux.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	mux.HandleFunc("/api/cli/v2/partners/p1/apps/cid_1/version/generate", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success", "data": map[string]any{"app_version": "v-gen-1", "extensions": []any{}}})
+	})
+	mux.HandleFunc("/openapi/2025-06/functions/create", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":"SUCCESS","data":{"function_id":"fn1","version":"1.0.0","version_id":"fv1"}}`))
+	})
+	var mu sync.Mutex
+	var deployBody []byte
+	mux.HandleFunc("/api/cli/v2/partners/p1/apps/cid_1/deploy", func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		deployBody = b
+		mu.Unlock()
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success", "data": map[string]any{"version": "1.0.0", "name": "MyApp"}})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	ossURL = srv.URL + "/upload"
+
+	// Real project layout so functionEntryPath finds src/index.js.
+	root := t.TempDir()
+	entryDir := filepath.Join(root, "extensions", "fn", "src")
+	if err := os.MkdirAll(entryDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(entryDir, "index.js"), []byte("export default function(i){return i}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	partner := client.New(srv.URL)
+	partner.Headers["app-client-id"] = "cid_1"
+	partner.SetBearerToken("apptok")
+
+	d := NewDashboard(client.New(srv.URL), "ptok")
+	store := client.New(srv.URL)
+	store.SetBearerToken("store-tok")
+
+	deps := DeployDeps{
+		Dashboard: d, Store: store, Partner: partner, HTTPClient: srv.Client(),
+		PartnerID: "p1", ClientID: "cid_1", ProjectRoot: root,
+		Locals: []LocalExt{{
+			Dir: "fn", Name: "fn", Type: "function", Version: "1.0.0",
+			MetafieldsQuery: []MetafieldsQueryItem{
+				{Resource: "product", Namespace: "custom-option", Key: "adjust-price"},
+			},
+		}},
+		BuildArtifact: func(ctx context.Context, l LocalExt) (string, *output.ExitError) {
+			p := filepath.Join(root, "fn.wasm")
+			_ = os.WriteFile(p, []byte("\x00asm\x01\x00\x00\x00"), 0o644)
+			return p, nil
+		},
+	}
+	if _, ex := Deploy(context.Background(), deps); ex != nil {
+		t.Fatalf("Deploy: %v", ex)
+	}
+
+	mu.Lock()
+	b := deployBody
+	mu.Unlock()
+	ext := captureDeployPayloadExt(t, b)
+	want := `{"metafields_query":[{"resource":"product","namespace":"custom-option","key":"adjust-price"}]}`
+	if ext["input_query"] != want {
+		t.Errorf("deploy payload input_query = %v, want %q", ext["input_query"], want)
+	}
+}
+
 // TestDeploy_FirstCreateWritesBackIDToExtensionToml: after a
 // create-path upsert returns the new extension_id, deploy must persist it into
 // extensions/<dir>/shoplazza.extension.toml (v1 deploy.js:156 / dev.js:154 did),

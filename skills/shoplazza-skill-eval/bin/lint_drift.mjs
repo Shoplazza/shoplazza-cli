@@ -86,6 +86,12 @@ function checkBodyKeys(surface, path, value) {
   return [...new Set(out)];
 }
 
+// Skills that need no login, so they don't make the agent read shoplazza-common
+// first; each states that exception (with its reason) in its own prerequisite
+// line instead. shoplazza-docs only searches the public developer docs.
+const COMMON_PREREQ_EXEMPT = new Set(['shoplazza-docs']);
+const COMMON_PREREQ_RULE = 'CRITICAL read-shoplazza-common line';
+
 // Backbone requirements (AUTHORING.md §2; heading text tolerated in EN or ZH).
 // The first three rules mirror the Agent Skills spec (agentskills.io/specification):
 // name charset, description ≤ 1024 chars, SKILL.md body < 500 lines.
@@ -106,7 +112,7 @@ const BACKBONE = [
       return d === null || (d.length >= 1 && d.length <= 1024);
     } },
   { name: 'spec: SKILL.md < 500 lines (agentskills.io)', test: (md) => md.split('\n').length < 500 },
-  { name: 'CRITICAL read-shoplazza-common line', test: (md) => /CRITICAL.*shoplazza-common\/SKILL\.md/.test(md) },
+  { name: COMMON_PREREQ_RULE, test: (md) => /CRITICAL.*shoplazza-common\/SKILL\.md/.test(md) },
   { name: '## Overview', test: (md) => /^##\s+Overview\b/m.test(md) },
   { name: '## Command map', test: (md) => /^##\s+.*(Command map|命令地图)/m.test(md) },
   { name: '## Permissions · Scope', test: (md) => /^##\s+.*(Permissions|权限)/m.test(md) },
@@ -216,7 +222,9 @@ function main() {
     // ---- backbone structure ---------------------------------------------
     const doBackbone = opts.backbone === 'require' || (opts.backbone === 'auto' && !isCommon);
     if (doBackbone) {
+      const exempt = COMMON_PREREQ_EXEMPT.has(basename(dirname(resolve(file))));
       for (const rule of BACKBONE) {
+        if (exempt && rule.name === COMMON_PREREQ_RULE) continue;
         checked++;
         if (!rule.test(md)) {
           findings.push({ file, line: 0, kind: 'missing-backbone', token: rule.name, raw: '' });

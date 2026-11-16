@@ -1,6 +1,7 @@
 # shop analytics — sales & traffic reports
 
-Five spec leaves, **all POST** — every filter/metric goes in `--data` (never `--params`).
+Eight spec leaves: seven **POST** reports — every filter/metric goes in `--data` (never
+`--params`) — plus one GET lookup with no body (`traffic-channel-options`).
 Full field list: `shoplazza schema shop.analytics.<cmd>`.
 
 | Command | Endpoint | Dimension |
@@ -10,8 +11,11 @@ Full field list: `shoplazza schema shop.analytics.<cmd>`.
 | `analytics by-spu` | POST `/data-analysis/spu` | per-SPU (extra **required** `type` field) |
 | `analytics by-land-page` | POST `/data-analysis/land-page` | landing pages (**required** `dimensions`) |
 | `analytics by-utm` | POST `/data-analysis/utm` | UTM campaign traffic |
+| `analytics search-keyword` | POST `/data-analysis/search-keyword` | on-site search keywords (搜索词) |
+| `analytics traffic-channel` | POST `/data-analysis/traffic-channel` | traffic type / channel (**required** `dimensions` + `metrics`) |
+| `analytics traffic-channel-options` | GET `/data-analysis/traffic-channel/options` | the valid traffic type → channel names (no body) |
 
-## Common body fields (all five)
+## Common body fields (all POST reports)
 
 - `begin_time` / `end_time` — **required**; unix timestamps in **seconds**, passed as
   **strings** (e.g. `"1782864000"`). `end_time` must be greater than `begin_time`.
@@ -78,6 +82,43 @@ and don't guess). `sort_by` here uses product-lifecycle fields (`created_at`,
 - `date_by` — `""` for totals, `"day"` for a daily breakdown.
 - `filters` — AND-combined list like
   `[{"title":"utm_medium","prerequisite":"includes","values":["cpc"]}]`.
+
+## search-keyword
+
+- `sort_by`: `count` (searches), `percent` (share of all searches), `uv` (searching
+  users), `has_result`, `click_rate`. `sort_direction` defaults to `desc`.
+- Filters: `keyword` (fuzzy), `country_code` (e.g. `"US"`), `has_result` — a **string**,
+  `"1"` = returned results, `"0"` = no results (搜了没结果的词); a number is rejected.
+- Rows: `.data.data[]` → `{item, count, percent, uv, has_result, click_rate}` (`item` is the
+  keyword). A window with no searches returns `.data` as `{}` — report "no search data",
+  not an error.
+
+```bash
+# 没搜到结果的热门搜索词 Top 10
+shop analytics search-keyword --data '{"begin_time":"1782864000","end_time":"1784159999","has_result":"0","sort_by":"count","sort_direction":"desc","page_size":10}'
+```
+
+## traffic-channel
+
+- `dimensions` — **required** array: `last_referrer_first_show` (traffic type, e.g.
+  `Direct`, `Social`) and/or `last_referrer_show` (channel, e.g. `Facebook`).
+- `metrics` — **required** array: `uv`, `sales`, `orders`, and their shares of the grand
+  total `uv_rate`, `sales_rate`, `orders_rate`. `sort_by` must be one of the requested metrics.
+- `has_summary: true` adds the grand-total row at `.data.summary`.
+- `filters` — a JSON object **encoded as a string** (an object is rejected with 400), keyed
+  by dimension, entries AND-combined. `in` / `not in` take an array, `like` / `not like` a
+  string, `=` `>` `>=` `<` `<=` a scalar. Unknown keys or operators are silently ignored —
+  a filter "not taking effect" is usually a typo.
+- Exact type/channel names: `analytics traffic-channel-options` →
+  `.data.traffic_channels[]` `{last_referrer_first_show, last_referrer_shows[]}`. Look them
+  up before filtering; don't guess the spelling.
+- Rows: `.data.data[]`. Metric values are display strings (`"32.00"`, `"33.33%"`); do math
+  and comparisons on the `*_original` numbers (`sales_original`, `uv_rate_original`, …).
+
+```bash
+# Social 流量下各渠道的访客 / 订单 / 销售额, 带合计行
+shop analytics traffic-channel --data '{"begin_time":"1782864000","end_time":"1784159999","dimensions":["last_referrer_show"],"metrics":["uv","orders","sales"],"sort_by":"uv","sort_direction":"desc","has_summary":true,"filters":"{\"last_referrer_first_show\":{\"operator\":\"in\",\"value\":[\"Social\"]}}"}'
+```
 
 ## Boundary
 

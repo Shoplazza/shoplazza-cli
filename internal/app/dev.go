@@ -42,6 +42,7 @@ func DevReport(ctx context.Context, deps DeployDeps, publicURL, appPath, callbac
 			ExtensionID: d.ExtensionID, ExtensionName: d.Name,
 			ExtensionType: d.Type, ExtensionVersion: d.Version,
 			ExtensionVersionID: flexStr(d.VersionID), ResourceURL: d.ResourceURL,
+			InputQuery: d.InputQuery,
 		})
 	}
 	appPayload := map[string]any{

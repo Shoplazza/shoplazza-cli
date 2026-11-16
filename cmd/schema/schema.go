@@ -18,8 +18,9 @@ func NewCmdSchema(spec *registry.Spec) *cobra.Command {
 	var view string
 	cmd := &cobra.Command{
 		Use:   "schema [path]",
-		Short: "View API command parameters, body, response",
-		Long: `View API command parameters, body, response.
+		Short: "View a CLI command's parameters, request body and response (offline)",
+		Long: fmt.Sprintf(`View a CLI command's parameters, request body and response, offline from the
+OpenAPI %s spec built into this CLI.
 
 Examples:
   # List all available modules
@@ -32,7 +33,9 @@ Examples:
   shoplazza schema orders.count
 
   # Show only request parameters and body
-  shoplazza schema orders.create --view request`,
+  shoplazza schema orders.create --view request
+
+For the developer docs on shoplazza.dev, use 'shoplazza docs search'.`, strings.TrimPrefix(spec.Version, "v")),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := cmd.OutOrStdout()

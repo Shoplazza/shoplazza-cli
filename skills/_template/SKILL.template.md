@@ -12,7 +12,7 @@ description: >-
 
 # shoplazza CLI — {{domain}} module
 
-**CRITICAL — before anything else, use Read on [`../shoplazza-common/SKILL.md`](../shoplazza-common/SKILL.md).**
+**CRITICAL — before anything else, use Read on `../shoplazza-common/SKILL.md`.**
 It owns every cross-cutting mechanic: authentication / profiles / the three access tiers /
 the output envelope (`.data`) / `--dry-run` / `--jq` / `--fields` / `schema` / `api rest` /
 update notice / the safety protocol. This file covers only the {{domain}} domain and never

@@ -80,7 +80,8 @@ function allSkillDescriptions(skillsDir) {
     const md = readFileSync(p, 'utf8');
     const fm = md.match(/^---\n([\s\S]*?)\n---/);
     if (!fm) continue;
-    const desc = fm[1].match(/description:\s*(?:>-?\n)?([\s\S]*?)(?=\n[a-z_]+:|$)/);
+    // Keys may contain hyphens (allowed-tools), so the next key must match them too.
+    const desc = fm[1].match(/description:\s*(?:>-?\n)?([\s\S]*?)(?=\n[a-z_-]+:|$)/);
     const text = desc ? desc[1].replace(/\s+/g, ' ').trim() : '';
     out.push({ name: d, description: text });
   }

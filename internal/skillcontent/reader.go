@@ -176,7 +176,8 @@ func frontmatterField(data []byte, key string) string {
 // frontmatterDescription extracts the `description` field from a SKILL.md YAML
 // frontmatter block, joining a folded (>-) multi-line value into one line.
 // Returns "" when there's no frontmatter or no description. Deliberately a tiny
-// hand parser — the frontmatter here only ever carries name + description.
+// hand parser — the frontmatter here only carries name + description (and
+// shoplazza-docs' single-line allowed-tools, which ends the folded block).
 func frontmatterDescription(data []byte) string {
 	s := string(data)
 	if !strings.HasPrefix(s, "---") {

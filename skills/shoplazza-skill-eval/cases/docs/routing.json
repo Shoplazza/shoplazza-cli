@@ -1,0 +1,54 @@
+[
+  {
+    "case_id": "routing.docs-01",
+    "type": "routing",
+    "skill": "shoplazza-docs",
+    "scenario": "中文应用开发问题 (OAuth) 归 docs, 不归 common 的 CLI 登录",
+    "input": "我在开发一个 Shoplazza 应用，OAuth 授权回调拿到 code 之后，怎么换 access token？",
+    "expected": {
+      "route_to_skill": "shoplazza-docs",
+      "must_not_route_to": ["shoplazza-common"],
+      "semantic_rubric": [
+        "If a command is named, it is docs search with a short query (e.g. naming OAuth / access token), not the user's whole sentence",
+        "Does not propose shoplazza auth login: the user asks about their own app's OAuth flow, not about logging the CLI in"
+      ]
+    }
+  },
+  {
+    "case_id": "routing.docs-02",
+    "type": "routing",
+    "skill": "shoplazza-docs",
+    "scenario": "English webhook signature question routes to docs, not to webhook subscriptions",
+    "input": "How do I verify the HMAC signature on the webhooks Shoplazza sends to my app?",
+    "expected": {
+      "route_to_skill": "shoplazza-docs",
+      "must_not_route_to": ["shoplazza-webhook"],
+      "semantic_rubric": ["If a command is named, it is docs search (e.g. --query \"webhook hmac verify\"), not a webhook subscription command"]
+    }
+  },
+  {
+    "case_id": "routing.docs-03",
+    "type": "routing",
+    "skill": "shoplazza-docs",
+    "scenario": "API 版本升级 / changelog 问题归 docs",
+    "input": "接口从 2026-01 升级到 2026-07，有哪些不兼容的变化？",
+    "expected": {
+      "route_to_skill": "shoplazza-docs",
+      "must_not_route_to": ["shoplazza-common"],
+      "semantic_rubric": ["If a command is named, it is docs search about the changelog or the version change"]
+    }
+  },
+  {
+    "case_id": "routing.docs-04",
+    "type": "routing",
+    "skill": "shoplazza-products",
+    "scenario": "用 CLI 建商品时的请求体字段先查 schema, 不走 docs",
+    "input": "用 CLI 建商品时，请求体里变体的价格和库存字段怎么写？",
+    "expected": {
+      "route_to_skill": "shoplazza-products",
+      "must_not_route_to": ["shoplazza-docs"],
+      "semantic_rubric": ["If a command is named, it is shoplazza schema products.create (optionally --view request) or a products shortcut's --help, not docs search"]
+    },
+    "notes": "Creating products with the CLI is the products domain; a CLI command's request fields come from schema, never from docs search."
+  }
+]

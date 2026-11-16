@@ -6,12 +6,13 @@ description: >-
   notifications to an app's endpoint, and list / get / update / delete / count those
   subscriptions. Triggers include webhook / 事件订阅 / 事件回调 / 事件通知 / 推送通知 / 回调地址 /
   subscribe to an event / event notification. NOT the events themselves in shoplazza-orders /
-  shoplazza-products — this domain owns the SUBSCRIPTION.
+  shoplazza-products — this domain owns the SUBSCRIPTION. NOT verifying webhook HMAC signatures
+  (webhook 验签 → shoplazza-docs).
 ---
 
 # shoplazza CLI — webhook module
 
-**CRITICAL — before anything else, use Read on [`../shoplazza-common/SKILL.md`](../shoplazza-common/SKILL.md).**
+**CRITICAL — before anything else, use Read on `../shoplazza-common/SKILL.md`.**
 It owns every cross-cutting mechanic: access tiers, the output envelope (`.data`), `--dry-run`,
 `--jq`, `schema`, `api rest`, auth / profiles, and the safety protocol. This file covers only the
 webhook domain and never repeats them.

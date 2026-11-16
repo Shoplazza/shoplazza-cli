@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,6 +26,7 @@ func configDirEnv(dir string) [][2]string {
 		{"XDG_CONFIG_HOME", filepath.Join(dir, ".config")},
 		{"AppData", filepath.Join(dir, "AppData", "Roaming")},
 		{"LOCALAPPDATA", filepath.Join(dir, "AppData", "Local")},
+		{"SHOPLAZZA_CLI_CONFIG_DIR", ""},
 	}
 }
 
@@ -59,6 +61,23 @@ func IsolateSkillsDir(t *testing.T) string {
 	t.Helper()
 	IsolateConfigDir(t)
 	return SkillsDir(t)
+}
+
+// SeedPluginSkill installs one shoplazza skill the way the Claude Code plugin
+// lays it out, under the current home. Isolate the home first.
+func SeedPluginSkill(t *testing.T) {
+	t.Helper()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("home dir: %v", err)
+	}
+	dir := filepath.Join(home, ".claude", "plugins", "cache", "shoplazza-cli", "shoplazza", "2.2.3", "skills", "shoplazza-common")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir plugin skill: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("write plugin skill: %v", err)
+	}
 }
 
 // RunMainIsolated is the whole body of a TestMain that needs an isolated config
@@ -114,6 +133,26 @@ func ConfigPaths(t *testing.T) (configPath, authPath string) {
 	t.Helper()
 	dir := IsolateConfigDir(t)
 	return filepath.Join(dir, "config.json"), filepath.Join(dir, "auth.json")
+}
+
+// RewriteTransport sends every request to srv while the client keeps seeing
+// the original URLs, so redirect checks and final URLs behave as on the real host.
+func RewriteTransport(srv *httptest.Server) http.RoundTripper { return rewriteTransport{srv} }
+
+type rewriteTransport struct{ srv *httptest.Server }
+
+func (t rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	target, err := url.Parse(t.srv.URL)
+	if err != nil {
+		return nil, err
+	}
+	r := req.Clone(req.Context())
+	r.URL.Scheme, r.URL.Host = target.Scheme, target.Host
+	resp, err := http.DefaultTransport.RoundTrip(r)
+	if resp != nil {
+		resp.Request = req
+	}
+	return resp, err
 }
 
 // NewStoreATExchangeStub serves the store access-token exchange envelope,

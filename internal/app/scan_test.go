@@ -38,6 +38,52 @@ func TestScanLocalExtensions_PopulatesExtensionID(t *testing.T) {
 	}
 }
 
+// TestScanLocalExtensions_MetafieldsQuery proves the scanner reads the function
+// extension's [[metafields_query]] blocks into LocalExt.MetafieldsQuery.
+func TestScanLocalExtensions_MetafieldsQuery(t *testing.T) {
+	root := t.TempDir()
+	extDir := filepath.Join(root, "extensions", "fn")
+	if err := os.MkdirAll(extDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	toml := `id = "fn1"
+name = "fn"
+type = "function"
+version = "1.0.0"
+
+[[metafields_query]]
+resource  = "product"
+namespace = "custom-option"
+key       = "adjust-price"
+
+[[metafields_query]]
+resource  = "shop"
+namespace = "custom-option"
+key       = "global-config"
+`
+	if err := os.WriteFile(filepath.Join(extDir, "shoplazza.extension.toml"), []byte(toml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	locals, err := ScanLocalExtensions(root)
+	if err != nil {
+		t.Fatalf("ScanLocalExtensions: %v", err)
+	}
+	if len(locals) != 1 {
+		t.Fatalf("locals = %+v, want 1", locals)
+	}
+	mq := locals[0].MetafieldsQuery
+	if len(mq) != 2 {
+		t.Fatalf("MetafieldsQuery = %+v, want 2 entries", mq)
+	}
+	if mq[0] != (MetafieldsQueryItem{Resource: "product", Namespace: "custom-option", Key: "adjust-price"}) {
+		t.Errorf("entry[0] = %+v", mq[0])
+	}
+	if mq[1] != (MetafieldsQueryItem{Resource: "shop", Namespace: "custom-option", Key: "global-config"}) {
+		t.Errorf("entry[1] = %+v", mq[1])
+	}
+}
+
 // TestScanLocalExtensions_MissingDir tolerates an absent extensions/ dir.
 func TestScanLocalExtensions_MissingDir(t *testing.T) {
 	locals, err := ScanLocalExtensions(t.TempDir())

@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/updatecheck"
 )
 
@@ -25,6 +27,23 @@ func TestBuildNotice_UpdateEntry(t *testing.T) {
 	}
 	if up["latest"] != "2.0.0" || up["current"] != "1.0.0" {
 		t.Errorf("update block = %v", up)
+	}
+}
+
+// The skills entry nudges an install; a plugin install counts as one.
+func TestBuildNotice_SkillsEntry(t *testing.T) {
+	t.Setenv(EnvNoNotice, "")
+	testenv.IsolateSkillsDir(t)
+	n := buildNotice(nil)
+	sk, ok := n["skills"].(map[string]any)
+	if !ok || !strings.Contains(sk["message"].(string), "plugin") {
+		t.Fatalf("expected a skills entry naming the plugin install, got %v", n)
+	}
+	testenv.SeedPluginSkill(t)
+	if n := buildNotice(nil); n != nil {
+		if _, ok := n["skills"]; ok {
+			t.Errorf("a plugin install must silence the skills entry, got %v", n["skills"])
+		}
 	}
 }
 

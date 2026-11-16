@@ -32,10 +32,10 @@ func buildNotice(update *updatecheck.Info) map[string]any {
 	}
 	// A missing skills dir reads as (false, nil); an unreadable one errors — in
 	// either error case we simply say nothing rather than guess.
-	if installed, err := skillsync.Installed(); err == nil && !installed {
+	if installed, err := skillsync.Installed(); err == nil && !installed && !skillsync.PluginInstalled() {
 		n["skills"] = map[string]any{
 			"installed": false,
-			"message":   "Agent Skills not installed — run 'npx skills add Shoplazza/shoplazza-cli -g' for CLI-aware guidance.",
+			"message":   "Agent Skills not installed — install the Shoplazza plugin for your agent (see the README) or run 'npx skills add Shoplazza/shoplazza-cli -g' for CLI-aware guidance.",
 		}
 	}
 	if len(n) == 0 {
@@ -84,6 +84,23 @@ func wantsVersion(args []string) bool {
 	return false
 }
 
+// wantsHelp reports whether this invocation only prints help: no args, or
+// -h / --help before the -- terminator.
+func wantsHelp(args []string) bool {
+	if len(args) == 0 {
+		return true
+	}
+	for _, a := range args {
+		switch a {
+		case "--help", "-h":
+			return true
+		case "--":
+			return false // past the terminator these are operands, not flags
+		}
+	}
+	return false
+}
+
 // wantsNoInput reports whether --no-input (or --no-input=true) is present before
 // the -- terminator. Scanned early in Execute so it can force non-interactive
 // mode before any command's interactivity gate is consulted.
@@ -110,7 +127,7 @@ func skillLine() string {
 	switch {
 	case err != nil:
 		return "skills unreadable"
-	case installed:
+	case installed || skillsync.PluginInstalled():
 		return "skills installed"
 	default:
 		return "skills not installed"

@@ -231,6 +231,34 @@ func TestErrAPI_Non5xxCleanMessage(t *testing.T) {
 	}
 }
 
+// ErrHTTP is ErrAPI without the store-auth reading of 403: for a service the
+// login has nothing to do with, a 403 stays api-class with no re-login hint.
+func TestErrHTTP_403StaysAPIClass(t *testing.T) {
+	err := output.ErrHTTP(403, `{"code":"blocked","message":"denied by the edge"}`, "req-9")
+	if err.Code != output.ExitAPI || err.Detail.Type != output.TypeAPI {
+		t.Errorf("code/type = %d/%s, want api", err.Code, err.Detail.Type)
+	}
+	if err.Detail.Hint != "" || err.Detail.Code != "blocked" || err.Detail.Message != "denied by the edge" {
+		t.Errorf("detail = %+v", err.Detail)
+	}
+	if ctx := err.Detail.Detail; ctx == nil || ctx.StatusCode != 403 || ctx.RequestID != "req-9" {
+		t.Errorf("context = %+v", ctx)
+	}
+	if auth := output.ErrAPI(403, "", ""); auth.Code != output.ExitAuth {
+		t.Errorf("ErrAPI must still read 403 as auth, got exit %d", auth.Code)
+	}
+}
+
+func TestWithStatus(t *testing.T) {
+	err := output.ErrValidation("bad").WithStatus(400)
+	if err.Detail.Detail == nil || err.Detail.Detail.StatusCode != 400 {
+		t.Errorf("status not attached: %+v", err.Detail.Detail)
+	}
+	if plain := output.ErrValidation("bad").WithStatus(0); plain.Detail.Detail != nil {
+		t.Errorf("status 0 should not create a detail context: %+v", plain.Detail.Detail)
+	}
+}
+
 func TestErrAPI_EmptyBody(t *testing.T) {
 	err := output.ErrAPI(404, "", "")
 	if err.Detail.Message != "request failed with status 404" {
