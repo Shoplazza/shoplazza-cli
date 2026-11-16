@@ -157,6 +157,43 @@ func TestSetCliUserID_Empty(t *testing.T) {
 	}
 }
 
+// ── x-rf (SHOPLAZZA_CLI_X_RF) ───────────────────────────────────────────────
+
+func TestNew_RFHeaderFromEnv(t *testing.T) {
+	t.Setenv(client.EnvRF, "agent-x")
+	var gotJSON, gotRaw string
+	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/raw" {
+			gotRaw = r.Header.Get("x-rf")
+		} else {
+			gotJSON = r.Header.Get("x-rf")
+		}
+		jsonResp(w, map[string]any{})
+	})
+
+	var out map[string]any
+	_ = c.GetJSON(context.Background(), "/", &out)
+	_, _ = c.DoRaw(context.Background(), client.RawRequest{Method: "GET", Path: "/raw"})
+	if gotJSON != "agent-x" || gotRaw != "agent-x" {
+		t.Errorf("x-rf = %q (json) / %q (raw), want agent-x", gotJSON, gotRaw)
+	}
+}
+
+func TestNew_RFHeaderOmittedByDefault(t *testing.T) {
+	t.Setenv(client.EnvRF, "")
+	var present bool
+	_, c := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		_, present = r.Header["X-Rf"]
+		jsonResp(w, map[string]any{})
+	})
+
+	var out map[string]any
+	_ = c.GetJSON(context.Background(), "/", &out)
+	if present {
+		t.Error("x-rf must be omitted when the env var is empty")
+	}
+}
+
 // ── GetJSON ───────────────────────────────────────────────────────────────────
 
 func TestGetJSON(t *testing.T) {

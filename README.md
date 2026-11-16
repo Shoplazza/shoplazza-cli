@@ -444,6 +444,7 @@ shoplazza doctor check      # diagnose CLI health
 | `SHOPLAZZA_CLI_CONFIG_DIR` | Directory for login state — login, profiles, credentials, metadata cache (default: `<OS config dir>/shoplazza-cli`). Must be an absolute path (a leading `~` is expanded). Give parallel sessions on different environments their own dir so one session's login or store switch never affects another |
 | `SHOPLAZZA_CLI_USER_ID` | Override the `cli-user-id` request header (audit attribution). Defaults to the user id captured at login; set it when `SHOPLAZZA_ACCESS_TOKEN` injects a token, which carries no login state |
 | `SHOPLAZZA_DOCS_API` | Override the `docs search` service URL (default: `https://eco-agent.shoplazza.com`) |
+| `SHOPLAZZA_CLI_X_RF` | Value of the `x-rf` request header sent on every API call. Empty by default, which omits the header |
 
 Interactive prompts are auto-detected from the terminal and can only be switched **off** — there is no `--interactive` flag to force them on.
 
