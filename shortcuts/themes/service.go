@@ -30,8 +30,13 @@ func PlanDetail(themeID string) common.PlannedRequest {
 }
 
 // PlanPublish describes PATCH /themes/{id}/publish (set as merchant default).
-func PlanPublish(themeID string) common.PlannedRequest {
-	return common.PlannedRequest{Method: "PATCH", Path: themeBaseV202601 + "/" + themeID + "/publish"}
+// A non-empty body ({funnel_id} / {doc_ids}) narrows it; empty publishes the whole theme.
+func PlanPublish(themeID string, body map[string]any) common.PlannedRequest {
+	p := common.PlannedRequest{Method: "PATCH", Path: themeBaseV202601 + "/" + themeID + "/publish"}
+	if len(body) > 0 {
+		p.Body = body
+	}
+	return p
 }
 
 // PlanDelete describes DELETE /themes/{id}.
