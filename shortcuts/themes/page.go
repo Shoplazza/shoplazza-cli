@@ -25,10 +25,11 @@ const (
 )
 
 // funnelPageRE matches the funnel page files the Funnel extension theme keeps
-// under templates/: p.landing-<funnel_id> and p.checkout-<funnel_id>. The
+// under templates/: p.landing-<funnel_id>, p.detail-<funnel_id> (product
+// detail) and p.checkout-<funnel_id>. The
 // p.default-* siblings are the blueprints new funnels copy from and never open
 // in the editor, so they stay out.
-var funnelPageRE = regexp.MustCompile(`^p\.((landing|checkout)-\d+)$`)
+var funnelPageRE = regexp.MustCompile(`^p\.((landing|detail|checkout)-\d+)$`)
 
 // funnelPagePath maps a funnel page template name to its storefront path
 // ("funnel/landing-<id>"); "" for any other name.
@@ -40,7 +41,7 @@ func funnelPagePath(name string) string {
 	return "funnel/" + m[1]
 }
 
-var funnelPageTitles = map[string]string{"landing": "漏斗落地页", "checkout": "漏斗结账页"}
+var funnelPageTitles = map[string]string{"landing": "漏斗落地页", "detail": "漏斗详情页", "checkout": "漏斗结账页"}
 
 // standardPageTitles maps standard template names to their display titles for
 // `+page --list` (custom templates carry their own title from the API).

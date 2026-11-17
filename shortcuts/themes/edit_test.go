@@ -361,6 +361,7 @@ func TestPreviewPageName(t *testing.T) {
 		{"", "templates/page.summer.liquid", "page", "summer"},
 		{"p.landing-707472896611598091", "", "p.landing-707472896611598091", ""}, // funnel page: one name, no suffix split
 		{"", "templates/p.checkout-707472896611598091.liquid", "p.checkout-707472896611598091", ""},
+		{"p.detail-707472896611598091", "", "p.detail-707472896611598091", ""},
 		{"", "sections/foo.liquid", "", ""}, // non-templates group: no storefront page
 		{"", "", "", ""},
 	}
@@ -387,6 +388,7 @@ func TestResolvePreviewPath_LocalOnly(t *testing.T) {
 		{"customers/login", "account/login"},
 		{"customers/reset_password", "account/resetpw"},
 		{"p.landing-707472896611598091", "funnel/landing-707472896611598091"},
+		{"p.detail-707472896611598091", "funnel/detail-707472896611598091"},
 		{"p.checkout-707472896611598091", "funnel/checkout-707472896611598091"},
 		{"p.default-landing", ""}, // blueprint, no storefront page
 		{"whatever", ""},
@@ -1324,6 +1326,9 @@ func TestEdit_PromotePublishScope(t *testing.T) {
 		}
 		if got := fmt.Sprint(bodies("p.checkout-707")); got != "[map[force:false funnel_id:707] map[funnel_id:707]]" {
 			t.Errorf("funnel page plans = %v", got)
+		}
+		if got := fmt.Sprint(bodies("p.detail-707")); got != "[map[force:false funnel_id:707] map[funnel_id:707]]" {
+			t.Errorf("funnel detail page plans = %v", got)
 		}
 		if got := fmt.Sprint(bodies("p.default-707")); got != "[map[force:false] <nil>]" {
 			t.Errorf("blueprint plans = %v", got)
