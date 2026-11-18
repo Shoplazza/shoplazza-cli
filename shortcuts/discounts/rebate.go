@@ -22,7 +22,7 @@ var rebateShortcut = common.Shortcut{
 		{Name: "target", Type: common.FlagString, Required: true,
 			Description: "Rebate scope: order or product (required).",
 			Completions: []string{"order", "product"}},
-		{Name: "tiers", Type: common.FlagString, Required: true, Description: `Comma-separated "<threshold>:<discount>" pairs, e.g. "100:10,200:25" (spend 100 → save 10; spend 200 → save 25). Threshold = order amount or quantity, discount = reduction amount or percent; units are decided by --type. Required.`},
+		{Name: "tiers", Type: common.FlagString, Required: true, Description: `Comma-separated "<threshold>:<discount>" pairs, e.g. "100:10,200:25" (spend 100 → save 10; spend 200 → save 25). Threshold = order amount or quantity, discount = reduction amount or percent; units are decided by --type. Discount range: amount-off > 0, amount-percent 1-99, qty-off >= 0, qty-percent 0-99. Required.`},
 		{Name: "type", Type: common.FlagString, Default: "amount-off",
 			Description: "Rebate type: amount-off | amount-percent | qty-off | qty-percent.",
 			Completions: []string{"amount-off", "amount-percent", "qty-off", "qty-percent"}},
@@ -61,7 +61,7 @@ var rebateShortcut = common.Shortcut{
 		if err != nil {
 			return common.PlannedRequest{}, output.Errorf(output.ExitValidation, "validation", "--type: %s", err)
 		}
-		if err := validateLayerObtainValues(layers, rt.ObtainType == "percent"); err != nil {
+		if err := validateLayerObtainValues(layers, rt.ObtainType == "percent", rt.ConditionType == "purchase_quantity"); err != nil {
 			return common.PlannedRequest{}, err
 		}
 
