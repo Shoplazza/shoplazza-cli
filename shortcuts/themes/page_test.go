@@ -62,6 +62,7 @@ func pageServer(t *testing.T, counters *pageServerCounters, sectionsPayload []by
 				map[string]any{"id": "d_custom", "location": "page.summer.liquid"},
 				map[string]any{"id": "d_landing", "location": "p.landing-707472896611598091.liquid"},
 				map[string]any{"id": "d_checkout", "location": "p.checkout-707472896611598091.liquid"},
+				map[string]any{"id": "d_detail", "location": "p.detail-707472896611598091.liquid"},
 				map[string]any{"id": "d_blueprint", "location": "p.default-landing.liquid"},
 			}})
 		case strings.HasSuffix(p, "/edit-sessions") && r.Method == http.MethodPost:
@@ -574,7 +575,7 @@ func TestPage_List(t *testing.T) {
 		t.Fatalf("pageExecute: %v", err)
 	}
 	templates := body["templates"].([]map[string]any)
-	var std, custom, landing, checkout map[string]any
+	var std, custom, landing, detail, checkout map[string]any
 	for _, tpl := range templates {
 		switch tpl["template"] {
 		case "index":
@@ -583,6 +584,8 @@ func TestPage_List(t *testing.T) {
 			custom = tpl
 		case "p.landing-707472896611598091":
 			landing = tpl
+		case "p.detail-707472896611598091":
+			detail = tpl
 		case "p.checkout-707472896611598091":
 			checkout = tpl
 		case "p.default-landing":
@@ -593,6 +596,9 @@ func TestPage_List(t *testing.T) {
 	// list as type funnel with the /funnel storefront path.
 	if landing == nil || landing["type"] != "funnel" || landing["title"] != "漏斗落地页" || landing["url"] != "/funnel/landing-707472896611598091" {
 		t.Errorf("funnel landing entry = %v", landing)
+	}
+	if detail == nil || detail["title"] != "漏斗详情页" || detail["url"] != "/funnel/detail-707472896611598091" {
+		t.Errorf("funnel detail entry = %v", detail)
 	}
 	if checkout == nil || checkout["title"] != "漏斗结账页" || checkout["url"] != "/funnel/checkout-707472896611598091" {
 		t.Errorf("funnel checkout entry = %v", checkout)

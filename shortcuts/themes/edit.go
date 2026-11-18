@@ -56,9 +56,9 @@ A promote conflict returns an api error with conflict=true and never forces;
 it also stops --publish before anything goes live.
 
 --funnel-id / --doc-ids narrow --promote and --publish to part of the theme and
-are passed through as-is: funnel_id covers that funnel's landing and checkout
-pages plus the AI blocks they use, doc_ids covers those files. A funnel page
-(--template p.landing-<id> / p.checkout-<id>) lives in the store-wide Funnel
+are passed through as-is: funnel_id covers that funnel's landing, detail and
+checkout pages plus the AI blocks they use, doc_ids covers those files. A funnel page
+(--template p.landing-<id> / p.detail-<id> / p.checkout-<id>) lives in the store-wide Funnel
 theme, so its funnel id is filled in from the template name when --funnel-id
 is omitted; other funnels' changes stay unsaved and unpublished. With neither,
 --promote saves the whole session and --publish publishes the whole theme.
@@ -81,7 +81,7 @@ and --promote [--publish] skips the batch request entirely.`,
 		{Name: "ops", Type: common.FlagString, Required: true, Description: "Edit operations: a file path, '-' for stdin, or an inline JSON array."},
 		{Name: "promote", Type: common.FlagBool, Description: "Promote the edit draft onto the theme draft after all ops apply (needs explicit user intent)."},
 		{Name: "publish", Type: common.FlagBool, Description: "Publish the theme live after a clean promote. Requires --promote; only when the user explicitly asked to go live."},
-		{Name: "funnel-id", Type: common.FlagString, Description: "Funnel id: --promote/--publish cover only this funnel's landing and checkout pages and the AI blocks they use. Defaults to the id in a p.landing-<id> / p.checkout-<id> template."},
+		{Name: "funnel-id", Type: common.FlagString, Description: "Funnel id: --promote/--publish cover only this funnel's landing, detail and checkout pages and the AI blocks they use. Defaults to the id in a p.landing-<id> / p.detail-<id> / p.checkout-<id> template."},
 		{Name: "doc-ids", Type: common.FlagStringSlice, Description: "Doc ids: --promote/--publish cover only these files (comma-separated or repeated)."},
 	},
 	// Only --promote/--publish leave the edit session, so only they confirm.

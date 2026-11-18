@@ -126,8 +126,8 @@ re-read shows (field `label`s, old → new), not what was sent. `success` but th
 
 - `--promote` saves the **whole session** — every earlier change in it, including theme
   settings, app switches and AI cards written with the same `oseid`. Say so in the summary.
-- A funnel page (`--template p.landing-<id>` / `p.checkout-<id>`) is the exception:
-  `--promote` / `--publish` cover only that funnel's landing and checkout pages plus the AI
+- A funnel page (`--template p.landing-<id>` / `p.detail-<id>` / `p.checkout-<id>`) is the exception:
+  `--promote` / `--publish` cover only that funnel's landing, detail and checkout pages plus the AI
   cards on them (the CLI takes `funnel_id` from the template name); other funnels' changes
   are neither saved nor published. Say that scope in the summary.
 - Save runs directly when asked. Asked together with the change → add `--promote` to that
