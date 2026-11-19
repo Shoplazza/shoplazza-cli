@@ -436,6 +436,7 @@ shoplazza doctor check      # 诊断 CLI 健康状况
 | `SHOPLAZZA_CLI_CONFIG_DIR` | 登录状态（登录、profile、凭证、元数据缓存）的存放目录（默认：`<系统配置目录>/shoplazza-cli`）。必须是绝对路径（开头的 `~` 会展开）。多个会话并行操作不同环境时各用一个目录，一个会话重新登录或切店铺不会影响另一个 |
 | `SHOPLAZZA_CLI_USER_ID` | 覆盖请求头 `cli-user-id`（审计归属）。默认取登录时记录的用户 id；用 `SHOPLAZZA_ACCESS_TOKEN` 注入 token 时没有登录态，需显式设置 |
 | `SHOPLAZZA_DOCS_API` | 覆盖 `docs search` 的检索服务地址（默认 `https://eco-agent.shoplazza.com`） |
+| `SHOPLAZZA_CLI_X_RF` | 每次 API 请求携带的请求头 `x-rf` 的值。默认为空，为空时不发送该请求头 |
 
 交互式提问按终端自动判定，且只能关、不能强开 — 不存在对应的 `--interactive` flag。
 

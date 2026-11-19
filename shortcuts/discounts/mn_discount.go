@@ -51,7 +51,7 @@ var mnDiscountShortcut = common.Shortcut{
 		if err != nil {
 			return common.PlannedRequest{}, output.Errorf(output.ExitValidation, "validation", "--tiers: %s", err)
 		}
-		if err := validateLayerObtainValues(layers, true); err != nil {
+		if err := validateLayerObtainValues(layers, true, false); err != nil {
 			return common.PlannedRequest{}, err
 		}
 

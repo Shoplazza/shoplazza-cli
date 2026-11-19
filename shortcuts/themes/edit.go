@@ -2,9 +2,11 @@ package themes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -53,13 +55,24 @@ with --session.
 A promote conflict returns an api error with conflict=true and never forces;
 it also stops --publish before anything goes live.
 
+--funnel-id / --doc-ids narrow --promote and --publish to part of the theme and
+are passed through as-is: funnel_id covers that funnel's landing, detail and
+checkout pages plus the AI blocks they use, doc_ids covers those files. A funnel page
+(--template p.landing-<id> / p.detail-<id> / p.checkout-<id>) lives in the store-wide Funnel
+theme, so its funnel id is filled in from the template name when --funnel-id
+is omitted; other funnels' changes stay unsaved and unpublished. With neither,
+--promote saves the whole session and --publish publishes the whole theme.
+
 "Already previewed, now ship it" is an empty batch: --ops '[]' with --session
 and --promote [--publish] skips the batch request entirely.`,
 	Example: `  # Change one block setting, reusing the session +page echoed
   shoplazza themes +edit --template index --session <oseid> --ops '[{"op":"update_slot","target":"<section_id>.blocks[0]","props":{"heading":"Summer sale"}}]'
 
   # Save a previewed session onto the theme draft
-  shoplazza themes +edit --template index --session <oseid> --ops '[]' --promote`,
+  shoplazza themes +edit --template index --session <oseid> --ops '[]' --promote
+
+  # Save and publish one funnel only (funnel id taken from the template name)
+  shoplazza themes +edit --template p.landing-<funnel_id> --session <oseid> --ops '[]' --promote --publish`,
 	Flags: []common.Flag{
 		{Name: "template", Type: common.FlagString, Description: "Template name, e.g. index / product. Mutually exclusive with --file."},
 		{Name: "file", Type: common.FlagString, Description: "Theme file path, e.g. templates/index.liquid. Mutually exclusive with --template."},
@@ -68,6 +81,8 @@ and --promote [--publish] skips the batch request entirely.`,
 		{Name: "ops", Type: common.FlagString, Required: true, Description: "Edit operations: a file path, '-' for stdin, or an inline JSON array."},
 		{Name: "promote", Type: common.FlagBool, Description: "Promote the edit draft onto the theme draft after all ops apply (needs explicit user intent)."},
 		{Name: "publish", Type: common.FlagBool, Description: "Publish the theme live after a clean promote. Requires --promote; only when the user explicitly asked to go live."},
+		{Name: "funnel-id", Type: common.FlagString, Description: "Funnel id: --promote/--publish cover only this funnel's landing, detail and checkout pages and the AI blocks they use. Defaults to the id in a p.landing-<id> / p.detail-<id> / p.checkout-<id> template."},
+		{Name: "doc-ids", Type: common.FlagStringSlice, Description: "Doc ids: --promote/--publish cover only these files (comma-separated or repeated)."},
 	},
 	// Only --promote/--publish leave the edit session, so only they confirm.
 	DestructiveIf: func(f common.FlagSet) string {
@@ -94,6 +109,8 @@ type editInput struct {
 	session  string
 	promote  bool
 	publish  bool
+	funnelID string   // promote/publish scope, passed through as funnel_id
+	docIDs   []string // promote/publish scope, passed through as doc_ids
 	ops      []editOp
 }
 
@@ -107,9 +124,35 @@ func parseEditInput(in common.ExecInput) (editInput, error) {
 		session:  in.Flags.GetString("session"),
 		promote:  in.Flags.GetBool("promote"),
 		publish:  in.Flags.GetBool("publish"),
+		funnelID: strings.TrimSpace(in.Flags.GetString("funnel-id")),
 	}
-	if _, _, err := templateLocation(e.template, e.file); err != nil {
+	for _, id := range in.Flags.GetStringSlice("doc-ids") {
+		if id = strings.TrimSpace(id); id != "" {
+			e.docIDs = append(e.docIDs, id)
+		}
+	}
+	group, location, err := templateLocation(e.template, e.file)
+	if err != nil {
 		return editInput{}, err
+	}
+	if (e.funnelID != "" || len(e.docIDs) > 0) && !e.promote {
+		return editInput{}, output.ErrValidation("--funnel-id / --doc-ids need --promote").
+			WithHint("they only narrow what --promote saves and --publish publishes")
+	}
+	if _, perr := strconv.ParseUint(e.funnelID, 10, 64); e.funnelID != "" && perr != nil {
+		return editInput{}, output.ErrValidation("--funnel-id must be numeric, got %q", e.funnelID)
+	}
+	// A funnel page sits in the store-wide Funnel theme: default the scope to
+	// its own funnel so a forgotten --funnel-id never saves or publishes the
+	// other funnels' pending changes.
+	if m := funnelPageRE.FindStringSubmatch(strings.TrimSuffix(location, ".liquid")); group == "templates" && m != nil {
+		_, id, _ := strings.Cut(m[1], "-")
+		if e.funnelID == "" {
+			e.funnelID = id
+		} else if e.funnelID != id {
+			return editInput{}, output.ErrValidation("--funnel-id %s does not match the funnel page %s", e.funnelID, location).
+				WithHint("drop --funnel-id; a funnel page's id comes from its template name")
+		}
 	}
 	raw, err := readOpsInput(in.Flags.GetString("ops"))
 	if err != nil {
@@ -233,24 +276,24 @@ func foldBatchResults(ops []editOp, entries []serverOp, newTargets map[int]strin
 func promoteAndPublish(ctx context.Context, c *client.Client, e editInput, oseid, themeID string,
 	applied []map[string]any, previewURL string, body map[string]any) error {
 	if e.promote {
-		resp, err := common.Send(ctx, c, PlanPromoteSession(oseid, map[string]any{"force": false}))
+		resp, err := common.Send(ctx, c, PlanPromoteSession(oseid, e.scopeBody(map[string]any{"force": false})))
 		if err != nil {
 			if isPromoteConflict(err) {
-				return promoteConflictErr(oseid, applied, previewURL)
+				return promoteConflictErr(e, oseid, applied, previewURL)
 			}
 			return err
 		}
 		if promoteConflicted(resp) { // registry documents a {promoted, conflict} body; tolerate both shapes
-			return promoteConflictErr(oseid, applied, previewURL)
+			return promoteConflictErr(e, oseid, applied, previewURL)
 		}
 		body["promoted"] = true
 	}
 	// Publish strictly after a clean promote: a conflict returns above, so it
 	// can never go live on top of someone else's draft.
 	if e.publish {
-		resp, err := common.Send(ctx, c, PlanPublish(themeID))
+		resp, err := common.Send(ctx, c, PlanPublish(themeID, e.scopeBody(map[string]any{})))
 		if err != nil {
-			return publishFailedErr(oseid, themeID, applied, previewURL, err)
+			return publishFailedErr(e, oseid, themeID, applied, previewURL, err)
 		}
 		body["published"] = true
 		if id := revokePublishID(resp); id != "" {
@@ -266,7 +309,7 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 		return common.ExecResult{}, err
 	}
 	if in.DryRun {
-		return common.ExecResult{Plans: editDryRunPlans(e.themeID, e.session, e.ops, e.promote, e.publish)}, nil
+		return common.ExecResult{Plans: editDryRunPlans(e)}, nil
 	}
 
 	themeID, docID, err := resolveThemeAndDoc(ctx, in.Client, e.themeID, e.template, e.file)
@@ -358,14 +401,37 @@ func editExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 // publishFailedErr covers the promote-succeeded-publish-failed window: the work
 // is already on the theme draft, so the caller must retry publish alone rather
 // than redo the ops.
-func publishFailedErr(oseid, themeID string, applied []map[string]any, previewURL string, cause error) *output.ExitError {
+func publishFailedErr(e editInput, oseid, themeID string, applied []map[string]any, previewURL string, cause error) *output.ExitError {
+	retry := fmt.Sprintf(`themes publish --params '{"theme_id":"%s"}'`, themeID)
+	if scope := e.scopeBody(map[string]any{}); len(scope) > 0 { // keep the retry as narrow as the original
+		retry += " --data '" + jsonString(scope) + "'"
+	}
 	return output.Errorf(output.ExitAPI, output.TypeAPI, "the edit was promoted to the theme draft but publishing failed: %v", cause).
 		WithField("oseid", oseid).
 		WithField("applied", applied).
 		WithField("promoted", true).
 		WithField("published", false).
 		WithField("preview_url", previewURL).
-		WithHint(fmt.Sprintf(`the changes are saved on the theme draft; retry publish alone: themes publish --params '{"theme_id":"%s"}'`, themeID))
+		WithHint("the changes are saved on the theme draft; retry publish alone: " + retry)
+}
+
+// scopeBody adds the --funnel-id / --doc-ids scope to a promote or publish
+// body; with neither, promote saves the whole session and publish the whole theme.
+func (e editInput) scopeBody(body map[string]any) map[string]any {
+	if e.funnelID != "" {
+		body["funnel_id"] = e.funnelID
+	}
+	if len(e.docIDs) > 0 {
+		body["doc_ids"] = e.docIDs
+	}
+	return body
+}
+
+// jsonString renders a hint's --data value; a marshal failure is impossible
+// for the string-only maps passed here.
+func jsonString(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
 }
 
 // revokePublishID pulls the replaced theme's id out of a publish response,
@@ -515,8 +581,9 @@ func numberValue(v any) (float64, bool) {
 
 // editDryRunPlans lists every intended request without sending any (strict
 // zero-call + placeholders; op bodies keep locally-derivable values real).
-func editDryRunPlans(themeID, session string, ops []editOp, promote, publish bool) []common.PlannedRequest {
-	themeRef, plans := dryRunThemeRef(themeID)
+func editDryRunPlans(e editInput) []common.PlannedRequest {
+	session, ops := e.session, e.ops
+	themeRef, plans := dryRunThemeRef(e.themeID)
 	plans = append(plans, PlanDocTree(themeRef))
 	oseidRef := session
 	if oseidRef == "" {
@@ -553,11 +620,11 @@ func editDryRunPlans(themeID, session string, ops []editOp, promote, publish boo
 			plans = append(plans, PlanBatchOps(oseidRef, phDocID, operations))
 		}
 	}
-	if promote {
-		plans = append(plans, PlanPromoteSession(oseidRef, map[string]any{"force": false}))
+	if e.promote {
+		plans = append(plans, PlanPromoteSession(oseidRef, e.scopeBody(map[string]any{"force": false})))
 	}
-	if publish {
-		plans = append(plans, PlanPublish(themeRef))
+	if e.publish {
+		plans = append(plans, PlanPublish(themeRef, e.scopeBody(map[string]any{})))
 	}
 	return plans
 }
@@ -582,11 +649,12 @@ func promoteConflicted(resp map[string]any) bool {
 
 // promoteConflictErr is the --promote conflict envelope: ops applied fine but
 // the theme draft moved; forcing is a user decision, never automatic.
-func promoteConflictErr(oseid string, applied []map[string]any, previewURL string) *output.ExitError {
+func promoteConflictErr(e editInput, oseid string, applied []map[string]any, previewURL string) *output.ExitError {
+	force := jsonString(e.scopeBody(map[string]any{"force": true})) // a forced save keeps the original scope
 	return output.Errorf(output.ExitAPI, output.TypeAPI, "promote conflict: the theme draft changed since this edit session was created").
 		WithField("conflict", true).
 		WithField("oseid", oseid).
 		WithField("applied", applied).
 		WithField("preview_url", previewURL).
-		WithHint(fmt.Sprintf("review the preview, then promote explicitly after user confirmation: themes session promote --params '{\"oseid\":\"%s\"}' --data '{\"force\":true}'", oseid))
+		WithHint(fmt.Sprintf("review the preview, then promote explicitly after user confirmation: themes session promote --params '{\"oseid\":\"%s\"}' --data '%s'", oseid, force))
 }

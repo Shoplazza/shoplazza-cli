@@ -13,12 +13,18 @@ func TestPlanDetail_HitsV2SpecPathWithID(t *testing.T) {
 }
 
 func TestPlanPublish_PATCHWithID(t *testing.T) {
-	p := PlanPublish("abc123")
+	p := PlanPublish("abc123", nil)
 	if p.Method != "PATCH" {
 		t.Errorf("method = %s, want PATCH", p.Method)
 	}
 	if !strings.HasSuffix(p.Path, "/themes/abc123/publish") {
 		t.Errorf("path = %s", p.Path)
+	}
+	if p.Body != nil {
+		t.Errorf("whole-theme publish must send no body, got %v", p.Body)
+	}
+	if p := PlanPublish("abc123", map[string]any{"funnel_id": "7"}); p.Body == nil {
+		t.Error("scoped publish must carry its body")
 	}
 }
 

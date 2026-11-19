@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -87,6 +88,13 @@ func (r RawResponse) RequestID() string {
 // DefaultTimeout bounds one whole request; the docs commands reuse it.
 const DefaultTimeout = 30 * time.Second
 
+// EnvRF sets the x-rf request header on every API call. Unset or empty (the
+// default) omits the header.
+const EnvRF = "SHOPLAZZA_CLI_X_RF"
+
+// HeaderRF is the request header carrying EnvRF's value.
+const HeaderRF = "x-rf"
+
 // New creates a minimal API client.
 func New(baseURL string) *Client {
 	c := &Client{
@@ -95,6 +103,9 @@ func New(baseURL string) *Client {
 			Timeout: DefaultTimeout,
 		},
 		Headers: map[string]string{},
+	}
+	if rf := strings.TrimSpace(os.Getenv(EnvRF)); rf != "" {
+		c.Headers[HeaderRF] = rf
 	}
 	return c
 }

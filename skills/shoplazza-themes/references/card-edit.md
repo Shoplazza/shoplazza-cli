@@ -126,6 +126,10 @@ re-read shows (field `label`s, old → new), not what was sent. `success` but th
 
 - `--promote` saves the **whole session** — every earlier change in it, including theme
   settings, app switches and AI cards written with the same `oseid`. Say so in the summary.
+- A funnel page (`--template p.landing-<id>` / `p.detail-<id>` / `p.checkout-<id>`) is the exception:
+  `--promote` / `--publish` cover only that funnel's landing, detail and checkout pages plus the AI
+  cards on them (the CLI takes `funnel_id` from the template name); other funnels' changes
+  are neither saved nor published. Say that scope in the summary.
 - Save runs directly when asked. Asked together with the change → add `--promote` to that
   write. Asked after the preview → `+edit … --session <oseid> --ops '[]' --promote`. Then ask
   about publishing. The session stays usable after a save.
@@ -150,8 +154,8 @@ re-read shows (field `label`s, old → new), not what was sent. `success` but th
 | ↳ `invalid_value:<key>` | Out of range, off `step`, or not in `options` | User's value → state the range; your own pick → choose a legal one |
 | ↳ `target_not_found` | Stale block index or unknown section | Re-read, copy the target again |
 | `placement_warning` on success | Card added and placed, but its new id could not be read back (no `new_section_id` / `to_index_id`) | Re-read the whole page to find it. Don't move it |
-| `promote conflict: the theme draft changed since this edit session was created`, `conflict:true` | Ops applied (previewable); the theme draft changed since the session opened | Ask. Forcing overwrites those draft changes. With consent (dry-run → restate → wait): `themes session promote --params '{"oseid":"<oseid>"}' --data '{"force":true}'`. |
-| `the edit was promoted to the theme draft but publishing failed: …`, `promoted:true, published:false` | Saved, not live | Don't redo ops; retry publish alone, as the hint says: `themes publish --params '{"theme_id":"<theme_id>"}'` once (same consent) |
+| `promote conflict: the theme draft changed since this edit session was created`, `conflict:true` | Ops applied (previewable); the theme draft changed since the session opened | Ask. Forcing overwrites those draft changes. With consent (dry-run → restate → wait): `themes session promote --params '{"oseid":"<oseid>"}' --data '{"force":true}'` — copy the `--data` from the hint, which keeps a funnel page's `funnel_id`. |
+| `the edit was promoted to the theme draft but publishing failed: …`, `promoted:true, published:false` | Saved, not live | Don't redo ops; retry publish alone, as the hint says: `themes publish --params '{"theme_id":"<theme_id>"}'` (plus the hint's `--data` on a funnel page) once (same consent) |
 | 404 `b_record_not_found` on a call with `--session` | `-t` isn't the theme the session was opened on | Pass that theme's id |
 | `b_invalid_themeid` | `-t` doesn't match the session, or the session is gone | Check `-t` is the session's theme; if it is, handle it as the next row |
 | 403 `b_invalid_request` (hint says log in again) or `SESSION_NOT_FOUND` | Session unknown or expired — not an auth problem | Tell the user its drafts are gone; with their OK, open a new session (`+page` without `--session`) and redo the changes |
