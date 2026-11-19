@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.7 - 2026-11-19
+
+### Added
+- `themes +page --list` lists the funnel pages of the Funnel extension theme (`p.landing-<id>`, `p.detail-<id>`, `p.checkout-<id>`) with type `funnel`, a merchant-facing title (漏斗落地页 / 漏斗详情页 / 漏斗结账页) and the url `/funnel/<handle>`; the `p.default-*` blueprints stay out. Previewing a funnel page opens `/funnel/<handle>` instead of falling back to the homepage.
+- `themes +edit --funnel-id` / `--doc-ids` narrow `--promote` and `--publish` to one funnel's landing, detail and checkout pages (plus the AI blocks they use) or to the listed files, so other changes in the theme stay unsaved and unpublished. Retry hints after a promote conflict or a failed publish keep the same scope. Either flag without `--promote`, or a non-numeric `--funnel-id`, is a validation error.
+- `SHOPLAZZA_CLI_X_RF` sets the `x-rf` request header on every API call; unset or empty omits it.
+
+### Changed
+- `themes +edit` on a funnel page (`--template p.landing-<id>` / `p.detail-<id>` / `p.checkout-<id>`) fills `--funnel-id` from the template name, so `--promote` / `--publish` cover only that funnel instead of the whole store-wide Funnel theme, which used to take other funnels' pending changes along. A `--funnel-id` that does not match the template is a validation error.
+- `discounts +rebate --tiers` accepts a 0 discount tier (e.g. `1:0`) for `--type qty-off` (discount ≥ 0) and `--type qty-percent` (0-99). `amount-off` / `amount-percent` and `+mn-discount` keep their old floors. The promotion service rejects a 0 tier with 422 `obtain value is invalid` until it supports one.
+- The API spec built into the CLI is refreshed: the URL redirect list takes `page` / `limit`, theme publish and edit-session promote take `doc_ids` / `funnel_id`, and product images carry `status` and `error_message`.
+
 ## 2.2.6 - 2026-11-11
 
 ### Added
