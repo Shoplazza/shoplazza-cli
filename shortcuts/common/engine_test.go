@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 
 	"github.com/spf13/cobra"
@@ -474,5 +476,72 @@ func TestMount_DeprecatedAliasListedAndResolved(t *testing.T) {
 		if !strings.Contains(usage, want) {
 			t.Errorf("--help is missing %q:\n%s", want, usage)
 		}
+	}
+}
+
+func TestMount_FlagValueChecks(t *testing.T) {
+	var gotStatus, gotTags []string
+	s := common.Shortcut{
+		Service: "svc", Command: "+probe", Use: "+probe",
+		Flags: []common.Flag{
+			{Name: "target", Type: common.FlagString, Enum: []string{"order", "product"}},
+			{Name: "percent-off", DeprecatedAliases: []string{"percent"}, Type: common.FlagFloat},
+			{Name: "limit", Type: common.FlagInt},
+			{Name: "status", Type: common.FlagStringSlice, Enum: []string{"paid", "refunded"}},
+			{Name: "tags", Type: common.FlagStringSlice},
+		},
+		Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
+			gotStatus, gotTags = in.Flags.GetStringSlice("status"), in.Flags.GetStringSlice("tags")
+			return common.PlannedRequest{Method: "GET", Path: "/x"}, nil
+		},
+	}
+	cases := []struct {
+		name               string
+		args               []string
+		wantParam, wantMsg string
+		wantHint           string
+		wantStatus         []string
+		wantTags           []string
+	}{
+		{"single-value flag repeated", []string{"--target", "order", "--target", "product"},
+			"--target", `--target was given 2 times ("order", "product")`, "pass --target once", nil, nil},
+		{"int flag repeated", []string{"--limit", "1", "--limit", "2"}, "--limit", "given 2 times", "", nil, nil},
+		{"deprecated alias repeated", []string{"--percent", "10", "--percent", "20"}, "--percent", "given 2 times", "", nil, nil},
+		{"enum string rejected", []string{"--target", "bogus"},
+			"--target", `invalid --target value "bogus"`, "accepted: order, product", nil, nil},
+		{"enum slice item rejected", []string{"--status", "paid,bogus,nope"},
+			"--status", `invalid --status value "bogus", "nope"`, "comma-separate or repeat", nil, nil},
+		{"enum slice comma-separated", []string{"--status", "paid,refunded"}, "", "", "", []string{"paid", "refunded"}, nil},
+		{"enum slice repeated", []string{"--status", "paid", "--status", "refunded"}, "", "", "", []string{"paid", "refunded"}, nil},
+		{"slice items trimmed, empties dropped", []string{"--status", "paid, refunded", "--tags", " a ,, b "},
+			"", "", "", []string{"paid", "refunded"}, []string{"a", "b"}},
+		{"enum string accepted", []string{"--target", "order"}, "", "", "", nil, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotStatus, gotTags = nil, nil
+			parent := &cobra.Command{Use: "svc", SilenceErrors: true, SilenceUsage: true}
+			common.Mount(s, parent, newFakeFactory(t))
+			parent.SetOut(&bytes.Buffer{})
+			parent.SetErr(&bytes.Buffer{})
+			parent.SetArgs(append([]string{"+probe", "--dry-run"}, c.args...))
+			err := parent.Execute()
+			if c.wantParam == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if strings.Join(gotStatus, "|") != strings.Join(c.wantStatus, "|") || strings.Join(gotTags, "|") != strings.Join(c.wantTags, "|") {
+					t.Errorf("status/tags = %q/%q, want %q/%q", gotStatus, gotTags, c.wantStatus, c.wantTags)
+				}
+				return
+			}
+			var ee *output.ExitError
+			if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Subtype != output.SubtypeInvalidFlagValue || ee.Detail.Param != c.wantParam {
+				t.Fatalf("want invalid_flag_value on %s, got %#v", c.wantParam, err)
+			}
+			if !strings.Contains(ee.Detail.Message, c.wantMsg) || !strings.Contains(ee.Detail.Hint, c.wantHint) {
+				t.Errorf("message/hint = %q / %q, want %q / %q", ee.Detail.Message, ee.Detail.Hint, c.wantMsg, c.wantHint)
+			}
+		})
 	}
 }

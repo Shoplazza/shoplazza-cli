@@ -22,18 +22,18 @@ var searchShortcut = common.Shortcut{
 		{Name: "query", Type: common.FlagString, Description: "Filter by discount name: matches names that contain the whole value as one case-insensitive substring (no word splitting or fuzzy matching), so \"Spring Sale 2026\" does not find \"Spring Sale\"."},
 		{Name: "discount-code", Type: common.FlagString, Description: "Filter by discount code."},
 		{Name: "progress", Type: common.FlagStringSlice, Description: "Filter by progress: ongoing|not_started|finished|paused.",
-			Completions: []string{"ongoing", "not_started", "finished", "paused"}},
-		{Name: "discount-type", Type: common.FlagStringSlice, Description: "Filter by discount type.",
-			Completions: []string{
+			Enum: []string{"ongoing", "not_started", "finished", "paused"}},
+		{Name: "discount-type", Type: common.FlagStringSlice, Description: "Filter by discount type: flashsale|rebate_cta_otr|rebate_ctq_otr|rebate_cta_otp|rebate_ctq_otp|m_n_discount|code_percent|code_fix_price_reduction|code_bxgy|code_free_shipping.",
+			Enum: []string{
 				"flashsale",
 				"rebate_cta_otr", "rebate_ctq_otr", "rebate_cta_otp", "rebate_ctq_otp",
 				"m_n_discount",
 				"code_percent", "code_fix_price_reduction", "code_bxgy", "code_free_shipping",
 			}},
 		{Name: "discount-target", Type: common.FlagStringSlice, Description: "Filter by target: product|order|shipping.",
-			Completions: []string{"order", "product", "shipping"}},
+			Enum: []string{"order", "product", "shipping"}},
 		{Name: "discount-method", Type: common.FlagStringSlice, Description: "Filter by method: automatic|discount_code.",
-			Completions: []string{"automatic", "discount_code"}},
+			Enum: []string{"automatic", "discount_code"}},
 		common.PageLimitFlag(),
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {

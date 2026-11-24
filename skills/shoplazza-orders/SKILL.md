@@ -50,7 +50,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Fix / update tracking info | `orders +update-tracking --order-id <id> --fulfillment-id <id> --tracking <no> [--company <name>] [--tracking-url <url>] [--notify]` |
 | Get one order by internal ID | `orders get --params '{"order_id":"<id>"}'` |
 | Get order by order NUMBER (#…) | `orders get-by-number --params '{"number":"<number>"}'` |
-| List with filters `+search` lacks (multi-status arrays, ids, skus, tags, fuzzy search…) | `orders list --params '{…}'` (see `schema orders.list`) |
+| List with filters `+search` lacks (ids, skus, tags, fuzzy search…) | `orders list --params '{…}'` (see `schema orders.list`) |
 | Create an order on a customer's behalf (手工建单 / 代客下单) | `orders create --data '{"order":{…}}'` — heavy nested body → [references/orders-create.md](references/orders-create.md) |
 | Update order note / tags / shipping address | `orders update --params '{"order_id":"<id>"}' --data '{"order":{…}}'` |
 | Cancel an order (destructive → `--dry-run` first) | `orders cancel --params '{"order_id":"<id>"}' [--data '{"reason":"…"}']` |
@@ -162,8 +162,8 @@ From `schema orders.list` — used by `+search` / `+count` / `list`:
 | `--fulfillment-status` | `initialled` · `waiting` (**未发货 / waiting to ship**) · `partially_shipped` · `shipped` · `partially_finished` · `finished` · `cancelled` · `returning` · `partially_returned` · `returned` |
 
 **`unfulfilled` / `fulfilled` are NOT valid values** — "还没发货" maps to `waiting`.
-Each shortcut flag takes ONE value; to filter on several at once use the `list` leaf, whose
-`status` / `financial_status` / `fulfillment_status` params are JSON arrays.
+Each flag takes one or more values (`--financial-status paid,refunded`, or repeat the flag) and
+matches orders in any of them; a value not in this table is exit 2.
 **Time window — which field.** `+search --since/--until` bound the **placed** time
 (`placed_at_min`/`placed_at_max`, both inclusive) — that is the sales clock and the right default. Values:
 `now`, `today`, `yesterday`, `-7d` / `+12h` (relative to now), `2026-09-01`, `2026-09-01 08:00`,

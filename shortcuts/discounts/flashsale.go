@@ -32,8 +32,8 @@ var flashsaleShortcut = common.Shortcut{
 
 		// Scope qualifiers — at most one (mutually exclusive). Flashsale operates
 		// on SKUs, not parent products, so there is no --products flag.
-		{Name: "variants", Type: common.FlagString, Description: "Variant IDs comma-separated (mutex with --collections)."},
-		{Name: "collections", Type: common.FlagString, Description: "Collection IDs comma-separated (mutex with --variants)."},
+		{Name: "variants", Type: common.FlagStringSlice, Description: "Variant IDs comma-separated (mutex with --collections)."},
+		{Name: "collections", Type: common.FlagStringSlice, Description: "Collection IDs comma-separated (mutex with --variants)."},
 
 		{Name: "price-rule", Type: common.FlagString, Default: "price",
 			Description: "Which price the discount applies to: price (selling price) or compare_at_price (list price).",
@@ -66,8 +66,8 @@ var flashsaleShortcut = common.Shortcut{
 			return common.PlannedRequest{}, output.ErrValidation("--value must be > 0 (got %v)", value)
 		}
 
-		variantIDs := common.ParseProducts(in.Flags.GetString("variants"))
-		collectionIDs := common.ParseProducts(in.Flags.GetString("collections"))
+		variantIDs := common.IDList(in.Flags, "variants")
+		collectionIDs := common.IDList(in.Flags, "collections")
 		if len(variantIDs) > 0 && len(collectionIDs) > 0 {
 			return common.PlannedRequest{}, output.ErrValidation("--variants and --collections are mutually exclusive; set at most one")
 		}

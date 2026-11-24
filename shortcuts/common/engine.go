@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -58,8 +59,10 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 
 	for _, f := range s.Flags {
 		bindFlag(cmd, f)
+		trackRepeats(cmd, f.Type, f.Name)
 		for _, old := range f.DeprecatedAliases {
 			bindFlag(cmd, Flag{Name: old, Type: f.Type, Default: f.Default, Description: "[deprecated] " + f.Description})
+			trackRepeats(cmd, f.Type, old)
 		}
 	}
 	// Older flag spellings normalize onto the canonical name before parsing, so
@@ -79,8 +82,7 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 	// one, while non-interactive runs still fail fast. Cobra's own required-flag
 	// check would reject before RunE and leave no room to prompt.
 	for _, f := range s.Flags {
-		if len(f.Completions) > 0 {
-			values := append([]string(nil), f.Completions...)
+		if values := append(append([]string(nil), f.Completions...), f.Enum...); len(values) > 0 {
 			_ = cmd.RegisterFlagCompletionFunc(f.Name, func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 				return values, cobra.ShellCompDirectiveNoFileComp
 			})
@@ -95,10 +97,16 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 	cmd.RunE = func(c *cobra.Command, args []string) error {
 		// Resolve required flags first: prompt in an interactive terminal, or
 		// fail fast (never block) with a naming error otherwise.
+		if err := checkRepeated(c, s.Flags); err != nil {
+			return err
+		}
 		if err := resolveDeprecatedAliases(c, s.Flags); err != nil {
 			return err
 		}
 		if err := fillRequired(c, s.Flags, factory); err != nil {
+			return err
+		}
+		if err := normalizeFlagValues(c, s.Flags); err != nil {
 			return err
 		}
 		dryRun := cmdutil.IsDryRun(c)
@@ -357,6 +365,91 @@ func resolveDeprecatedAliases(c *cobra.Command, flags []Flag) error {
 			if err := fs.Set(f.Name, src.Value.String()); err != nil {
 				return output.ErrValidation("invalid --%s: %v", old, err).WithParam("--" + old)
 			}
+		}
+	}
+	return nil
+}
+
+// repeatTracker records every value a single-value flag receives, so a repeated
+// flag is reported instead of the last value silently winning.
+type repeatTracker struct {
+	pflag.Value
+	values []string
+}
+
+func (r *repeatTracker) Set(s string) error {
+	r.values = append(r.values, s)
+	return r.Value.Set(s)
+}
+
+func trackRepeats(cmd *cobra.Command, t FlagType, name string) {
+	switch t {
+	case FlagString, FlagInt, FlagFloat:
+		fl := cmd.Flags().Lookup(name)
+		fl.Value = &repeatTracker{Value: fl.Value}
+	}
+}
+
+// checkRepeated rejects a single-value flag passed more than once.
+func checkRepeated(c *cobra.Command, flags []Flag) error {
+	for _, f := range flags {
+		for _, name := range append([]string{f.Name}, f.DeprecatedAliases...) {
+			r, ok := c.Flags().Lookup(name).Value.(*repeatTracker)
+			if !ok || len(r.values) < 2 {
+				continue
+			}
+			quoted := make([]string, len(r.values))
+			for i, v := range r.values {
+				quoted[i] = fmt.Sprintf("%q", v)
+			}
+			return output.ErrValidation("--%s was given %d times (%s); it takes one value", name, len(r.values), strings.Join(quoted, ", ")).
+				WithParam("--" + name).
+				WithSubtype(output.SubtypeInvalidFlagValue).
+				WithHint("pass --" + name + " once")
+		}
+	}
+	return nil
+}
+
+// normalizeFlagValues trims every item of a slice flag, dropping empty ones,
+// and rejects values outside a flag's Enum.
+func normalizeFlagValues(c *cobra.Command, flags []Flag) error {
+	fs := c.Flags()
+	for _, f := range flags {
+		if !fs.Changed(f.Name) {
+			continue
+		}
+		var values []string
+		switch f.Type {
+		case FlagStringSlice:
+			sv := fs.Lookup(f.Name).Value.(pflag.SliceValue)
+			values = CleanList(sv.GetSlice())
+			if err := sv.Replace(values); err != nil {
+				return output.ErrValidation("invalid --%s: %v", f.Name, err).WithParam("--" + f.Name)
+			}
+		case FlagString:
+			values = []string{fs.Lookup(f.Name).Value.String()}
+		default:
+			continue
+		}
+		if len(f.Enum) == 0 {
+			continue
+		}
+		var bad []string
+		for _, v := range values {
+			if !slices.Contains(f.Enum, v) {
+				bad = append(bad, fmt.Sprintf("%q", v))
+			}
+		}
+		if len(bad) > 0 {
+			hint := "accepted: " + strings.Join(f.Enum, ", ")
+			if f.Type == FlagStringSlice {
+				hint += " (comma-separate or repeat the flag for several)"
+			}
+			return output.ErrValidation("invalid --%s value %s", f.Name, strings.Join(bad, ", ")).
+				WithParam("--" + f.Name).
+				WithSubtype(output.SubtypeInvalidFlagValue).
+				WithHint(hint)
 		}
 	}
 	return nil

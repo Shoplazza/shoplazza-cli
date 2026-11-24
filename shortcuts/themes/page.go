@@ -101,7 +101,7 @@ to re-read an existing edit session instead.`,
 		{Name: "session", Type: common.FlagString, Description: "Edit session id (oseid) to read. Omit to create a fresh session (echoed in the response)."},
 		{Name: "area", Type: common.FlagString, Default: "all", Description: "Card area to read: all (default, every area with each section tagged by its own) | page | header | footer | global.", Completions: []string{"all", "page", "header", "footer", "global"}},
 		{Name: "section", Type: common.FlagString, Description: "Focus on a single section id (a page-builder card auto-expands its canvas)."},
-		{Name: "include", Type: common.FlagString, Description: "Comma-separated extras: schema (zh-CN field projection), pb (page-builder canvas)."},
+		{Name: "include", Type: common.FlagStringSlice, Description: "Comma-separated extras: schema (zh-CN field projection), pb (page-builder canvas)."},
 		{Name: "list", Type: common.FlagBool, Description: "List available templates (standard + custom) instead of reading a page."},
 	},
 	Execute: pageExecute,
@@ -141,7 +141,7 @@ func pageExecute(ctx context.Context, in common.ExecInput) (common.ExecResult, e
 	section := in.Flags.GetString("section")
 	list := in.Flags.GetBool("list")
 
-	inc, err := parseInclude(in.Flags.GetString("include"))
+	inc, err := parseInclude(strings.Join(in.Flags.GetStringSlice("include"), ","))
 	if err != nil {
 		return common.ExecResult{}, err
 	}

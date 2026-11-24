@@ -18,7 +18,7 @@ const codeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 func customerSegmentsFlag() common.Flag {
 	return common.Flag{
 		Name:        "customer-segments",
-		Type:        common.FlagString,
+		Type:        common.FlagStringSlice,
 		Description: "Customer segment IDs comma-separated; only customers in any of these segments can use the discount (omit = all customers eligible).",
 	}
 }
@@ -26,7 +26,7 @@ func customerSegmentsFlag() common.Flag {
 // resolveEntitledCustomer builds the entitled_customer payload from --customer-segments.
 // Returns {} when unset (no restriction); {customer_segment_ids: [...]} otherwise.
 func resolveEntitledCustomer(in common.PlanInput) map[string]any {
-	ids := common.ParseProducts(in.Flags.GetString("customer-segments"))
+	ids := common.IDList(in.Flags, "customer-segments")
 	if len(ids) == 0 {
 		return map[string]any{}
 	}
@@ -319,9 +319,9 @@ func codeOffFlags() []common.Flag {
 		{Name: "target", Type: common.FlagString, Required: true,
 			Description: "Discount scope: order or product (required).",
 			Completions: []string{"order", "product"}},
-		{Name: "products", Type: common.FlagString, Description: "Product IDs comma-separated (--target=product only; mutex with --variants / --collections)."},
-		{Name: "variants", Type: common.FlagString, Description: "Variant IDs comma-separated (--target=product only; mutex with --products / --collections)."},
-		{Name: "collections", Type: common.FlagString, Description: "Collection IDs comma-separated (--target=product only; mutex with --products / --variants)."},
+		{Name: "products", Type: common.FlagStringSlice, Description: "Product IDs comma-separated (--target=product only; mutex with --variants / --collections)."},
+		{Name: "variants", Type: common.FlagStringSlice, Description: "Variant IDs comma-separated (--target=product only; mutex with --products / --collections)."},
+		{Name: "collections", Type: common.FlagStringSlice, Description: "Collection IDs comma-separated (--target=product only; mutex with --products / --variants)."},
 		excludeFlag("exclude", ""),
 		{Name: "min-amount", Type: common.FlagFloat, Description: "Minimum order amount (--target=order only; rejected with --target=product)."},
 		{Name: "min-quantity", Type: common.FlagInt, Default: 1, Description: "Minimum item count (--target=product only; rejected with --target=order; default 1)."},
@@ -445,9 +445,9 @@ func buildCodeDiscountPayload(in common.PlanInput, discountType, obtainType stri
 				WithHint("for a per-product threshold use --min-quantity; for a minimum order amount, use --target=order")
 		}
 		scope, err := resolveScope(
-			common.ParseProducts(in.Flags.GetString("products")),
-			common.ParseProducts(in.Flags.GetString("collections")),
-			common.ParseProducts(in.Flags.GetString("variants")),
+			common.IDList(in.Flags, "products"),
+			common.IDList(in.Flags, "collections"),
+			common.IDList(in.Flags, "variants"),
 			in.Flags.GetBool("exclude"), true, defaultScopeNames())
 		if err != nil {
 			return nil, err

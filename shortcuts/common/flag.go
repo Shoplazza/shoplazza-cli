@@ -38,6 +38,9 @@ type Flag struct {
 	Description       string
 	Required          bool
 	Completions       []string
+	// Enum, when set, is every accepted value: the engine rejects any other
+	// (each item, on a slice flag) with exit 2 before Plan, and completes from it.
+	Enum []string
 	// Picker, when set, supplies choices interactively: a human who leaves this
 	// flag unset in a terminal is shown a fuzzy-filterable list of live
 	// resources and the chosen id is written back onto the flag. Non-interactive

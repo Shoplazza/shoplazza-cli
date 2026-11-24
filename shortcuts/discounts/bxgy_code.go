@@ -24,18 +24,18 @@ var bxgyCodeShortcut = common.Shortcut{
   shoplazza discounts +bxgy-code --products p-1 --buy-quantity 3 --get-products p-2 --get-quantity 1 --get-percent-off 50`,
 	Flags: []common.Flag{
 		// Buy-side scope — mutex; exactly one required.
-		{Name: "products", Type: common.FlagString, Description: "Buy-side product IDs comma-separated (mutex with --variants / --collections)."},
-		{Name: "variants", Type: common.FlagString, Description: "Buy-side variant IDs comma-separated (mutex with --products / --collections)."},
-		{Name: "collections", Type: common.FlagString, Description: "Buy-side collection IDs comma-separated (mutex with --products / --variants)."},
+		{Name: "products", Type: common.FlagStringSlice, Description: "Buy-side product IDs comma-separated (mutex with --variants / --collections)."},
+		{Name: "variants", Type: common.FlagStringSlice, Description: "Buy-side variant IDs comma-separated (mutex with --products / --collections)."},
+		{Name: "collections", Type: common.FlagStringSlice, Description: "Buy-side collection IDs comma-separated (mutex with --products / --variants)."},
 		excludeFlag("exclude", "buy-side "),
 		// Buy-side trigger — exactly one required (mutex).
 		{Name: "buy-quantity", Type: common.FlagInt, Description: "Total qty across the buy-side items required to trigger the discount (>0; mutex with --buy-amount)."},
 		{Name: "buy-amount", Type: common.FlagFloat, Description: "Total spend across the buy-side items required to trigger the discount (>0; mutex with --buy-quantity)."},
 
 		// Get-side scope — mutex; exactly one required.
-		{Name: "get-products", Type: common.FlagString, Description: "Get-side product IDs comma-separated (mutex with --get-variants / --get-collections)."},
-		{Name: "get-variants", Type: common.FlagString, Description: "Get-side variant IDs comma-separated (mutex with --get-products / --get-collections)."},
-		{Name: "get-collections", Type: common.FlagString, Description: "Get-side collection IDs comma-separated (mutex with --get-products / --get-variants)."},
+		{Name: "get-products", Type: common.FlagStringSlice, Description: "Get-side product IDs comma-separated (mutex with --get-variants / --get-collections)."},
+		{Name: "get-variants", Type: common.FlagStringSlice, Description: "Get-side variant IDs comma-separated (mutex with --get-products / --get-collections)."},
+		{Name: "get-collections", Type: common.FlagStringSlice, Description: "Get-side collection IDs comma-separated (mutex with --get-products / --get-variants)."},
 		{Name: "get-quantity", Type: common.FlagInt, Required: true, Description: "How many get-side items receive the discount (required, >0)."},
 
 		// Discount applied to the get items — exactly one required (mutex).
@@ -59,18 +59,18 @@ var bxgyCodeShortcut = common.Shortcut{
 		// Buy-side scope (required); --exclude flips it to selection=exclude
 		// ("buy any product EXCEPT these to trigger").
 		entitledProduct, err := resolveScope(
-			common.ParseProducts(in.Flags.GetString("products")),
-			common.ParseProducts(in.Flags.GetString("collections")),
-			common.ParseProducts(in.Flags.GetString("variants")),
+			common.IDList(in.Flags, "products"),
+			common.IDList(in.Flags, "collections"),
+			common.IDList(in.Flags, "variants"),
 			in.Flags.GetBool("exclude"), true, defaultScopeNames())
 		if err != nil {
 			return common.PlannedRequest{}, err
 		}
 		// Get-side scope (required). The get side has no exclude option, so exclude=false.
 		obtainProduct, err := resolveScope(
-			common.ParseProducts(in.Flags.GetString("get-products")),
-			common.ParseProducts(in.Flags.GetString("get-collections")),
-			common.ParseProducts(in.Flags.GetString("get-variants")),
+			common.IDList(in.Flags, "get-products"),
+			common.IDList(in.Flags, "get-collections"),
+			common.IDList(in.Flags, "get-variants"),
 			false, true,
 			scopeNames{products: "get-products", collections: "get-collections", variants: "get-variants"})
 		if err != nil {

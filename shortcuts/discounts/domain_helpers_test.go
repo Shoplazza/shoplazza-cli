@@ -246,11 +246,11 @@ func TestResolveLimitMaxUser_ZeroUserErrors(t *testing.T) {
 
 func discountCodeFlags() map[string]string {
 	return map[string]string{
-		"target": "string", "products": "string", "collections": "string",
-		"variants": "string", "exclude": "bool", "min-amount": "float",
+		"target": "string", "products": "stringslice", "collections": "stringslice",
+		"variants": "stringslice", "exclude": "bool", "min-amount": "float",
 		"min-quantity": "int", "code": "string", "name": "string",
 		"start": "string", "end": "string", "combines": "stringslice",
-		"limit-max": "int", "limit-user": "int", "customer-segments": "string",
+		"limit-max": "int", "limit-user": "int", "customer-segments": "stringslice",
 	}
 }
 

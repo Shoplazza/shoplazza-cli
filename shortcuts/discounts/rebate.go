@@ -1,6 +1,8 @@
 package discounts
 
 import (
+	"strings"
+
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
@@ -22,7 +24,7 @@ var rebateShortcut = common.Shortcut{
 		{Name: "target", Type: common.FlagString, Required: true,
 			Description: "Rebate scope: order or product (required).",
 			Completions: []string{"order", "product"}},
-		{Name: "tiers", Type: common.FlagString, Required: true, Description: `Comma-separated "<threshold>:<discount>" pairs, e.g. "100:10,200:25" (spend 100 → save 10; spend 200 → save 25). Threshold = order amount or quantity, discount = reduction amount or percent; units are decided by --type. Discount range: amount-off > 0, amount-percent 1-99, qty-off >= 0, qty-percent 0-99; for the percent types the discount is the % taken off ("200:20" = spend 200, pay 80%). Required.`},
+		{Name: "tiers", Type: common.FlagStringSlice, Required: true, Description: `Comma-separated "<threshold>:<discount>" pairs, e.g. "100:10,200:25" (spend 100 → save 10; spend 200 → save 25). Threshold = order amount or quantity, discount = reduction amount or percent; units are decided by --type. Discount range: amount-off > 0, amount-percent 1-99, qty-off >= 0, qty-percent 0-99; for the percent types the discount is the % taken off ("200:20" = spend 200, pay 80%). Required.`},
 		{Name: "type", Type: common.FlagString, Default: "amount-off",
 			Description: "Rebate type: amount-off | amount-percent | qty-off | qty-percent.",
 			Completions: []string{"amount-off", "amount-percent", "qty-off", "qty-percent"}},
@@ -31,9 +33,9 @@ var rebateShortcut = common.Shortcut{
 		// omitting all three means the rebate applies to the whole order
 		// (entitled_product.selection=all). For --target=product the API
 		// rejects selection=all, so one of these flags is required.
-		{Name: "products", Type: common.FlagString, Description: "Product IDs comma-separated (mutex with --collections / --variants; required when --target=product)."},
-		{Name: "collections", Type: common.FlagString, Description: "Collection IDs comma-separated (mutex with --products / --variants; required when --target=product)."},
-		{Name: "variants", Type: common.FlagString, Description: "Variant IDs comma-separated (mutex with --products / --collections; required when --target=product)."},
+		{Name: "products", Type: common.FlagStringSlice, Description: "Product IDs comma-separated (mutex with --collections / --variants; required when --target=product)."},
+		{Name: "collections", Type: common.FlagStringSlice, Description: "Collection IDs comma-separated (mutex with --products / --variants; required when --target=product)."},
+		{Name: "variants", Type: common.FlagStringSlice, Description: "Variant IDs comma-separated (mutex with --products / --collections; required when --target=product)."},
 		excludeFlag("exclude", ""),
 
 		{Name: "limit-max", Type: common.FlagInt, Description: "Max total discount uses across all customers (>0; omit for no limit)."},
@@ -53,7 +55,7 @@ var rebateShortcut = common.Shortcut{
 		if target != "order" && target != "product" {
 			return common.PlannedRequest{}, output.ErrValidation("--target must be 'order' or 'product' (got %q)", target)
 		}
-		layers, err := common.ParseTiers(in.Flags.GetString("tiers"))
+		layers, err := common.ParseTiers(strings.Join(in.Flags.GetStringSlice("tiers"), ","))
 		if err != nil {
 			return common.PlannedRequest{}, output.Errorf(output.ExitValidation, "validation", "--tiers: %s", err)
 		}
@@ -71,9 +73,9 @@ var rebateShortcut = common.Shortcut{
 			return common.PlannedRequest{}, output.ErrValidation("--limit-order-once is only valid for --type=amount-off or qty-off (got --type=%s)", in.Flags.GetString("type"))
 		}
 
-		productIDs := common.ParseProducts(in.Flags.GetString("products"))
-		collectionIDs := common.ParseProducts(in.Flags.GetString("collections"))
-		variantIDs := common.ParseProducts(in.Flags.GetString("variants"))
+		productIDs := common.IDList(in.Flags, "products")
+		collectionIDs := common.IDList(in.Flags, "collections")
+		variantIDs := common.IDList(in.Flags, "variants")
 		// --exclude is product-level only; order-level rebate has no exclude option.
 		exclude := in.Flags.GetBool("exclude")
 		if exclude && target == "order" {

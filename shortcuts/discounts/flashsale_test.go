@@ -6,10 +6,10 @@ import (
 
 func flashsaleFlags() map[string]string {
 	return map[string]string{
-		"value": "float", "type": "string", "variants": "string", "collections": "string",
+		"value": "float", "type": "string", "variants": "stringslice", "collections": "stringslice",
 		"price-rule": "string", "limit-user-variant": "int", "limit-user-product": "int",
 		"limit-user-all": "int", "stock": "int", "combines": "stringslice",
-		"name": "string", "start": "string", "end": "string", "customer-segments": "string",
+		"name": "string", "start": "string", "end": "string", "customer-segments": "stringslice",
 	}
 }
 

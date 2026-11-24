@@ -16,20 +16,15 @@ var searchShortcut = common.Shortcut{
 
   # By customer email, print only order numbers
   shoplazza orders +search --email a@b.com --jq '.data.orders[].number'`,
-	Flags: []common.Flag{
+	Flags: append(append([]common.Flag{
 		{Name: "keyword", Type: common.FlagString, Description: "Fuzzy match on order number, customer name or email. Prefer --email for a known address."},
 		{Name: "email", Type: common.FlagString, Description: "Filter by customer email (exact match)."},
-		{Name: "status", Type: common.FlagString, Description: "Order status filter.",
-			Completions: []string{"opened", "placed", "finished", "cancelled"}},
-		{Name: "financial-status", Type: common.FlagString, Description: "Financial status filter.",
-			Completions: []string{"waiting", "paying", "authorized", "partially_paid", "paid", "cancelled", "failed", "refunded"}},
-		{Name: "fulfillment-status", Type: common.FlagString, Description: "Fulfillment status filter.",
-			Completions: []string{"initialled", "waiting", "partially_shipped", "shipped", "finished", "cancelled", "returned"}},
+	}, statusFlags()...), []common.Flag{
 		{Name: "customer-id", Type: common.FlagString, Description: "Filter by customer ID."},
 		common.SinceFlag("when the order was placed", "placed_at"),
 		common.UntilFlag("when the order was placed", "placed_at"),
 		common.PageLimitFlag(),
-	},
+	}...),
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
 		pl, err := common.GetValidatedPageLimit(in)
 		if err != nil {
@@ -38,9 +33,7 @@ var searchShortcut = common.Shortcut{
 		q := map[string]any{}
 		cmdutil.AddString(q, "keyword", in.Flags.GetString("keyword"))
 		cmdutil.AddSliceString(q, "customer_emails", in.Flags.GetString("email"))
-		cmdutil.AddString(q, "status", in.Flags.GetString("status"))
-		cmdutil.AddString(q, "financial_status", in.Flags.GetString("financial-status"))
-		cmdutil.AddString(q, "fulfillment_status", in.Flags.GetString("fulfillment-status"))
+		addStatusFilters(q, in)
 		cmdutil.AddString(q, "customer_id", in.Flags.GetString("customer-id"))
 		if err := common.AddTimeRange(q, in, "placed_at"); err != nil {
 			return common.PlannedRequest{}, err

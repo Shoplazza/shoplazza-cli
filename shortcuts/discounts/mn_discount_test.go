@@ -6,12 +6,12 @@ import (
 
 func mnDiscountFlags() map[string]string {
 	return map[string]string{
-		"tiers": "string", "scope": "string",
-		"products": "string", "collections": "string", "variants": "string",
+		"tiers": "stringslice", "scope": "string",
+		"products": "stringslice", "collections": "stringslice", "variants": "stringslice",
 		"exclude": "bool", "price-sort": "string",
 		"combines": "stringslice", "limit-max": "int", "limit-user": "int",
 		"name": "string", "start": "string", "end": "string",
-		"customer-segments": "string",
+		"customer-segments": "stringslice",
 	}
 }
 

@@ -1,7 +1,10 @@
 package common_test
 
 import (
+	"reflect"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
@@ -124,27 +127,25 @@ func TestLayersToMaps_Decimal(t *testing.T) {
 	}
 }
 
-func TestParseProducts(t *testing.T) {
-	got := common.ParseProducts("id1,id2,id3")
-	want := []string{"id1", "id2", "id3"}
-	if len(got) != len(want) {
-		t.Fatalf("len = %d, want %d", len(got), len(want))
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("[%d] = %q, want %q", i, got[i], want[i])
+func TestIDList(t *testing.T) {
+	for _, c := range []struct {
+		args []string
+		want []string
+	}{
+		{[]string{"--ids", "id1,id2,id3"}, []string{"id1", "id2", "id3"}},
+		{[]string{"--ids", "id1", "--ids", "id2,id3"}, []string{"id1", "id2", "id3"}},
+		{[]string{"--ids", " id1 ,, id2 "}, []string{"id1", "id2"}},
+		{[]string{"--ids", "all"}, nil},
+		{nil, nil},
+	} {
+		cmd := &cobra.Command{Use: "t", RunE: func(*cobra.Command, []string) error { return nil }}
+		cmd.Flags().StringSlice("ids", nil, "")
+		cmd.SetArgs(c.args)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("%v: %v", c.args, err)
 		}
-	}
-}
-
-func TestParseProducts_AllReturnsNil(t *testing.T) {
-	if got := common.ParseProducts("all"); len(got) != 0 {
-		t.Errorf("ParseProducts(all) = %v, want nil/empty", got)
-	}
-}
-
-func TestParseProducts_EmptyReturnsNil(t *testing.T) {
-	if got := common.ParseProducts(""); len(got) != 0 {
-		t.Errorf("ParseProducts('') = %v, want nil/empty", got)
+		if got := common.IDList(common.NewCobraFlagSet(cmd), "ids"); !reflect.DeepEqual(got, c.want) && (len(got) != 0 || len(c.want) != 0) {
+			t.Errorf("%v: IDList = %#v, want %#v", c.args, got, c.want)
+		}
 	}
 }

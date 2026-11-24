@@ -7,9 +7,9 @@ import (
 func freeShippingFlags() map[string]string {
 	return map[string]string{
 		"off": "float", "min-amount": "float", "min-quantity": "int",
-		"countries": "string", "code": "string", "name": "string",
+		"countries": "stringslice", "code": "string", "name": "string",
 		"start": "string", "end": "string", "combines": "stringslice",
-		"limit-max": "int", "limit-user": "int", "customer-segments": "string",
+		"limit-max": "int", "limit-user": "int", "customer-segments": "stringslice",
 	}
 }
 

@@ -71,6 +71,10 @@ read fields directly (e.g. `logged_in`).
 
 Field projection: a few search shortcuts accept `--fields` (verify with `--help`); everywhere else, project/filter with `--jq`.
 
+List flags on shortcuts (`--variants`, `--tags`, `--status`, …) take comma-separated values or a
+repeated flag: `--variants a,b` = `--variants a --variants b`. A single-value flag given twice, or a
+value outside a flag's fixed list, is exit 2 (`invalid_flag_value`) instead of last-one-wins.
+
 ## Reading a filtered list
 
 A read that returns `{"ok":true,…}` is **not** evidence that the filter or the page you asked

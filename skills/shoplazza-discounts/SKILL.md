@@ -205,7 +205,7 @@ discounts +search --query "spring" --discount-method discount_code
 ```
 
 Multi-value filters (`--progress`, `--discount-type`, `--discount-method`, `--discount-target`)
-take comma-separated lists.
+take comma-separated lists or a repeated flag; a value outside the `--help` list is exit 2.
 
 The discount object is nested at `.data.discount.{discount_info,discount_layer,discount_rule,entitled_product,...}`
 (the general "jq starts at `.data`" rule is in shoplazza-common):

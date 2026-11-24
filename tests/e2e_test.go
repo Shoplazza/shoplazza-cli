@@ -220,6 +220,77 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 	}
 }
 
+func TestShortcutListAndEnumFlags_MockServer(t *testing.T) {
+	var (
+		hits  int
+		query map[string][]string
+		body  map[string]any
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		query = r.URL.Query()
+		body = nil
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	bin := buildBinary(t)
+	env := apiEnv(srv.URL)
+
+	for _, c := range []struct {
+		args  []string
+		query map[string][]string
+	}{
+		{[]string{"orders", "+search", "--financial-status", "paid,refunded"}, map[string][]string{"financial_status": {"paid", "refunded"}}},
+		{[]string{"orders", "+count", "--status", "placed", "--status", "finished", "--fulfillment-status", "returning"},
+			map[string][]string{"status": {"placed", "finished"}, "fulfillment_status": {"returning"}}},
+		{[]string{"discounts", "+search", "--progress", "ongoing, paused"}, map[string][]string{"progress": {"ongoing", "paused"}}},
+	} {
+		if _, stderr, code := runCLI(t, bin, env, c.args...); code != 0 {
+			t.Errorf("%v: exit %d, stderr=%s", c.args, code, stderr)
+			continue
+		}
+		for k, want := range c.query {
+			if got := query[k]; strings.Join(got, "|") != strings.Join(want, "|") {
+				t.Errorf("%v: %s = %q, want %q", c.args, k, got, want)
+			}
+		}
+	}
+	_, stderr, code := runCLI(t, bin, env, "discounts", "+percent-code", "--target", "product", "--percent-off", "10",
+		"--code", "T", "--variants", "a", "--variants", "b,c")
+	discount, _ := body["discount"].(map[string]any)
+	scope, _ := discount["entitled_product"].(map[string]any)
+	if ids, _ := json.Marshal(scope["variant_ids"]); code != 0 || string(ids) != `["a","b","c"]` {
+		t.Errorf("--variants a --variants b,c: exit %d, variant_ids=%s, stderr=%s", code, ids, stderr)
+	}
+
+	bad := []struct {
+		args  []string
+		param string
+	}{
+		{[]string{"orders", "+search", "--status", "bogus"}, "--status"},
+		{[]string{"orders", "+count", "--financial-status", "paid,bogus"}, "--financial-status"},
+		{[]string{"discounts", "+search", "--discount-type", "nope"}, "--discount-type"},
+		{[]string{"discounts", "+percent-code", "--target", "order", "--target", "product", "--percent-off", "10"}, "--target"},
+		{[]string{"discounts", "+percent-code", "--target", "order", "--percent-off", "10", "--percent-off", "20"}, "--percent-off"},
+	}
+	for _, c := range bad {
+		before := hits
+		_, stderr, code := runCLI(t, bin, env, c.args...)
+		if code != 2 || hits != before {
+			t.Errorf("%v: exit %d (want 2), request sent=%v; stderr=%s", c.args, code, hits != before, stderr)
+			continue
+		}
+		var e struct {
+			Error struct{ Type, Subtype, Param string } `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(stderr), &e); err != nil || e.Error.Subtype != "invalid_flag_value" || e.Error.Param != c.param {
+			t.Errorf("%v: error = %+v (%v), want invalid_flag_value on %s", c.args, e.Error, err, c.param)
+		}
+	}
+}
+
 func TestShortcutTimeFlags_MockServer(t *testing.T) {
 	var (
 		hits  int

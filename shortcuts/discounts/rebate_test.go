@@ -6,11 +6,11 @@ import (
 
 func rebateFlags() map[string]string {
 	return map[string]string{
-		"target": "string", "tiers": "string", "type": "string",
-		"products": "string", "collections": "string", "variants": "string",
+		"target": "string", "tiers": "stringslice", "type": "string",
+		"products": "stringslice", "collections": "stringslice", "variants": "stringslice",
 		"exclude": "bool", "limit-max": "int", "limit-user": "int",
 		"limit-order-once": "bool", "combines": "stringslice",
-		"name": "string", "start": "string", "end": "string", "customer-segments": "string",
+		"name": "string", "start": "string", "end": "string", "customer-segments": "stringslice",
 	}
 }
 
