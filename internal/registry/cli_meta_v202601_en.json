@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-11-16T10:04:30Z",
+  "generated_at": "2026-11-24T09:30:33Z",
   "modules": [
     {
       "name": "billing",
@@ -1609,7 +1609,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order status. - opened: pending payment. - cancelled: cancelled. - placed: in progress. - finished: completed. Example: ?status=opened\u0026status=finished"
+              "description": "Filter by order status. - `opened`: pending payment. - `cancelled`: cancelled. - `placed`: in progress. - `finished`: completed. Example: ?status=opened\u0026status=finished"
             },
             {
               "name": "fulfillment_status",
@@ -1618,7 +1618,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order fulfillment status. - initialled: initial. - waiting: waiting to ship. - partially_shipped: partially shipped. - shipped: fully shipped. - partially_finished: partially received. - finished: fully received. - cancelled: cancelled. - returning: return in progress. - partially_returned: partially returned. - returned: fully returned. Example: ?fulfillment_status=waiting\u0026fulfillment_status=shipped"
+              "description": "Filter by order fulfillment status. - `initialled`: initial. - `waiting`: waiting to ship. - `partially_shipped`: partially shipped. - `shipped`: fully shipped. - `partially_finished`: partially received. - `finished`: fully received. - `cancelled`: cancelled. - `returning`: return in progress. - `partially_returned`: partially returned. - `returned`: fully returned. Example: ?fulfillment_status=waiting\u0026fulfillment_status=shipped"
             },
             {
               "name": "financial_status",
@@ -1627,7 +1627,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by payment status. - waiting: pending payment. - paying: payment under review. - authorized: authorized. - partially_paid: partially paid. - paid: paid. - cancelled: cancelled. - failed: payment failed. - refunding: refund in progress. - refund_failed: refund failed. - refunded: fully refunded. - partially_refunded: partially refunded. Example: ?financial_status=waiting\u0026financial_status=paid"
+              "description": "Filter by payment status. - `waiting`: pending payment. - `paying`: payment under review. - `authorized`: authorized. - `partially_paid`: partially paid. - `paid`: paid. - `cancelled`: cancelled. - `failed`: payment failed. - `refunding`: refund in progress. - `refund_failed`: refund failed. - `refunded`: fully refunded. - `partially_refunded`: partially refunded. Example: ?financial_status=waiting\u0026financial_status=paid"
             },
             {
               "name": "recovery_status",
@@ -1657,7 +1657,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Fields to apply keyword search on. Supported values: order_no, email, phone, name, etc. Example: ?keyword_scope_fields=order_no\u0026keyword_scope_fields=email"
+              "description": "Fields to apply keyword search on. Supported values: `order_no`, `email`, `phone`, `name`, etc. Example: ?keyword_scope_fields=order_no\u0026keyword_scope_fields=email"
             },
             {
               "name": "customer_id",
@@ -2361,7 +2361,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order status. - opened: pending payment. - cancelled: cancelled. - placed: in progress. - finished: completed. Example: ?status=opened\u0026status=finished"
+              "description": "Filter by order status. - `opened`: pending payment. - `cancelled`: cancelled. - `placed`: in progress. - `finished`: completed. Example: ?status=opened\u0026status=finished"
             },
             {
               "name": "fulfillment_status",
@@ -2370,7 +2370,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order fulfillment status. - initialled: initial. - waiting: waiting to ship. - partially_shipped: partially shipped. - shipped: fully shipped. - partially_finished: partially received. - finished: fully received. - cancelled: cancelled. - returning: return in progress. - partially_returned: partially returned. - returned: fully returned. Example: ?fulfillment_status=waiting\u0026fulfillment_status=shipped"
+              "description": "Filter by order fulfillment status. - `initialled`: initial. - `waiting`: waiting to ship. - `partially_shipped`: partially shipped. - `shipped`: fully shipped. - `partially_finished`: partially received. - `finished`: fully received. - `cancelled`: cancelled. - `returning`: return in progress. - `partially_returned`: partially returned. - `returned`: fully returned. Example: ?fulfillment_status=waiting\u0026fulfillment_status=shipped"
             },
             {
               "name": "financial_status",
@@ -2379,7 +2379,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by payment status. - waiting: pending payment. - paying: payment under review. - authorized: authorized. - partially_paid: partially paid. - paid: paid. - cancelled: cancelled. - failed: payment failed. - refunding: refund in progress. - refund_failed: refund failed. - refunded: fully refunded. - partially_refunded: partially refunded. Example: ?financial_status=waiting\u0026financial_status=paid"
+              "description": "Filter by payment status. - `waiting`: pending payment. - `paying`: payment under review. - `authorized`: authorized. - `partially_paid`: partially paid. - `paid`: paid. - `cancelled`: cancelled. - `failed`: payment failed. - `refunding`: refund in progress. - `refund_failed`: refund failed. - `refunded`: fully refunded. - `partially_refunded`: partially refunded. Example: ?financial_status=waiting\u0026financial_status=paid"
             },
             {
               "name": "recovery_status",
@@ -5438,7 +5438,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Product's SPUs, separated by comma, for example: `spu1,spu2`"
+              "description": "Product's SPUs. Example: ?spus=spu1\u0026spus=spu2"
             },
             {
               "name": "pre_cursor",
@@ -5483,7 +5483,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Exclude_ids is used to exclude products by their IDs, for example: `product_id1,product_id2`"
+              "description": "IDs of products to exclude. Example: ?exclude_ids=1001\u0026exclude_ids=1002"
             },
             {
               "name": "product_type",
