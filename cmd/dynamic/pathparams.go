@@ -8,7 +8,28 @@ import (
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/interact"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
 )
+
+// hashPrefixedParams maps a command ID to the path parameter whose value is
+// displayed with a "#" that is not part of it (order numbers show as "#1001").
+var hashPrefixedParams = map[string]string{"order-by-number": "number"}
+
+// dropHashPrefix removes that leading "#" from params in place and returns a
+// dry-run hint saying so, or "" when the value had none.
+func dropHashPrefix(c registry.Command, params map[string]any) string {
+	name, ok := hashPrefixedParams[c.ID]
+	if !ok {
+		return ""
+	}
+	v, ok := params[name].(string)
+	if !ok || !strings.HasPrefix(strings.TrimSpace(v), "#") {
+		return ""
+	}
+	trimmed := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(v), "#"))
+	params[name] = trimmed
+	return fmt.Sprintf("dropped the leading # from %s: %q is sent as %q", name, v, trimmed)
+}
 
 // fillMissingPathParams prompts a human for any {param} in the path template that
 // --params left unset, injecting the answers into params so ResolveTemplatedPath

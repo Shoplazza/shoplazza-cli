@@ -104,7 +104,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 部分发货 / ship only some items | `+ship --line-items id:qty,…` | per-line quantities as `line-id:qty` pairs |
 | 退款 / 给买家退 X 元 / refund the buyer | `+refund` | amount → `--amount` verbatim; stated reason → `--note`; "库存退回去/restock" → `--return-items` |
 | 改运单号 / 运单号填错了 / fix the tracking number | `+update-tracking` | needs all three: `--order-id`, `--fulfillment-id`, `--tracking` |
-| 订单号 #… 的详情 / look up order by number | `get-by-number` (leaf) | strip the leading `#` → `--params '{"number":"…"}'`; internal IDs go to `get` instead |
+| 订单号 #… 的详情 / look up order by number | `get-by-number` (leaf) | `--params '{"number":"…"}'`; a leading `#` is dropped by the CLI; internal IDs go to `get` instead |
 | 手工建单 / 代客下单 / create an order for a customer | `create` (leaf) | heavy nested body under `order` → [references/orders-create.md](references/orders-create.md); resolve `variant_id` via `products +search`; never fabricate buyer identity, address, or price |
 | 取消订单 / cancel order X | `cancel` (leaf) | id → `--params`; a stated reason → `--data '{"reason":"…"}'` (optional); **not** `fulfillments cancel` |
 | 取消发货记录 / cancel a fulfillment | `fulfillments cancel` (leaf) | both `order_id` and `fulfillment_id` in `--params`; **not** `orders cancel` |
@@ -244,7 +244,7 @@ shoplazza-common).
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Filtered on `unfulfilled` / `fulfilled` | Not in the enum | 未发货 = `waiting`; see the enum table above |
-| `orders get` finds nothing for a `#…` number | `get` takes the internal `order_id`; order numbers are a different key | `get-by-number --params '{"number":"…"}'` (strip the `#`) |
+| `orders get` finds nothing for a `#…` number | `get` takes the internal `order_id`; order numbers are a different key | `get-by-number --params '{"number":"…"}'` (a leading `#` is fine) |
 | `+refund` errors "order has N payment_lines" | Multi-payment-line order needs an explicit choice | Re-run with `--payment-line-id` from the listed candidates |
 | `+refund` / `+ship` dry-run prints TWO requests | These shortcuts GET the order first (resolve payment lines / fulfillable items), then POST | Expected. The dry-run POST body omits looked-up data (e.g. `refund_line_items`, empty `payment_line_id`) — the live run fills them in |
 | Cancelled the order when only a shipment should die (or vice versa) | 取消订单 ≠ 取消发货记录 | Order → `orders cancel`; fulfillment → `orders fulfillments cancel` (both path ids) |

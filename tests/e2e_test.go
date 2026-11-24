@@ -136,14 +136,16 @@ func TestProductsList_WithFilters(t *testing.T) {
 // Shortcut time flags go through one parser: --since/--until reach the
 // server as RFC3339 UTC, --start/--end as unix seconds, and a bad value exits
 // 2 with the flag named, before any request is sent.
-func TestSpecLeafParamsAndBody_MockServer(t *testing.T) {
+func TestSpecLeafInput_MockServer(t *testing.T) {
 	var (
 		hits  int
+		path  string
 		query map[string][]string
 		body  map[string]any
 	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits++
+		path = r.URL.EscapedPath()
 		query = r.URL.Query()
 		body = nil
 		_ = json.NewDecoder(r.Body).Decode(&body)
@@ -161,6 +163,23 @@ func TestSpecLeafParamsAndBody_MockServer(t *testing.T) {
 	}
 	if body["theme_id"] != "T1" || len(query) != 0 {
 		t.Errorf("theme_id in --data: body.theme_id=%v query=%v, want T1 and no query", body["theme_id"], query)
+	}
+
+	for _, c := range []struct {
+		args     []string
+		wantPath string
+	}{
+		{[]string{"orders", "get-by-number", "--params", `{"number":"#1001"}`}, "/openapi/2026-01/orders/number/1001"},
+		{[]string{"discounts", "get-by-code", "--params", `{"discount_code":"#A?B%"}`}, "/openapi/2026-01/discounts/by-code/%23A%3FB%25"},
+	} {
+		if _, stderr, code := runCLI(t, bin, env, c.args...); code != 0 || path != c.wantPath {
+			t.Errorf("%v: exit %d, path %q, want %q; stderr=%s", c.args, code, path, c.wantPath, stderr)
+		}
+	}
+	stdout, _, code := runCLI(t, bin, env, "orders", "get-by-number", "--params", `{"number":"#1001"}`, "--dry-run")
+	if code != 0 || !strings.Contains(stdout, `"path": "/openapi/2026-01/orders/number/1001"`) ||
+		!strings.Contains(stdout, `dropped the leading # from number`) {
+		t.Errorf("get-by-number dry-run: exit %d, stdout=%s", code, stdout)
 	}
 
 	bad := []struct {

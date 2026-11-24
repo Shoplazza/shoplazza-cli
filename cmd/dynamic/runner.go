@@ -35,6 +35,7 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 		if err := checkRequiredBody(c, body, schemaHint); err != nil {
 			return err
 		}
+		hint := dropHashPrefix(c, params)
 
 		// A human is prompted for any {param} the --params JSON left unset (e.g.
 		// theme_id); non-interactive callers are untouched, so a missing param
@@ -60,10 +61,14 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 		out := factory.IOStreams.Out
 
 		if cmdutil.IsDryRun(cmd) {
-			return output.PrintBody(out, map[string]any{
+			preview := map[string]any{
 				"dry_run": true,
 				"request": factory.Client.BuildRequestSummary(req.Method, req.Path, req.Params, req.Data),
-			}, format, jq)
+			}
+			if hint != "" {
+				preview["hint"] = hint
+			}
+			return output.PrintBody(out, preview, format, jq)
 		}
 
 		// Human-only confirmation for irreversible writes (DELETE / cancel / …);

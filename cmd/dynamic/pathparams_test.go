@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
 )
 
 func TestPathParamNames(t *testing.T) {
@@ -20,6 +21,32 @@ func TestPathParamNames(t *testing.T) {
 		if got := pathParamNames(tc.path); !reflect.DeepEqual(got, tc.want) {
 			t.Errorf("pathParamNames(%q) = %v, want %v", tc.path, got, tc.want)
 		}
+	}
+}
+
+func TestDropHashPrefix(t *testing.T) {
+	byNumber := registry.Command{ID: "order-by-number"}
+	for _, c := range []struct {
+		name     string
+		cmd      registry.Command
+		value    any
+		want     any
+		wantHint bool
+	}{
+		{"display prefix", byNumber, "#1001", "1001", true},
+		{"spaces around", byNumber, " # KEX44398 ", "KEX44398", true},
+		{"only one # dropped", byNumber, "##1001", "#1001", true},
+		{"no prefix", byNumber, "1001", "1001", false},
+		{"not a string", byNumber, 1001.0, 1001.0, false},
+		{"other command", registry.Command{ID: "discount-get-by-code"}, "#SAVE", "#SAVE", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			params := map[string]any{"number": c.value}
+			hint := dropHashPrefix(c.cmd, params)
+			if params["number"] != c.want || (hint != "") != c.wantHint {
+				t.Errorf("number = %#v, hint = %q; want %#v, hint %v", params["number"], hint, c.want, c.wantHint)
+			}
+		})
 	}
 }
 
