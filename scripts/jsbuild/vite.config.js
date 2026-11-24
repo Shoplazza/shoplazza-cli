@@ -20,6 +20,9 @@ module.exports = {
       copyPublicDir: false,
       rollupOptions: {
         input: pageEntry,
+        // Vite's app mode tree-shakes entry exports away; server extensions are
+        // called through those exports. Client entries export nothing, so no-op there.
+        preserveEntrySignatures: 'exports-only',
         output: {
           entryFileNames: '[name].[hash].js',
           chunkFileNames: '[name].[hash].js',
