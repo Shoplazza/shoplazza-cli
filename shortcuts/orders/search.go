@@ -26,8 +26,8 @@ var searchShortcut = common.Shortcut{
 		{Name: "fulfillment-status", Type: common.FlagString, Description: "Fulfillment status filter.",
 			Completions: []string{"initialled", "waiting", "partially_shipped", "shipped", "finished", "cancelled", "returned"}},
 		{Name: "customer-id", Type: common.FlagString, Description: "Filter by customer ID."},
-		common.SinceFlag(),
-		common.UntilFlag(),
+		common.SinceFlag("when the order was placed", "placed_at"),
+		common.UntilFlag("when the order was placed", "placed_at"),
 		common.PageLimitFlag(),
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
@@ -42,8 +42,9 @@ var searchShortcut = common.Shortcut{
 		cmdutil.AddString(q, "financial_status", in.Flags.GetString("financial-status"))
 		cmdutil.AddString(q, "fulfillment_status", in.Flags.GetString("fulfillment-status"))
 		cmdutil.AddString(q, "customer_id", in.Flags.GetString("customer-id"))
-		cmdutil.AddString(q, "placed_at_min", in.Flags.GetString("since"))
-		cmdutil.AddString(q, "placed_at_max", in.Flags.GetString("until"))
+		if err := common.AddTimeRange(q, in, "placed_at"); err != nil {
+			return common.PlannedRequest{}, err
+		}
 		if pl > 0 {
 			q["page_size"] = pl
 		}

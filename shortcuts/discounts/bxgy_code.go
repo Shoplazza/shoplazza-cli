@@ -145,7 +145,7 @@ var bxgyCodeShortcut = common.Shortcut{
 
 		info, err := buildCodeInfoFromFlags(in)
 		if err != nil {
-			return common.PlannedRequest{}, output.Errorf(output.ExitValidation, "validation", "%s", err)
+			return common.PlannedRequest{}, err
 		}
 		info["discount_type"] = "code_bxgy"
 		info["discount_target"] = "product"

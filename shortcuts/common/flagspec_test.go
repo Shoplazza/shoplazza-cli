@@ -1,6 +1,7 @@
 package common_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
@@ -36,10 +37,13 @@ func TestPageLimitFlag_Defaults(t *testing.T) {
 }
 
 func TestSinceUntilFlags(t *testing.T) {
-	since := common.SinceFlag()
-	until := common.UntilFlag()
+	since := common.SinceFlag("when the order was placed", "placed_at")
+	until := common.UntilFlag("when the order was placed", "placed_at")
 	if since.Name != "since" || until.Name != "until" {
 		t.Errorf("names: got %q/%q want since/until", since.Name, until.Name)
+	}
+	if !strings.Contains(since.Description, "(placed_at_min)") || !strings.Contains(until.Description, "(placed_at_max)") {
+		t.Errorf("descriptions must name the API field:\n%s\n%s", since.Description, until.Description)
 	}
 }
 

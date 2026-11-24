@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 // AutoName generates a CLI-scoped activity name: "cli_<tool>_<unix-sec>".
@@ -21,55 +23,167 @@ func TruncateName(s string, n int) string {
 	return string(r[:n])
 }
 
-// ParseTime converts a time expression to a Unix second integer.
-//
-// Supported formats:
-//   - "now"               → current time
-//   - "+30d" / "+2w" / "+12h" → relative offset (days/weeks/hours)
-//   - "forever" / "-1"   → -1 (no expiry; valid for ends_at only)
-//   - "2026-11-01"        → date at midnight UTC
-//   - "2026-11-01T08:00:00" → RFC3339-ish datetime UTC
-//   - plain integer string → parsed directly as Unix seconds
-func ParseTime(s string) (int64, error) {
-	s = strings.TrimSpace(s)
-	switch s {
-	case "now":
-		return time.Now().Unix(), nil
-	case "forever", "-1":
-		return -1, nil
-	}
-	if strings.HasPrefix(s, "+") {
-		return parseRelative(s[1:])
-	}
-	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return n, nil
-	}
-	for _, layout := range []string{"2006-01-02T15:04:05", "2006-01-02"} {
-		if t, err := time.ParseInLocation(layout, s, time.UTC); err == nil {
-			return t.Unix(), nil
+// TimeFormats lists the forms ParseTimeAt accepts; every time flag's help quotes it.
+const TimeFormats = "now | today | yesterday | +Nh/-Nd/+Nw (relative to now) | 2026-11-01 | 2026-11-01 08:00[:00] | " +
+	"with an offset (2026-11-01T08:00:00Z, 2026-11-01T08:00:00+08:00, 2026-11-01 08:00 +0800) | unix seconds; no offset = UTC"
+
+var (
+	zonedLayouts = layouts([]string{"Z07:00", "Z0700", " Z07:00", " Z0700"})
+	utcLayouts   = append(layouts([]string{""}), "2006-01-02")
+)
+
+func layouts(zones []string) []string {
+	var out []string
+	for _, sep := range []string{"T", " "} {
+		for _, clock := range []string{"15:04:05", "15:04"} {
+			for _, zone := range zones {
+				out = append(out, "2006-01-02"+sep+clock+zone)
+			}
 		}
 	}
-	return 0, fmt.Errorf("unrecognised time expression %q; use now, +30d, +12h, +2w, 2026-11-01, -1, or unix seconds", s)
+	return out
 }
 
-func parseRelative(s string) (int64, error) {
-	if len(s) < 2 {
-		return 0, fmt.Errorf("invalid relative time %q", "+"+s)
+// ParseTimeAt resolves a time expression against now. Values without an
+// offset, and the days named by today / yesterday, are read as UTC.
+func ParseTimeAt(s string, now time.Time) (time.Time, error) {
+	t, err := parseTime(strings.TrimSpace(s), now)
+	if err != nil {
+		return time.Time{}, err
 	}
-	unit := s[len(s)-1]
-	n, err := strconv.ParseInt(s[:len(s)-1], 10, 64)
+	if y := t.UTC().Year(); y < 1970 || y > 9999 {
+		return time.Time{}, fmt.Errorf("%q resolves to year %d, outside 1970-9999", s, y)
+	}
+	return t, nil
+}
+
+func parseTime(s string, now time.Time) (time.Time, error) {
+	switch strings.ToLower(s) {
+	case "now":
+		return now, nil
+	case "today":
+		return utcMidnight(now), nil
+	case "yesterday":
+		return utcMidnight(now).AddDate(0, 0, -1), nil
+	case "forever":
+		return time.Time{}, fmt.Errorf("%q means no expiry and is only accepted by --end", s)
+	case "-1":
+		return time.Time{}, fmt.Errorf("%q means no expiry and is only accepted by --end; for one day ago use -1d", s)
+	}
+	if strings.HasPrefix(s, "+") || strings.HasPrefix(s, "-") {
+		return parseRelative(s, now)
+	}
+	if isDigits(s) {
+		switch len(s) {
+		case 10:
+			n, _ := strconv.ParseInt(s, 10, 64)
+			return time.Unix(n, 0).UTC(), nil
+		case 13:
+			return time.Time{}, fmt.Errorf("%q looks like unix milliseconds; pass unix seconds (10 digits)", s)
+		default:
+			return time.Time{}, fmt.Errorf("unrecognised time %q; unix seconds have 10 digits", s)
+		}
+	}
+	upper := strings.ToUpper(s)
+	for _, layout := range zonedLayouts {
+		if t, err := time.Parse(layout, upper); err == nil {
+			return t.UTC(), nil
+		}
+	}
+	for _, layout := range utcLayouts {
+		if t, err := time.ParseInLocation(layout, upper, time.UTC); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unrecognised time %q; accepted: %s", s, TimeFormats)
+}
+
+// TimeFlag parses the named time flag with ParseTimeAt; set is false when the
+// flag was not passed. A bad value is a validation error naming the flag.
+func TimeFlag(in PlanInput, name string) (t time.Time, set bool, err error) {
+	if !in.Flags.Changed(name) {
+		return time.Time{}, false, nil
+	}
+	t, err = ParseTimeAt(in.Flags.GetString(name), time.Now())
+	if err != nil {
+		return time.Time{}, true, invalidTime(name, err)
+	}
+	return t, true, nil
+}
+
+// AddTimeRange writes --since / --until into q as RFC3339 UTC under
+// <field>_min / <field>_max, rejecting a window whose start is after its end.
+func AddTimeRange(q map[string]any, in PlanInput, field string) error {
+	since, hasSince, err := TimeFlag(in, "since")
+	if err != nil {
+		return err
+	}
+	until, hasUntil, err := TimeFlag(in, "until")
+	if err != nil {
+		return err
+	}
+	if hasSince && hasUntil && since.After(until) {
+		return output.ErrValidation("--since (%s) is after --until (%s)", rfc3339(since), rfc3339(until)).
+			WithParam("--since").
+			WithSubtype(output.SubtypeInvalidFlagValue)
+	}
+	if hasSince {
+		q[field+"_min"] = rfc3339(since)
+	}
+	if hasUntil {
+		q[field+"_max"] = rfc3339(until)
+	}
+	return nil
+}
+
+func invalidTime(name string, err error) *output.ExitError {
+	return output.ErrValidation("invalid --%s: %v", name, err).
+		WithParam("--" + name).
+		WithSubtype(output.SubtypeInvalidFlagValue).
+		WithHint("accepted: " + TimeFormats)
+}
+
+func rfc3339(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
+}
+
+func utcMidnight(t time.Time) time.Time {
+	y, m, d := t.UTC().Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}
+
+func isDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func parseRelative(s string, now time.Time) (time.Time, error) {
+	sign, body := s[:1], s[1:]
+	if len(body) < 2 {
+		return time.Time{}, fmt.Errorf("invalid relative time %q; use e.g. +12h, -7d, +2w", s)
+	}
+	n, err := strconv.Atoi(body[:len(body)-1])
 	if err != nil || n <= 0 {
-		return 0, fmt.Errorf("invalid relative time %q", "+"+s)
+		return time.Time{}, fmt.Errorf("invalid relative time %q; use e.g. +12h, -7d, +2w", s)
 	}
-	now := time.Now()
-	switch unit {
+	if sign == "-" {
+		n = -n
+	}
+	switch body[len(body)-1] {
 	case 'h':
-		return now.Add(time.Duration(n) * time.Hour).Unix(), nil
+		return now.Add(time.Duration(n) * time.Hour), nil
 	case 'd':
-		return now.AddDate(0, 0, int(n)).Unix(), nil
+		return now.AddDate(0, 0, n), nil
 	case 'w':
-		return now.AddDate(0, 0, int(n)*7).Unix(), nil
+		return now.AddDate(0, 0, n*7), nil
 	default:
-		return 0, fmt.Errorf("unknown time unit %q in %q; use h (hours), d (days), w (weeks)", string(unit), "+"+s)
+		return time.Time{}, fmt.Errorf("unknown time unit in %q; use h (hours), d (days), w (weeks)", s)
 	}
 }

@@ -24,9 +24,17 @@ func TestOrderSearchPlan_DefaultsSuccess(t *testing.T) {
 func TestOrderSearchPlan_WithFiltersSuccess(t *testing.T) {
 	in := shortcuttest.PlanInput(t, "search", orderSearchFlags, map[string]string{
 		"status": "placed", "page-limit": "5",
+		"since": "2026-11-01 08:00", "until": "1800000000",
 	})
-	_, err := searchShortcut.Plan(in)
+	p, err := searchShortcut.Plan(in)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.Query["placed_at_min"] != "2026-11-01T08:00:00Z" || p.Query["placed_at_max"] != "2027-01-15T08:00:00Z" {
+		t.Errorf("--since/--until must reach placed_at_* as RFC3339 UTC, got %v / %v", p.Query["placed_at_min"], p.Query["placed_at_max"])
+	}
+	in = shortcuttest.PlanInput(t, "search", orderSearchFlags, map[string]string{"since": "yesterday-ish"})
+	if _, err := searchShortcut.Plan(in); err == nil {
+		t.Error("an unparseable --since must be rejected, not sent as-is")
 	}
 }

@@ -42,7 +42,7 @@ var freeShippingCodeShortcut = common.Shortcut{
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
 		info, err := buildCodeInfoFromFlags(in)
 		if err != nil {
-			return common.PlannedRequest{}, output.Errorf(output.ExitValidation, "validation", "%s", err)
+			return common.PlannedRequest{}, err
 		}
 		info["discount_type"] = "code_free_shipping"
 		// Server-side validation requires discount_target. Hard-code "shipping"

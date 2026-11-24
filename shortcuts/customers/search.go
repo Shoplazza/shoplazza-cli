@@ -19,8 +19,8 @@ var searchShortcut = common.Shortcut{
 	Flags: []common.Flag{
 		{Name: "email", Type: common.FlagString, Description: "Filter by email."},
 		{Name: "phone", Type: common.FlagString, Description: "Filter by phone (matches the customer's primary contact)."},
-		common.SinceFlag(),
-		common.UntilFlag(),
+		common.SinceFlag("when the customer was created", "created_at"),
+		common.UntilFlag("when the customer was created", "created_at"),
 		common.PageLimitFlag(),
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
@@ -31,8 +31,9 @@ var searchShortcut = common.Shortcut{
 		q := map[string]any{}
 		cmdutil.AddString(q, "email", in.Flags.GetString("email"))
 		cmdutil.AddString(q, "contact", in.Flags.GetString("phone"))
-		cmdutil.AddString(q, "created_at_min", in.Flags.GetString("since"))
-		cmdutil.AddString(q, "created_at_max", in.Flags.GetString("until"))
+		if err := common.AddTimeRange(q, in, "created_at"); err != nil {
+			return common.PlannedRequest{}, err
+		}
 		if pl > 0 {
 			q["page_size"] = pl
 		}

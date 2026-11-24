@@ -179,6 +179,40 @@ func ParseFlashsaleType(t string) (string, error) {
 	}
 }
 
+// activityWindow resolves --start / --end into starts_at / ends_at unix
+// seconds; --start defaults to now and ends_at -1 means no expiry.
+func activityWindow(in common.PlanInput) (int64, int64, error) {
+	start, startSet, err := common.TimeFlag(in, "start")
+	if err != nil {
+		return 0, 0, err
+	}
+	if !startSet {
+		start = time.Now()
+	}
+	if !in.Flags.Changed("end") {
+		return start.Unix(), -1, nil
+	}
+	switch strings.ToLower(strings.TrimSpace(in.Flags.GetString("end"))) {
+	case "forever", "-1":
+		return start.Unix(), -1, nil
+	}
+	end, _, err := common.TimeFlag(in, "end")
+	if err != nil {
+		return 0, 0, err
+	}
+	if end.Unix() <= start.Unix() {
+		startLabel := "--start"
+		if !startSet {
+			startLabel = "the start time, now"
+		}
+		return 0, 0, output.ErrValidation("--end (%s) must be after %s (%s)",
+			end.UTC().Format(time.RFC3339), startLabel, start.UTC().Format(time.RFC3339)).
+			WithParam("--end").
+			WithSubtype(output.SubtypeInvalidFlagValue)
+	}
+	return start.Unix(), end.Unix(), nil
+}
+
 // buildAutoInfoFromFlags returns a base discount_info map with auto-filled
 // common fields (name/display/start/end) for non-code (auto-applied) discounts.
 func buildAutoInfoFromFlags(in common.PlanInput) (map[string]any, error) {
@@ -187,22 +221,9 @@ func buildAutoInfoFromFlags(in common.PlanInput) (map[string]any, error) {
 		name = in.Flags.GetString("name")
 	}
 
-	startsAt := time.Now().Unix()
-	if in.Flags.Changed("start") {
-		ts, err := common.ParseTime(in.Flags.GetString("start"))
-		if err != nil {
-			return nil, fmt.Errorf("--start: %w", err)
-		}
-		startsAt = ts
-	}
-
-	endsAt := int64(-1)
-	if in.Flags.Changed("end") {
-		ts, err := common.ParseTime(in.Flags.GetString("end"))
-		if err != nil {
-			return nil, fmt.Errorf("--end: %w", err)
-		}
-		endsAt = ts
+	startsAt, endsAt, err := activityWindow(in)
+	if err != nil {
+		return nil, err
 	}
 
 	return map[string]any{
@@ -241,22 +262,9 @@ func buildCodeInfoFromFlags(in common.PlanInput) (map[string]any, error) {
 		code = in.Flags.GetString("code")
 	}
 
-	startsAt := time.Now().Unix()
-	if in.Flags.Changed("start") {
-		ts, err := common.ParseTime(in.Flags.GetString("start"))
-		if err != nil {
-			return nil, fmt.Errorf("--start: %w", err)
-		}
-		startsAt = ts
-	}
-
-	endsAt := int64(-1)
-	if in.Flags.Changed("end") {
-		ts, err := common.ParseTime(in.Flags.GetString("end"))
-		if err != nil {
-			return nil, fmt.Errorf("--end: %w", err)
-		}
-		endsAt = ts
+	startsAt, endsAt, err := activityWindow(in)
+	if err != nil {
+		return nil, err
 	}
 
 	return map[string]any{
@@ -393,7 +401,7 @@ func buildCodeDiscountPayload(in common.PlanInput, discountType, obtainType stri
 	}
 	info, err := buildCodeInfoFromFlags(in)
 	if err != nil {
-		return nil, output.Errorf(output.ExitValidation, "validation", "%s", err)
+		return nil, err
 	}
 	info["discount_type"] = discountType
 	info["discount_target"] = target

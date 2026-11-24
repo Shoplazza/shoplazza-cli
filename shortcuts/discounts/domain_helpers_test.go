@@ -163,11 +163,42 @@ func TestBuildAutoInfoFromFlags_CustomName(t *testing.T) {
 	}
 }
 
-func TestBuildAutoInfoFromFlags_InvalidStartErrors(t *testing.T) {
-	in := newPlanInput(t, "rebate", map[string]string{"name": "string", "start": "string", "end": "string"}, map[string]string{"start": "not-a-time"})
-	_, err := buildAutoInfoFromFlags(in)
-	if err == nil {
-		t.Error("expected error for invalid --start value")
+func TestBuildAutoInfoFromFlags_Window(t *testing.T) {
+	flags := map[string]string{"name": "string", "start": "string", "end": "string"}
+	cases := []struct {
+		name               string
+		values             map[string]string
+		wantStart, wantEnd int64
+		wantParam          string
+	}{
+		{"RFC3339 start, forever end", map[string]string{"start": "2027-06-30T16:00:00Z", "end": "forever"}, 1814371200, -1, ""},
+		{"offset start, space end", map[string]string{"start": "2027-06-30T16:00:00+08:00", "end": "2027-07-01 00:00"}, 1814342400, 1814400000, ""},
+		{"-1 end", map[string]string{"start": "1814371200", "end": "-1"}, 1814371200, -1, ""},
+		{"invalid start", map[string]string{"start": "not-a-time"}, 0, 0, "--start"},
+		{"forever is end-only", map[string]string{"start": "forever"}, 0, 0, "--start"},
+		{"end before start", map[string]string{"start": "2027-07-01", "end": "2027-06-30"}, 0, 0, "--end"},
+		{"end equals start", map[string]string{"start": "2027-07-01", "end": "2027-07-01T00:00:00Z"}, 0, 0, "--end"},
+		{"end in the past without start", map[string]string{"end": "2020-01-01"}, 0, 0, "--end"},
+		{"end in the same second as start", map[string]string{"start": "2027-07-01T00:00:00Z", "end": "2027-07-01T00:00:00.5Z"}, 0, 0, "--end"},
+		{"end now without start", map[string]string{"end": "now"}, 0, 0, "--end"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			info, err := buildAutoInfoFromFlags(newPlanInput(t, "rebate", flags, c.values))
+			if c.wantParam != "" {
+				var ee *output.ExitError
+				if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != c.wantParam {
+					t.Fatalf("want a validation error on %s, got %#v", c.wantParam, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if info["starts_at"] != c.wantStart || info["ends_at"] != c.wantEnd {
+				t.Errorf("starts_at/ends_at = %v/%v, want %d/%d", info["starts_at"], info["ends_at"], c.wantStart, c.wantEnd)
+			}
+		})
 	}
 }
 

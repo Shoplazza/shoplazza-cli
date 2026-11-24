@@ -104,7 +104,7 @@ var rebateShortcut = common.Shortcut{
 
 		info, err := buildAutoInfoFromFlags(in)
 		if err != nil {
-			return common.PlannedRequest{}, output.Errorf(output.ExitValidation, "validation", "%s", err)
+			return common.PlannedRequest{}, err
 		}
 		info["discount_type"] = rt.DiscountType
 		info["discount_target"] = target

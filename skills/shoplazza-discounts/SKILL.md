@@ -174,12 +174,15 @@ required — omit for no limit.
 
 | Form | Meaning |
 |------|---------|
-| `now` | current time |
-| `+30d` / `+2w` / `+12h` | offset from now |
+| `now` / `today` / `yesterday` | current time / UTC midnight of that day |
+| `+30d` / `+2w` / `+12h` / `-1d` | offset from now |
 | `2026-11-01` | UTC midnight on that date |
-| `2026-11-01T08:00:00` | explicit UTC datetime |
-| `<unix-int>` | raw Unix seconds |
+| `2026-11-01 08:00` / `2026-11-01T08:00:00` | datetime without offset = UTC |
+| `2026-11-01T08:00:00+08:00` / `…Z` | RFC3339 with an explicit offset |
+| `<unix-int>` | Unix seconds (10 digits) |
 | `forever` / `-1` | no expiry (`--end` only) |
+
+Anything else is exit 2, and so is an `--end` that is not after `--start`.
 
 **Targeting / eligibility helpers** (all optional, on most shortcuts):
 - `--exclude` — turns the scope IDs into a **blocklist** (apply to all products EXCEPT those

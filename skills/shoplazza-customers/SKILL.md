@@ -138,6 +138,7 @@ shoplazza-common).
 | Wanted to delete a customer | No customer-delete command exists in this module (only `addresses delete`) | Not expressible at tiers 1–2; confirm an endpoint exists before reaching for `api rest` |
 | Set default via `addresses update` with `"default":true` | A dedicated endpoint owns this | `addresses set-default --params '{"customer_id":…,"address_id":…}'` — path params only, no `--data` |
 | `+search --since/--until` returns "wrong" customers | They map to `created_at_min`/`created_at_max` — bounds on the customer's CREATION time | Only pass them when the user asks for a signup-time window |
+| `invalid --since` / `--until` (exit 2) | Accepted: `now`, `today`, `yesterday`, `-7d` / `+12h`, `2026-09-01`, `2026-09-01 08:00`, RFC3339, unix seconds; no offset = UTC | Rewrite the value in one of those forms; add `+08:00` (or the store's offset) for a store-local day |
 
 ## Recipes
 

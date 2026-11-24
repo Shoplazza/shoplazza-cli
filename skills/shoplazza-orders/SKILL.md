@@ -165,8 +165,11 @@ From `schema orders.list` — used by `+search` / `+count` / `list`:
 Each shortcut flag takes ONE value; to filter on several at once use the `list` leaf, whose
 `status` / `financial_status` / `fulfillment_status` params are JSON arrays.
 **Time window — which field.** `+search --since/--until` bound the **placed** time
-(`placed_at_min`/`placed_at_max`), ISO date or unix ts — that is the sales clock and the right
-default. To filter on a *different* moment, drop to the `list` leaf, which exposes one
+(`placed_at_min`/`placed_at_max`, both inclusive) — that is the sales clock and the right default. Values:
+`now`, `today`, `yesterday`, `-7d` / `+12h` (relative to now), `2026-09-01`, `2026-09-01 08:00`,
+RFC3339 (`2026-09-01T00:00:00+08:00`) or unix seconds; anything else is exit 2. A value without an
+offset is **UTC** (so are `today` / `yesterday`): for a store-local day pass the offset, e.g.
+`--since 2026-09-01T00:00:00+08:00` — the shop's `timezone` (`shop info get`, e.g. `+0800`) works as-is. The CLI sends RFC3339 UTC; `--dry-run` shows it. To filter on a *different* moment, drop to the `list` leaf, which exposes one
 `_min`/`_max` pair per time field; pick it from the user's verb:
 
 | User's words | Param |

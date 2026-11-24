@@ -120,9 +120,12 @@ func TestSearchShortcutPlan_DefaultsSuccess(t *testing.T) {
 }
 
 func TestSearchShortcutPlan_WithEmailSuccess(t *testing.T) {
-	in := shortcuttest.PlanInput(t, "search", searchShortcutFlags, map[string]string{"email": "a@b.com", "page-limit": "10"})
-	_, err := searchShortcut.Plan(in)
+	in := shortcuttest.PlanInput(t, "search", searchShortcutFlags, map[string]string{"email": "a@b.com", "page-limit": "10", "since": "2026-09-01", "until": "2026-09-30 23:59:59"})
+	p, err := searchShortcut.Plan(in)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.Query["created_at_min"] != "2026-09-01T00:00:00Z" || p.Query["created_at_max"] != "2026-09-30T23:59:59Z" {
+		t.Errorf("--since/--until must reach created_at_* as RFC3339 UTC, got %v / %v", p.Query["created_at_min"], p.Query["created_at_max"])
 	}
 }

@@ -133,6 +133,105 @@ func TestProductsList_WithFilters(t *testing.T) {
 	}
 }
 
+// Shortcut time flags go through one parser: --since/--until reach the
+// server as RFC3339 UTC, --start/--end as unix seconds, and a bad value exits
+// 2 with the flag named, before any request is sent.
+func TestShortcutTimeFlags_MockServer(t *testing.T) {
+	var (
+		hits  int
+		query map[string][]string
+		body  map[string]any
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		query = r.URL.Query()
+		body = nil
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	bin := buildBinary(t)
+	env := apiEnv(srv.URL)
+
+	yesterday := time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -1).Format(time.RFC3339)
+	ok := []struct {
+		args  []string
+		query map[string]string
+		info  map[string]float64
+	}{
+		{[]string{"orders", "+search", "--since", "yesterday", "--until", "now"},
+			map[string]string{"placed_at_min": yesterday}, nil},
+		{[]string{"orders", "+count", "--since", "2026-11-01T00:00:00+08:00", "--until", "1800000000"},
+			map[string]string{"placed_at_min": "2026-10-31T16:00:00Z", "placed_at_max": "2027-01-15T08:00:00Z"}, nil},
+		{[]string{"customers", "+search", "--since", "2026-09-01", "--until", "2026-09-30 23:59"},
+			map[string]string{"created_at_min": "2026-09-01T00:00:00Z", "created_at_max": "2026-09-30T23:59:00Z"}, nil},
+		{[]string{"discounts", "+percent-code", "--target", "order", "--percent-off", "10", "--code", "T",
+			"--start", "2027-06-30T16:00:00Z", "--end", "2027-07-01 00:00"},
+			nil, map[string]float64{"starts_at": 1814371200, "ends_at": 1814400000}},
+		{[]string{"discounts", "+rebate", "--target", "order", "--tiers", "100:10",
+			"--start", "2027-06-30T16:00:00+08:00", "--end", "forever"},
+			nil, map[string]float64{"starts_at": 1814342400, "ends_at": -1}},
+	}
+	for _, c := range ok {
+		_, stderr, code := runCLI(t, bin, env, c.args...)
+		if code != 0 {
+			t.Errorf("%v: exit %d, stderr=%s", c.args, code, stderr)
+			continue
+		}
+		for k, want := range c.query {
+			if got := strings.Join(query[k], ","); got != want {
+				t.Errorf("%v: %s = %q, want %q", c.args, k, got, want)
+			}
+		}
+		if c.args[0] == "orders" && c.args[3] == "yesterday" {
+			if _, err := time.Parse(time.RFC3339, strings.Join(query["placed_at_max"], "")); err != nil {
+				t.Errorf("%v: placed_at_max %q is not RFC3339", c.args, query["placed_at_max"])
+			}
+		}
+		discount, _ := body["discount"].(map[string]any)
+		info, _ := discount["discount_info"].(map[string]any)
+		for k, want := range c.info {
+			if info[k] != want {
+				t.Errorf("%v: discount_info.%s = %v, want %v", c.args, k, info[k], want)
+			}
+		}
+	}
+
+	bad := []struct {
+		args  []string
+		param string
+	}{
+		{[]string{"orders", "+search", "--since", "yesterdy"}, "--since"},
+		{[]string{"orders", "+search", "--until", "1700000000000"}, "--until"},
+		{[]string{"orders", "+count", "--since", "-1"}, "--since"},
+		{[]string{"customers", "+search", "--since", "2026-11-02", "--until", "2026-11-01"}, "--since"},
+		{[]string{"discounts", "+flashsale", "--value", "20", "--start", "2027-06-31"}, "--start"},
+		{[]string{"discounts", "+mn-discount", "--tiers", "2:30", "--start", "2027-07-01", "--end", "2027-06-30"}, "--end"},
+	}
+	for _, c := range bad {
+		before := hits
+		_, stderr, code := runCLI(t, bin, env, c.args...)
+		if code != 2 {
+			t.Errorf("%v: exit %d, want 2; stderr=%s", c.args, code, stderr)
+			continue
+		}
+		if hits != before {
+			t.Errorf("%v: a request was sent despite the bad value", c.args)
+		}
+		var env struct {
+			Error struct{ Type, Subtype, Param string } `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(stderr), &env); err != nil {
+			t.Errorf("%v: stderr is not a JSON envelope: %s", c.args, stderr)
+			continue
+		}
+		if env.Error.Type != "validation" || env.Error.Subtype != "invalid_flag_value" || env.Error.Param != c.param {
+			t.Errorf("%v: error = %+v, want validation/invalid_flag_value on %s", c.args, env.Error, c.param)
+		}
+	}
+}
+
 func TestProductsCount_MockServer(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/openapi/2026-01/products/count" {
