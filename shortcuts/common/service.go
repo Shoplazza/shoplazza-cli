@@ -16,18 +16,23 @@ const APIPrefix = "/openapi/2026-01"
 // to either send it or summarise it for --dry-run. Both paths read from the
 // same value, so method-and-path can't drift between live and dry-run output.
 type PlannedRequest struct {
-	Method string
-	Path   string
-	Query  map[string]any
-	Body   any
+	Method     string
+	Path       string
+	Query      map[string]any
+	Body       any
+	DryRunHint string
 }
 
 // DryRun renders a planned request as a dry-run envelope without sending.
 func DryRun(c *client.Client, p PlannedRequest) map[string]any {
-	return map[string]any{
+	env := map[string]any{
 		"dry_run": true,
 		"request": c.BuildRequestSummary(p.Method, p.Path, p.Query, p.Body),
 	}
+	if p.DryRunHint != "" {
+		env["hint"] = p.DryRunHint
+	}
+	return env
 }
 
 // Send executes a planned request and returns the decoded JSON body.

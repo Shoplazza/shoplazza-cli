@@ -33,6 +33,6 @@ var percentCodeShortcut = common.Shortcut{
 		if err != nil {
 			return common.PlannedRequest{}, err
 		}
-		return PlanCreateNonAutomatic(payload), nil
+		return planCreateCode(in, payload), nil
 	},
 }

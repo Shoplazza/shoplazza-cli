@@ -47,6 +47,6 @@ var amountCodeShortcut = common.Shortcut{
 			limitOrder = -1
 		}
 		payload["discount"].(map[string]any)["discount_rule"].(map[string]any)["limit_order_discount"] = limitOrder
-		return PlanCreateNonAutomatic(payload), nil
+		return planCreateCode(in, payload), nil
 	},
 }

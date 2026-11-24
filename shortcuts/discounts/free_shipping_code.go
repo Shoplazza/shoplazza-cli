@@ -122,6 +122,6 @@ var freeShippingCodeShortcut = common.Shortcut{
 				"entitled_area":     entitledArea,
 			},
 		}
-		return PlanCreateNonAutomatic(payload), nil
+		return planCreateCode(in, payload), nil
 	},
 }

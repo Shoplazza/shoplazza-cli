@@ -177,6 +177,6 @@ var bxgyCodeShortcut = common.Shortcut{
 				"obtain_product":    obtainProduct,
 			},
 		}
-		return PlanCreateNonAutomatic(payload), nil
+		return planCreateCode(in, payload), nil
 	},
 }

@@ -213,6 +213,21 @@ func buildAutoInfoFromFlags(in common.PlanInput) (map[string]any, error) {
 	}, nil
 }
 
+func planCreateCode(in common.PlanInput, payload map[string]any) common.PlannedRequest {
+	p := PlanCreateNonAutomatic(payload)
+	if in.Flags.Changed("code") {
+		return p
+	}
+	disc, _ := payload["discount"].(map[string]any)
+	info, _ := disc["discount_info"].(map[string]any)
+	if codes, _ := info["discount_codes"].([]string); len(codes) == 1 {
+		p.DryRunHint = fmt.Sprintf(
+			"discount code %s was generated for this preview; a run without --dry-run generates a different one. Pass --code %s to keep it.",
+			codes[0], codes[0])
+	}
+	return p
+}
+
 // buildCodeInfoFromFlags returns a base discount_info map for code discounts,
 // with auto-generated code when --code is not supplied.
 func buildCodeInfoFromFlags(in common.PlanInput) (map[string]any, error) {
