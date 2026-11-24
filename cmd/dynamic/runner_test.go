@@ -233,6 +233,23 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 		Parameters: []registry.Parameter{{Name: "product_id", In: "path", Required: true}}}
 	pathAndQuery := registry.Command{Path: []string{"items"}, HTTP: registry.HTTP{Method: "GET", Path: "/locations/{location_id}/items"},
 		Parameters: []registry.Parameter{{Name: "location_id", In: "path", Required: true}, {Name: "variant_ids", In: "query", Type: "array", Required: true}, {Name: "page_size", In: "query"}}}
+	productUpdate := registry.Command{Path: []string{"update"}, HTTP: registry.HTTP{Method: "PUT", Path: "/products/{product_id}", Body: "*"},
+		Parameters: []registry.Parameter{{Name: "product_id", In: "path", Required: true}},
+		Body:       &registry.Body{Fields: []registry.Field{{Name: "product", Type: "object", Schema: "Product"}}}}
+	pageUpdate := registry.Command{Path: []string{"update"}, HTTP: registry.HTTP{Method: "PUT", Path: "/pages/{id}", Body: "*"},
+		Parameters: []registry.Parameter{{Name: "id", In: "path", Required: true}},
+		Body:       &registry.Body{Fields: []registry.Field{{Name: "page", Type: "object", Schema: "Page", Required: true}}}}
+	updateBySku := registry.Command{Path: []string{"update-by-sku"}, HTTP: registry.HTTP{Method: "PUT", Path: "/variants/sku/{sku}", Body: "*"},
+		Parameters: []registry.Parameter{{Name: "sku", In: "path", Required: true}},
+		Body: &registry.Body{Fields: []registry.Field{
+			{Name: "refuse_multi_result", Type: "boolean", Required: true}, {Name: "variant", Type: "object", Schema: "Variant", Required: true},
+		}}}
+	spec := &registry.Spec{Schemas: map[string]registry.ObjectSchema{
+		"Product": {Fields: []registry.Field{{Name: "title", Type: "string"}, {Name: "description", Type: "string"}}},
+		"Page":    {Fields: []registry.Field{{Name: "title", Type: "string"}}},
+		"Variant": {Fields: []registry.Field{{Name: "price", Type: "number"}}},
+	}}
+	long := strings.Repeat("x", 300)
 	path := `{"oseid":"os1","section_id":"s1"}`
 	full := `{"doc_id":"d1","theme_id":"T1","block":{}}`
 	cases := []struct {
@@ -267,6 +284,25 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 			output.SubtypeMissingRequiredField, "doc_id", "missing required fields: doc_id, theme_id, block", ""},
 		{"nested fields are not checked", sessionLeaf,
 			[]string{"--params", path, "--data", full}, "", "", "", ""},
+		{"fields outside their wrapper", productUpdate,
+			[]string{"--params", `{"product_id":"p1"}`, "--data", `{"description":"x"}`},
+			output.SubtypeMissingRequiredField, "product", `--data is missing the "product" wrapper: {"product":{"description":"x"}}`, "schema"},
+		{"fields outside a required wrapper", pageUpdate,
+			[]string{"--params", `{"id":"1"}`, "--data", `{"title":"x"}`},
+			output.SubtypeMissingRequiredField, "page", `--data is missing the "page" wrapper: {"page":{"title":"x"}}`, ""},
+		{"wrapper fields beside another top-level field", updateBySku,
+			[]string{"--params", `{"sku":"s1"}`, "--data", `{"refuse_multi_result":true,"price":1}`},
+			output.SubtypeMissingRequiredField, "variant", `--data is missing the "variant" wrapper: {"refuse_multi_result":true,"variant":{"price":1}}`, ""},
+		{"a stray field joins a wrapper already given", productUpdate,
+			[]string{"--params", `{"product_id":"p1"}`, "--data", `{"product":{"title":"t"},"description":"x"}`},
+			output.SubtypeMissingRequiredField, "product", `{"product":{"description":"x","title":"t"}}`, ""},
+		{"a long body is shown by its keys", productUpdate,
+			[]string{"--params", `{"product_id":"p1"}`, "--data", `{"description":"` + long + `","title":"t"}`},
+			output.SubtypeMissingRequiredField, "product", `{"product":{"description":…,"title":…}}`, ""},
+		{"wrapped fields pass", productUpdate,
+			[]string{"--params", `{"product_id":"p1"}`, "--data", `{"product":{"description":"x"}}`}, "", "", "", ""},
+		{"a key no wrapper has is left alone", productUpdate,
+			[]string{"--params", `{"product_id":"p1"}`, "--data", `{"bogus":1}`}, "", "", "", ""},
 		{"every missing path param at once", twoPath,
 			[]string{"--params", `{}`},
 			output.SubtypeMissingRequiredParam, "customer_id", "--params is missing required keys: customer_id, address_id", "to see required parameters"},
@@ -307,7 +343,7 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			f, _, _ := newRunFactory(t, srv)
-			leaf := buildLeafCommand(c.cmd, &registry.Spec{}, f, "testmodule")
+			leaf := buildLeafCommand(c.cmd, spec, f, "testmodule")
 			leaf.SetArgs(append(c.args, "--dry-run"))
 			err := leaf.Execute()
 			if c.wantSubtype == "" {

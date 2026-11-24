@@ -1,11 +1,16 @@
 package dynamic
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -33,6 +38,9 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 			return err
 		}
 		splitArrayParams(c, params)
+		if err := checkBodyWrapper(c, spec, body, schemaHint); err != nil {
+			return err
+		}
 		if err := checkRequiredBody(c, body, schemaHint); err != nil {
 			return err
 		}
@@ -177,6 +185,87 @@ func splitArrayParams(c registry.Command, params map[string]any) {
 		}
 		params[p.Name] = items
 	}
+}
+
+// checkBodyWrapper rejects --data whose top-level keys belong inside one of the
+// body's object fields (e.g. {"description":…} for {"product":{…}}), showing the
+// body with those keys moved in.
+func checkBodyWrapper(c registry.Command, spec *registry.Spec, body any, schemaHint string) error {
+	m, _ := body.(map[string]any)
+	if c.Body == nil || spec == nil || len(m) == 0 {
+		return nil
+	}
+	top := map[string]bool{}
+	for _, f := range c.Body.Fields {
+		top[f.Name] = true
+	}
+	owner := map[string]string{}
+	for k := range m {
+		if top[k] {
+			continue
+		}
+		var hits []string
+		for _, f := range c.Body.Fields {
+			if f.Type == "object" && slices.ContainsFunc(spec.Schemas[f.Schema].Fields, func(sf registry.Field) bool { return sf.Name == k }) {
+				hits = append(hits, f.Name)
+			}
+		}
+		if len(hits) == 1 {
+			owner[k] = hits[0]
+		}
+	}
+	if len(owner) == 0 {
+		return nil
+	}
+	fixed := maps.Clone(m)
+	for k, w := range owner {
+		inner := map[string]any{}
+		if v, ok := fixed[w]; ok {
+			given, isMap := v.(map[string]any)
+			if !isMap {
+				return nil
+			}
+			inner = maps.Clone(given)
+		}
+		inner[k] = fixed[k]
+		fixed[w] = inner
+		delete(fixed, k)
+	}
+	wrappers := slices.Sorted(maps.Values(owner))
+	wrappers = slices.Compact(wrappers)
+	quoted := make([]string, len(wrappers))
+	for i, w := range wrappers {
+		quoted[i] = strconv.Quote(w)
+	}
+	return output.ErrValidation("--data is missing the %s %s: %s", strings.Join(quoted, ", "),
+		plural(wrappers, "wrapper", "wrappers"), renderBody(fixed)).
+		WithParam(wrappers[0]).
+		WithSubtype(output.SubtypeMissingRequiredField).
+		WithHint(schemaHint + " to see the body fields")
+}
+
+// renderBody prints a body as compact JSON, or by its keys alone when that runs long.
+func renderBody(m map[string]any) string {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(m); err == nil && buf.Len() <= 200 {
+		return strings.TrimSpace(buf.String())
+	}
+	return bodyKeys(m)
+}
+
+func bodyKeys(m map[string]any) string {
+	keys := slices.Sorted(maps.Keys(m))
+	parts := make([]string, len(keys))
+	for i, k := range keys {
+		v := "…"
+		if inner, ok := m[k].(map[string]any); ok {
+			v = bodyKeys(inner)
+		}
+		parts[i] = strconv.Quote(k) + ":" + v
+	}
+	return "{" + strings.Join(parts, ",") + "}"
 }
 
 // checkRequiredBody rejects a request whose --data lacks a required top-level
