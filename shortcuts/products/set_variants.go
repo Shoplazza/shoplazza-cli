@@ -415,6 +415,24 @@ func (m *matrix) findValue(d int, v string) (int, error) {
 	return i, nil
 }
 
+// bareDim names the one dimension holding the value of a "value=x", or "<Dim>".
+func (m *matrix) bareDim(bare string) string {
+	v, _, _ := strings.Cut(bare, "=")
+	name := ""
+	for _, d := range m.dims {
+		if i, _ := lookup(d.Values, strings.TrimSpace(v)); i >= 0 {
+			if name != "" {
+				return "<Dim>"
+			}
+			name = d.Name
+		}
+	}
+	if name == "" {
+		return "<Dim>"
+	}
+	return name
+}
+
 func (m *matrix) missingDim(name string) error {
 	return output.ErrValidation("option %q does not exist on this product (existing: %s)", name, m.describe())
 }
@@ -1117,6 +1135,7 @@ type perValue struct {
 	scalar  string
 	dim     string
 	pairs   [][2]string
+	bare    string            // a "value=x" given without its "Dim:" prefix
 	d       int               // the dimension's index once bound, -1 if none
 	byValue map[string]string // value (as on the edited matrix) → raw
 }
@@ -1131,6 +1150,12 @@ func parsePerValue(flag string, raws []string, isPrice bool) (perValue, error) {
 	for _, raw := range raws {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
+			continue
+		}
+		if before, _, ok := strings.Cut(raw, "="); ok && !strings.Contains(before, ":") && !strings.HasPrefix(raw, "//") {
+			if p.bare == "" {
+				p.bare = raw
+			}
 			continue
 		}
 		if p.plainForm(raw) {
@@ -1182,10 +1207,14 @@ func (p perValue) plainForm(raw string) bool {
 		strings.HasPrefix(raw, "http:") || strings.HasPrefix(raw, "https:")
 }
 
-func (p perValue) any() bool { return p.scalar != "" || p.dim != "" }
+func (p perValue) any() bool { return p.scalar != "" || p.dim != "" || p.bare != "" }
 
 // bind resolves the per-value form against the edited matrix.
 func (p *perValue) bind(m *matrix) error {
+	if p.bare != "" {
+		return output.ErrValidation(`%s has the wrong per-value format: write %q`, p.flag, m.bareDim(p.bare)+":"+p.bare).
+			WithHint("dimensions: " + m.describe())
+	}
 	if p.dim == "" {
 		return nil
 	}
