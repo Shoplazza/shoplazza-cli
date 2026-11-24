@@ -296,12 +296,12 @@ func codeOffFlags() []common.Flag {
 		{Name: "target", Type: common.FlagString, Required: true,
 			Description: "Discount scope: order or product (required).",
 			Completions: []string{"order", "product"}},
-		{Name: "products", Type: common.FlagString, Description: "Product IDs comma-separated (--target=product; mutex with --variants / --collections)."},
-		{Name: "variants", Type: common.FlagString, Description: "Variant IDs comma-separated (--target=product; mutex with --products / --collections)."},
-		{Name: "collections", Type: common.FlagString, Description: "Collection IDs comma-separated (--target=product; mutex with --products / --variants)."},
+		{Name: "products", Type: common.FlagString, Description: "Product IDs comma-separated (--target=product only; mutex with --variants / --collections)."},
+		{Name: "variants", Type: common.FlagString, Description: "Variant IDs comma-separated (--target=product only; mutex with --products / --collections)."},
+		{Name: "collections", Type: common.FlagString, Description: "Collection IDs comma-separated (--target=product only; mutex with --products / --variants)."},
 		excludeFlag("exclude", ""),
-		{Name: "min-amount", Type: common.FlagFloat, Description: "Minimum order amount (only meaningful for --target=order)."},
-		{Name: "min-quantity", Type: common.FlagInt, Default: 1, Description: "Minimum item count (only meaningful for --target=product; default 1)."},
+		{Name: "min-amount", Type: common.FlagFloat, Description: "Minimum order amount (--target=order only; rejected with --target=product)."},
+		{Name: "min-quantity", Type: common.FlagInt, Default: 1, Description: "Minimum item count (--target=product only; rejected with --target=order; default 1)."},
 		{Name: "code", Type: common.FlagString, Description: "Discount code (auto-generated if omitted)."},
 		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
 		common.StartTimeFlag(),
@@ -393,6 +393,21 @@ func buildCodeDiscountPayload(in common.PlanInput, discountType, obtainType stri
 		if in.Flags.GetBool("exclude") {
 			return nil, output.ErrValidation("--exclude only applies to --target=product")
 		}
+		var offTarget []string
+		for _, name := range []string{"products", "variants", "collections", "min-quantity"} {
+			if in.Flags.Changed(name) {
+				offTarget = append(offTarget, "--"+name)
+			}
+		}
+		if len(offTarget) > 0 {
+			verb := "applies"
+			if len(offTarget) > 1 {
+				verb = "apply"
+			}
+			return nil, output.ErrValidation("%s only %s to --target=product", strings.Join(offTarget, ", "), verb).
+				WithParam(offTarget[0]).
+				WithHint("for a discount on specific products or with a minimum item count, use --target=product; for the whole order, drop these flags")
+		}
 		entitledProduct = map[string]any{}
 		min := in.Flags.GetFloat("min-amount")
 		condType = "no_condition"
@@ -401,6 +416,11 @@ func buildCodeDiscountPayload(in common.PlanInput, discountType, obtainType stri
 		}
 		condValue = strconv.FormatFloat(min, 'f', -1, 64)
 	} else {
+		if in.Flags.Changed("min-amount") {
+			return nil, output.ErrValidation("--min-amount only applies to --target=order").
+				WithParam("--min-amount").
+				WithHint("for a per-product threshold use --min-quantity; for a minimum order amount, use --target=order")
+		}
 		scope, err := resolveScope(
 			common.ParseProducts(in.Flags.GetString("products")),
 			common.ParseProducts(in.Flags.GetString("collections")),

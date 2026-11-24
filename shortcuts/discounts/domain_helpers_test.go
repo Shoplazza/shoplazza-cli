@@ -1,10 +1,12 @@
 package discounts
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 	"github.com/spf13/cobra"
 )
@@ -242,7 +244,7 @@ func TestBuildCodeDiscountPayload_OrderTarget(t *testing.T) {
 }
 
 func TestBuildCodeDiscountPayload_ProductTarget(t *testing.T) {
-	in := newPlanInput(t, "percent-code", discountCodeFlags(), map[string]string{"target": "product", "products": "p-1,p-2"})
+	in := newPlanInput(t, "percent-code", discountCodeFlags(), map[string]string{"target": "product", "products": "p-1,p-2", "min-quantity": "3"})
 	payload, err := buildCodeDiscountPayload(in, "code_percent", "percent", 20)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
@@ -252,6 +254,10 @@ func TestBuildCodeDiscountPayload_ProductTarget(t *testing.T) {
 	if ep["selection"] != "entitled" {
 		t.Errorf("entitled_product.selection: got %v want entitled", ep["selection"])
 	}
+	layer, _ := disc["discount_layer"].(map[string]any)
+	if layer["condition_type"] != "purchase_quantity" || layer["layers"].([]any)[0].(map[string]any)["condition_value"] != "3" {
+		t.Errorf("discount_layer: got %v want purchase_quantity 3", layer)
+	}
 }
 
 // --target picks the payload shape, so it and its dependent flags are checked
@@ -260,16 +266,25 @@ func TestBuildCodeDiscountPayload_Refusals(t *testing.T) {
 	cases := []struct {
 		name  string
 		flags map[string]string
+		param string
 	}{
-		{"invalid --target", map[string]string{"target": "store"}},
-		{"--exclude on an order target", map[string]string{"target": "order", "exclude": "true"}},
-		{"product target without a scope", map[string]string{"target": "product"}},
+		{"invalid --target", map[string]string{"target": "store"}, ""},
+		{"--exclude on an order target", map[string]string{"target": "order", "exclude": "true"}, ""},
+		{"product target without a scope", map[string]string{"target": "product"}, ""},
+		{"scope and --min-quantity on an order target", map[string]string{"target": "order", "products": "p1", "min-quantity": "3"}, "--products"},
+		{"--min-quantity=1 on an order target", map[string]string{"target": "order", "min-quantity": "1"}, "--min-quantity"},
+		{"--min-amount on a product target", map[string]string{"target": "product", "products": "p1", "min-amount": "100"}, "--min-amount"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			in := newPlanInput(t, "percent-code", discountCodeFlags(), c.flags)
-			if _, err := buildCodeDiscountPayload(in, "code_percent", "percent", 10); err == nil {
-				t.Error("expected a refusal")
+			_, err := buildCodeDiscountPayload(in, "code_percent", "percent", 10)
+			if err == nil {
+				t.Fatal("expected a refusal")
+			}
+			var ee *output.ExitError
+			if c.param != "" && (!errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != c.param) {
+				t.Errorf("want validation error with param %s, got %v", c.param, err)
 			}
 		})
 	}

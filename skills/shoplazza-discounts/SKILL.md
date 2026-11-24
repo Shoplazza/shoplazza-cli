@@ -316,6 +316,7 @@ shoplazza-common).
 | `restart --data '{"ids":["X"]}'` fails | `restart` body is singular | `--data '{"id":"X"}'` |
 | `delete` returns 4xx with progress message | Discount is not `finished` | `cancel` first, then `delete` |
 | `--target=product` rejected "requires one of --products/--collections/--variants" | Product scope is mandatory when target=product | Pass a scope flag |
+| `+percent-code`/`+amount-code`: "`--products` / `--min-quantity` only applies to `--target=product`" or "`--min-amount` only applies to `--target=order`" | Each target takes its own flags: order → `--min-amount`; product → a scope flag + `--min-quantity` | "指定商品满3件打8折" → `--target product --products <ids> --min-quantity 3`; "全单满100减5" → `--target order --min-amount 100` |
 | `display_name` looks truncated in response | Server auto-truncates to ~20 chars | Pass `--name` explicitly if it matters |
 | Created two discounts with the same `--code` | Codes are unique per store | Pass an explicit unique `--code`, or omit to auto-generate `CLI-XXXXXX` |
 | Wanted to update via shortcut | There is no `+update` | Use `update-automatic` / `update-non-automatic` with a full body |
