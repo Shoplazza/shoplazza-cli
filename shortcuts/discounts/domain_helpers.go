@@ -117,13 +117,13 @@ func excludeFlag(name, side string) common.Flag {
 	}
 }
 
-// GenerateCode returns a random "CLI-XXXXXX" discount code (6 uppercase alphanumeric).
+// GenerateCode returns a random 6-character uppercase alphanumeric discount code.
 func GenerateCode() string {
 	b := make([]byte, 6)
 	for i := range b {
 		b[i] = codeChars[rand.Intn(len(codeChars))]
 	}
-	return "CLI-" + string(b)
+	return string(b)
 }
 
 // RebateType describes a rebate's API-side discount/condition/obtain triple.

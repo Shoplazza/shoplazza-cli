@@ -49,13 +49,10 @@ func newPlanInput(t *testing.T, tool string, flags map[string]string, values map
 
 func TestGenerateCode(t *testing.T) {
 	code := GenerateCode()
-	if !strings.HasPrefix(code, "CLI-") {
-		t.Errorf("GenerateCode = %q, want CLI- prefix", code)
+	if len(code) != 6 {
+		t.Errorf("GenerateCode length = %d, want 6", len(code))
 	}
-	if len(code) != 10 { // "CLI-" (4) + 6 chars
-		t.Errorf("GenerateCode length = %d, want 10 (CLI-XXXXXX)", len(code))
-	}
-	for _, ch := range code[4:] {
+	for _, ch := range code {
 		if !((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')) {
 			t.Errorf("GenerateCode %q contains invalid char %q", code, ch)
 		}

@@ -1023,8 +1023,8 @@ func TestShortcut_PercentCode_OrderTarget_AutoCode(t *testing.T) {
 		t.Fatal("discount_codes must not be empty")
 	}
 	code0, _ := codes[0].(string)
-	if !strings.HasPrefix(code0, "CLI-") {
-		t.Errorf("auto-generated code %q must start with CLI-", code0)
+	if len(code0) != 6 {
+		t.Errorf("auto-generated code %q must be 6 characters", code0)
 	}
 	if info["discount_type"] != "code_percent" {
 		t.Errorf("discount_type = %v, want code_percent", info["discount_type"])
