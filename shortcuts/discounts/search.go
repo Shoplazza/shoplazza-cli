@@ -19,7 +19,7 @@ var searchShortcut = common.Shortcut{
   # Ongoing percent-off code discounts, 50 per page
   shoplazza discounts +search --progress ongoing --discount-type code_percent --page-limit 50`,
 	Flags: []common.Flag{
-		{Name: "query", Type: common.FlagString, Description: "Filter by discount name (fuzzy)."},
+		{Name: "query", Type: common.FlagString, Description: "Filter by discount name: matches names that contain the whole value as one case-insensitive substring (no word splitting or fuzzy matching), so \"Spring Sale 2026\" does not find \"Spring Sale\"."},
 		{Name: "discount-code", Type: common.FlagString, Description: "Filter by discount code."},
 		{Name: "progress", Type: common.FlagStringSlice, Description: "Filter by progress: ongoing|not_started|finished|paused.",
 			Completions: []string{"ongoing", "not_started", "finished", "paused"}},

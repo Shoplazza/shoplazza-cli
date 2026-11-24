@@ -308,6 +308,7 @@ shoplazza-common).
 |---------|-------|-----|
 | 403 `PermissionDenied` "check if a store is a new marketing store" on every `discounts` call, reads included | A store-side check, not a scope: this store isn't enabled for the discounts API. The envelope's generic re-login `hint` does not apply | Don't re-login or retry. Confirm `read_price_rules` / `write_price_rules` are in `auth scopes` → `granted_scopes` (the discounts scopes; none is named "discount"); if they are, tell the user discounts can't be managed through the CLI on this store and stop |
 | `null` after `get` / `get-by-code` | discount object is nested under `.data.discount` | Start jq at `.data.discount.discount_info.…` |
+| `+search --query` returns 0 rows for a discount the user named | The name must contain the whole `--query` string (case-insensitive); no word splitting or fuzzy matching ("双十一大促活动" misses "双十一大促") | Retry with a shorter core keyword (e.g. "双十一") before telling the user it doesn't exist |
 | `--discount-type rebate` matches nothing | "rebate" is not an enum | Use `rebate_cta_otr` / `rebate_ctq_otr` / `rebate_cta_otp` / `rebate_ctq_otp` |
 | `--limit-max must be > 0 (got -1)` | Caps are positive-only; `-1` is rejected | **Omit** the cap entirely for "no limit" — don't pass `-1` |
 | `unknown flag: --off` on `+percent-code` | percent-code uses `--percent-off`, not `--off` | `--percent-off 15` (1-99) |
