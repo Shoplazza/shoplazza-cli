@@ -183,6 +183,12 @@ Supports `--params` / `--data` (incl. `-` for stdin, `@file` for a file), `--dry
 (→ `6.69…e+17`) and the request is rejected. Applies anywhere an id exceeds ~15 digits
 (e.g. `shop redirects`).
 
+**Multi-value query params → JSON array.** An array param (`ids`, `status`, `spus`, …) reaches
+the API as repeated keys (`?ids=a&ids=b`); the API reads a comma-joined value as one literal that
+matches nothing. In `--params` write `{"ids":["a","b"]}`. Spec leaves also split a comma-joined
+string for an array param; `api rest` sends a string as-is. A single value that contains a comma
+goes in a one-item array (`{"vendors":["Nike, Inc."]}`).
+
 ## Installation
 
 ### CLI preflight

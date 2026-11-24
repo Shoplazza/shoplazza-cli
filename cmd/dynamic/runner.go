@@ -32,6 +32,7 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 		if err := checkParamKeys(c, params, schemaHint); err != nil {
 			return err
 		}
+		splitArrayParams(c, params)
 		if err := checkRequiredBody(c, body, schemaHint); err != nil {
 			return err
 		}
@@ -154,6 +155,28 @@ func checkParamKeys(c registry.Command, params map[string]any, schemaHint string
 			WithHint(hint + "; " + schemaHint + " for details")
 	}
 	return nil
+}
+
+// splitArrayParams turns a comma-joined string given for an array query
+// parameter into a list, sent as repeated keys (?ids=a&ids=b). A JSON array
+// is left as is, so a single value containing a comma can still be sent.
+func splitArrayParams(c registry.Command, params map[string]any) {
+	for _, p := range c.Parameters {
+		if p.In != "query" || p.Type != "array" {
+			continue
+		}
+		s, ok := params[p.Name].(string)
+		if !ok || !strings.Contains(s, ",") {
+			continue
+		}
+		items := []any{}
+		for _, part := range strings.Split(s, ",") {
+			if part = strings.TrimSpace(part); part != "" {
+				items = append(items, part)
+			}
+		}
+		params[p.Name] = items
+	}
 }
 
 // checkRequiredBody rejects a request whose --data lacks a required top-level

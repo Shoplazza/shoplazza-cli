@@ -103,8 +103,10 @@ func TestRunE_DryRunDoesNotSendRequest(t *testing.T) {
 
 func TestRunE_HappyPathListGET(t *testing.T) {
 	var gotURL string
+	var gotQuery map[string][]string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotURL = r.URL.String()
+		gotQuery = r.URL.Query()
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"discounts":[{"id":"d1"}]}`))
 	}))
@@ -113,14 +115,28 @@ func TestRunE_HappyPathListGET(t *testing.T) {
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
 
 	cmd := registry.Command{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/openapi/2026-01/discounts"},
-		Parameters: []registry.Parameter{{Name: "page_size", In: "query"}}}
+		Parameters: []registry.Parameter{
+			{Name: "page_size", In: "query"},
+			{Name: "ids", In: "query", Type: "array"},
+			{Name: "vendors", In: "query", Type: "array"},
+			{Name: "title", In: "query", Type: "string"},
+		}}
 	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule")
-	leaf.SetArgs([]string{"--params", `{"page_size":10}`})
+	leaf.SetArgs([]string{"--params", `{"page_size":10,"ids":"d1, d2,,","vendors":["Nike, Inc."],"title":"a,b"}`})
 	if err := leaf.Execute(); err != nil {
 		t.Fatalf("error: %v", err)
 	}
 	if !strings.Contains(gotURL, "page_size=10") {
 		t.Fatalf("expected page_size in URL, got %q", gotURL)
+	}
+	for key, want := range map[string][]string{
+		"ids":     {"d1", "d2"},   // comma-joined string for an array param: split
+		"vendors": {"Nike, Inc."}, // JSON array: sent as given
+		"title":   {"a,b"},        // not an array param: untouched
+	} {
+		if got := gotQuery[key]; strings.Join(got, "|") != strings.Join(want, "|") {
+			t.Errorf("query %s = %q, want %q (URL %q)", key, got, want, gotURL)
+		}
 	}
 	if !strings.Contains(out.String(), "discounts") {
 		t.Fatalf("expected response in stdout, got %q", out.String())
@@ -216,7 +232,7 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 	getOne := registry.Command{Path: []string{"get"}, HTTP: registry.HTTP{Method: "GET", Path: "/products/{product_id}"},
 		Parameters: []registry.Parameter{{Name: "product_id", In: "path", Required: true}}}
 	pathAndQuery := registry.Command{Path: []string{"items"}, HTTP: registry.HTTP{Method: "GET", Path: "/locations/{location_id}/items"},
-		Parameters: []registry.Parameter{{Name: "location_id", In: "path", Required: true}, {Name: "variant_ids", In: "query", Required: true}, {Name: "page_size", In: "query"}}}
+		Parameters: []registry.Parameter{{Name: "location_id", In: "path", Required: true}, {Name: "variant_ids", In: "query", Type: "array", Required: true}, {Name: "page_size", In: "query"}}}
 	path := `{"oseid":"os1","section_id":"s1"}`
 	full := `{"doc_id":"d1","theme_id":"T1","block":{}}`
 	cases := []struct {
@@ -265,6 +281,9 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 			output.SubtypeMissingRequiredParam, "product_id", "missing required key: product_id", ""},
 		{"empty array counts as missing", pathAndQuery,
 			[]string{"--params", `{"location_id":"l1","variant_ids":[]}`},
+			output.SubtypeMissingRequiredParam, "variant_ids", "missing required key: variant_ids", ""},
+		{"only commas count as missing", pathAndQuery,
+			[]string{"--params", `{"location_id":"l1","variant_ids":" , "}`},
 			output.SubtypeMissingRequiredParam, "variant_ids", "missing required key: variant_ids", ""},
 		{"brace placeholder", getOne,
 			[]string{"--params", `{"product_id":"{product_id}"}`},
