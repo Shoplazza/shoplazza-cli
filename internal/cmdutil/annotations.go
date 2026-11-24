@@ -8,3 +8,7 @@ const AnnotationNotScannable = "shoplazza.notscannable"
 // AnnotationDryRunReads marks a command whose --dry-run still sends read-only
 // requests, so the auth gate must not skip it under --dry-run.
 const AnnotationDryRunReads = "shoplazza.dryrunreads"
+
+// AnnotationCanonicalFlag, set on a deprecated alias flag, names the flag it
+// stands for, so flag suggestions point at the canonical name.
+const AnnotationCanonicalFlag = "shoplazza.canonicalflag"

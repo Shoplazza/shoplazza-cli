@@ -62,6 +62,7 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 		trackRepeats(cmd, f.Type, f.Name)
 		for _, old := range f.DeprecatedAliases {
 			bindFlag(cmd, Flag{Name: old, Type: f.Type, Default: f.Default, Description: "[deprecated] " + f.Description})
+			_ = cmd.Flags().SetAnnotation(old, cmdutil.AnnotationCanonicalFlag, []string{f.Name})
 			trackRepeats(cmd, f.Type, old)
 		}
 	}

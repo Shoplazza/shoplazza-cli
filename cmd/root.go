@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -33,6 +34,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // NewRootCmd assembles and returns the full root command tree without
@@ -85,6 +87,8 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 
 	applyRootGroups(rootCmd)
 
+	// The root takes positional args so an unknown one reaches unknownSubcommand like any group's.
+	rootCmd.Args = cobra.ArbitraryArgs
 	// A group given an unknown subcommand prints nothing here; Execute reports it.
 	showHelp := rootCmd.HelpFunc()
 	rootCmd.SetHelpFunc(func(c *cobra.Command, args []string) {
@@ -92,9 +96,18 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 			showHelp(c, args)
 		}
 	})
+	rootCmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
+		if e := unknownSubcommand(c); e != nil {
+			return e
+		}
+		return suggestFlag(c, err)
+	})
 
 	return rootCmd
 }
+
+// maxElsewhere caps the same-named commands suggested from other groups.
+const maxElsewhere = 3
 
 // unknownSubcommand reports the first positional arg left on a non-runnable command group.
 func unknownSubcommand(c *cobra.Command) *output.ExitError {
@@ -102,16 +115,77 @@ func unknownSubcommand(c *cobra.Command) *output.ExitError {
 	if c.Runnable() || !c.HasSubCommands() || len(args) == 0 {
 		return nil
 	}
-	msg := fmt.Sprintf("unknown command %q for %q", args[0], c.CommandPath())
+	return output.ErrValidation("unknown command %q for %q%s", args[0], c.CommandPath(), didYouMean(subcommandSuggestions(c, args))).
+		WithSubtype(output.SubtypeUnknownCommand).
+		WithHint("run '" + c.CommandPath() + " --help' to list available commands")
+}
+
+// subcommandSuggestions returns c's near-named subcommands, else the full paths of
+// commands elsewhere in the tree named args[0], followed down args[1:].
+func subcommandSuggestions(c *cobra.Command, args []string) []string {
+	if c.DisableSuggestions {
+		return nil
+	}
 	if c.SuggestionsMinimumDistance <= 0 {
 		c.SuggestionsMinimumDistance = 2
 	}
-	if s := c.SuggestionsFor(args[0]); len(s) > 0 && !c.DisableSuggestions {
-		msg += "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
+	if s := c.SuggestionsFor(args[0]); len(s) > 0 {
+		return s
 	}
-	return output.ErrValidation("%s", msg).
-		WithSubtype(output.SubtypeUnknownCommand).
-		WithHint("run '" + c.CommandPath() + " --help' to list available commands")
+	var paths []string
+	var walk func(*cobra.Command)
+	walk = func(parent *cobra.Command) {
+		for _, sub := range parent.Commands() {
+			if !sub.IsAvailableCommand() {
+				continue
+			}
+			if strings.EqualFold(sub.Name(), args[0]) {
+				if found, _, err := sub.Find(args[1:]); err == nil {
+					sub = found
+				}
+				paths = append(paths, sub.CommandPath())
+				continue
+			}
+			walk(sub)
+		}
+	}
+	walk(c.Root())
+	if len(paths) > maxElsewhere {
+		return nil
+	}
+	return paths
+}
+
+// suggestFlag appends c's near-named flags to an unknown --flag error, ranked by
+// cobra's subcommand rules through a throwaway command with one child per flag.
+func suggestFlag(c *cobra.Command, err error) error {
+	var notExist *pflag.NotExistError
+	if !errors.As(err, &notExist) || notExist.GetSpecifiedShortnames() != "" {
+		return err
+	}
+	probe := &cobra.Command{SuggestionsMinimumDistance: 2}
+	c.Flags().VisitAll(func(f *pflag.Flag) {
+		if !f.Hidden {
+			probe.AddCommand(&cobra.Command{Use: f.Name, Run: func(*cobra.Command, []string) {}})
+		}
+	})
+	var names []string
+	for _, name := range probe.SuggestionsFor(notExist.GetSpecifiedName()) {
+		if canonical := c.Flags().Lookup(name).Annotations[cmdutil.AnnotationCanonicalFlag]; len(canonical) > 0 {
+			name = canonical[0]
+		}
+		if !slices.Contains(names, "--"+name) {
+			names = append(names, "--"+name)
+		}
+	}
+	return fmt.Errorf("%w%s", err, didYouMean(names))
+}
+
+func didYouMean(suggestions []string) string {
+	if len(suggestions) == 0 {
+		return ""
+	}
+	return "\n\nDid you mean this?\n\t" + strings.Join(suggestions, "\n\t")
 }
 
 // defaultOutputFormat resolves the --format flag's default. Precedence:

@@ -492,20 +492,32 @@ func TestErrorOutput_IsJSONEnvelope(t *testing.T) {
 func TestUnknownSubcommand_IsUsageError(t *testing.T) {
 	bin := buildBinary(t)
 	env := apiEnv("http://127.0.0.1:1")
+	const mean = "\n\nDid you mean this?\n\t"
+	const unknownCmd, unknownFlag = "unknown_command", "unknown_flag"
 
 	tests := []struct {
 		name    string
 		args    []string
+		subtype string
 		message string
 		hint    string
 	}{
-		{"root", []string{"prodd"}, `unknown command "prodd" for "shoplazza"`, "'shoplazza --help'"},
-		{"module", []string{"products", "aa"}, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
-		{"near name", []string{"products", "variant"}, "Did you mean this?\n\tvariants", "'shoplazza products --help'"},
-		{"nested group", []string{"products", "variants", "aa"}, `unknown command "aa" for "shoplazza products variants"`, "'shoplazza products variants --help'"},
-		{"after a flag", []string{"products", "--format", "json", "aa"}, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
-		{"with --help", []string{"products", "aa", "--help"}, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
-		{"static group", []string{"auth", "aa"}, `unknown command "aa" for "shoplazza auth"`, "'shoplazza auth --help'"},
+		{"root", []string{"prodd"}, unknownCmd, `unknown command "prodd" for "shoplazza"`, "'shoplazza --help'"},
+		{"root near name", []string{"prodcts"}, unknownCmd, `unknown command "prodcts" for "shoplazza"` + mean + "products", "'shoplazza --help'"},
+		{"module", []string{"products", "aa"}, unknownCmd, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
+		{"near name", []string{"products", "variant"}, unknownCmd, `unknown command "variant" for "shoplazza products"` + mean + "variants", "'shoplazza products --help'"},
+		{"nested group", []string{"products", "variants", "aa"}, unknownCmd, `unknown command "aa" for "shoplazza products variants"`, "'shoplazza products variants --help'"},
+		{"after a flag", []string{"products", "--format", "json", "aa"}, unknownCmd, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
+		{"with --help", []string{"products", "aa", "--help"}, unknownCmd, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
+		{"static group", []string{"auth", "aa"}, unknownCmd, `unknown command "aa" for "shoplazza auth"`, "'shoplazza auth --help'"},
+		{"other group, followed down", []string{"variants", "list"}, unknownCmd, `unknown command "variants" for "shoplazza"` + mean + "shoplazza products variants list", "'shoplazza --help'"},
+		{"other group, leaf flag after it", []string{"variants", "list", "--params", "{}"}, unknownCmd, `unknown command "variants" for "shoplazza"` + mean + "shoplazza products variants list", "'shoplazza --help'"},
+		{"other group from a group", []string{"products", "addresses"}, unknownCmd, `unknown command "addresses" for "shoplazza products"` + mean + "shoplazza customers addresses", "'shoplazza products --help'"},
+		{"name shared by many", []string{"list"}, unknownCmd, `unknown command "list" for "shoplazza"`, "'shoplazza --help'"},
+		{"flag near name", []string{"customers", "+search", "--emial", "a@b.c"}, unknownFlag, "unknown flag: --emial" + mean + "--email", "--help"},
+		{"spec leaf flag near name", []string{"orders", "list", "--param", "{}"}, unknownFlag, "unknown flag: --param" + mean + "--params", "--help"},
+		{"deprecated alias points at its canonical flag", []string{"discounts", "+percent-code", "--percnt", "10"}, unknownFlag, "unknown flag: --percnt" + mean + "--percent-off", "--help"},
+		{"flag with no near name",[]string{"customers", "+search", "--xyz"}, unknownFlag, "unknown flag: --xyz", "--help"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -520,8 +532,8 @@ func TestUnknownSubcommand_IsUsageError(t *testing.T) {
 				t.Fatalf("stderr not JSON: %v\n%s", err, stderr)
 			}
 			e := got.Error
-			if e.Subtype != "unknown_command" || !strings.Contains(e.Message, tt.message) || !strings.Contains(e.Hint, tt.hint) {
-				t.Errorf("error = %+v; want unknown_command, message containing %q, hint containing %q", e, tt.message, tt.hint)
+			if e.Subtype != tt.subtype || e.Message != tt.message || !strings.Contains(e.Hint, tt.hint) {
+				t.Errorf("error = %+v; want %s, message %q, hint containing %q", e, tt.subtype, tt.message, tt.hint)
 			}
 		})
 	}
