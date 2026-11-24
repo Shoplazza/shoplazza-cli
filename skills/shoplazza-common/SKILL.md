@@ -178,11 +178,6 @@ shoplazza api rest POST /openapi/2026-01/discounts/automatic --data @body.json
 
 Supports `--params` / `--data` (incl. `-` for stdin, `@file` for a file), `--dry-run`, `-q/--jq`.
 
-**Large integer ids → quote them in JSON.** In `--params` / `--data`, pass a big numeric id as a
-**string** (`{"id":"669923000979557666"}`), not a bare number — bare large ints get float-coerced
-(→ `6.69…e+17`) and the request is rejected. Applies anywhere an id exceeds ~15 digits
-(e.g. `shop redirects`).
-
 **Multi-value query params → JSON array.** An array param (`ids`, `status`, `spus`, …) reaches
 the API as repeated keys (`?ids=a&ids=b`); the API reads a comma-joined value as one literal that
 matches nothing. In `--params` write `{"ids":["a","b"]}`. Spec leaves also split a comma-joined
