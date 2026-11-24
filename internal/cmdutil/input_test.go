@@ -107,9 +107,14 @@ func TestParseOptionalBody_ValidJSON(t *testing.T) {
 }
 
 func TestParseOptionalBody_InvalidJSON(t *testing.T) {
-	for _, in := range []string{`not-json`, `{"a":1} x`, `{"a":1}{"b":2}`} {
-		if _, err := ParseOptionalBody("POST", in, nil); err == nil {
-			t.Errorf("%s: expected error for invalid JSON body", in)
+	for _, c := range []struct{ in, want string }{
+		{`not-json`, `--data is not valid JSON object: invalid character 'o' in literal null (expecting 'u') (line 1, column 2)`},
+		{`{"a":1} x`, `--data is not valid JSON object: unexpected 'x' after the end of the object (line 1, column 9)`},
+		{`{"a":1}{"b":2}`, `--data is not valid JSON object: unexpected '{' after the end of the object (line 1, column 8)`},
+		{`[1,2] ]`, `--data is not valid JSON object: unexpected ']' after the end of the array (line 1, column 7)`},
+	} {
+		if _, err := ParseOptionalBody("POST", c.in, nil); err == nil || err.Error() != c.want {
+			t.Errorf("%s: error = %v, want %s", c.in, err, c.want)
 		}
 	}
 }
@@ -131,9 +136,19 @@ func TestParseJSONMap_ValidJSON(t *testing.T) {
 }
 
 func TestParseJSONMap_InvalidJSON(t *testing.T) {
-	for _, in := range []string{`[1,2,3]`, `{"k":"v"} x`} {
-		if _, err := ParseJSONMap(in, "test", nil); err == nil {
-			t.Errorf("%s: expected error", in)
+	for _, c := range []struct{ in, want string }{
+		{`[1,2,3]`, `--data must be a JSON object, got an array`},
+		{`"text"`, `--data must be a JSON object, got a string`},
+		{`{"k":"v"} x`, `--data is not valid JSON object: unexpected 'x' after the end of the object (line 1, column 11)`},
+		{`{"product":{"title":"a"}}}`, `--data is not valid JSON object: unexpected '}' after the end of the object (line 1, column 26)`},
+		{`{"customer":{"first_name":"a"} "x":1}`, `--data is not valid JSON object: invalid character '"' after object key:value pair (line 1, column 32)`},
+		{"{\n  \"a\": 1\n  \"b\": 2\n}", `--data is not valid JSON object: invalid character '"' after object key:value pair (line 3, column 3)`},
+		{`{'product':{}}`, `--data is not valid JSON object: invalid character '\'' looking for beginning of object key string (line 1, column 2)`},
+		{`{"product":{"title":"a"}`, `--data is not valid JSON object: a closing } or ] is missing`},
+		{` `, `--data is empty`},
+	} {
+		if _, err := ParseJSONMap(c.in, "--data", nil); err == nil || err.Error() != c.want {
+			t.Errorf("%q: error = %v, want %s", c.in, err, c.want)
 		}
 	}
 }

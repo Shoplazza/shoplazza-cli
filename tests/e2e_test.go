@@ -240,6 +240,30 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 			t.Errorf("%v: error = %+v, want validation/%s on %s", c.args, e.Error, c.subtype, c.param)
 		}
 	}
+
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"products", "update", "--params", `{"product_id":"p1"}`, "--data", `{"product":{"title":"a"}}}`},
+			`--data is not valid JSON object: unexpected '}' after the end of the object (line 1, column 26)`},
+		{[]string{"customers", "update", "--params", `{"customer_id":"c1"}`, "--data", `{"customer":{"first_name":"a"} "x":1}`},
+			`--data is not valid JSON object: invalid character '"' after object key:value pair (line 1, column 32)`},
+		{[]string{"products", "get", "--params", `{"product_id":"p1",}`},
+			`--params is not valid JSON object: invalid character '}' looking for beginning of object key string (line 1, column 20)`},
+		{[]string{"api", "rest", "PUT", "/openapi/2026-01/products/p1", "--data", `[{"product":{}}] ]`},
+			`--data is not valid JSON object: unexpected ']' after the end of the array (line 1, column 18)`},
+	} {
+		before := hits
+		_, stderr, code := runCLI(t, bin, env, c.args...)
+		var e struct {
+			Error struct{ Type, Message string } `json:"error"`
+		}
+		_ = json.Unmarshal([]byte(stderr), &e)
+		if code != 2 || hits != before || e.Error.Type != "validation" || e.Error.Message != c.want {
+			t.Errorf("%v: exit %d, sent %v, error %+v; want %s", c.args, code, hits != before, e.Error, c.want)
+		}
+	}
 }
 
 func TestShortcutListAndEnumFlags_MockServer(t *testing.T) {

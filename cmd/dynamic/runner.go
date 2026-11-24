@@ -165,9 +165,6 @@ func checkParamKeys(c registry.Command, params map[string]any, schemaHint string
 	return nil
 }
 
-// splitArrayParams turns a comma-joined string given for an array query
-// parameter into a list, sent as repeated keys (?ids=a&ids=b). A JSON array
-// is left as is, so a single value containing a comma can still be sent.
 func splitArrayParams(c registry.Command, params map[string]any) {
 	for _, p := range c.Parameters {
 		if p.In != "query" || p.Type != "array" {
@@ -187,9 +184,7 @@ func splitArrayParams(c registry.Command, params map[string]any) {
 	}
 }
 
-// checkBodyWrapper rejects --data whose top-level keys belong inside one of the
-// body's object fields (e.g. {"description":…} for {"product":{…}}), showing the
-// body with those keys moved in.
+// checkBodyWrapper rejects top-level --data keys that belong inside a body object field.
 func checkBodyWrapper(c registry.Command, spec *registry.Spec, body any, schemaHint string) error {
 	m, _ := body.(map[string]any)
 	if c.Body == nil || spec == nil || len(m) == 0 {
@@ -244,7 +239,6 @@ func checkBodyWrapper(c registry.Command, spec *registry.Spec, body any, schemaH
 		WithHint(schemaHint + " to see the body fields")
 }
 
-// renderBody prints a body as compact JSON, or by its keys alone when that runs long.
 func renderBody(m map[string]any) string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
@@ -338,7 +332,7 @@ func parseParams(cmd *cobra.Command) (map[string]any, error) {
 	}
 	var out map[string]any
 	if err := cmdutil.DecodeJSON([]byte(raw), &out); err != nil {
-		return nil, output.ErrValidation("--params must be valid JSON object: %v", err)
+		return nil, output.ErrValidation("%v", cmdutil.JSONInputError("--params", []byte(raw), err, "object"))
 	}
 	if out == nil {
 		out = map[string]any{}

@@ -130,9 +130,9 @@ func TestRunE_HappyPathListGET(t *testing.T) {
 		t.Fatalf("expected page_size in URL, got %q", gotURL)
 	}
 	for key, want := range map[string][]string{
-		"ids":     {"d1", "d2"},   // comma-joined string for an array param: split
-		"vendors": {"Nike, Inc."}, // JSON array: sent as given
-		"title":   {"a,b"},        // not an array param: untouched
+		"ids":     {"d1", "d2"},
+		"vendors": {"Nike, Inc."},
+		"title":   {"a,b"},
 	} {
 		if got := gotQuery[key]; strings.Join(got, "|") != strings.Join(want, "|") {
 			t.Errorf("query %s = %q, want %q (URL %q)", key, got, want, gotURL)

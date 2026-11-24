@@ -128,7 +128,7 @@ func validateSectionValue(value map[string]any) error {
 func parseOps(raw []byte) ([]editOp, error) {
 	var ops []editOp
 	if err := cmdutil.DecodeJSON(raw, &ops); err != nil {
-		return nil, output.ErrValidation("--ops is not a valid JSON array: %v", err)
+		return nil, output.ErrValidation("%v", cmdutil.JSONInputError("--ops", raw, err, "array"))
 	}
 	return ops, nil // an empty batch is syntax-legal; editExecute rules on it
 }

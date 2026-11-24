@@ -146,9 +146,7 @@ func TestFlagEnumsMatchSpec(t *testing.T) {
 	}
 }
 
-// enumItem matches one "- value: meaning" or "- `value`: meaning" entry of a
-// parameter description, which is where the API metadata lists most
-// parameters' accepted values.
+// enumItem matches a "- value:" or "- `value`:" entry of a parameter description.
 var enumItem = regexp.MustCompile("(?:^|\\s)- `?([a-z][a-z0-9_]*)`?:")
 
 // specEnum returns the values the embedded API metadata documents for param of

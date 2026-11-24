@@ -66,10 +66,67 @@ func DecodeJSON(data []byte, v any) error {
 	if err := dec.Decode(v); err != nil {
 		return err
 	}
+	end := dec.InputOffset()
 	if _, err := dec.Token(); err != io.EOF {
-		return errors.New("invalid character after top-level value")
+		for end < int64(len(data)) && strings.ContainsRune(" \t\r\n", rune(data[end])) {
+			end++
+		}
+		return &trailingDataError{offset: end}
 	}
 	return nil
+}
+
+type trailingDataError struct{ offset int64 }
+
+func (e *trailingDataError) Error() string { return "invalid character after top-level value" }
+
+// JSONInputError describes a DecodeJSON error on raw; want is "object" or "array".
+func JSONInputError(flag string, raw []byte, err error, want string) error {
+	var syn *json.SyntaxError
+	var typ *json.UnmarshalTypeError
+	var trail *trailingDataError
+	switch {
+	case errors.Is(err, io.EOF):
+		return fmt.Errorf("%s is empty", flag)
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return fmt.Errorf("%s is not valid JSON %s: a closing } or ] is missing", flag, want)
+	case errors.As(err, &trail):
+		return fmt.Errorf("%s is not valid JSON %s: unexpected %q after the end of the %s (%s)",
+			flag, want, raw[trail.offset], topLevelKind(raw), jsonPosition(raw, trail.offset))
+	case errors.As(err, &syn):
+		return fmt.Errorf("%s is not valid JSON %s: %s (%s)", flag, want, syn.Error(), jsonPosition(raw, syn.Offset-1))
+	case errors.As(err, &typ) && typ.Field == "":
+		return fmt.Errorf("%s must be a JSON %s, got %s", flag, want, withArticle(typ.Value))
+	}
+	return fmt.Errorf("%s: %v", flag, err)
+}
+
+func jsonPosition(raw []byte, offset int64) string {
+	offset = max(0, min(offset, int64(len(raw))))
+	before := raw[:offset]
+	line := bytes.Count(before, []byte("\n")) + 1
+	column := len(before) - bytes.LastIndexByte(before, '\n')
+	return fmt.Sprintf("line %d, column %d", line, column)
+}
+
+func topLevelKind(raw []byte) string {
+	switch t := bytes.TrimSpace(raw); {
+	case len(t) > 0 && t[0] == '{':
+		return "object"
+	case len(t) > 0 && t[0] == '[':
+		return "array"
+	}
+	return "value"
+}
+
+func withArticle(jsonType string) string {
+	if jsonType == "bool" {
+		return "true or false"
+	}
+	if strings.ContainsRune("aeiou", rune(jsonType[0])) {
+		return "an " + jsonType
+	}
+	return "a " + jsonType
 }
 
 // ParseJSONMap parses a JSON object from raw input.
@@ -83,7 +140,7 @@ func ParseJSONMap(input, label string, stdin io.Reader) (map[string]any, error) 
 	}
 	var result map[string]any
 	if err := DecodeJSON([]byte(resolved), &result); err != nil {
-		return nil, fmt.Errorf("%s invalid format, expected JSON object", label)
+		return nil, JSONInputError(label, []byte(resolved), err, "object")
 	}
 	return result, nil
 }
@@ -104,7 +161,7 @@ func ParseOptionalBody(httpMethod, data string, stdin io.Reader) (any, error) {
 	}
 	var body any
 	if err := DecodeJSON([]byte(resolved), &body); err != nil {
-		return nil, fmt.Errorf("--data invalid JSON format")
+		return nil, JSONInputError("--data", []byte(resolved), err, "object")
 	}
 	return body, nil
 }

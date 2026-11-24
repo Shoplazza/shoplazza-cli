@@ -65,8 +65,6 @@ func ResolveTemplatedPath(pathTemplate string, params map[string]any) (string, m
 	return expandPath(pathTemplate, params)
 }
 
-// escapePathValue percent-encodes a path parameter value, "/" included, so the
-// value stays one path segment.
 func escapePathValue(v string) string {
 	return url.PathEscape(v)
 }

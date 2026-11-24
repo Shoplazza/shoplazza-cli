@@ -63,7 +63,7 @@ func readJSONObjectInput(flag, val string) (map[string]any, error) {
 	}
 	var out map[string]any
 	if err := cmdutil.DecodeJSON(raw, &out); err != nil {
-		return nil, output.ErrValidation("%s must be a JSON object: %v", flag, err)
+		return nil, output.ErrValidation("%v", cmdutil.JSONInputError(flag, raw, err, "object"))
 	}
 	return out, nil
 }

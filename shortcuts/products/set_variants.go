@@ -415,7 +415,6 @@ func (m *matrix) findValue(d int, v string) (int, error) {
 	return i, nil
 }
 
-// bareDim names the one dimension holding the value of a "value=x", or "<Dim>".
 func (m *matrix) bareDim(bare string) string {
 	v, _, _ := strings.Cut(bare, "=")
 	name := ""
@@ -1135,7 +1134,7 @@ type perValue struct {
 	scalar  string
 	dim     string
 	pairs   [][2]string
-	bare    string            // a "value=x" given without its "Dim:" prefix
+	bare    string            // "value=x" without "Dim:"
 	d       int               // the dimension's index once bound, -1 if none
 	byValue map[string]string // value (as on the edited matrix) → raw
 }
