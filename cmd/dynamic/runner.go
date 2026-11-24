@@ -2,7 +2,6 @@ package dynamic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net"
 	"sort"
@@ -189,7 +188,7 @@ func parseParams(cmd *cobra.Command) (map[string]any, error) {
 		return map[string]any{}, nil
 	}
 	var out map[string]any
-	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+	if err := cmdutil.DecodeJSON([]byte(raw), &out); err != nil {
 		return nil, output.ErrValidation("--params must be valid JSON object: %v", err)
 	}
 	if out == nil {

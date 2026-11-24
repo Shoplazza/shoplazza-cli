@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -76,7 +77,8 @@ func TestParseOptionalBody_PostEmpty(t *testing.T) {
 }
 
 func TestParseOptionalBody_PostValidJSON(t *testing.T) {
-	body, err := ParseOptionalBody("POST", `{"key":"val"}`, nil)
+	const in = `{"id":638982951773671231,"key":"val","price":1.50}`
+	body, err := ParseOptionalBody("POST", in, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -86,6 +88,9 @@ func TestParseOptionalBody_PostValidJSON(t *testing.T) {
 	}
 	if m["key"] != "val" {
 		t.Errorf("body[key] = %v, want val", m["key"])
+	}
+	if out, _ := json.Marshal(body); string(out) != in {
+		t.Errorf("re-encoded body = %s, want %s", out, in)
 	}
 }
 
@@ -102,9 +107,10 @@ func TestParseOptionalBody_ValidJSON(t *testing.T) {
 }
 
 func TestParseOptionalBody_InvalidJSON(t *testing.T) {
-	_, err := ParseOptionalBody("POST", `not-json`, nil)
-	if err == nil {
-		t.Error("expected error for invalid JSON body")
+	for _, in := range []string{`not-json`, `{"a":1} x`, `{"a":1}{"b":2}`} {
+		if _, err := ParseOptionalBody("POST", in, nil); err == nil {
+			t.Errorf("%s: expected error for invalid JSON body", in)
+		}
 	}
 }
 
@@ -118,15 +124,16 @@ func TestParseJSONMap_Empty(t *testing.T) {
 }
 
 func TestParseJSONMap_ValidJSON(t *testing.T) {
-	m, err := ParseJSONMap(`{"k":"v"}`, "test", nil)
-	if err != nil || m["k"] != "v" {
+	m, err := ParseJSONMap(`{"k":"v","id":638982951773671231}`, "test", nil)
+	if err != nil || m["k"] != "v" || m["id"] != json.Number("638982951773671231") {
 		t.Errorf("valid: got (%v, %v)", m, err)
 	}
 }
 
 func TestParseJSONMap_InvalidJSON(t *testing.T) {
-	_, err := ParseJSONMap(`[1,2,3]`, "test", nil)
-	if err == nil {
-		t.Error("expected error for JSON array (not object)")
+	for _, in := range []string{`[1,2,3]`, `{"k":"v"} x`} {
+		if _, err := ParseJSONMap(in, "test", nil); err == nil {
+			t.Errorf("%s: expected error", in)
+		}
 	}
 }

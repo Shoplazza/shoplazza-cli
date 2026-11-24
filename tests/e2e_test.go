@@ -5,6 +5,7 @@ package tests_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -141,16 +142,18 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 		hits  int
 		path  string
 		query map[string][]string
+		raw   []byte
 		body  map[string]any
 	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits++
 		path = r.URL.EscapedPath()
 		query = r.URL.Query()
+		raw, _ = io.ReadAll(r.Body)
 		body = nil
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		_ = json.Unmarshal(raw, &body)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{"warehouse_id":638982951773671231}`))
 	}))
 	defer srv.Close()
 	bin := buildBinary(t)
@@ -176,7 +179,19 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 			t.Errorf("%v: exit %d, path %q, want %q; stderr=%s", c.args, code, path, c.wantPath, stderr)
 		}
 	}
-	stdout, _, code := runCLI(t, bin, env, "orders", "get-by-number", "--params", `{"number":"#1001"}`, "--dry-run")
+	const big = "638982951773671231"
+	stdout, stderr, code := runCLI(t, bin, env, "products", "update", "--params", `{"product_id":`+big+`}`,
+		"--data", `{"product":{"vendor_id":`+big+`}}`, "-q", ".data.warehouse_id")
+	if code != 0 || path != "/openapi/2026-01/products/"+big || string(raw) != `{"product":{"vendor_id":`+big+`}}` ||
+		stdout != big+"\n" {
+		t.Errorf("64-bit ids: exit %d, path %q, body %s, -q %q; stderr=%s", code, path, raw, stdout, stderr)
+	}
+	if _, stderr, code := runCLI(t, bin, env, "api", "rest", "GET", "/openapi/2026-01/products",
+		"--params", `{"since_id":`+big+`}`); code != 0 || query["since_id"][0] != big {
+		t.Errorf("api rest 64-bit query: exit %d, query %v; stderr=%s", code, query, stderr)
+	}
+
+	stdout, _, code = runCLI(t, bin, env, "orders", "get-by-number", "--params", `{"number":"#1001"}`, "--dry-run")
 	if code != 0 || !strings.Contains(stdout, `"path": "/openapi/2026-01/orders/number/1001"`) ||
 		!strings.Contains(stdout, `dropped the leading # from number`) {
 		t.Errorf("get-by-number dry-run: exit %d, stdout=%s", code, stdout)
@@ -517,7 +532,7 @@ func TestUnknownSubcommand_IsUsageError(t *testing.T) {
 		{"flag near name", []string{"customers", "+search", "--emial", "a@b.c"}, unknownFlag, "unknown flag: --emial" + mean + "--email", "--help"},
 		{"spec leaf flag near name", []string{"orders", "list", "--param", "{}"}, unknownFlag, "unknown flag: --param" + mean + "--params", "--help"},
 		{"deprecated alias points at its canonical flag", []string{"discounts", "+percent-code", "--percnt", "10"}, unknownFlag, "unknown flag: --percnt" + mean + "--percent-off", "--help"},
-		{"flag with no near name",[]string{"customers", "+search", "--xyz"}, unknownFlag, "unknown flag: --xyz", "--help"},
+		{"flag with no near name", []string{"customers", "+search", "--xyz"}, unknownFlag, "unknown flag: --xyz", "--help"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

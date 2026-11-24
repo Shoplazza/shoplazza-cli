@@ -1,7 +1,9 @@
 package cmdutil
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -56,6 +58,20 @@ func ResolveInput(raw string, stdin io.Reader) (string, error) {
 	return raw, nil
 }
 
+// DecodeJSON is json.Unmarshal with numbers kept as json.Number, so an integer
+// past 2^53 is re-encoded digit for digit.
+func DecodeJSON(data []byte, v any) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	if err := dec.Decode(v); err != nil {
+		return err
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return errors.New("invalid character after top-level value")
+	}
+	return nil
+}
+
 // ParseJSONMap parses a JSON object from raw input.
 func ParseJSONMap(input, label string, stdin io.Reader) (map[string]any, error) {
 	resolved, err := ResolveInput(input, stdin)
@@ -66,7 +82,7 @@ func ParseJSONMap(input, label string, stdin io.Reader) (map[string]any, error) 
 		return map[string]any{}, nil
 	}
 	var result map[string]any
-	if err := json.Unmarshal([]byte(resolved), &result); err != nil {
+	if err := DecodeJSON([]byte(resolved), &result); err != nil {
 		return nil, fmt.Errorf("%s invalid format, expected JSON object", label)
 	}
 	return result, nil
@@ -87,7 +103,7 @@ func ParseOptionalBody(httpMethod, data string, stdin io.Reader) (any, error) {
 		return nil, nil
 	}
 	var body any
-	if err := json.Unmarshal([]byte(resolved), &body); err != nil {
+	if err := DecodeJSON([]byte(resolved), &body); err != nil {
 		return nil, fmt.Errorf("--data invalid JSON format")
 	}
 	return body, nil

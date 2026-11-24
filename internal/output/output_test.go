@@ -2,6 +2,7 @@ package output_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -91,12 +92,18 @@ func TestExitError_Error_NilDetailNilErr(t *testing.T) {
 
 func TestPrintAPISuccess_JQ_FieldFromEnvelope(t *testing.T) {
 	var buf bytes.Buffer
-	body := map[string]any{"foo": "bar"}
+	body := map[string]any{"foo": "bar", "id": json.Number("638982951773671231")}
 	if err := output.PrintAPISuccess(&buf, body, "json", ".data.foo"); err != nil {
 		t.Fatalf("PrintAPISuccess: %v", err)
 	}
 	if buf.String() != "bar\n" {
 		t.Errorf("jq .data.foo = %q, want %q", buf.String(), "bar\n")
+	}
+	for expr, want := range map[string]string{".data.id": "638982951773671231\n", ".data.id + 1": "638982951773671232\n"} {
+		buf.Reset()
+		if err := output.PrintAPISuccess(&buf, body, "json", expr); err != nil || buf.String() != want {
+			t.Errorf("jq %s = %q (%v), want %q", expr, buf.String(), err, want)
+		}
 	}
 }
 
