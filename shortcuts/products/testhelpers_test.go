@@ -35,4 +35,4 @@ func newProductExecInput(t *testing.T, flags map[string]string, values map[strin
 	return common.ExecInput{Flags: common.NewCobraFlagSet(cmd), DryRun: dryRun}
 }
 
-var productIDFlags = map[string]string{"id": "string"}
+var productIDFlags = map[string]string{"product-id": "string"}

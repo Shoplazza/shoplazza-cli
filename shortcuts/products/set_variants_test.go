@@ -915,7 +915,7 @@ func (s *editServer) run(t *testing.T, product map[string]any, args ...string) (
 			cmd.Flags().String(f.Name, "", "")
 		}
 	}
-	cmd.SetArgs(append([]string{"--id=p-1"}, args...))
+	cmd.SetArgs(append([]string{"--product-id=p-1"}, args...))
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("cmd.Execute: %v", err)
 	}

@@ -113,25 +113,25 @@ func tagInputWithClient(t *testing.T, values map[string]string, baseURL string) 
 }
 
 var tagExecFlags = map[string]string{
-	"id": "string", "add": "stringslice", "remove": "stringslice", "set": "stringslice",
+	"product-id": "string", "add": "stringslice", "remove": "stringslice", "set": "stringslice",
 }
 
 func TestTagExecute_NoMutationFlagErrors(t *testing.T) {
-	in := newProductExecInput(t, tagExecFlags, map[string]string{"id": "p-1"}, false)
+	in := newProductExecInput(t, tagExecFlags, map[string]string{"product-id": "p-1"}, false)
 	if _, err := tagShortcut.Execute(context.Background(), in); err == nil {
 		t.Error("expected error when none of --add/--remove/--set is given")
 	}
 }
 
 func TestTagExecute_SetWithAddErrors(t *testing.T) {
-	in := newProductExecInput(t, tagExecFlags, map[string]string{"id": "p-1", "set": "a", "add": "b"}, false)
+	in := newProductExecInput(t, tagExecFlags, map[string]string{"product-id": "p-1", "set": "a", "add": "b"}, false)
 	if _, err := tagShortcut.Execute(context.Background(), in); err == nil {
 		t.Error("expected error when --set is combined with --add")
 	}
 }
 
 func TestTagExecute_DryRun_Set(t *testing.T) {
-	in := newProductExecInput(t, tagExecFlags, map[string]string{"id": "p-1", "set": "x,y,x"}, true)
+	in := newProductExecInput(t, tagExecFlags, map[string]string{"product-id": "p-1", "set": "x,y,x"}, true)
 	r, err := tagShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatal(err)
@@ -147,7 +147,7 @@ func TestTagExecute_DryRun_Set(t *testing.T) {
 }
 
 func TestTagExecute_DryRun_AddRemove(t *testing.T) {
-	in := newProductExecInput(t, tagExecFlags, map[string]string{"id": "p-1", "add": "c"}, true)
+	in := newProductExecInput(t, tagExecFlags, map[string]string{"product-id": "p-1", "add": "c"}, true)
 	r, err := tagShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatal(err)
@@ -167,7 +167,7 @@ func TestTagExecute_Set_NoGet(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"product": map[string]any{"id": "p-1", "tags": []any{"a"}}})
 	}))
 	defer srv.Close()
-	in := tagInputWithClient(t, map[string]string{"id": "p-1", "set": "x,y"}, srv.URL)
+	in := tagInputWithClient(t, map[string]string{"product-id": "p-1", "set": "x,y"}, srv.URL)
 	if _, err := tagShortcut.Execute(context.Background(), in); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestTagExecute_AddMergesWithExisting(t *testing.T) {
 	var putTags []any
 	srv := putTagsRecorder(t, []any{"a", "b"}, &gotPut, &putTags)
 	defer srv.Close()
-	in := tagInputWithClient(t, map[string]string{"id": "p-1", "add": "c"}, srv.URL)
+	in := tagInputWithClient(t, map[string]string{"product-id": "p-1", "add": "c"}, srv.URL)
 	if _, err := tagShortcut.Execute(context.Background(), in); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestTagExecute_RemoveDropsTag(t *testing.T) {
 	var putTags []any
 	srv := putTagsRecorder(t, []any{"a", "b", "c"}, &gotPut, &putTags)
 	defer srv.Close()
-	in := tagInputWithClient(t, map[string]string{"id": "p-1", "remove": "b"}, srv.URL)
+	in := tagInputWithClient(t, map[string]string{"product-id": "p-1", "remove": "b"}, srv.URL)
 	if _, err := tagShortcut.Execute(context.Background(), in); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestTagExecute_NoChangeSkipsPut(t *testing.T) {
 	var putTags []any
 	srv := putTagsRecorder(t, []any{"a", "b"}, &gotPut, &putTags)
 	defer srv.Close()
-	in := tagInputWithClient(t, map[string]string{"id": "p-1", "add": "b"}, srv.URL)
+	in := tagInputWithClient(t, map[string]string{"product-id": "p-1", "add": "b"}, srv.URL)
 	if _, err := tagShortcut.Execute(context.Background(), in); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

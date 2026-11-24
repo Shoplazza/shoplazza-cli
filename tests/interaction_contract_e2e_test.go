@@ -37,9 +37,9 @@ func TestInteraction_NonInteractiveContract(t *testing.T) {
 		args       []string
 	}{
 		{"shortcut fill: products +create", "required flag(s) not set", []string{"products", "+create"}},
-		{"shortcut fill: products +publish", "--id", []string{"products", "+publish"}},
-		{"shortcut fill: products +unpublish", "--id", []string{"products", "+unpublish"}},
-		{"shortcut fill: products +tag", "--id", []string{"products", "+tag"}},
+		{"shortcut fill: products +publish", "--product-id", []string{"products", "+publish"}},
+		{"shortcut fill: products +unpublish", "--product-id", []string{"products", "+unpublish"}},
+		{"shortcut fill: products +tag", "--product-id", []string{"products", "+tag"}},
 		{"shortcut fill: orders +refund", "--order-id", []string{"orders", "+refund", "--amount", "5"}},
 		{"shortcut fill: orders +ship", "--order-id", []string{"orders", "+ship", "--tracking", "X"}},
 		{"shortcut fill: orders +update-tracking", "--order-id", []string{"orders", "+update-tracking", "--tracking", "X"}},

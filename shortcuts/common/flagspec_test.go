@@ -1,6 +1,7 @@
 package common_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -8,9 +9,9 @@ import (
 )
 
 func TestIDFlag_Defaults(t *testing.T) {
-	f := common.IDFlag("Resource ID to fetch.")
-	if f.Name != "id" {
-		t.Errorf("Name: got %q want %q", f.Name, "id")
+	f := common.IDFlag("product", "Product ID to fetch.")
+	if f.Name != "product-id" || !slices.Equal(f.Aliases, []string{"id"}) {
+		t.Errorf("Name/Aliases: got %q/%v want product-id/[id]", f.Name, f.Aliases)
 	}
 	if f.Type != common.FlagString {
 		t.Errorf("Type: got %v want FlagString", f.Type)

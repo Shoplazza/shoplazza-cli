@@ -44,13 +44,13 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Search / filter products | `products +search [--keyword <title-word>] [--vendor <exact>] [--published published\|unpublished\|any] [--collection-id <id>] [--fields id,title]` |
 | Count products | `products +count [--published …]` |
 | Create a single-variant product | `products +create --title <name> --price <n> --image <url> [--published]` |
-| Create a multi-spec product (规格矩阵: color × size × …) | two steps: `products +create --title <name> --price <n> --image <url>` then `products +set-variants --id <new-id> --add "Color:Red,Blue" [--add "Size:S,M"]` (the created variant becomes the first combination; the others copy its price) |
-| Add / remove / replace / rename spec values or dimensions, price variants — any mix in one call | `products +set-variants --id <product-id> [--add\|--remove\|--set "Name:v1,v2"] [--drop "Name[=value]"] [--rename "Name:old=new"] [--new-price …] [--set-price …]` |
-| Publish a product | `products +publish --id <product-id>` |
-| Unpublish (下架) a product | `products +unpublish --id <product-id>` |
+| Create a multi-spec product (规格矩阵: color × size × …) | two steps: `products +create --title <name> --price <n> --image <url>` then `products +set-variants --product-id <new-id> --add "Color:Red,Blue" [--add "Size:S,M"]` (the created variant becomes the first combination; the others copy its price) |
+| Add / remove / replace / rename spec values or dimensions, price variants — any mix in one call | `products +set-variants --product-id <product-id> [--add\|--remove\|--set "Name:v1,v2"] [--drop "Name[=value]"] [--rename "Name:old=new"] [--new-price …] [--set-price …]` |
+| Publish a product | `products +publish --product-id <product-id>` |
+| Unpublish (下架) a product | `products +unpublish --product-id <product-id>` |
 | Change a variant's price | `products +set-price (--variant-id <id> \| --sku <sku> [--all] \| --product-id <id>) --price <n>` |
 | Adjust stock (add or decrease) | `products +stock (--variant-id <id> \| --sku <sku> \| --product-id <id>) (--adjust <±n> \| --set <n>) [--location-id <id>]` |
-| Add / remove / replace tags | `products +tag --id <product-id> (--add a,b \| --remove c,d \| --set x,y)` |
+| Add / remove / replace tags | `products +tag --product-id <product-id> (--add a,b \| --remove c,d \| --set x,y)` |
 | Get one product | `products get --params '{"product_id":"<id>"}'` |
 | List (filters `+search` lacks: ids, handles, date ranges, spus…) | `products list --params '{…}'` |
 | Full-control create (fields the shortcuts lack) | `products create --data '{"product":{…}}'` (see `schema products.create`) |
@@ -97,7 +97,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 有多少商品 / 商品总数 / how many products do I sell | `+count` | 已上架 → `--published published`; count comes from `.data.count` — never count by hand |
 | 新建商品 / 建品 / 上新 / create a new product | `+create` | product name → `--title` verbatim; 售价 → `--price`; 主图/图片 URL → `--image`; "上架" wording → add `--published`; "存草稿/draft" → **omit** `--published` |
 | 建多规格商品 / 有颜色和尺码的商品 / create a product with color & size options | `+create` then `+set-variants --add` | step 1: `+create` as above (draft); step 2: each dimension → one `--add "Name:v1,v2,…"` (max 3, order = storefront order) in one call (no price: every combo copies the price `+create` set; no `--existing`: the created variant takes the first values); per-combo skus → `--sku-template` with `{Name}` placeholders; publish last |
-| 加一个颜色 / 加几个码 / add a spec value | `+set-variants --add` | `--id` (or resolve by name); the dimension + new values → `--add "Color:White"`; one new variant per existing combination of the other dimensions (combos deleted earlier stay deleted); new combos need `--new-price` (per value: `--new-price "Color:White=19,Black=21"`) and, on products that require variant images, `--new-image` |
+| 加一个颜色 / 加几个码 / add a spec value | `+set-variants --add` | `--product-id` (or resolve by name); the dimension + new values → `--add "Color:White"`; one new variant per existing combination of the other dimensions (combos deleted earlier stay deleted); new combos need `--new-price` (per value: `--new-price "Color:White=19,Black=21"`) and, on products that require variant images, `--new-image` |
 | 加一个规格维度 / add a whole new dimension (e.g. 加个尺码规格) | `+set-variants --add` + `--existing` | unknown dimension name = new dimension. Existing variants take the value named by `--existing "Size:<value>"` (required when the dimension gets several values) and keep id/sku/stock/image; the other values get new variants copying price/compare-at/weight/image — **no sku, no stock** (`--new-stock` sets one). No price needed. Ask which value the current variants are before running |
 | 删掉某个颜色/码 / remove a spec value | `+set-variants --remove` | `--remove "Color:Red"`; affected variants are deleted and listed in the output. Values need their exact spelling (case-sensitive; a case-only mismatch is refused with a "did you mean"). A name/value that doesn't exist is an error — fix the spelling, never report success |
 | 不按某规格分了 / drop a whole dimension | `+set-variants --drop` | `--drop "Size"` keeps every variant (ids kept); when variants would merge into one combination it is refused — ask which value's variants to keep, then `--drop "Size=M"` (the other values' variants are deleted) |
@@ -105,8 +105,8 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 改名 / 把 Red 改成酒红 / rename a value or dimension | `+set-variants --rename` | value → `--rename "Color:Red=Wine Red"` (several: `"Color:Red=Wine Red,Blue=Navy"`); dimension → `--rename "Color=Colour"`; renames in place — every variant keeps id/sku/stock/image. A new name already taken is refused (to swap two values go through a temporary name); a repeat reports the old name missing ("was it renamed already?") — that means it is done. Never model a rename as remove + add |
 | 规格改动一句话说了好几处（去掉某规格、只留某些值、改名、统一价…） | one `+set-variants` call | put every edit in the same call (`--drop`/`--set`/`--rename`/`--set-price` …): they apply in a fixed order (remove, drop, set, add, rename) and are written in one request; name everything as it is **now** (new names only on the right of `--rename`); the `changes` list in the output says what will happen |
 | 各规格值价格不同 / S 卖 20、M 卖 30 | `+set-variants --set-price "Size:S=20,M=30"` | per-value price for every variant with that value; combine with `--add` when the values are new. A plain number reprices every variant |
-| 上架商品 X / publish product X | `+publish` | id → `--id`; only a name? resolve via `+search --keyword` first |
-| 下架 / 隐藏商品 / unpublish | `+unpublish` | id → `--id` |
+| 上架商品 X / publish product X | `+publish` | id → `--product-id`; only a name? resolve via `+search --keyword` first |
+| 下架 / 隐藏商品 / unpublish | `+unpublish` | id → `--product-id` |
 | 改价 / 调价 / change the price to X | `+set-price` | **Target**: variant id → `--variant-id`; SKU → `--sku`; **product id → `--product-id`** (resolves that product's only variant; multi-variant is refused with the candidates listed); only a name? `+search --keyword` first. New price → `--price` verbatim; **`--price 0` CLEARS the price** (does not display ¥0) — surface that difference and get the user's confirmation before passing 0 |
 | 划线价 / compare-at price | `+set-price --compare-price` | only when the user names it |
 | 库存加 N / 补货 N 件 / add N stock | `+stock --adjust N` | 加/增加 N = positive delta → `--adjust N`. **Target**: variant id → `--variant-id`; SKU → `--sku`; product id → `--product-id` (single-variant products; multi-variant refused with candidates); only a name? `+search --keyword` first — never ask the user for a variant id |
@@ -125,11 +125,11 @@ Only **no-default** flags are askable.
 | Shortcut | Must ASK if user did not specify | Infer if possible | Default silently |
 |---|---|---|---|
 | `+create` | `--price`, `--image` (one batch; **never fabricate a price or an image URL**) | `--title` from the product name in the utterance; `--published` from 上架/publish wording | `--published` (omit = draft), `--sku`, `--stock`, `--stock-policy` (default `deny`), `--compare-price`, `--tags`, `--collection-ids` |
-| `+set-variants` | `--new-price` **only when brand-new values appear** (adding a value to an existing dimension; adding a dimension copies prices, a delete or rename needs none); `--new-image` likewise, only when the CLI says the product requires variant images (must be one of the product's images); `--existing` when adding a dimension with several values to a product that has dimensions; the value to keep when `--drop` would merge variants; the dimensions + values (**never invent spec values**; keep the user's value spelling verbatim — values are case-sensitive) | the edit flags from wording (加→`--add`, 删/去掉→`--remove`, 不按…分→`--drop`, 只保留/换成→`--set`, 改名/改成→`--rename`, 统一价/都卖→`--set-price`); `--id` via `+search` by name | `--sku-template`, `--set-stock`, `--new-stock` (optional; omit = skus/stock untouched) |
+| `+set-variants` | `--new-price` **only when brand-new values appear** (adding a value to an existing dimension; adding a dimension copies prices, a delete or rename needs none); `--new-image` likewise, only when the CLI says the product requires variant images (must be one of the product's images); `--existing` when adding a dimension with several values to a product that has dimensions; the value to keep when `--drop` would merge variants; the dimensions + values (**never invent spec values**; keep the user's value spelling verbatim — values are case-sensitive) | the edit flags from wording (加→`--add`, 删/去掉→`--remove`, 不按…分→`--drop`, 只保留/换成→`--set`, 改名/改成→`--rename`, 统一价/都卖→`--set-price`); `--product-id` via `+search` by name | `--sku-template`, `--set-stock`, `--new-stock` (optional; omit = skus/stock untouched) |
 | `+set-price` | `--price` (never invent a number) | the target, from what the user gave: **variant** id → `--variant-id`, SKU → `--sku`, **product** id → `--product-id` (resolves that product's only variant). Never ask for a variant id — resolve it | `--compare-price`; `--all` (only when the user explicitly wants every variant matching the SKU) |
 | `+stock` | the amount — **and nothing else**. Never ask for a variant id or an inventory-item id; resolve them | `--adjust` vs `--set` from wording (加 N = `--adjust N`; 减/扣 N = `--adjust -N`; 设为 N = `--set N`); the target exactly as `+set-price`: variant id → `--variant-id`, SKU → `--sku`, product id → `--product-id`. No `--all` here — inventory writes target one variant | `--location-id` (defaults to the default location) |
-| `+publish` / `+unpublish` | `--id` (or resolve it via `+search` by name) | — | — (takes only `--id`) |
-| `+tag` | `--id`, the tag values | add/remove/set mode from wording | — |
+| `+publish` / `+unpublish` | `--product-id` (or resolve it via `+search` by name) | — | — (takes only `--product-id`) |
+| `+tag` | `--product-id`, the tag values | add/remove/set mode from wording | — |
 | `+search` / `+count` | *(nothing — all filters optional)* | filters from wording | `--page-limit`, `--fields` |
 
 **Identifier ladder — resolve, don't ask.** Merchants hold product names and product ids.
@@ -174,11 +174,11 @@ override only) · `--sku-template` / `--set-stock` / `--new-stock` on `+set-vari
 | "给变体 12345 的库存加 50 件" | CREATE — `+stock --variant-id 12345 --adjust 50` |
 | "把变体 88664 的库存减少 30 件" | CREATE — `+stock --variant-id 88664 --adjust -30`; if the CLI refuses (below 0 / non-default location / multi-location item), relay the reason and offer alternatives |
 | "给老客户发一张礼品卡" | ASK — `initial_value` + `code` (money; never fabricate) |
-| "建一个文胸套装，3 个颜色、15 个胸围码、6 个内裤码，统一 29.99" | ASK `--image` first, then two steps: `+create --title … --price 29.99 --image …` → `+set-variants --id <new> --add "Color:…" --add "Bra Size:…" --add "Brief Size:…"` (every combo copies 29.99) |
-| "给这个商品加个 White 色" | CREATE — `+set-variants --id <id> --add "Color:White" --new-price <n>`; ask the price if unknown (the new combos need one) |
-| "给已上架的 T 恤加一个尺码维度 S/M/L" | ASK FIRST — which size the current variants are (they keep id/sku/stock); the other sizes are created with each colour's price but **no sku and zero stock**. Then `+set-variants --id <id> --add "Size:S,M,L" --existing "Size:<answer>"` |
-| "把红色改名叫酒红" | CREATE — `+set-variants --id <id> --rename "Color:Red=酒红"` (in place; ids/sku/stock kept) |
-| "不要 lenses 规格了只留 6lenses 的，款式只要 Ocean 改叫 2 lenses，价格全部 19.9" | CONFIRM FIRST (variants are deleted) — one call: `+set-variants --id <id> --drop "lenses=6lenses" --set "Style:Ocean" --rename "Style:Ocean=2 lenses" --set-price 19.9 --dry-run`, relay its `changes`, then run it |
+| "建一个文胸套装，3 个颜色、15 个胸围码、6 个内裤码，统一 29.99" | ASK `--image` first, then two steps: `+create --title … --price 29.99 --image …` → `+set-variants --product-id <new> --add "Color:…" --add "Bra Size:…" --add "Brief Size:…"` (every combo copies 29.99) |
+| "给这个商品加个 White 色" | CREATE — `+set-variants --product-id <id> --add "Color:White" --new-price <n>`; ask the price if unknown (the new combos need one) |
+| "给已上架的 T 恤加一个尺码维度 S/M/L" | ASK FIRST — which size the current variants are (they keep id/sku/stock); the other sizes are created with each colour's price but **no sku and zero stock**. Then `+set-variants --product-id <id> --add "Size:S,M,L" --existing "Size:<answer>"` |
+| "把红色改名叫酒红" | CREATE — `+set-variants --product-id <id> --rename "Color:Red=酒红"` (in place; ids/sku/stock kept) |
+| "不要 lenses 规格了只留 6lenses 的，款式只要 Ocean 改叫 2 lenses，价格全部 19.9" | CONFIRM FIRST (variants are deleted) — one call: `+set-variants --product-id <id> --drop "lenses=6lenses" --set "Style:Ocean" --rename "Style:Ocean=2 lenses" --set-price 19.9 --dry-run`, relay its `changes`, then run it |
 | "不按 lenses 分了"（lenses 有多个值） | ASK — which lenses value's variants to keep; then `--drop "lenses=<value>"` |
 
 ## Boundaries
@@ -237,7 +237,7 @@ shoplazza-common).
 | `+set-variants` treats `S` and `s` as different values | Values are case-sensitive on the server; a new value differing only by case from another of its dimension is refused (add, update, new dimension), and remove needs the exact spelling | Use the exact spelling; respell with `--rename` |
 | A spec value is listed on the product but has no variants | Other edits leave it alone; `--add` / `--set` naming it creates its variants (one per existing combination of the other dimensions — needs `--new-price`) | Expected; drop it with `--remove` if it shouldn't be offered |
 | `--new-price` passed to `+set-variants` but some prices didn't change | `--new-price` only prices new variants with nothing to copy from; it never changes an existing price (the output's `price_applied` / `warnings` say so) | Reprice with `--set-price` (every variant, or per value `"Size:S=20"`) |
-| New product can't be ordered; API says "Out-of-stock" though stock is set | The product is a draft (`+create` default) — drafts are unorderable and the error message is misleading | `products +publish --id <id>` first |
+| New product can't be ordered; API says "Out-of-stock" though stock is set | The product is a draft (`+create` default) — drafts are unorderable and the error message is misleading | `products +publish --product-id <id>` first |
 | `+set-price --sku` refused with a candidate list | The SKU matched several variants — the CLI refuses a multi-match | Pick the right `--variant-id` from the listed candidates, or pass `--all` only for an explicit "all of them" |
 | A product id in `--variant-id` → 404 `No variants found` (or "no inventory item found for that variant") | `--variant-id` is variant-scoped (`PUT /variants/{variant_id}`); a product id never matches it | Pass it to `--product-id` instead — the error's `hint` says so. Or list first: `products variants list --params '{"product_id":"<id>"}'` |
 | `--product-id` refused: "product … has N variants" | A multi-variant product has no single price or stock target | Ask the user which one, using the candidates in the `hint` (capped at 10 — it names the command that lists the rest), then re-run with `--variant-id` or `--sku`. Never guess `variants[0]` |
@@ -266,7 +266,7 @@ products +create --title "Lycra 瑜伽裤" --price 39.99 --image https://cdn.exa
 
 # 5. Publish a product you only know by name
 ID=$(products +search --keyword "瑜伽裤" --jq '.data.products[0].id')
-products +publish --id "$ID"
+products +publish --product-id "$ID"
 
 # 6. Restock / reprice a product you only know by product id (single-variant product)
 #    --product-id resolves the one variant. A multi-variant product is refused with
@@ -282,7 +282,7 @@ VID=$(products variants list --params '{"product_id":"9036f033-c605-4b6f-8a08-1b
 products +stock --variant-id "$VID" --set 20
 
 # 8. Append tags without clobbering the existing ones
-products +tag --id 445566 --add summer,sale
+products +tag --product-id 445566 --add summer,sale
 
 # 9. Delete one product — dry-run, restate, wait for the user's go-ahead, then run
 products delete --params '{"product_id":"778899"}' --dry-run
@@ -298,30 +298,30 @@ products variants update --params '{"variant_id":"24680"}' --data '{"variant":{"
 # 12. Create a multi-spec product: draft first, then add the dimensions (3 colors × 2 sizes = 6 variants)
 ID=$(products +create --title "Yoga Set" --price 29.99 --image https://cdn.example.com/yoga.jpg \
   --jq '.data.product.id')
-products +set-variants --id "$ID" --add "Color:Black,White,Pink" --add "Size:S,M" \
+products +set-variants --product-id "$ID" --add "Color:Black,White,Pink" --add "Size:S,M" \
   --sku-template "YS-{Color}-{Size}"
 
 # 13. Add one color to an existing product (existing variants untouched)
-products +set-variants --id 7ab09fcd-…  --add "Color:White" --new-price 29.99
+products +set-variants --product-id 7ab09fcd-…  --add "Color:White" --new-price 29.99
 
 # 14. Add a whole dimension — existing variants become 70B (id/sku/stock kept); 70A/70C copy the
 #     price with no sku/stock: ask which value the current variants are first
-products +set-variants --id 7ab09fcd-… --add "Bra Size:70A,70B,70C" --existing "Bra Size:70B"
+products +set-variants --product-id 7ab09fcd-… --add "Bra Size:70A,70B,70C" --existing "Bra Size:70B"
 
 # 15. Drop one value / a whole dimension (deleted variants are listed in the output)
-products +set-variants --id 7ab09fcd-… --remove "Color:Pink"
-products +set-variants --id 7ab09fcd-… --drop "Size=M"
+products +set-variants --product-id 7ab09fcd-… --remove "Color:Pink"
+products +set-variants --product-id 7ab09fcd-… --drop "Size=M"
 
 # 15b. Rename a value / a dimension in place (every variant keeps its id, sku and stock)
-products +set-variants --id 7ab09fcd-… --rename "Color:Red=Wine Red"
-products +set-variants --id 7ab09fcd-… --rename "Color=Colour"
+products +set-variants --product-id 7ab09fcd-… --rename "Color:Red=Wine Red"
+products +set-variants --product-id 7ab09fcd-… --rename "Color=Colour"
 
 # 15c. Several edits in one call — preview, relay "changes", then run
-products +set-variants --id 7ab09fcd-… --drop "lenses=6lenses" --set "Style:Ocean" \
+products +set-variants --product-id 7ab09fcd-… --drop "lenses=6lenses" --set "Style:Ocean" \
   --rename "Style:Ocean=2 lenses" --set-price 19.9 --dry-run
 
 # 15d. Prices per value
-products +set-variants --id 7ab09fcd-… --set-price "Size:S=20,M=25,L=30"
+products +set-variants --product-id 7ab09fcd-… --set-price "Size:S=20,M=25,L=30"
 
 # 16. Put a product into a collection
 products collects create --data '{"collect":{"collection_id":"999000","product_id":"555777"}}'

@@ -6,11 +6,12 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
-// IDFlag returns a required --id string flag with the given description.
-// Used for single-resource shortcuts (+get, +delete, +publish, +cancel, etc.).
-func IDFlag(description string) Flag {
+// IDFlag returns the required --<resource>-id string flag of a single-resource
+// shortcut, with --id kept working as a hidden alias.
+func IDFlag(resource, description string) Flag {
 	return Flag{
-		Name:        "id",
+		Name:        resource + "-id",
+		Aliases:     []string{"id"},
 		Type:        FlagString,
 		Required:    true,
 		Description: description,

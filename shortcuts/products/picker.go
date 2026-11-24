@@ -2,7 +2,7 @@ package products
 
 import "github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 
-// productPicker lets a human who omits --id fuzzy-select a product by title.
+// productPicker lets a human who omits --product-id fuzzy-select a product by title.
 // The id behind the chosen title is written onto the flag. Non-interactive
 // callers never see it.
 var productPicker = &common.ResourcePicker{
