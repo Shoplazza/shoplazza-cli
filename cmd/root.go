@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/api"
@@ -84,7 +85,33 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 
 	applyRootGroups(rootCmd)
 
+	// A group given an unknown subcommand prints nothing here; Execute reports it.
+	showHelp := rootCmd.HelpFunc()
+	rootCmd.SetHelpFunc(func(c *cobra.Command, args []string) {
+		if unknownSubcommand(c) == nil {
+			showHelp(c, args)
+		}
+	})
+
 	return rootCmd
+}
+
+// unknownSubcommand reports the first positional arg left on a non-runnable command group.
+func unknownSubcommand(c *cobra.Command) *output.ExitError {
+	args := c.Flags().Args()
+	if c.Runnable() || !c.HasSubCommands() || len(args) == 0 {
+		return nil
+	}
+	msg := fmt.Sprintf("unknown command %q for %q", args[0], c.CommandPath())
+	if c.SuggestionsMinimumDistance <= 0 {
+		c.SuggestionsMinimumDistance = 2
+	}
+	if s := c.SuggestionsFor(args[0]); len(s) > 0 && !c.DisableSuggestions {
+		msg += "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
+	}
+	return output.ErrValidation("%s", msg).
+		WithSubtype(output.SubtypeUnknownCommand).
+		WithHint("run '" + c.CommandPath() + " --help' to list available commands")
 }
 
 // defaultOutputFormat resolves the --format flag's default. Precedence:
@@ -185,7 +212,12 @@ func Execute() (exitCode int) {
 			build.DisplayVersion(), build.DisplayDate(), skillLine()))
 	}
 
-	execErr := rootCmd.ExecuteContext(ctx)
+	ran, execErr := rootCmd.ExecuteContextC(ctx)
+	if execErr == nil {
+		if err := unknownSubcommand(ran); err != nil {
+			execErr = err
+		}
+	}
 
 	var exitErr *output.ExitError
 	isExitErr := errors.As(execErr, &exitErr)

@@ -489,6 +489,51 @@ func TestErrorOutput_IsJSONEnvelope(t *testing.T) {
 	}
 }
 
+func TestUnknownSubcommand_IsUsageError(t *testing.T) {
+	bin := buildBinary(t)
+	env := apiEnv("http://127.0.0.1:1")
+
+	tests := []struct {
+		name    string
+		args    []string
+		message string
+		hint    string
+	}{
+		{"root", []string{"prodd"}, `unknown command "prodd" for "shoplazza"`, "'shoplazza --help'"},
+		{"module", []string{"products", "aa"}, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
+		{"near name", []string{"products", "variant"}, "Did you mean this?\n\tvariants", "'shoplazza products --help'"},
+		{"nested group", []string{"products", "variants", "aa"}, `unknown command "aa" for "shoplazza products variants"`, "'shoplazza products variants --help'"},
+		{"after a flag", []string{"products", "--format", "json", "aa"}, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
+		{"with --help", []string{"products", "aa", "--help"}, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
+		{"static group", []string{"auth", "aa"}, `unknown command "aa" for "shoplazza auth"`, "'shoplazza auth --help'"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout, stderr, code := runCLI(t, bin, env, tt.args...)
+			if code != 2 || stdout != "" {
+				t.Fatalf("exit %d, stdout %q; want exit 2 and empty stdout", code, stdout)
+			}
+			var got struct {
+				Error struct{ Subtype, Message, Hint string }
+			}
+			if err := json.Unmarshal([]byte(stderr), &got); err != nil {
+				t.Fatalf("stderr not JSON: %v\n%s", err, stderr)
+			}
+			e := got.Error
+			if e.Subtype != "unknown_command" || !strings.Contains(e.Message, tt.message) || !strings.Contains(e.Hint, tt.hint) {
+				t.Errorf("error = %+v; want unknown_command, message containing %q, hint containing %q", e, tt.message, tt.hint)
+			}
+		})
+	}
+
+	for _, args := range [][]string{{"products"}, {"products", "--help"}} {
+		stdout, _, code := runCLI(t, bin, env, args...)
+		if code != 0 || !strings.Contains(stdout, "shoplazza products [command]") {
+			t.Errorf("%v: exit %d, stdout %q; want exit 0 and the group's help", args, code, stdout)
+		}
+	}
+}
+
 func TestAuthStatus_NotLoggedIn(t *testing.T) {
 	bin := buildBinary(t)
 	// Isolate the config dir so we don't read real auth state. runCLI passes
