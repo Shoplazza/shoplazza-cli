@@ -49,6 +49,11 @@ Errors are written to **stderr** as:
 - **`subtype`** — stable, machine-branchable id within a `type` (e.g.
   `unknown_command`, `unknown_flag`, `missing_required_flag`,
   `invalid_flag_value`, `invalid_argument`). Recover on this, not on `message`.
+  Spec leaves add three, with `param` set to the key or field:
+  `unknown_param` (a `--params` key the command does not declare),
+  `misplaced_param` (a `--params` key that is a body field: move it into
+  `--data`) and `missing_required_field` (a required top-level body field is
+  absent from `--data`).
 - **`param`** — the offending flag/parameter name, when known.
 - **`message` / `hint`** — human text and a next step. Never parse `message`.
 - **`code` / `detail`** — server business code and HTTP context, for api/auth

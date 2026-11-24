@@ -81,7 +81,8 @@ func TestRunE_DryRunDoesNotSendRequest(t *testing.T) {
 	f, out, _ := newRunFactory(t, srv)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
 
-	cmd := registry.Command{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/orders"}}
+	cmd := registry.Command{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/orders"},
+		Parameters: []registry.Parameter{{Name: "page_size", In: "query"}}}
 	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule")
 	// --dry-run is inherited from the root's PersistentFlags in production;
 	// wrap the leaf in a stub parent that mirrors that setup.
@@ -111,7 +112,8 @@ func TestRunE_HappyPathListGET(t *testing.T) {
 	f, out, _ := newRunFactory(t, srv)
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
 
-	cmd := registry.Command{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/openapi/2026-01/discounts"}}
+	cmd := registry.Command{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/openapi/2026-01/discounts"},
+		Parameters: []registry.Parameter{{Name: "page_size", In: "query"}}}
 	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule")
 	leaf.SetArgs([]string{"--params", `{"page_size":10}`})
 	if err := leaf.Execute(); err != nil {
@@ -187,5 +189,85 @@ func TestRunE_BodyPOSTWithData(t *testing.T) {
 	}
 	if !strings.Contains(string(gotBody), `"code":"X"`) {
 		t.Fatalf("body = %q", gotBody)
+	}
+}
+
+func TestRunE_ParamsAndBodyChecks(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("server must not be hit")
+	}))
+	defer srv.Close()
+	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
+
+	sessionLeaf := registry.Command{
+		Path: []string{"add"},
+		HTTP: registry.HTTP{Method: "POST", Path: "/themes/edit-sessions/{oseid}/sections/{section_id}/blocks", Body: "*"},
+		Parameters: []registry.Parameter{
+			{Name: "oseid", In: "path", Required: true}, {Name: "section_id", In: "path", Required: true},
+		},
+		Body: &registry.Body{Required: true, Fields: []registry.Field{
+			{Name: "doc_id", Required: true}, {Name: "theme_id", Required: true},
+			{Name: "block", Required: true, Schema: "Block"}, {Name: "index"},
+		}},
+	}
+	noParams := registry.Command{Path: []string{"count"}, HTTP: registry.HTTP{Method: "GET", Path: "/customers/count"}}
+	path := `{"oseid":"os1","section_id":"s1"}`
+	full := `{"doc_id":"d1","theme_id":"T1","block":{}}`
+	cases := []struct {
+		name        string
+		cmd         registry.Command
+		args        []string
+		wantSubtype string
+		wantParam   string
+		wantMsg     string
+		wantHint    string
+	}{
+		{"body field in --params", sessionLeaf,
+			[]string{"--params", `{"oseid":"os1","section_id":"s1","theme_id":"T1"}`, "--data", `{"doc_id":"d1","block":{}}`},
+			output.SubtypeMisplacedParam, "theme_id", "theme_id is a request-body field", "move it from --params into --data"},
+		{"two body fields in --params", sessionLeaf,
+			[]string{"--params", `{"oseid":"os1","section_id":"s1","theme_id":"T1","doc_id":"d1"}`, "--data", `{"block":{}}`},
+			output.SubtypeMisplacedParam, "doc_id", "doc_id, theme_id are request-body fields", "move them"},
+		{"undeclared --params key", sessionLeaf,
+			[]string{"--params", `{"oseid":"os1","section_id":"s1","themeid":"T1"}`, "--data", full},
+			output.SubtypeUnknownParam, "themeid", "unknown --params key: themeid", "accepted --params keys: oseid, section_id"},
+		{"--params on a command that declares none", noParams,
+			[]string{"--params", `{"created_at_min":"2026-01-01"}`},
+			output.SubtypeUnknownParam, "created_at_min", "unknown --params key", "takes no --params"},
+		{"required body field missing", sessionLeaf,
+			[]string{"--params", path, "--data", `{"doc_id":"d1","block":{}}`},
+			output.SubtypeMissingRequiredField, "theme_id", "--data is missing required field: theme_id", "schema"},
+		{"null counts as missing", sessionLeaf,
+			[]string{"--params", path, "--data", `{"doc_id":"d1","theme_id":null,"block":{}}`},
+			output.SubtypeMissingRequiredField, "theme_id", "missing required field: theme_id", ""},
+		{"no --data at all", sessionLeaf,
+			[]string{"--params", path},
+			output.SubtypeMissingRequiredField, "doc_id", "missing required fields: doc_id, theme_id, block", ""},
+		{"nested fields are not checked", sessionLeaf,
+			[]string{"--params", path, "--data", full}, "", "", "", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f, _, _ := newRunFactory(t, srv)
+			leaf := buildLeafCommand(c.cmd, &registry.Spec{}, f, "testmodule")
+			leaf.SetArgs(append(c.args, "--dry-run"))
+			err := leaf.Execute()
+			if c.wantSubtype == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			var ee *output.ExitError
+			if !errors.As(err, &ee) || ee.Code != output.ExitValidation {
+				t.Fatalf("want a validation error, got %v", err)
+			}
+			if ee.Detail.Subtype != c.wantSubtype || ee.Detail.Param != c.wantParam {
+				t.Errorf("subtype/param = %q/%q, want %q/%q", ee.Detail.Subtype, ee.Detail.Param, c.wantSubtype, c.wantParam)
+			}
+			if !strings.Contains(ee.Detail.Message, c.wantMsg) || !strings.Contains(ee.Detail.Hint, c.wantHint) {
+				t.Errorf("message/hint = %q / %q, want %q / %q", ee.Detail.Message, ee.Detail.Hint, c.wantMsg, c.wantHint)
+			}
+		})
 	}
 }

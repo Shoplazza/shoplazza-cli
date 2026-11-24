@@ -46,9 +46,12 @@ Tiers: shortcuts `+page` (read) / `+edit` (write) / `+card-schema` / `+preview` 
 ## Command map
 
 Intent → command, highest-fit tier first. Authoritative flags live in `themes <cmd> --help` and
-`schema themes.<cmd>`, not this table. Every command that acts on a theme takes `-t <theme_id>`
-(or `theme_id` in `--params`). On `+page` / `+edit` / `block +edit` / `block +get` an omitted `-t`
-means the published theme; `+preview` and `+card-schema` require it.
+`schema themes.<cmd>`, not this table. Shortcuts (`+…`) take the theme as `-t <theme_id>`: on
+`+page` / `+edit` / `block +edit` / `block +get` an omitted `-t` means the published theme;
+`+preview` and `+card-schema` require it. Spec leaves have no `-t`. Where the path has
+`{theme_id}` (`themes get`, `file *`, `template *`, …) it goes in `--params`; the edit-session
+leaves (`app enable/disable`, `section set-props`, `block add/remove/set-props`, `pb save-block`)
+take it in the `--data` body. `schema themes.<cmd>` shows which.
 
 | User intent | Command | Details |
 |---|---|---|

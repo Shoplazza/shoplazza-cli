@@ -136,6 +136,71 @@ func TestProductsList_WithFilters(t *testing.T) {
 // Shortcut time flags go through one parser: --since/--until reach the
 // server as RFC3339 UTC, --start/--end as unix seconds, and a bad value exits
 // 2 with the flag named, before any request is sent.
+func TestSpecLeafParamsAndBody_MockServer(t *testing.T) {
+	var (
+		hits  int
+		query map[string][]string
+		body  map[string]any
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		query = r.URL.Query()
+		body = nil
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	bin := buildBinary(t)
+	env := apiEnv(srv.URL)
+
+	_, stderr, code := runCLI(t, bin, env, "themes", "block", "add",
+		"--params", `{"oseid":"os1","section_id":"s1"}`, "--data", `{"doc_id":"d1","theme_id":"T1","block":{"type":"text"}}`)
+	if code != 0 || hits != 1 {
+		t.Fatalf("theme_id in --data: exit %d, hits %d, stderr=%s", code, hits, stderr)
+	}
+	if body["theme_id"] != "T1" || len(query) != 0 {
+		t.Errorf("theme_id in --data: body.theme_id=%v query=%v, want T1 and no query", body["theme_id"], query)
+	}
+
+	bad := []struct {
+		args           []string
+		subtype, param string
+	}{
+		{[]string{"themes", "block", "add", "--params", `{"oseid":"os1","section_id":"s1","theme_id":"T1"}`,
+			"--data", `{"doc_id":"d1","block":{"type":"text"}}`}, "misplaced_param", "theme_id"},
+		{[]string{"themes", "app", "enable", "--params", `{"oseid":"os1","theme_id":"T1"}`,
+			"--data", `{"block_id":"b1"}`, "--dry-run"}, "misplaced_param", "theme_id"},
+		{[]string{"themes", "block", "add", "--params", `{"oseid":"os1","section_id":"s1"}`, "--data", `{}`, "--dry-run"},
+			"missing_required_field", "doc_id"},
+		{[]string{"themes", "section", "set-props", "--params", `{"oseid":"os1","section_id":"s1"}`,
+			"--data", `{"doc_id":"d1","props":{}}`}, "missing_required_field", "theme_id"},
+		{[]string{"discounts", "list", "--params", `{"per_page":5}`}, "unknown_param", "per_page"},
+		{[]string{"orders", "get", "--params", `{"id":"o1"}`, "--dry-run"}, "unknown_param", "id"},
+	}
+	for _, c := range bad {
+		before := hits
+		stdout, stderr, code := runCLI(t, bin, env, c.args...)
+		if code != 2 {
+			t.Errorf("%v: exit %d, want 2; stdout=%s stderr=%s", c.args, code, stdout, stderr)
+			continue
+		}
+		if hits != before {
+			t.Errorf("%v: a request was sent", c.args)
+		}
+		var e struct {
+			Error struct{ Type, Subtype, Param string } `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(stderr), &e); err != nil {
+			t.Errorf("%v: stderr is not a JSON envelope: %s", c.args, stderr)
+			continue
+		}
+		if e.Error.Type != "validation" || e.Error.Subtype != c.subtype || e.Error.Param != c.param {
+			t.Errorf("%v: error = %+v, want validation/%s on %s", c.args, e.Error, c.subtype, c.param)
+		}
+	}
+}
+
 func TestShortcutTimeFlags_MockServer(t *testing.T) {
 	var (
 		hits  int

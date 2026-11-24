@@ -58,7 +58,7 @@ func TestDiscountsList_WithFilters(t *testing.T) {
 
 	_, _, code := runCLI(t, bin, env,
 		"discounts", "list",
-		"--params", `{"discount_name":"summer","progress":"ongoing","status":"active","type":"code","per_page":5}`,
+		"--params", `{"discount_name":"summer","progress":"ongoing","discount_type":"code_percent","page_size":5}`,
 	)
 	if code != 0 {
 		t.Fatalf("unexpected exit code %d", code)
@@ -69,8 +69,8 @@ func TestDiscountsList_WithFilters(t *testing.T) {
 	if !strings.Contains(capturedQuery, "progress=ongoing") {
 		t.Errorf("query %q missing progress=ongoing", capturedQuery)
 	}
-	if !strings.Contains(capturedQuery, "per_page=5") {
-		t.Errorf("query %q missing per_page=5", capturedQuery)
+	if !strings.Contains(capturedQuery, "page_size=5") {
+		t.Errorf("query %q missing page_size=5", capturedQuery)
 	}
 }
 

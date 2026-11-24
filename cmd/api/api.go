@@ -27,7 +27,7 @@ const apiLong = `Raw access to the Shoplazza Open Platform API.
 
 Access tiers (high → low abstraction):
   shortcuts  shoplazza products +search / shoplazza discounts +flashsale
-  resource   shoplazza products list / shoplazza orders get --params '{"id":"o1"}'
+  resource   shoplazza products list / shoplazza orders get --params '{"order_id":"o1"}'
   api rest   shoplazza api rest <METHOD> <PATH>   (escape hatch — full coverage)
 
 Requires an active session — run 'shoplazza auth login' first.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -27,6 +28,13 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 		if err != nil {
 			return err
 		}
+		schemaHint := "run 'shoplazza schema " + strings.Join(strings.Fields(cmd.CommandPath())[1:], ".") + "'"
+		if err := checkParamKeys(c, params, schemaHint); err != nil {
+			return err
+		}
+		if err := checkRequiredBody(c, body, schemaHint); err != nil {
+			return err
+		}
 
 		// A human is prompted for any {param} the --params JSON left unset (e.g.
 		// theme_id); non-interactive callers are untouched, so a missing param
@@ -37,9 +45,7 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 
 		resolvedPath, remainingQuery, err := rawapi.ResolveTemplatedPath(c.HTTP.Path, params)
 		if err != nil {
-			schemaPath := strings.Join(strings.Fields(cmd.CommandPath())[1:], ".")
-			return output.ErrValidation("%v", err).
-				WithHint("run 'shoplazza schema " + schemaPath + "' to see required parameters")
+			return output.ErrValidation("%v", err).WithHint(schemaHint + " to see required parameters")
 		}
 
 		req := client.RawRequest{
@@ -85,6 +91,91 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 		}
 		return output.PrintAPISuccess(out, resp.Body, format, jq)
 	}
+}
+
+// checkParamKeys rejects --params keys that are neither a declared parameter
+// nor a {var} of the path template. A key that is a body field gets its own
+// subtype, so a caller knows to move it into --data rather than fix a typo.
+func checkParamKeys(c registry.Command, params map[string]any, schemaHint string) error {
+	declared := map[string]bool{}
+	for _, p := range c.Parameters {
+		declared[p.Name] = true
+	}
+	for _, name := range pathParamNames(c.HTTP.Path) {
+		declared[name] = true
+	}
+	bodyField := map[string]bool{}
+	if c.Body != nil {
+		for _, f := range c.Body.Fields {
+			bodyField[f.Name] = true
+		}
+	}
+	var misplaced, unknown []string
+	for k := range params {
+		switch {
+		case declared[k]:
+		case bodyField[k]:
+			misplaced = append(misplaced, k)
+		default:
+			unknown = append(unknown, k)
+		}
+	}
+	if len(misplaced) > 0 {
+		sort.Strings(misplaced)
+		return output.ErrValidation("%s %s of this command, not %s", strings.Join(misplaced, ", "),
+			plural(misplaced, "is a request-body field", "are request-body fields"),
+			plural(misplaced, "a path/query parameter", "path/query parameters")).
+			WithParam(misplaced[0]).
+			WithSubtype(output.SubtypeMisplacedParam).
+			WithHint("move " + plural(misplaced, "it", "them") + " from --params into --data")
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		accepted := make([]string, 0, len(declared))
+		for k := range declared {
+			accepted = append(accepted, k)
+		}
+		sort.Strings(accepted)
+		hint := "this command takes no --params"
+		if len(accepted) > 0 {
+			hint = "accepted --params keys: " + strings.Join(accepted, ", ")
+		}
+		return output.ErrValidation("unknown --params %s: %s", plural(unknown, "key", "keys"), strings.Join(unknown, ", ")).
+			WithParam(unknown[0]).
+			WithSubtype(output.SubtypeUnknownParam).
+			WithHint(hint + "; " + schemaHint + " for details")
+	}
+	return nil
+}
+
+// checkRequiredBody rejects a request whose --data lacks a required top-level
+// body field. Nested fields are not checked: the metadata marks some of them
+// required on partial-update endpoints (e.g. variant.price on variants update).
+func checkRequiredBody(c registry.Command, body any, schemaHint string) error {
+	if c.Body == nil || !commandHasBody(c) {
+		return nil
+	}
+	m, _ := body.(map[string]any)
+	var missing []string
+	for _, f := range c.Body.Fields {
+		if v, ok := m[f.Name]; f.Required && (!ok || v == nil) {
+			missing = append(missing, f.Name)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return output.ErrValidation("--data is missing required %s: %s", plural(missing, "field", "fields"), strings.Join(missing, ", ")).
+		WithParam(missing[0]).
+		WithSubtype(output.SubtypeMissingRequiredField).
+		WithHint(schemaHint + " to see the body fields")
+}
+
+func plural(items []string, one, many string) string {
+	if len(items) == 1 {
+		return one
+	}
+	return many
 }
 
 func parseParams(cmd *cobra.Command) (map[string]any, error) {
