@@ -2,6 +2,7 @@ package dynamic
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -37,8 +38,8 @@ func dropHashPrefix(c registry.Command, params map[string]any) string {
 // the id lives inside the --params JSON (not a flag), so this fills it there.
 //
 // Non-interactive callers (agents, pipes, CI) are a no-op — a missing param
-// stays the structured "missing required path parameter" error, so the
-// fail-fast contract is unchanged. --dry-run still prompts: it previews a
+// stays the structured missing_required_param error, so the fail-fast contract
+// is unchanged. --dry-run still prompts: it previews a
 // concrete request, which needs the id resolved.
 func fillMissingPathParams(_ *cobra.Command, f *cmdutil.Factory, pathTemplate string, params map[string]any) error {
 	if !cmdutil.Interactive(f) {
@@ -84,4 +85,23 @@ func pathParamNames(pathTemplate string) []string {
 		s = s[j+1:]
 	}
 	return names
+}
+
+// placeholderName is the inside of a placeholder: a name, never JSON or a number.
+var placeholderName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_ .-]*$`)
+
+// isPlaceholder reports whether a --params value is template text left in place
+// of a real value, such as {product_id}, {{product_id}} or <id> copied from an example.
+func isPlaceholder(s string) bool {
+	s = strings.TrimSpace(s)
+	var inner string
+	switch {
+	case strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}"):
+		inner = strings.Trim(s, "{}")
+	case strings.HasPrefix(s, "<") && strings.HasSuffix(s, ">"):
+		inner = strings.Trim(s, "<>")
+	default:
+		return false
+	}
+	return placeholderName.MatchString(inner)
 }

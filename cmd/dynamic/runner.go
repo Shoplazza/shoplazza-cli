@@ -3,6 +3,7 @@ package dynamic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sort"
 	"strings"
@@ -40,6 +41,9 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 		// theme_id); non-interactive callers are untouched, so a missing param
 		// stays the structured error below (agents/CI keep fail-fast).
 		if err := fillMissingPathParams(cmd, factory, c.HTTP.Path, params); err != nil {
+			return err
+		}
+		if err := checkRequiredParams(c, params, schemaHint); err != nil {
 			return err
 		}
 
@@ -173,6 +177,39 @@ func checkRequiredBody(c registry.Command, body any, schemaHint string) error {
 		WithParam(missing[0]).
 		WithSubtype(output.SubtypeMissingRequiredField).
 		WithHint(schemaHint + " to see the body fields")
+}
+
+// checkRequiredParams reports, in one error, every path {var} and required query
+// parameter that --params leaves absent, empty, or as an unfilled placeholder.
+func checkRequiredParams(c registry.Command, params map[string]any, schemaHint string) error {
+	required := pathParamNames(c.HTTP.Path)
+	for _, p := range c.Parameters {
+		if p.In == "query" && p.Required {
+			required = append(required, p.Name)
+		}
+	}
+	var names, listed []string
+	for _, name := range required {
+		v, ok := params[name]
+		list, isList := v.([]any)
+		s, isString := v.(string)
+		switch {
+		case !ok || v == nil || (isString && strings.TrimSpace(s) == "") || (isList && len(list) == 0):
+			listed = append(listed, name)
+		case isString && isPlaceholder(s):
+			listed = append(listed, fmt.Sprintf("%s (placeholder %q)", name, s))
+		default:
+			continue
+		}
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	return output.ErrValidation("--params is missing required %s: %s", plural(names, "key", "keys"), strings.Join(listed, ", ")).
+		WithParam(names[0]).
+		WithSubtype(output.SubtypeMissingRequiredParam).
+		WithHint(schemaHint + " to see required parameters")
 }
 
 func plural(items []string, one, many string) string {

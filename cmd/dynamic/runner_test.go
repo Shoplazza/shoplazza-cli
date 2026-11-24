@@ -211,6 +211,12 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 		}},
 	}
 	noParams := registry.Command{Path: []string{"count"}, HTTP: registry.HTTP{Method: "GET", Path: "/customers/count"}}
+	twoPath := registry.Command{Path: []string{"get"}, HTTP: registry.HTTP{Method: "GET", Path: "/customers/{customer_id}/addresses/{address_id}"},
+		Parameters: []registry.Parameter{{Name: "customer_id", In: "path", Required: true}, {Name: "address_id", In: "path", Required: true}}}
+	getOne := registry.Command{Path: []string{"get"}, HTTP: registry.HTTP{Method: "GET", Path: "/products/{product_id}"},
+		Parameters: []registry.Parameter{{Name: "product_id", In: "path", Required: true}}}
+	pathAndQuery := registry.Command{Path: []string{"items"}, HTTP: registry.HTTP{Method: "GET", Path: "/locations/{location_id}/items"},
+		Parameters: []registry.Parameter{{Name: "location_id", In: "path", Required: true}, {Name: "variant_ids", In: "query", Required: true}, {Name: "page_size", In: "query"}}}
 	path := `{"oseid":"os1","section_id":"s1"}`
 	full := `{"doc_id":"d1","theme_id":"T1","block":{}}`
 	cases := []struct {
@@ -245,6 +251,39 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 			output.SubtypeMissingRequiredField, "doc_id", "missing required fields: doc_id, theme_id, block", ""},
 		{"nested fields are not checked", sessionLeaf,
 			[]string{"--params", path, "--data", full}, "", "", "", ""},
+		{"every missing path param at once", twoPath,
+			[]string{"--params", `{}`},
+			output.SubtypeMissingRequiredParam, "customer_id", "--params is missing required keys: customer_id, address_id", "to see required parameters"},
+		{"one of two path params", twoPath,
+			[]string{"--params", `{"customer_id":"c1"}`},
+			output.SubtypeMissingRequiredParam, "address_id", "--params is missing required key: address_id", ""},
+		{"path then required query", pathAndQuery,
+			[]string{"--params", `{"page_size":5}`},
+			output.SubtypeMissingRequiredParam, "location_id", "missing required keys: location_id, variant_ids", ""},
+		{"empty string counts as missing", getOne,
+			[]string{"--params", `{"product_id":""}`},
+			output.SubtypeMissingRequiredParam, "product_id", "missing required key: product_id", ""},
+		{"empty array counts as missing", pathAndQuery,
+			[]string{"--params", `{"location_id":"l1","variant_ids":[]}`},
+			output.SubtypeMissingRequiredParam, "variant_ids", "missing required key: variant_ids", ""},
+		{"brace placeholder", getOne,
+			[]string{"--params", `{"product_id":"{product_id}"}`},
+			output.SubtypeMissingRequiredParam, "product_id", `product_id (placeholder "{product_id}")`, ""},
+		{"angle placeholder", getOne,
+			[]string{"--params", `{"product_id":"<id>"}`},
+			output.SubtypeMissingRequiredParam, "product_id", `product_id (placeholder "<id>")`, ""},
+		{"mustache placeholder", getOne,
+			[]string{"--params", `{"product_id":"{{product_id}}"}`},
+			output.SubtypeMissingRequiredParam, "product_id", `product_id (placeholder "{{product_id}}")`, ""},
+		{"placeholder with a space", getOne,
+			[]string{"--params", `{"product_id":"<product id>"}`},
+			output.SubtypeMissingRequiredParam, "product_id", `product_id (placeholder "<product id>")`, ""},
+		{"braces around a number are not a name", getOne,
+			[]string{"--params", `{"product_id":"{1}"}`}, "", "", "", ""},
+		{"braces inside a real value", getOne,
+			[]string{"--params", `{"product_id":"p-{1}"}`}, "", "", "", ""},
+		{"required params all given", pathAndQuery,
+			[]string{"--params", `{"location_id":"l1","variant_ids":["v1"]}`}, "", "", "", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

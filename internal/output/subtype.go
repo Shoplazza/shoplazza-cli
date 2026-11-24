@@ -18,6 +18,7 @@ const (
 	SubtypeUnknownParam         = "unknown_param"          // --params key the command does not declare
 	SubtypeMisplacedParam       = "misplaced_param"        // --params key that is a request-body field
 	SubtypeMissingRequiredField = "missing_required_field" // required top-level body field absent from --data
+	SubtypeMissingRequiredParam = "missing_required_param" // required path/query key absent from --params, empty, or a placeholder
 )
 
 // ClassifyUsageError converts a cobra/pflag usage error (unknown command,

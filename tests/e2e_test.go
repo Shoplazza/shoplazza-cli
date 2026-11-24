@@ -211,6 +211,9 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 			"--data", `{"doc_id":"d1","props":{}}`}, "missing_required_field", "theme_id"},
 		{[]string{"discounts", "list", "--params", `{"per_page":5}`}, "unknown_param", "per_page"},
 		{[]string{"orders", "get", "--params", `{"id":"o1"}`, "--dry-run"}, "unknown_param", "id"},
+		{[]string{"customers", "addresses", "get", "--params", `{}`}, "missing_required_param", "customer_id"},
+		{[]string{"products", "batch-delete", "--params", `{}`}, "missing_required_param", "product_ids"},
+		{[]string{"products", "get", "--params", `{"product_id":"<id>"}`}, "missing_required_param", "product_id"},
 	}
 	for _, c := range bad {
 		before := hits

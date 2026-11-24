@@ -41,8 +41,10 @@ In `shoplazza <svc> --help`, entries prefixed with `+` are shortcuts; the rest a
 
 A spec leaf's `--params` takes only the path / query parameters `schema <svc>.<cmd>` lists; body
 fields go in `--data`. A `--params` key that is undeclared (`unknown_param`) or is a body field
-(`misplaced_param`), or a required top-level body field missing from `--data`
-(`missing_required_field`), fails with exit 2 before anything is sent, `--dry-run` included.
+(`misplaced_param`), a required path / query key that is absent, empty or still a placeholder such
+as `<id>` (`missing_required_param`, all such keys listed in one error), or a required top-level
+body field missing from `--data` (`missing_required_field`), fails with exit 2 before anything is
+sent, `--dry-run` included.
 
 ## Output envelope (.data wrapper)
 
