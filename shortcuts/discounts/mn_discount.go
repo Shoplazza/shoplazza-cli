@@ -20,7 +20,7 @@ var mnDiscountShortcut = common.Shortcut{
   # Apply only to specific products
   shoplazza discounts +mn-discount --tiers 3:50 --products p-1,p-2`,
 	Flags: []common.Flag{
-		{Name: "tiers", Type: common.FlagString, Required: true, Description: `Comma-separated "<nth>:<percent>" pairs, e.g. "2:30,3:50" (buy 2 items → 2nd is 30% off; buy 3 → 3rd is 50% off). Required.`},
+		{Name: "tiers", Type: common.FlagString, Required: true, Description: `Comma-separated "<nth>:<percent>" pairs, e.g. "2:30,3:50" (buy 2 items → 2nd is 30% off; buy 3 → 3rd is 50% off). The value is the % taken off: "2:30" = the 2nd item costs 70% of its price. Required.`},
 		{Name: "scope", Type: common.FlagString, Default: "highest",
 			Description: "Which tiers apply: highest | all | highest-all.",
 			Completions: []string{"highest", "all", "highest-all"}},

@@ -1010,28 +1010,39 @@ func TestShortcut_PercentCode_OrderTarget_AutoCode(t *testing.T) {
 	bin := buildBinary(t)
 	env := apiEnv(srv.URL)
 
-	_, _, code := runCLI(t, bin, env, "discounts", "+percent-code", "--target", "order", "--percent", "10")
-	if code != 0 {
-		t.Fatalf("unexpected exit code %d", code)
-	}
+	// --percent is the deprecated spelling of --percent-off and must still work.
+	for _, flag := range []string{"--percent-off", "--percent"} {
+		receivedBody = nil
+		_, _, code := runCLI(t, bin, env, "discounts", "+percent-code", "--target", "order", flag, "10")
+		if code != 0 {
+			t.Fatalf("%s: unexpected exit code %d", flag, code)
+		}
 
-	discount, _ := receivedBody["discount"].(map[string]any)
-	info, _ := discount["discount_info"].(map[string]any)
+		discount, _ := receivedBody["discount"].(map[string]any)
+		info, _ := discount["discount_info"].(map[string]any)
 
-	codes, _ := info["discount_codes"].([]any)
-	if len(codes) == 0 {
-		t.Fatal("discount_codes must not be empty")
-	}
-	code0, _ := codes[0].(string)
-	if len(code0) != 6 {
-		t.Errorf("auto-generated code %q must be 6 characters", code0)
-	}
-	if info["discount_type"] != "code_percent" {
-		t.Errorf("discount_type = %v, want code_percent", info["discount_type"])
-	}
-	layer, _ := discount["discount_layer"].(map[string]any)
-	if layer["obtain_type"] != "percent" {
-		t.Errorf("obtain_type = %v, want percent", layer["obtain_type"])
+		codes, _ := info["discount_codes"].([]any)
+		if len(codes) == 0 {
+			t.Fatalf("%s: discount_codes must not be empty", flag)
+		}
+		code0, _ := codes[0].(string)
+		if len(code0) != 6 {
+			t.Errorf("%s: auto-generated code %q must be 6 characters", flag, code0)
+		}
+		if info["discount_type"] != "code_percent" {
+			t.Errorf("%s: discount_type = %v, want code_percent", flag, info["discount_type"])
+		}
+		layer, _ := discount["discount_layer"].(map[string]any)
+		if layer["obtain_type"] != "percent" {
+			t.Errorf("%s: obtain_type = %v, want percent", flag, layer["obtain_type"])
+		}
+		layers, _ := layer["layers"].([]any)
+		if len(layers) != 1 {
+			t.Fatalf("%s: discount_layer.layers len = %d, want 1", flag, len(layers))
+		}
+		if first, _ := layers[0].(map[string]any); first["obtain_value"] != "10" {
+			t.Errorf("%s: layers[0].obtain_value = %v, want \"10\"", flag, first["obtain_value"])
+		}
 	}
 }
 
@@ -1150,7 +1161,7 @@ func TestShortcut_BxgyCode_Payload(t *testing.T) {
 
 // TestShortcut_BxgyCode_ObtainCount verifies the qty from --get <id>:<qty>
 // (qty > 1) is threaded into discount_layer.layers[0].obtain_count. Pairs
-// with --get-percent to also cover the percent obtain_type path.
+// with --get-percent-off to also cover the percent obtain_type path.
 func TestShortcut_BxgyCode_ObtainCount(t *testing.T) {
 	var receivedBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1169,7 +1180,7 @@ func TestShortcut_BxgyCode_ObtainCount(t *testing.T) {
 		"discounts", "+bxgy-code",
 		"--products", "gid_a", "--buy-quantity", "2",
 		"--get-products", "gid_b", "--get-quantity", "3",
-		"--get-percent", "50",
+		"--get-percent-off", "50",
 	)
 	if code != 0 {
 		t.Fatalf("unexpected exit code %d", code)
@@ -1178,7 +1189,7 @@ func TestShortcut_BxgyCode_ObtainCount(t *testing.T) {
 	discount, _ := receivedBody["discount"].(map[string]any)
 	layer, _ := discount["discount_layer"].(map[string]any)
 	if layer["obtain_type"] != "percent" {
-		t.Errorf("obtain_type = %v, want percent (with --get-percent)", layer["obtain_type"])
+		t.Errorf("obtain_type = %v, want percent (with --get-percent-off)", layer["obtain_type"])
 	}
 	layers, _ := layer["layers"].([]any)
 	if len(layers) != 1 {
@@ -1239,20 +1250,20 @@ func TestShortcut_BxgyCode_GetOff(t *testing.T) {
 }
 
 // TestShortcut_BxgyCode_GetDiscountAndGetOffMutex verifies that passing
-// both --get-percent and --get-off rejects with ExitValidation.
+// both --get-percent-off and --get-off rejects with ExitValidation.
 func TestShortcut_BxgyCode_GetDiscountAndGetOffMutex(t *testing.T) {
 	bin := buildBinary(t)
 	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+bxgy-code",
 		"--products", "gid_a", "--buy-quantity", "1",
 		"--get-products", "gid_b", "--get-quantity", "1",
-		"--get-percent", "50",
+		"--get-percent-off", "50",
 		"--get-off", "10",
 	)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (ExitValidation); stderr=%s", code, stderr)
 	}
-	if !strings.Contains(stderr, "--get-percent") || !strings.Contains(stderr, "--get-off") {
+	if !strings.Contains(stderr, "--get-percent-off") || !strings.Contains(stderr, "--get-off") {
 		t.Errorf("stderr does not name both flags: %s", stderr)
 	}
 }

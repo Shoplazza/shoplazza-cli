@@ -259,7 +259,7 @@ Prefixed with `+`, designed to be friendly for both humans and AI, with smart de
 
 ```bash
 shoplazza products +search --keyword "shirt"
-shoplazza discounts +percent-code --target order --percent 20 --code SAVE20
+shoplazza discounts +percent-code --target order --percent-off 20 --code SAVE20
 shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 

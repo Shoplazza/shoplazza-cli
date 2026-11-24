@@ -16,13 +16,13 @@ var rebateShortcut = common.Shortcut{
 	Example: `  # Preview: spend 100 save 10, spend 200 save 25 (order-wide)
   shoplazza discounts +rebate --target order --tiers 100:10,200:25 --dry-run
 
-  # Product-scoped percent rebate
+  # Product-scoped percent rebate: spend 100, get 10% off (customers pay 90%)
   shoplazza discounts +rebate --target product --type amount-percent --tiers 100:10 --products p-1,p-2`,
 	Flags: []common.Flag{
 		{Name: "target", Type: common.FlagString, Required: true,
 			Description: "Rebate scope: order or product (required).",
 			Completions: []string{"order", "product"}},
-		{Name: "tiers", Type: common.FlagString, Required: true, Description: `Comma-separated "<threshold>:<discount>" pairs, e.g. "100:10,200:25" (spend 100 → save 10; spend 200 → save 25). Threshold = order amount or quantity, discount = reduction amount or percent; units are decided by --type. Discount range: amount-off > 0, amount-percent 1-99, qty-off >= 0, qty-percent 0-99. Required.`},
+		{Name: "tiers", Type: common.FlagString, Required: true, Description: `Comma-separated "<threshold>:<discount>" pairs, e.g. "100:10,200:25" (spend 100 → save 10; spend 200 → save 25). Threshold = order amount or quantity, discount = reduction amount or percent; units are decided by --type. Discount range: amount-off > 0, amount-percent 1-99, qty-off >= 0, qty-percent 0-99; for the percent types the discount is the % taken off ("200:20" = spend 200, pay 80%). Required.`},
 		{Name: "type", Type: common.FlagString, Default: "amount-off",
 			Description: "Rebate type: amount-off | amount-percent | qty-off | qty-percent.",
 			Completions: []string{"amount-off", "amount-percent", "qty-off", "qty-percent"}},

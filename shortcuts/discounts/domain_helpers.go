@@ -304,7 +304,7 @@ func codeRuleFromFlags(in common.PlanInput) (map[string]any, error) {
 }
 
 // codeOffFlags returns the shared flag set for +percent-code and +amount-code.
-// The value flag is shortcut-specific (--percent for percent-code, --off for
+// The value flag is shortcut-specific (--percent-off for percent-code, --off for
 // amount-code — they mean different things) and is declared in each shortcut.
 func codeOffFlags() []common.Flag {
 	return []common.Flag{

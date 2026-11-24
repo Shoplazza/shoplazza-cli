@@ -27,14 +27,17 @@ const (
 // value of the type is used. The engine panics at startup if Default's runtime
 // type does not match.
 type Flag struct {
-	Name        string
-	Short       string // optional one-char short alias (e.g. "t" for -t)
-	Aliases     []string
-	Type        FlagType
-	Default     any
-	Description string
-	Required    bool
-	Completions []string
+	Name    string
+	Short   string // optional one-char short alias (e.g. "t" for -t)
+	Aliases []string
+	// DeprecatedAliases stay listed in --help as "[deprecated] <Description>"
+	// and resolve onto Name before Required and Plan see the flags.
+	DeprecatedAliases []string
+	Type              FlagType
+	Default           any
+	Description       string
+	Required          bool
+	Completions       []string
 	// Picker, when set, supplies choices interactively: a human who leaves this
 	// flag unset in a terminal is shown a fuzzy-filterable list of live
 	// resources and the chosen id is written back onto the flag. Non-interactive

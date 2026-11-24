@@ -9,7 +9,7 @@ func bxgyCodeFlags() map[string]string {
 		"products": "string", "variants": "string", "collections": "string",
 		"exclude": "bool", "buy-quantity": "int", "buy-amount": "float",
 		"get-products": "string", "get-variants": "string", "get-collections": "string",
-		"get-quantity": "int", "get-percent": "int", "get-off": "float", "get-free": "bool",
+		"get-quantity": "int", "get-percent-off": "int", "get-off": "float", "get-free": "bool",
 		"code": "string", "name": "string", "start": "string", "end": "string",
 		"combines": "stringslice", "limit-max": "int", "limit-user": "int",
 		"limit-order": "int", "customer-segments": "string",

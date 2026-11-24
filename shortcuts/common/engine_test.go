@@ -416,3 +416,63 @@ func TestMount_FlagAliasResolvesToCanonicalName(t *testing.T) {
 		t.Errorf("the alias leaked into --help:\n%s", usage)
 	}
 }
+
+// A deprecated spelling stays in --help with a [deprecated] prefix, satisfies
+// Required, and reaches Plan under the canonical name; both spellings at once
+// is a validation error.
+func TestMount_DeprecatedAliasListedAndResolved(t *testing.T) {
+	type got struct {
+		pct  float64
+		tags []string
+	}
+	newShortcut := func(g *got) common.Shortcut {
+		return common.Shortcut{
+			Service: "svc", Command: "+probe", Use: "+probe",
+			Flags: []common.Flag{
+				{Name: "percent-off", DeprecatedAliases: []string{"percent"}, Type: common.FlagFloat, Required: true, Description: "Percent off."},
+				{Name: "tags", DeprecatedAliases: []string{"tag"}, Type: common.FlagStringSlice, Description: "Tags."},
+			},
+			Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
+				g.pct = in.Flags.GetFloat("percent-off")
+				g.tags = in.Flags.GetStringSlice("tags")
+				return common.PlannedRequest{Method: "GET", Path: "/x"}, nil
+			},
+		}
+	}
+	run := func(args ...string) (got, error) {
+		var g got
+		parent := &cobra.Command{Use: "svc", SilenceErrors: true, SilenceUsage: true}
+		common.Mount(newShortcut(&g), parent, newFakeFactory(t))
+		parent.SetOut(&bytes.Buffer{})
+		parent.SetErr(&bytes.Buffer{})
+		parent.SetArgs(append([]string{"+probe", "--dry-run"}, args...))
+		return g, parent.Execute()
+	}
+
+	for _, args := range [][]string{
+		{"--percent-off", "20", "--tags", "a,b"},
+		{"--percent", "20", "--tag", "a,b"},
+	} {
+		g, err := run(args...)
+		if err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		if g.pct != 20 || strings.Join(g.tags, ",") != "a,b" {
+			t.Errorf("%v reached the shortcut as %+v, want pct=20 tags=[a b]", args, g)
+		}
+	}
+
+	if _, err := run("--percent", "20", "--percent-off", "20"); err == nil || !strings.Contains(err.Error(), "pass only --percent-off") {
+		t.Errorf("both spellings: want a 'pass only --percent-off' error, got %v", err)
+	}
+
+	var sink got
+	parent := &cobra.Command{Use: "svc"}
+	common.Mount(newShortcut(&sink), parent, newFakeFactory(t))
+	usage := parent.Commands()[0].LocalFlags().FlagUsages()
+	for _, want := range []string{"--percent-off float", "--percent float", "[deprecated] Percent off.", "--tag strings", "[deprecated] Tags."} {
+		if !strings.Contains(usage, want) {
+			t.Errorf("--help is missing %q:\n%s", want, usage)
+		}
+	}
+}

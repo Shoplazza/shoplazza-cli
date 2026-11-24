@@ -58,6 +58,9 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 
 	for _, f := range s.Flags {
 		bindFlag(cmd, f)
+		for _, old := range f.DeprecatedAliases {
+			bindFlag(cmd, Flag{Name: old, Type: f.Type, Default: f.Default, Description: "[deprecated] " + f.Description})
+		}
 	}
 	// Older flag spellings normalize onto the canonical name before parsing, so
 	// a rename keeps existing callers working without a second --help entry.
@@ -92,6 +95,9 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 	cmd.RunE = func(c *cobra.Command, args []string) error {
 		// Resolve required flags first: prompt in an interactive terminal, or
 		// fail fast (never block) with a naming error otherwise.
+		if err := resolveDeprecatedAliases(c, s.Flags); err != nil {
+			return err
+		}
 		if err := fillRequired(c, s.Flags, factory); err != nil {
 			return err
 		}
@@ -324,6 +330,36 @@ func defaultStringArray(f Flag) []string {
 		panic(fmt.Errorf("shortcuts: flag %q has Type=FlagStringArray but Default is %T", f.Name, f.Default))
 	}
 	return v
+}
+
+// resolveDeprecatedAliases copies a value passed under a deprecated name onto
+// the canonical flag; passing both spellings is a validation error.
+func resolveDeprecatedAliases(c *cobra.Command, flags []Flag) error {
+	fs := c.Flags()
+	for _, f := range flags {
+		for _, old := range f.DeprecatedAliases {
+			if !fs.Changed(old) {
+				continue
+			}
+			if fs.Changed(f.Name) {
+				return output.ErrValidation("--%s and --%s are the same flag; pass only --%s", old, f.Name, f.Name).
+					WithParam("--" + old).
+					WithHint("--" + old + " is deprecated; drop it and keep --" + f.Name)
+			}
+			src, dst := fs.Lookup(old), fs.Lookup(f.Name)
+			if sv, ok := src.Value.(pflag.SliceValue); ok {
+				if err := dst.Value.(pflag.SliceValue).Replace(sv.GetSlice()); err != nil {
+					return output.ErrValidation("invalid --%s: %v", old, err).WithParam("--" + old)
+				}
+				dst.Changed = true
+				continue
+			}
+			if err := fs.Set(f.Name, src.Value.String()); err != nil {
+				return output.ErrValidation("invalid --%s: %v", old, err).WithParam("--" + old)
+			}
+		}
+	}
+	return nil
 }
 
 // flagAliases maps every declared alias to the canonical flag name it stands for.

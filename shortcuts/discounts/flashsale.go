@@ -18,14 +18,14 @@ var flashsaleShortcut = common.Shortcut{
 		"[--stock N] [--combines order,product,shipping] [--customer-segments <ids>]",
 	Short: "Create a product flash sale",
 	Long:  "Create a product flash sale (percent, fixed price, or amount off) scoped to variants or collections; run --dry-run first to preview.",
-	Example: `  # Preview a 30%-off flash sale on specific variants
+	Example: `  # Preview a 30%-off flash sale (customers pay 70%) on specific variants
   shoplazza discounts +flashsale --value 30 --type percent --variants v-1,v-2 --dry-run
 
   # Fixed sale price on a collection with a stock cap
   shoplazza discounts +flashsale --value 9.99 --type fixed-price --collections c-1 --stock 100`,
 	Flags: []common.Flag{
 		{Name: "value", Type: common.FlagFloat, Required: true,
-			Description: "Discount value; meaning depends on --type: percent → 1-99 (% off); fixed-price → the new selling price; off → amount to subtract. Required."},
+			Description: "Discount value; meaning depends on --type: percent → 1-99, the % taken off (20 = customers pay 80%); fixed-price → the new selling price; off → amount to subtract. Required."},
 		{Name: "type", Type: common.FlagString, Default: "percent",
 			Description: "Discount type: percent | fixed-price | off.",
 			Completions: []string{"percent", "fixed-price", "off"}},

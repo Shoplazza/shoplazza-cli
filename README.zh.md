@@ -258,7 +258,7 @@ CLI 提供三种粒度的调用方式，覆盖从快速操作到完全自定义�
 
 ```bash
 shoplazza products +search --keyword "衬衫"
-shoplazza discounts +percent-code --target order --percent 20 --code SAVE20
+shoplazza discounts +percent-code --target order --percent-off 20 --code SAVE20
 shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 

@@ -14,14 +14,14 @@ var bxgyCodeShortcut = common.Shortcut{
 		"(--buy-quantity N | --buy-amount X) " +
 		"(--get-products <ids> | --get-variants <ids> | --get-collections <ids>) --get-quantity N " +
 		"[--limit-max N] [--limit-user N] " +
-		"(--get-percent <1-99> | --get-off <amount> | --get-free) [--limit-order N] [--code <CODE>] [--combines order,product,shipping] [--customer-segments <ids>]",
+		"(--get-percent-off <1-99> | --get-off <amount> | --get-free) [--limit-order N] [--code <CODE>] [--combines order,product,shipping] [--customer-segments <ids>]",
 	Short: "Create a buy-X-get-Y discount code",
 	Long:  "Create a buy-X-get-Y discount code: buy qualifying items, then get others at a percent/amount off or free; run --dry-run first to preview.",
 	Example: `  # Preview: buy 2 of p-1, get 1 of p-2 free
   shoplazza discounts +bxgy-code --products p-1 --buy-quantity 2 --get-products p-2 --get-quantity 1 --get-free --dry-run
 
   # Buy 3, get 1 at 50% off
-  shoplazza discounts +bxgy-code --products p-1 --buy-quantity 3 --get-products p-2 --get-quantity 1 --get-percent 50`,
+  shoplazza discounts +bxgy-code --products p-1 --buy-quantity 3 --get-products p-2 --get-quantity 1 --get-percent-off 50`,
 	Flags: []common.Flag{
 		// Buy-side scope — mutex; exactly one required.
 		{Name: "products", Type: common.FlagString, Description: "Buy-side product IDs comma-separated (mutex with --variants / --collections)."},
@@ -39,9 +39,9 @@ var bxgyCodeShortcut = common.Shortcut{
 		{Name: "get-quantity", Type: common.FlagInt, Required: true, Description: "How many get-side items receive the discount (required, >0)."},
 
 		// Discount applied to the get items — exactly one required (mutex).
-		{Name: "get-percent", Type: common.FlagInt, Description: "Percent off on get items (1-99; mutex with --get-off / --get-free)."},
-		{Name: "get-off", Type: common.FlagFloat, Description: "Fixed amount off on get items (>0; mutex with --get-percent / --get-free)."},
-		{Name: "get-free", Type: common.FlagBool, Description: "Gift the get-side items for free (mutex with --get-percent / --get-off)."},
+		{Name: "get-percent-off", DeprecatedAliases: []string{"get-percent"}, Type: common.FlagInt, Description: "Percent taken off the get items' price, 1-99 (50 = customers pay half; mutex with --get-off / --get-free)."},
+		{Name: "get-off", Type: common.FlagFloat, Description: "Fixed amount off on get items (>0; mutex with --get-percent-off / --get-free)."},
+		{Name: "get-free", Type: common.FlagBool, Description: "Gift the get-side items for free (mutex with --get-percent-off / --get-off)."},
 
 		{Name: "code", Type: common.FlagString, Description: "Discount code (auto-generated if omitted)."},
 		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
@@ -108,8 +108,8 @@ var bxgyCodeShortcut = common.Shortcut{
 			return common.PlannedRequest{}, output.ErrValidation("--get-quantity must be > 0 (got %d)", getQty)
 		}
 
-		// Discount on get items: exactly one of --get-percent / --get-off / --get-free.
-		gotPercent := in.Flags.Changed("get-percent")
+		// Discount on get items: exactly one of --get-percent-off / --get-off / --get-free.
+		gotPercent := in.Flags.Changed("get-percent-off")
 		gotOff := in.Flags.Changed("get-off")
 		gotFree := in.Flags.Changed("get-free")
 		setCount := 0
@@ -119,18 +119,18 @@ var bxgyCodeShortcut = common.Shortcut{
 			}
 		}
 		if setCount == 0 {
-			return common.PlannedRequest{}, output.ErrValidation("one of --get-percent / --get-off / --get-free is required")
+			return common.PlannedRequest{}, output.ErrValidation("one of --get-percent-off / --get-off / --get-free is required")
 		}
 		if setCount > 1 {
-			return common.PlannedRequest{}, output.ErrValidation("--get-percent / --get-off / --get-free are mutually exclusive; set exactly one")
+			return common.PlannedRequest{}, output.ErrValidation("--get-percent-off / --get-off / --get-free are mutually exclusive; set exactly one")
 		}
 		obtainType := "free_acquisition"
 		obtainValue := "0"
 		switch {
 		case gotPercent:
-			pct := in.Flags.GetInt("get-percent")
+			pct := in.Flags.GetInt("get-percent-off")
 			if pct < 1 || pct > 99 {
-				return common.PlannedRequest{}, output.ErrValidation("--get-percent must be between 1 and 99 (got %d)", pct)
+				return common.PlannedRequest{}, output.ErrValidation("--get-percent-off must be between 1 and 99 (got %d)", pct)
 			}
 			obtainType = "percent"
 			obtainValue = strconv.Itoa(pct)

@@ -10,7 +10,7 @@
       "route_to_skill": "shoplazza-discounts",
       "access_tier": "shortcut",
       "command_prefix": "discounts +percent-code",
-      "flags_must_contain": ["--target order", "--percent 15", "--limit-max 100", "--limit-user 1"],
+      "flags_must_contain": ["--target order", "--percent-off 15", "--limit-max 100", "--limit-user 1"],
       "flags_must_not_contain": ["--min-amount", "--products", "--collections", "--variants"],
       "must_ask": false,
       "semantic_rubric": [

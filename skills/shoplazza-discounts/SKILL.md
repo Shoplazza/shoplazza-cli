@@ -25,7 +25,7 @@ and `shoplazza schema discounts.<cmd>`, not this table.
 
 | User intent | Command |
 |-------------|---------|
-| % off (with coupon code) | `discounts +percent-code --target order\|product --percent <1-99>` |
+| % off (with coupon code) | `discounts +percent-code --target order\|product --percent-off <1-99>` |
 | Fixed amount off (with coupon code) | `discounts +amount-code --target order\|product --off <amt>` |
 | Free shipping coupon | `discounts +free-shipping-code` |
 | Buy X get Y (with coupon code) | `discounts +bxgy-code` (buy-side scope + get-side scope) |
@@ -92,13 +92,13 @@ When in doubt, run `<shortcut> --help`: any flag whose line contains "(default .
 | 商品满X减Y / product spend X get Y | `+rebate --target product --type amount-off` | needs `--products` or `--collections` or `--variants` |
 | 满N件减Y元 / buy N get Y off | `+rebate --type qty-off` | `--tiers "N:Y"`; Y ≥ 0 (a 0 tier like `"1:0"` is allowed) |
 | 满X享Y折 / 满X打Y折 / spend X get Y% off | `+rebate --type amount-percent` | Y is the **discount %**, e.g. "8折" → 20 (i.e. 20% off) — **confirm if ambiguous** |
-| 满N件享Y折 / buy N get Y% off | `+rebate --type qty-percent` | `--tiers "N:Y"`; Y is % off, 0-99 (0 allowed) |
-| 第N件Y折 / 买N件第N件Y折 / Nth item Y% off | `+mn-discount` | `--tiers "N:Y"` where Y is % off |
-| 闪购 / 限时秒杀 / 限时折扣 / flash sale | `+flashsale` | auto-applied, no code; `--value` + `--type`; scope via `--variants`/`--collections` (omit = all products) |
-| 优惠码 + X% off / 折扣码立减Y% / X% off coupon | `+percent-code` | `--percent` is the percent (1-99) |
+| 满N件享Y折 / buy N get Y% off | `+rebate --type qty-percent` | `--tiers "N:P"`; P is % off, 0-99 (0 allowed), e.g. 满3件8折 → `3:20` |
+| 第N件Y折 / 买N件第N件Y折 / Nth item Y% off | `+mn-discount` | `--tiers "N:P"` where P is % off, e.g. 第2件7折 → `2:30` |
+| 闪购 / 限时秒杀 / 限时折扣 / flash sale | `+flashsale` | auto-applied, no code; `--value` + `--type`; scope via `--variants`/`--collections` (omit = all products); with `--type percent` the value is % off, e.g. 8折 → `--value 20` |
+| 优惠码 + X% off / 折扣码立减Y% / X% off coupon | `+percent-code` | `--percent-off` is the % taken off (1-99), e.g. 8折 → 20, 7.5折 → 25 |
 | 优惠码立减Y元 / 折扣码减¥Y / $Y off coupon | `+amount-code` | `--off` is the amount |
 | 包邮码 / 免邮券 / free shipping code | `+free-shipping-code` | optional `--off` (partial), `--countries` |
-| 买X送Y / 买X赠Y / buy X get Y free | `+bxgy-code` | buy-side scope + `--buy-quantity`/`--buy-amount`; get-side scope + `--get-quantity`; `--get-free` / `--get-percent` / `--get-off` |
+| 买X送Y / 买X赠Y / buy X get Y free | `+bxgy-code` | buy-side scope + `--buy-quantity`/`--buy-amount`; get-side scope + `--get-quantity`; `--get-free` / `--get-percent-off` / `--get-off` |
 
 If multiple rows match, **ask which one**. Don't guess.
 
@@ -108,10 +108,10 @@ Only the **no-default** flags are askable. Caps are NOT here — they default to
 
 | Shortcut | Must ASK if user did not specify | Infer if possible | Default silently |
 |---|---|---|---|
-| `+percent-code` | `--percent` (the %), `--target`, `--products`/`--variants`/`--collections` if `--target=product` | `--target` from "订单/商品" wording | `--min-amount`, `--min-quantity`, caps, `--combines`, `--code`, `--name`, time, `--customer-segments`, `--exclude` |
+| `+percent-code` | `--percent-off` (the %), `--target`, `--products`/`--variants`/`--collections` if `--target=product` | `--target` from "订单/商品" wording | `--min-amount`, `--min-quantity`, caps, `--combines`, `--code`, `--name`, time, `--customer-segments`, `--exclude` |
 | `+amount-code` | `--off` (¥), `--target`, scope if `--target=product` | `--target` from wording | same as `+percent-code`, plus `--limit-order-once` |
 | `+free-shipping-code` | — (nothing strictly required) | `--off` only if user said "立减Y元运费" | `--off`, `--min-amount`, `--min-quantity`, `--countries`, caps, `--combines`, `--code`, `--name`, time |
-| `+bxgy-code` | buy-side scope, `--buy-quantity` **or** `--buy-amount`, get-side scope, `--get-quantity`, one of `--get-free`/`--get-percent`/`--get-off` | buy/get qty from "买N件送M件"; `--get-percent`/`--get-off` from "打折"/"立减" wording (neither = `--get-free`) | `--limit-order` (default 1), caps, `--combines`, `--code`, `--name`, time, `--exclude` |
+| `+bxgy-code` | buy-side scope, `--buy-quantity` **or** `--buy-amount`, get-side scope, `--get-quantity`, one of `--get-free`/`--get-percent-off`/`--get-off` | buy/get qty from "买N件送M件"; `--get-percent-off`/`--get-off` from "打折"/"立减" wording (neither = `--get-free`) | `--limit-order` (default 1), caps, `--combines`, `--code`, `--name`, time, `--exclude` |
 | `+flashsale` | `--value` **only** (never ask `--type` — it defaults to `percent`) | `--type` from wording (`percent` for "X折/X%off", `fixed-price` for "一口价Y元", `off` for "立减Y元"); scope from named products | `--type` (default percent), scope (omit = all products), `--price-rule`, `--stock`, per-user caps, `--combines`, `--name`, time |
 | `+mn-discount` | `--tiers` | `--scope` ("最高档"=`highest`, "全部档"=`all`; also `highest-all`) | `--scope`, `--price-sort`, scope flags, caps, `--combines`, `--name`, time, `--exclude` |
 | `+rebate` | `--target`, `--tiers` | `--type` from wording — see trigger table above | scope if `--target=order`, `--limit-order-once`, caps, `--combines`, `--type` if user didn't disambiguate, `--name`, time |
@@ -124,7 +124,7 @@ Only the **no-default** flags are askable. Caps are NOT here — they default to
 | "创建一个满减活动，满200减20" | ASK — target unclear (订单 or 商品?) |
 | "创建一个满200减20的订单级满减活动，永不过期" | CREATE — all required present (`+rebate --target order --tiers "200:20" --end forever`); caps omitted = unlimited |
 | "Create a 15% off coupon code" | ASK — target unclear (order or product?) |
-| "Create a 15% off site-wide coupon code, max 100 uses, 1 per customer" | CREATE (`+percent-code --target order --percent 15 --limit-max 100 --limit-user 1`) |
+| "Create a 15% off site-wide coupon code, max 100 uses, 1 per customer" | CREATE (`+percent-code --target order --percent-off 15 --limit-max 100 --limit-user 1`) |
 | "创建闪购活动 50% off" | CREATE — `--value 50` is enough (`+flashsale --value 50`); scope optional. Optionally mention it applies store-wide unless products are specified. |
 
 ### How to ask
@@ -136,7 +136,7 @@ Use `AskUserQuestion` with concrete numbered options. Bundle related fields into
 |---|---|---|
 | Target scope (`--target`) | For `+percent-code`/`+amount-code`/`+rebate` when user didn't say "订单/商品" | "订单级"、"商品级" |
 | Tiers (`--tiers`) | For `+rebate`/`+mn-discount` when not given | free-form: list of `阈值:折扣` pairs |
-| Discount value (`--percent` / `--off` / `--value`) | When user gave only the type ("打个折") without a number | free-form numeric |
+| Discount value (`--percent-off` / `--off` / `--value`) | When user gave only the type ("打个折") without a number | free-form numeric |
 | Product targeting (`--products`/`--collections`/`--variants`) | When target=product / a shortcut needs scope | free-form ID list |
 | BXGY buy/get sides | For `+bxgy-code` if scope or trigger qty not given | free-form ID list + quantities |
 
@@ -151,10 +151,10 @@ required — omit for no limit.
 
 | Shortcut | Required flags |
 |----------|----------------|
-| `+percent-code` | `--target` `--percent` (+ a scope flag if `--target=product`) |
+| `+percent-code` | `--target` `--percent-off` (+ a scope flag if `--target=product`) |
 | `+amount-code` | `--target` `--off` (+ a scope flag if `--target=product`) |
 | `+free-shipping-code` | *(none)* |
-| `+bxgy-code` | buy scope · (`--buy-quantity` \| `--buy-amount`) · get scope · `--get-quantity` · (`--get-free` \| `--get-percent` \| `--get-off`) |
+| `+bxgy-code` | buy scope · (`--buy-quantity` \| `--buy-amount`) · get scope · `--get-quantity` · (`--get-free` \| `--get-percent-off` \| `--get-off`) |
 | `+flashsale` | `--value` |
 | `+mn-discount` | `--tiers` |
 | `+rebate` | `--target` `--tiers` (+ a scope flag if `--target=product`) |
@@ -310,9 +310,9 @@ shoplazza-common).
 | `null` after `get` / `get-by-code` | discount object is nested under `.data.discount` | Start jq at `.data.discount.discount_info.…` |
 | `--discount-type rebate` matches nothing | "rebate" is not an enum | Use `rebate_cta_otr` / `rebate_ctq_otr` / `rebate_cta_otp` / `rebate_ctq_otp` |
 | `--limit-max must be > 0 (got -1)` | Caps are positive-only; `-1` is rejected | **Omit** the cap entirely for "no limit" — don't pass `-1` |
-| `unknown flag: --off` on `+percent-code` | percent-code uses `--percent`, not `--off` | `--percent 15` (1-99) |
+| `unknown flag: --off` on `+percent-code` | percent-code uses `--percent-off`, not `--off` | `--percent-off 15` (1-99) |
 | `unknown flag: --discount` on `+flashsale` | flashsale uses `--value` | `--value 50` (+ `--type`) |
-| `+bxgy-code --buy/--get` rejected | Those flags don't exist | Buy side: scope flag + `--buy-quantity`/`--buy-amount`; get side: `--get-*` scope + `--get-quantity` + `--get-free`/`--get-percent`/`--get-off` |
+| `+bxgy-code --buy/--get` rejected | Those flags don't exist | Buy side: scope flag + `--buy-quantity`/`--buy-amount`; get side: `--get-*` scope + `--get-quantity` + `--get-free`/`--get-percent-off`/`--get-off` |
 | `restart --data '{"ids":["X"]}'` fails | `restart` body is singular | `--data '{"id":"X"}'` |
 | `delete` returns 4xx with progress message | Discount is not `finished` | `cancel` first, then `delete` |
 | `--target=product` rejected "requires one of --products/--collections/--variants" | Product scope is mandatory when target=product | Pass a scope flag |
@@ -329,7 +329,7 @@ shoplazza-common).
 discounts +rebate --target order --tiers "200:20" --end forever
 
 # 2. 15% off site-wide coupon, max 100 redemptions, 1 per shopper
-discounts +percent-code --target order --percent 15 --limit-max 100 --limit-user 1 --code SPRING15
+discounts +percent-code --target order --percent-off 15 --limit-max 100 --limit-user 1 --code SPRING15
 
 # 3. Buy 2 of P1, get 1 of P2 free, single set per order
 discounts +bxgy-code --products P1 --buy-quantity 2 --get-products P2 --get-quantity 1 --get-free
