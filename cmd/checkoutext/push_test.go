@@ -198,6 +198,49 @@ func TestRunPush_SubsequentPush_Commits(t *testing.T) {
 	}
 }
 
+func TestRunPush_ServerExtension_SendsServerPoint(t *testing.T) {
+	root, extDir := makeExtProject(t, "demo", "SRV1")
+	b, _ := json.Marshal(map[string]any{
+		"version": "1.1", "templateName": "server", "serverPoint": "Checkout::PostPurchase::ShouldDirect",
+		"extensionId": "SRV1", "extensionName": "should-redirect",
+	})
+	_ = os.WriteFile(filepath.Join(extDir, "extension.json"), b, 0o644)
+
+	var inner map[string]any
+	var ossURL string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/openapi/checkout_extensions/file/sign", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"write_host": ossURL, "read_host": "https://r/", "policy": "P", "access_id": "AK", "sign": "SG"})
+	})
+	mux.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
+	mux.HandleFunc("/openapi/checkout_extensions/commit", func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		inner = body["extension"].(map[string]any)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success", "data": map[string]any{"extension": map[string]any{"extension_id": "SRV1", "id": "VER2"}}})
+	})
+	mux.HandleFunc("/openapi/checkout_extensions/preview", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": "Success", "data": map[string]any{"checkout_url": "/c/x"}})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	ossURL = srv.URL + "/upload"
+	f := newPushFactory(t, srv.URL)
+	cmd := checkout.NewCmdCheckout(f)
+	cmd.PersistentFlags().String("format", "json", "")
+	cmd.SetOut(io.Discard)
+	cmd.SetContext(context.Background())
+	if err := checkout.RunPushForTest(context.Background(), cmd, f, extDir, filepath.Join(root, "dist", "demo.abc123.js"), "s.com"); err != nil {
+		t.Fatalf("runPush: %v", err)
+	}
+	if inner["template_name"] != "server" || inner["server_point"] != "Checkout::PostPurchase::ShouldDirect" {
+		t.Errorf("server extension must send template_name+server_point, got %v / %v", inner["template_name"], inner["server_point"])
+	}
+}
+
 // TestRunPush_Commit_RealEnvelope_SurfacesIDAndPreview guards the COMMIT path:
 // the real server envelope is {data:{extension:{extension_id,id}}, message,
 // status} (no code:"Success"/ok, so the client does NOT unwrap). push must parse

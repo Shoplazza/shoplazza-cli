@@ -158,6 +158,7 @@ func runPush(ctx context.Context, cmd *cobra.Command, f *cmdutil.Factory, extDir
 		"scope":          "", // always present
 		"template_name":  firstNonEmpty(cfg["templateName"], cfg["template_name"]),
 		"theme_name":     firstNonEmpty(cfg["themeName"], cfg["theme_name"]),
+		"server_point":   firstNonEmpty(cfg["serverPoint"], cfg["server_point"]),
 		"name":           firstNonEmpty(cfg["extensionName"], cfg["extensionId"]),
 		"description":    firstNonEmpty(cfg["extensionDescription"], ""),
 		"extends_fields": extendsFields,

@@ -97,6 +97,7 @@ func mergeCheckoutExtJSON(inner map[string]any, cfg map[string]any, version, ext
 	inner["extends_fields"] = string(b)
 	setNonEmpty(inner, "template_name", strField(cfg, "templateName", "template_name"))
 	setNonEmpty(inner, "theme_name", strField(cfg, "themeName", "theme_name"))
+	setNonEmpty(inner, "server_point", strField(cfg, "serverPoint", "server_point"))
 	setNonEmpty(inner, "description", strField(cfg, "extensionDescription"))
 	return nil
 }
