@@ -174,6 +174,10 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 	}{
 		{[]string{"orders", "get-by-number", "--params", `{"number":"#1001"}`}, "/openapi/2026-01/orders/number/1001"},
 		{[]string{"discounts", "get-by-code", "--params", `{"discount_code":"#A?B%"}`}, "/openapi/2026-01/discounts/by-code/%23A%3FB%25"},
+		{[]string{"shop", "files", "get", "--params", `{"file_uri":"https://cdn.x/a/b.jpg"}`}, "/openapi/2026-01/file/detail/https:%2F%2Fcdn.x%2Fa%2Fb.jpg"},
+		{[]string{"products", "variants", "list-by-sku", "--params", `{"sku":"A/B 1"}`}, "/openapi/2026-01/products/sku/A%2FB%201/variants"},
+		{[]string{"products", "variants", "update-by-sku", "--params", `{"sku":"../../products/123"}`,
+			"--data", `{"refuse_multi_result":true,"variant":{"price":1}}`}, "/openapi/2026-01/variants/sku/..%2F..%2Fproducts%2F123"},
 	} {
 		if _, stderr, code := runCLI(t, bin, env, c.args...); code != 0 || path != c.wantPath {
 			t.Errorf("%v: exit %d, path %q, want %q; stderr=%s", c.args, code, path, c.wantPath, stderr)

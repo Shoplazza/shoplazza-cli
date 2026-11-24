@@ -65,11 +65,10 @@ func ResolveTemplatedPath(pathTemplate string, params map[string]any) (string, m
 	return expandPath(pathTemplate, params)
 }
 
-// escapePathValue percent-encodes a path parameter value so "#", "?", "%" and
-// spaces reach the server instead of ending the path. "/" is kept: some ids
-// (file_uri) may span segments, and an encoded %2F is routed differently.
+// escapePathValue percent-encodes a path parameter value, "/" included, so the
+// value stays one path segment.
 func escapePathValue(v string) string {
-	return strings.ReplaceAll(url.PathEscape(v), "%2F", "/")
+	return url.PathEscape(v)
 }
 
 func expandPath(path string, params map[string]any) (string, map[string]any, error) {
