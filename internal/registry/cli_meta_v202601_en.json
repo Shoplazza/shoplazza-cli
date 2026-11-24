@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-11-24T09:30:33Z",
+  "generated_at": "2026-11-24T09:32:20Z",
   "modules": [
     {
       "name": "billing",
@@ -5438,7 +5438,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Product's SPUs. Example: ?spus=spu1\u0026spus=spu2"
+              "description": "Product's SPUs. Example: `?spus=spu1\u0026spus=spu2`"
             },
             {
               "name": "pre_cursor",
@@ -5483,7 +5483,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "IDs of products to exclude. Example: ?exclude_ids=1001\u0026exclude_ids=1002"
+              "description": "IDs of products to exclude. Example: `?exclude_ids=1001\u0026exclude_ids=1002`"
             },
             {
               "name": "product_type",
