@@ -4979,8 +4979,8 @@
             "inventory",
             "create-level"
           ],
-          "summary": "Create inventory",
-          "description": "Sets the inventory level for a specific location and inventory item.",
+          "summary": "Connect an inventory item to a location",
+          "description": "Creates the inventory level of an inventory item at a location so the item can be stocked there. It does not change stock; if the level already exists, it is returned unchanged.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -5014,8 +5014,8 @@
             "inventory",
             "delete-level"
           ],
-          "summary": "Delete inventory",
-          "description": "Deletes an inventory level for a specific location and inventory item.",
+          "summary": "Disconnect an inventory item from a location",
+          "description": "Deletes the inventory level of an inventory item at a location, so the item is no longer stocked there. This does not subtract stock, and an item must stay stocked at one location at least.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -5244,8 +5244,8 @@
             "inventory",
             "set-stock"
           ],
-          "summary": "Set inventory quantity",
-          "description": "Sets the inventory level for a specific location and inventory item.",
+          "summary": "Change inventory quantity",
+          "description": "Adds `stock` to the inventory level of an inventory item at a location: a negative value subtracts, 0 leaves it unchanged, and the result may go below 0. Despite the endpoint name, it does not set an absolute quantity.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -5273,7 +5273,7 @@
                 "name": "stock",
                 "type": "integer",
                 "format": "int32",
-                "description": "Stock quantity"
+                "description": "Amount added to the stock; a negative value subtracts"
               }
             ]
           },
@@ -5323,8 +5323,8 @@
             "inventory",
             "update-level"
           ],
-          "summary": "Update inventory",
-          "description": "Updates the inventory level for a specific location and inventory item.",
+          "summary": "Increase inventory quantity",
+          "description": "Adds `stock_adjustment`, which must be greater than 0, to the inventory level of an inventory item at a location. To subtract, use `POST /inventory_levels/set` with a negative `stock`.",
           "hidden": false,
           "http": {
             "method": "PUT",
@@ -5353,7 +5353,7 @@
                 "type": "integer",
                 "format": "int32",
                 "required": true,
-                "description": "Stock adjustment"
+                "description": "Amount added to the stock, greater than 0"
               }
             ]
           },
