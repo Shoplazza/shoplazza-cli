@@ -39,7 +39,7 @@ Intent → command. Authoritative params/body live in `shoplazza schema billing.
 | One-time charge transactions | `billing one-time transactions --params '{"charge_id":"<id>"}'` |
 | Create a recurring (subscription) charge (money → `--dry-run` first) | `billing recurring create --data '{"recurring_application_charge":{"name":"…","price":<amt>,"return_url":"…"}}' --dry-run` (optional `trial_days`, `capped_amount`, `terms`) |
 | Get / list recurring charges | `billing recurring get --params '{"charge_id":"<id>"}'` · `billing recurring list` |
-| Update a recurring charge | `billing recurring update --params '{"charge_id":"<id>"}' --data '{"recurring_application_charge":{…}}'` |
+| Update a recurring charge's capped amount | `billing recurring update --params '{"charge_id":"<id>"}' --data '{"capped_amount":<amt>}'` |
 | Cancel a recurring charge (`--dry-run` first) | `billing recurring cancel --params '{"charge_id":"<id>"}' --dry-run` |
 | Recurring charge transactions | `billing recurring transactions --params '{"charge_id":"<id>"}'` |
 | Record a usage charge under a recurring charge (money → `--dry-run` first) | `billing usage create --params '{"charge_id":"<id>"}' --data '{"usage_charge":{"description":"…","price":<amt>}}' --dry-run` |
