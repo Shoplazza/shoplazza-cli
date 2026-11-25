@@ -55,6 +55,7 @@
   "shop": {
     "children": {
       "info":                  { "scope": "shop" },
+      "notifications":         { "scope": "shop" },
       "articles":              { "scope": "collection" },
       "blogs":                 { "scope": "collection" },
       "pages":                 { "scope": "shop_navigation" },
