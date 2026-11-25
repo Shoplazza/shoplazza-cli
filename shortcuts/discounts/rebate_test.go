@@ -1,7 +1,10 @@
 package discounts
 
 import (
+	"errors"
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func rebateFlags() map[string]string {
@@ -67,5 +70,39 @@ func TestRebatePlan_OrderTargetWithScopeErrors(t *testing.T) {
 		if _, err := rebateShortcut.Plan(in); err == nil {
 			t.Errorf("--target=order with --%s should error locally (avoid server 422 'selection is invalid')", scope)
 		}
+	}
+}
+
+func TestRebatePlan_DiscountBelowThreshold(t *testing.T) {
+	cases := []struct {
+		name    string
+		values  map[string]string
+		wantErr bool
+	}{
+		{"amount-off discount above threshold", map[string]string{"target": "order", "tiers": "5:10"}, true},
+		{"amount-off discount equals threshold", map[string]string{"target": "order", "tiers": "10:10"}, true},
+		{"amount-off second tier too large", map[string]string{"target": "order", "tiers": "100:10,200:250"}, true},
+		{"amount-off product target", map[string]string{"target": "product", "tiers": "5:10", "products": "p-1"}, true},
+		{"amount-off below threshold", map[string]string{"target": "order", "tiers": "100:10,200:25"}, false},
+		{"qty-off compares item count", map[string]string{"target": "order", "type": "qty-off", "tiers": "2:10"}, false},
+		{"amount-percent compares a percent", map[string]string{"target": "order", "type": "amount-percent", "tiers": "5:10"}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := rebateShortcut.Plan(newPlanInput(t, "rebate", rebateFlags(), c.values))
+			if !c.wantErr {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			var ee *output.ExitError
+			if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != "--tiers" {
+				t.Fatalf("want a validation error on --tiers, got %#v", err)
+			}
+			if want := "--tiers: each discount must be less than its threshold"; ee.Detail.Message != want {
+				t.Fatalf("message = %q, want %q", ee.Detail.Message, want)
+			}
+		})
 	}
 }

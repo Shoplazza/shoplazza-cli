@@ -1,6 +1,7 @@
 package discounts
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
@@ -24,7 +25,7 @@ var rebateShortcut = common.Shortcut{
 		{Name: "target", Type: common.FlagString, Required: true,
 			Description: "Rebate scope: order or product (required).",
 			Completions: []string{"order", "product"}},
-		{Name: "tiers", Type: common.FlagStringSlice, Required: true, Description: `Comma-separated "<threshold>:<discount>" pairs, e.g. "100:10,200:25" (spend 100 → save 10; spend 200 → save 25). Threshold = order amount or quantity, discount = reduction amount or percent; units are decided by --type. Discount range: amount-off > 0, amount-percent 1-99, qty-off >= 0, qty-percent 0-99; for the percent types the discount is the % taken off ("200:20" = spend 200, pay 80%). Required.`},
+		{Name: "tiers", Type: common.FlagStringSlice, Required: true, Description: `Comma-separated "<threshold>:<discount>" pairs, e.g. "100:10,200:25" (spend 100 → save 10; spend 200 → save 25). Threshold = order amount or quantity, discount = reduction amount or percent; units are decided by --type. Discount range: amount-off > 0 and less than its threshold, amount-percent 1-99, qty-off >= 0, qty-percent 0-99; for the percent types the discount is the % taken off ("200:20" = spend 200, pay 80%). Required.`},
 		{Name: "type", Type: common.FlagString, Default: "amount-off",
 			Description: "Rebate type: amount-off (API: rebate_cta_otr) | amount-percent (API: rebate_cta_otp) | qty-off (API: rebate_ctq_otr) | qty-percent (API: rebate_ctq_otp). API field: discount_info.discount_type.",
 			Completions: []string{"amount-off", "amount-percent", "qty-off", "qty-percent"}},
@@ -65,6 +66,10 @@ var rebateShortcut = common.Shortcut{
 		}
 		if err := validateLayerObtainValues(layers, rt.ObtainType == "percent", rt.ConditionType == "purchase_quantity"); err != nil {
 			return common.PlannedRequest{}, err
+		}
+		if rt.ConditionType == "purchase_amount" && rt.ObtainType == "fixed_price_reduction" &&
+			slices.ContainsFunc(layers, func(l common.Layer) bool { return l.ObtainValue >= l.ConditionValue }) {
+			return common.PlannedRequest{}, output.ErrValidation("--tiers: each discount must be less than its threshold").WithParam("--tiers")
 		}
 
 		// --limit-order-once only applies to off-types (obtain_type=fixed_price_reduction);

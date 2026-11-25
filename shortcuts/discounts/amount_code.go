@@ -21,7 +21,7 @@ var amountCodeShortcut = common.Shortcut{
 			Name:        "off",
 			Type:        common.FlagFloat,
 			Required:    true,
-			Description: "Fixed amount off (required).",
+			Description: "Fixed amount off, less than --min-amount when that is set (required).",
 		},
 		common.Flag{
 			Name:        "limit-order-once",
@@ -38,6 +38,9 @@ var amountCodeShortcut = common.Shortcut{
 		payload, err := buildCodeDiscountPayload(in, "code_fix_price_reduction", "fixed_price_reduction", off)
 		if err != nil {
 			return common.PlannedRequest{}, err
+		}
+		if minAmount := in.Flags.GetFloat("min-amount"); minAmount > 0 && off >= minAmount {
+			return common.PlannedRequest{}, output.ErrValidation("--off must be less than --min-amount").WithParam("--off")
 		}
 		// Server-side validation requires limit_order_discount for
 		// fixed_price_reduction. Default 1 = one use per order;

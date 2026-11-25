@@ -1293,7 +1293,7 @@ func TestDiscountsRebate_ProductTarget_RequiresScope(t *testing.T) {
 	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+rebate",
 		"--target", "product",
-		"--tiers", "3:20",
+		"--tiers", "30:20",
 		// --products / --variants / --collections intentionally omitted.
 	)
 	if code != 2 {
