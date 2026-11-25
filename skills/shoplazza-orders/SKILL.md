@@ -258,7 +258,6 @@ shoplazza-common).
 | `orders create` order fails despite `country`/`province` set | `country_code` / `province_code` (ISO: `US`, `CA`) are the required keys — the display-name `country` / `province` are optional | Send both codes; see [references/orders-create.md](references/orders-create.md) |
 | Copied the `orders pay` `payment_line` object into `orders create` | In `orders create` the schema types `payment_line` as a **string** (registry flattening), unlike `orders pay` where it is an object | Omit `payment_line` on create; record payment afterward with `orders pay` |
 | `orders pay` with no body "succeeded" unexpectedly | Empty body = bogus **test** payment | Pass `payment_line` (payment_channel, payment_method, transaction_no) for a real channel, or `gateway` for a custom method |
-| Schema summaries say "shopping zone" | Registry typo — they mean *shipping* zone | Ignore; commands are `shipping-schemas {create,update,delete}-zone` |
 
 ## Recipes
 

@@ -266,9 +266,7 @@ func bodyKeys(m map[string]any) string {
 	return "{" + strings.Join(parts, ",") + "}"
 }
 
-// checkRequiredBody rejects a request whose --data lacks a required top-level
-// body field. Nested fields are not checked: the metadata marks some of them
-// required on partial-update endpoints (e.g. variant.price on variants update).
+// checkRequiredBody rejects a request whose --data lacks a required top-level body field.
 func checkRequiredBody(c registry.Command, body any, schemaHint string) error {
 	if c.Body == nil || !commandHasBody(c) {
 		return nil

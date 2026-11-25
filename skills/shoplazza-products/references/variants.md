@@ -33,10 +33,8 @@ and `delete` are product-scoped. Passing `product_id` to `update`, or omitting i
 
 ## Updating a variant
 
-Send **only the fields to change**, nested under the required `variant` object. The schema
-marks some fields (e.g. `price`) required on the body, but the CLI does not pre-validate
-body fields and the endpoint accepts partial updates — do not pad the body with fields the
-user never mentioned.
+Send **only the fields to change**, nested under the required `variant` object. Fields left
+out keep their current values — do not pad the body with fields the user never mentioned.
 
 ```bash
 # Change option1 to XL — nothing else touched

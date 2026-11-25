@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-11-24T09:32:20Z",
+  "generated_at": "2026-11-25T05:49:10Z",
   "modules": [
     {
       "name": "billing",
@@ -3221,7 +3221,7 @@
             "shipping-schemas",
             "create-zone"
           ],
-          "summary": "Create shopping zone",
+          "summary": "Create shipping zone",
           "description": "Create a new shipping zone.",
           "hidden": false,
           "http": {
@@ -3230,11 +3230,13 @@
             "body": "*"
           },
           "body": {
+            "required": true,
             "fields": [
               {
                 "name": "shipping",
                 "type": "object",
                 "schema": "v202506.CreateShippingParam",
+                "required": true,
                 "description": "Shipping information"
               }
             ]
@@ -3247,7 +3249,7 @@
             "shipping-schemas",
             "delete-zone"
           ],
-          "summary": "Delete shopping zone",
+          "summary": "Delete shipping zone",
           "description": "Remove an existing shipping zone.",
           "hidden": false,
           "http": {
@@ -3317,8 +3319,8 @@
             "shipping-schemas",
             "get-general"
           ],
-          "summary": "Get general shopping schema",
-          "description": "Retrieve general shopping schemas.",
+          "summary": "Get general shipping schema",
+          "description": "Retrieve general shipping schemas.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -3332,7 +3334,7 @@
             "shipping-schemas",
             "save-general"
           ],
-          "summary": "Save general shopping schema",
+          "summary": "Save general shipping schema",
           "description": "Create or Modify a general shipping schema.",
           "hidden": false,
           "http": {
@@ -3358,8 +3360,8 @@
             "shipping-schemas",
             "update-zone"
           ],
-          "summary": "Update shopping zone",
-          "description": "Modify an existing shipping zone.",
+          "summary": "Update shipping zone",
+          "description": "Replace the settings of an existing shipping zone. `plans` and `areas` are full replacements, not merges: plans and areas left out of the request are deleted, so read the zone with Get general shipping schema first and send the complete lists.\nA plan with an `id` is updated; a plan without one is created.",
           "hidden": false,
           "http": {
             "method": "PUT",
@@ -3377,11 +3379,13 @@
             }
           ],
           "body": {
+            "required": true,
             "fields": [
               {
                 "name": "shipping",
                 "type": "object",
                 "schema": "v202506.UpdateShippingParam",
+                "required": true,
                 "description": "Updated shipping zone parameters"
               }
             ]
@@ -15278,6 +15282,7 @@
             "type": "object",
             "schema": "v202506.CreateShippingPlanParam"
           },
+          "required": true,
           "min_length": 1
         },
         {
@@ -15287,6 +15292,7 @@
             "type": "object",
             "schema": "v202506.CreateShippingAreaParam"
           },
+          "required": true,
           "min_length": 1
         }
       ]
@@ -20470,8 +20476,7 @@
         },
         {
           "name": "has_only_default_variant",
-          "type": "boolean",
-          "required": true
+          "type": "boolean"
         },
         {
           "name": "inventory_tracking",
@@ -22768,6 +22773,7 @@
             "type": "object",
             "schema": "v202506.UpdateShippingPlanParam"
           },
+          "required": true,
           "min_length": 1
         },
         {
@@ -22777,6 +22783,7 @@
             "type": "object",
             "schema": "v202506.UpdateShippingAreaParam"
           },
+          "required": true,
           "min_length": 1
         }
       ]
@@ -23143,7 +23150,6 @@
           "name": "price",
           "type": "number",
           "format": "double",
-          "required": true,
           "minimum": 0
         },
         {
@@ -23221,7 +23227,6 @@
           "name": "price",
           "type": "number",
           "format": "double",
-          "required": true,
           "minimum": 0
         },
         {
