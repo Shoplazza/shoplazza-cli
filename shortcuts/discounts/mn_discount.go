@@ -24,7 +24,7 @@ var mnDiscountShortcut = common.Shortcut{
 	Flags: []common.Flag{
 		{Name: "tiers", Type: common.FlagStringSlice, Required: true, Description: `Comma-separated "<nth>:<percent>" pairs, e.g. "2:30,3:50" (buy 2 items → 2nd is 30% off; buy 3 → 3rd is 50% off). The value is the % taken off: "2:30" = the 2nd item costs 70% of its price. Required.`},
 		{Name: "scope", Type: common.FlagString, Default: "highest",
-			Description: "Which tiers apply: highest | all | highest-all.",
+			Description: "Which tiers apply: highest | all | highest-all (API: highest_all). API field: discount_rule.mn_discount_scope.",
 			Completions: []string{"highest", "all", "highest-all"}},
 
 		// Scope qualifiers — at most one. Empty = all-products selection.

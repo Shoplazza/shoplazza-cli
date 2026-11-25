@@ -236,9 +236,8 @@ Mapping back to shortcuts:
 | `+bxgy-code` | `code_bxgy` |
 | `+flashsale` | `flashsale` |
 | `+mn-discount` | `m_n_discount` |
-| `+rebate --target=order --type=amount-off` | `rebate_cta_otr` |
-| `+rebate --target=product --type=qty-off` | `rebate_ctq_otr` |
-| `+rebate ... --type=amount-percent / qty-percent` | `rebate_cta_otp` / `rebate_ctq_otp` |
+| `+rebate --type=amount-off` / `amount-percent` | `rebate_cta_otr` / `rebate_cta_otp` |
+| `+rebate --type=qty-off` / `qty-percent` | `rebate_ctq_otr` / `rebate_ctq_otp` |
 
 Filtering with `--discount-type rebate` returns nothing — that label doesn't exist; use one of
 the four `rebate_*` enums.

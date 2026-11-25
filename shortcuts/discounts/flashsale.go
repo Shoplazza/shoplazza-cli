@@ -27,7 +27,7 @@ var flashsaleShortcut = common.Shortcut{
 		{Name: "value", Type: common.FlagFloat, Required: true,
 			Description: "Discount value; meaning depends on --type: percent → 1-99, the % taken off (20 = customers pay 80%); fixed-price → the new selling price; off → amount to subtract. Required."},
 		{Name: "type", Type: common.FlagString, Default: "percent",
-			Description: "Discount type: percent | fixed-price | off.",
+			Description: "Discount type: percent | fixed-price (API: fixed_price) | off (API: fixed_price_reduction). API field: discount_layer.obtain_type.",
 			Completions: []string{"percent", "fixed-price", "off"}},
 
 		// Scope qualifiers — at most one (mutually exclusive). Flashsale operates
