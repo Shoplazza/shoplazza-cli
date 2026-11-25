@@ -6588,7 +6588,7 @@
                 "name": "refuse_multi_result",
                 "type": "boolean",
                 "required": true,
-                "description": "the variant details to update \"false\": If SKU matches multiple sub-items, update the matched sub-items normally. \"true\": Rejects the update if the SKU matches more than one subitem"
+                "description": "`false`: If SKU matches multiple sub-items, update the matched sub-items normally. `true`: Rejects the update if the SKU matches more than one subitem"
               },
               {
                 "name": "variant",
