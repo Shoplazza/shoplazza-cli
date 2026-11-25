@@ -7,7 +7,8 @@ description: >-
   subscriptions. Triggers include webhook / 事件订阅 / 事件回调 / 事件通知 / 推送通知 / 回调地址 /
   subscribe to an event / event notification. NOT the events themselves in shoplazza-orders /
   shoplazza-products — this domain owns the SUBSCRIPTION. NOT verifying webhook HMAC signatures
-  (webhook 验签 → shoplazza-docs).
+  (webhook 验签 → shoplazza-docs). NOT the merchant's own alert switches (商家通知 / 新订单提醒 /
+  评论通知 → shoplazza-shop).
 ---
 
 # shoplazza CLI — webhook module
@@ -60,6 +61,7 @@ Reads like an event/order/product task, actually belongs here:
 |---|---|---|
 | "订单发货后自动通知我的系统" / notify my system when an order ships | **HERE** (webhook) — it's a subscription | `webhook create --data '{"webhook":{"topic":"orders/fulfilled",…}}'` |
 | "商品更新时通知我" / get notified when a product is updated | **HERE** (webhook) | `webhook create --data '{"webhook":{"topic":"products/update",…}}'` |
+| 商家通知开关 / 新订单提醒 / 评论通知 — the merchant's own alerts | `shoplazza-shop` (not a subscription) | `shop notifications update` |
 
 Subscribing to an event is a **webhook**, not an `orders`/`products` command. (Serves the
 `event-webhook` routing collision.)

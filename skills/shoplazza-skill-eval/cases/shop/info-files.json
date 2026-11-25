@@ -24,7 +24,7 @@
     "type": "behavior",
     "skill": "shoplazza-shop",
     "operation": "shop.info",
-    "scenario": "改店铺客服邮箱 — 先 get 拿 shop_id, 再 update 唯一可改字段",
+    "scenario": "改店铺客服邮箱 — 先 get 拿 shop_id, 再 update 只发这一个字段",
     "input": "把店铺的客服邮箱改成 support@brand.com",
     "expected": {
       "route_to_skill": "shoplazza-shop",
@@ -35,11 +35,11 @@
       "must_ask": false,
       "semantic_rubric": [
         "resolves shop_id first via shop info get (shop_id is a required path param the user cannot know)",
-        "customer_email is the ONLY updatable field on this endpoint — does not attempt to patch other shop attributes",
+        "sends only customer_email — partial update, does not resend or touch other shop attributes",
         "body nested under the required shop object; restates before the write"
       ]
     },
-    "notes": "PATCH /shop/{shop_id}; body {\"shop\":{\"customer_email\":...}} — schema exposes customer_email only. Multi-step: get → update."
+    "notes": "PATCH /shop/{shop_id}; body {\"shop\":{\"customer_email\":...}} — only sent fields are written. Multi-step: get → update."
   },
   {
     "case_id": "shop.upload-file-01",
@@ -102,5 +102,70 @@
       ]
     },
     "notes": "GET /file; page_size default 20, max 300."
+  },
+  {
+    "case_id": "shop.settings-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.info",
+    "scenario": "开启密码保护但没给密码 — 必须问密码, 不能编造",
+    "input": "给店铺开启密码保护",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "must_ask": true,
+      "ask_must_cover": [
+        "密码|password"
+      ],
+      "semantic_rubric": [
+        "asks for the storefront password instead of inventing one",
+        "the eventual write is shop info update with shop.password_protection, shop_id resolved via shop info get",
+        "treats turning protection on as high-impact (locks the storefront): --dry-run + restate before the write"
+      ]
+    },
+    "notes": "PATCH /shop/{shop_id}; password must not be empty while protection is enabled."
+  },
+  {
+    "case_id": "shop.settings-02",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.info",
+    "scenario": "改订单编号前缀 — 是店铺设置, 只发 order_number.prefix",
+    "input": "把订单编号前缀改成 SP",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop info update",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["\"order_number\":{\"prefix\":\"SP\"}"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "routes to shop (a store setting), not to orders",
+        "resolves shop_id via shop info get; sends only order_number.prefix — no suffix, number_type or order_id_type"
+      ]
+    },
+    "notes": "PATCH /shop/{shop_id}; omitted fields keep their current value."
+  },
+  {
+    "case_id": "shop.notifications-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.notifications",
+    "scenario": "关掉评论通知 — 只发这一个开关, 包在 notifications 里",
+    "input": "关掉店铺的评论通知，其他通知不动",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop notifications update",
+      "flags_must_contain": ["--data"],
+      "flags_must_not_contain": ["order_enabled", "delivered_enabled"],
+      "params_must_contain": ["\"notifications\":{\"review_enabled\":false}"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "not a webhook subscription — the merchant's own alert switch",
+        "sends only review_enabled; the other switches are omitted and kept"
+      ]
+    },
+    "notes": "PUT /shop/notifications; body wrapper notifications is required."
   }
 ]

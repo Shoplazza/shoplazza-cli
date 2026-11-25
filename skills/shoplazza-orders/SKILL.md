@@ -1,7 +1,7 @@
 ---
 name: shoplazza-orders
 description: >-
-  Use when the user wants to manage a shoplazza store's orders through the CLI — searching /
+  Use to manage a shoplazza store's orders via the CLI — searching /
   counting / viewing orders (查订单 / 找订单 / 订单列表 / 订单详情 / 新订单 / order search),
   shipping and fulfillment (发货 / 标记发货 / 物流 / 运单号 / 改运单号 / ship an order / update
   tracking), refunding a buyer (退款 / 给顾客退钱 / 退钱给买家 / refund an order — buyer refunds
@@ -13,7 +13,7 @@ description: >-
   rate carriers → shoplazza-shop carrier-services), and tracking-carrier lookup (快递承运商 /
   运单号识别承运商). A customer's orders by email (按邮箱查某客户的订单)
   are searched HERE; the customer record itself → shoplazza-customers. NOT product stock /
-  库存 / 补货 (→ shoplazza-products).
+  库存 / 补货 (→ shoplazza-products). NOT 订单编号格式 (→ shoplazza-shop).
 ---
 
 # shoplazza CLI — orders module
@@ -219,6 +219,7 @@ Reads like orders, actually belongs elsewhere (and lookalikes this domain owns):
 | 按邮箱查某客户的订单 / a customer's orders | **HERE** (`+search --email <addr>` or `--customer-id`) | resolving the id via `customers +search` first is fine — the final query is an orders query |
 | 客户资料本身 / the customer record | `shoplazza-customers` | `customers +search` / `customers get` |
 | 库存 / 补货 / product stock | `shoplazza-products` | `products +stock` / `products inventory` |
+| 订单编号格式 / 订单号前缀后缀 / order number format | `shoplazza-shop` (a store setting) | `shop info update` with `shop.order_number` |
 | 退款时库存退回 / restock on refund | **HERE** | `orders +refund --return-items` |
 
 ## Permissions · Scope
