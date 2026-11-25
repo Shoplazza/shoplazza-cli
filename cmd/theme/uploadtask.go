@@ -10,6 +10,7 @@ import (
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/asynctask"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme"
 )
 
@@ -83,6 +84,9 @@ func classifyHTTPErr(err error, themeID string) error {
 	var he *client.HTTPError
 	if !errors.As(err, &he) {
 		return err
+	}
+	if ae := output.ErrAPI(he.StatusCode, he.Body, he.RequestID); ae.Detail.Subtype == output.SubtypeInvalidToken {
+		return ae.WithEndpoint(he.Method, he.Path)
 	}
 	switch he.StatusCode {
 	case http.StatusUnauthorized, http.StatusForbidden:

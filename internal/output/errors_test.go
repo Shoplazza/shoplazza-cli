@@ -244,9 +244,6 @@ func TestErrHTTP_403StaysAPIClass(t *testing.T) {
 	if ctx := err.Detail.Detail; ctx == nil || ctx.StatusCode != 403 || ctx.RequestID != "req-9" {
 		t.Errorf("context = %+v", ctx)
 	}
-	if auth := output.ErrAPI(403, "", ""); auth.Code != output.ExitAuth {
-		t.Errorf("ErrAPI must still read 403 as auth, got exit %d", auth.Code)
-	}
 }
 
 func TestWithStatus(t *testing.T) {
@@ -259,10 +256,37 @@ func TestWithStatus(t *testing.T) {
 	}
 }
 
-func TestErrAPI_EmptyBody(t *testing.T) {
-	err := output.ErrAPI(404, "", "")
-	if err.Detail.Message != "request failed with status 404" {
-		t.Errorf("Message = %q, want minimal status message", err.Detail.Message)
+func TestErrAPI_Classes(t *testing.T) {
+	const missingScope = "the access token lacks a scope this endpoint needs"
+	cases := []struct {
+		name        string
+		status      int
+		body        string
+		wantCode    int
+		wantSubtype string
+		wantMessage string
+		wantHint    string
+	}{
+		{"400 Unauthorized", 400, `"Unauthorized"`, output.ExitAuth, "invalid_token", "Unauthorized", "shoplazza auth login"},
+		{"400 other message", 400, `{"message":"bad input"}`, output.ExitAPI, "", "bad input", ""},
+		{"403 empty object", 403, `{}`, output.ExitAuth, "missing_scope", missingScope, "--merge-scopes"},
+		{"403 empty body", 403, ``, output.ExitAuth, "missing_scope", missingScope, "--merge-scopes"},
+		{"403 with reason", 403, `{"code":"PermissionDenied","message":"oauth error by Cli-Partner-Token"}`, output.ExitAuth, "", "oauth error by Cli-Partner-Token", "shoplazza auth login"},
+		{"404 empty body", 404, ``, output.ExitAPI, "", "request failed with status 404", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := output.ErrAPI(c.status, c.body, "req-1")
+			if err.Code != c.wantCode || err.Detail.Subtype != c.wantSubtype || err.Detail.Message != c.wantMessage {
+				t.Fatalf("code/subtype/message = %d/%q/%q, want %d/%q/%q", err.Code, err.Detail.Subtype, err.Detail.Message, c.wantCode, c.wantSubtype, c.wantMessage)
+			}
+			if c.wantHint == "" && err.Detail.Hint != "" || !strings.Contains(err.Detail.Hint, c.wantHint) {
+				t.Errorf("hint = %q, want it to contain %q", err.Detail.Hint, c.wantHint)
+			}
+			if ctx := err.Detail.Detail; ctx == nil || ctx.StatusCode != c.status || ctx.RequestID != "req-1" {
+				t.Errorf("context = %+v", ctx)
+			}
+		})
 	}
 }
 

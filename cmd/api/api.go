@@ -99,7 +99,7 @@ func newCmdRest(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				var httpErr *client.HTTPError
 				if errors.As(err, &httpErr) {
-					return output.ErrAPI(httpErr.StatusCode, httpErr.Body, response.RequestID())
+					return output.ErrAPI(httpErr.StatusCode, httpErr.Body, response.RequestID()).WithEndpoint(httpErr.Method, httpErr.Path)
 				}
 				var netErr net.Error
 				if errors.As(err, &netErr) {

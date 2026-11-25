@@ -2,10 +2,13 @@ package themecmd
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/env"
 )
 
@@ -61,3 +64,26 @@ func TestDigThemes(t *testing.T) {
 }
 
 func m(id string) map[string]any { return map[string]any{"id": id} }
+
+func TestClassifyHTTPErr(t *testing.T) {
+	cases := []struct {
+		name        string
+		status      int
+		body        string
+		wantCode    int
+		wantSubtype string
+	}{
+		{"400 Unauthorized", 400, `"Unauthorized"`, output.ExitAuth, output.SubtypeInvalidToken},
+		{"400 bad input", 400, `{"message":"bad input"}`, output.ExitValidation, ""},
+		{"403", 403, `{}`, output.ExitAuth, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := classifyHTTPErr(&client.HTTPError{StatusCode: c.status, Body: c.body, Method: "PUT", Path: "/openapi/2026-01/themes/t1"}, "t1")
+			var ee *output.ExitError
+			if !errors.As(err, &ee) || ee.Code != c.wantCode || ee.Detail.Subtype != c.wantSubtype {
+				t.Fatalf("got %#v, want exit %d subtype %q", err, c.wantCode, c.wantSubtype)
+			}
+		})
+	}
+}

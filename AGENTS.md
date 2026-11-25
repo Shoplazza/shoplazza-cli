@@ -56,6 +56,10 @@ Errors are written to **stderr** as:
   empty or left as a placeholder such as `<id>`; all listed in one error) and
   `missing_required_field` (a required top-level body field is absent from
   `--data`).
+  `invalid_token` (type `auth`): the store rejected the access token; log in
+  again. `missing_scope` (type `auth`): the store answered 403 with no reason;
+  a top-level `required_scope` names the scope when the request maps to a
+  command.
   `jq_failed_after_request`: the request was sent and succeeded, but `-q` failed
   on its response. The whole `{ok,data}` response is on stdout and `detail`
   names the request (shortcuts that send several requests leave it empty). Do

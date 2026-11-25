@@ -321,9 +321,10 @@ then switch again.
 
 ### Handling insufficient permissions
 
-On 401/403 for a write, the error envelope's `hint` says what's missing. Grant it as directed:
-`shoplazza auth login --domain <that module>` (or `--scope <missing scope>`), then retry. Run
-`auth scopes` first to see what's already granted.
+`subtype: missing_scope` (exit 3): the token lacks a scope. `required_scope` names it when the
+request maps to a command — run `shoplazza auth login --scope <required_scope> --merge-scopes`,
+then retry; without it, run `auth scopes` to see what's granted. `subtype: invalid_token`
+(exit 3): the store rejected the token — log in again.
 
 ## Profiles (multi-tenant)
 

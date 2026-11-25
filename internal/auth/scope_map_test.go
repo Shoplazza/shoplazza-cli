@@ -102,6 +102,27 @@ func TestReadWriteScope(t *testing.T) {
 	}
 }
 
+func TestRequestScope(t *testing.T) {
+	cases := []struct {
+		method, path string
+		want         string
+	}{
+		{"GET", "/openapi/2026-01/discounts", "read_price_rules"},
+		{"POST", "/openapi/2026-01/discounts/cancel", "write_price_rules"},
+		{"PUT", "/openapi/2026-01/variants/sku/CLV-SKU-1", "write_product"},
+		{"GET", "/openapi/2025-06/discounts?page=2", "read_price_rules"},
+		{"get", "/openapi/2026-01/discounts/715093959575087449", "read_price_rules"},
+		{"GET", "/openapi/2025-06/script_tags", ""},
+		{"DELETE", "/openapi/2026-01/discounts", ""},
+	}
+	for _, c := range cases {
+		got, ok := RequestScope(c.method, c.path)
+		if got != c.want || ok != (c.want != "") {
+			t.Errorf("RequestScope(%s %s) = (%q, %v), want %q", c.method, c.path, got, ok, c.want)
+		}
+	}
+}
+
 // TestEveryDerivedScopeIsInKnownScopes guards against typos in scope_map.json
 // that would silently mint OAuth scope strings the platform doesn't accept.
 func TestEveryDerivedScopeIsInKnownScopes(t *testing.T) {

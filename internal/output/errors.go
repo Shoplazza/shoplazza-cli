@@ -209,14 +209,36 @@ func ErrInternal(format string, args ...any) *ExitError {
 }
 
 // ErrAPI creates an api-class ExitError from a non-2xx store API response: as
-// ErrHTTP, except that 403 is reclassified to auth-class with a re-login hint.
+// ErrHTTP, except that a 400 "Unauthorized" and a 403 are auth-class.
 // statusCode + requestID land in error.detail for triage.
 func ErrAPI(statusCode int, body, requestID string) *ExitError {
-	if statusCode == 403 {
-		code, msg := parseAPIErrorBody(body)
-		if msg == "" {
-			msg = "forbidden — your access token lacks the required scope"
+	code, msg := parseAPIErrorBody(body)
+	switch {
+	case statusCode == 400 && msg == "Unauthorized":
+		return &ExitError{
+			Code: ExitAuth,
+			Detail: &ErrDetail{
+				Type:    TypeAuth,
+				Subtype: SubtypeInvalidToken,
+				Code:    code,
+				Message: msg,
+				Hint:    "the store rejected the access token: run 'shoplazza auth login' to log in again, or set a valid SHOPLAZZA_ACCESS_TOKEN if you use one",
+				Detail:  newErrorContext(statusCode, requestID),
+			},
 		}
+	case statusCode == 403 && msg == "":
+		return &ExitError{
+			Code: ExitAuth,
+			Detail: &ErrDetail{
+				Type:    TypeAuth,
+				Subtype: SubtypeMissingScope,
+				Code:    code,
+				Message: "the access token lacks a scope this endpoint needs",
+				Hint:    "run 'shoplazza auth scopes' to see the granted scopes, then add the missing one with 'shoplazza auth login --scope <scope> --merge-scopes'",
+				Detail:  newErrorContext(statusCode, requestID),
+			},
+		}
+	case statusCode == 403:
 		return &ExitError{
 			Code: ExitAuth,
 			Detail: &ErrDetail{

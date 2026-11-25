@@ -24,6 +24,7 @@ import (
 	themecmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/theme"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/themeext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/update"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
@@ -311,6 +312,7 @@ func Execute() (exitCode int) {
 		// agents still parse stderr as JSON. WriteError enforces both conditions.
 		format := cmdutil.GetFormat(rootCmd)
 		if isExitErr {
+			nameMissingScope(exitErr)
 			output.WriteError(os.Stderr, exitErr, format)
 			return exitErr.Code
 		}
@@ -324,4 +326,18 @@ func Execute() (exitCode int) {
 	}
 
 	return output.ExitOK
+}
+
+func nameMissingScope(e *output.ExitError) {
+	d := e.Detail
+	if d == nil || d.Subtype != output.SubtypeMissingScope || d.Detail == nil {
+		return
+	}
+	scope, ok := internalauth.RequestScope(d.Detail.Method, d.Detail.Path)
+	if !ok {
+		return
+	}
+	d.Message = fmt.Sprintf("the access token lacks %s", scope)
+	d.Hint = fmt.Sprintf("run 'shoplazza auth login --scope %s --merge-scopes' to add it", scope)
+	e.WithField("required_scope", scope)
 }

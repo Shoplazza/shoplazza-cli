@@ -4,6 +4,7 @@ package tests_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -1313,30 +1314,56 @@ func TestDiscountsRebate_ProductTarget_RequiresScope(t *testing.T) {
 
 // ── HTTP 500 error handling ───────────────────────────────────────────────────
 
-func TestDiscounts_HTTP500_JSONErrorEnvelope(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"error": "internal server error"})
-	}))
-	defer srv.Close()
-
+func TestDiscounts_HTTPErrorEnvelope(t *testing.T) {
 	bin := buildBinary(t)
-	env := apiEnv(srv.URL)
+	cases := []struct {
+		name          string
+		status        int
+		body          string
+		args          []string
+		wantCode      int
+		wantSubtype   string
+		wantScope     string
+		wantHintScope bool
+	}{
+		{"500", 500, `{"error":"internal server error"}`, []string{"discounts", "list"}, 1, "", "", false},
+		{"400 Unauthorized", 400, `"Unauthorized"`, []string{"discounts", "list"}, 3, "invalid_token", "", false},
+		{"403 {} on a read", 403, `{}`, []string{"discounts", "list"}, 3, "missing_scope", "read_price_rules", true},
+		{"403 {} on a write", 403, `{}`, []string{"discounts", "cancel", "--data", `{"ids":["d1"]}`}, 3, "missing_scope", "write_price_rules", true},
+		{"403 {} on an unmapped path", 403, `{}`, []string{"api", "rest", "GET", "/openapi/2025-06/script_tags"}, 3, "missing_scope", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(c.status)
+				fmt.Fprint(w, c.body)
+			}))
+			defer srv.Close()
 
-	_, stderr, code := runCLI(t, bin, env, "discounts", "list")
-	if code == 0 {
-		t.Fatal("expected non-zero exit code on HTTP 500")
-	}
-
-	var envelope map[string]any
-	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &envelope); err != nil {
-		t.Fatalf("stderr is not JSON: %v\nstderr: %s", err, stderr)
-	}
-	if ok, _ := envelope["ok"].(bool); ok {
-		t.Error("envelope.ok should be false")
-	}
-	if envelope["error"] == nil {
-		t.Error("envelope.error field must be present")
+			_, stderr, code := runCLI(t, bin, apiEnv(srv.URL), c.args...)
+			if code != c.wantCode {
+				t.Fatalf("exit code = %d, want %d; stderr: %s", code, c.wantCode, stderr)
+			}
+			var envelope struct {
+				OK    bool           `json:"ok"`
+				Error map[string]any `json:"error"`
+			}
+			if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &envelope); err != nil {
+				t.Fatalf("stderr is not JSON: %v\nstderr: %s", err, stderr)
+			}
+			if envelope.OK || envelope.Error == nil {
+				t.Fatalf("want ok=false with an error object, got %s", stderr)
+			}
+			if got, _ := envelope.Error["subtype"].(string); got != c.wantSubtype {
+				t.Errorf("subtype = %q, want %q", got, c.wantSubtype)
+			}
+			if got, _ := envelope.Error["required_scope"].(string); got != c.wantScope {
+				t.Errorf("required_scope = %q, want %q", got, c.wantScope)
+			}
+			if hint, _ := envelope.Error["hint"].(string); c.wantHintScope && !strings.Contains(hint, "--scope "+c.wantScope+" --merge-scopes") {
+				t.Errorf("hint = %q, want it to name --scope %s", hint, c.wantScope)
+			}
+		})
 	}
 }
