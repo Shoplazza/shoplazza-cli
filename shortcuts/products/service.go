@@ -78,6 +78,10 @@ func PlanAdjustInventoryLevel(body map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "PUT", Path: inventoryLevelsBase, Body: body}
 }
 
+func PlanSetStock(body map[string]any) common.PlannedRequest {
+	return common.PlannedRequest{Method: "POST", Path: inventoryLevelsBase + "/set", Body: body}
+}
+
 // PlanGetInventoryLevel reads the current stock for one (inventory_item, location) pair.
 func PlanGetInventoryLevel(inventoryItemID, locationID string) common.PlannedRequest {
 	return common.PlannedRequest{

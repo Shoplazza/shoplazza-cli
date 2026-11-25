@@ -3,9 +3,7 @@ package products
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strconv"
-	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
@@ -15,16 +13,14 @@ import (
 // stockShortcut wires +stock to inventory writes.
 //
 // Increases ride PUT /inventory_levels (stock_adjustment > 0; the API rejects ≤ 0).
-// Decreases ride PUT /variants/{id} with inventory_quantity, which the platform
-// treats as an absolute set. That write lands on the default location, so
-// decrements are gated: default location only, single-location items only, and
-// the target must stay ≥ 0 (the API happily stores negatives).
+// Decreases ride POST /inventory_levels/set, which despite its name adds its
+// signed stock to the level at the given location.
 var stockShortcut = common.Shortcut{
 	Service: "products",
 	Command: "+stock",
 	Use:     "+stock (--variant-id <id> | --sku <sku> | --product-id <id>) (--set <n> | --adjust <±n>) [--location-id <id>]",
 	Short:   "Set or adjust variant inventory level",
-	Long:    "Set an absolute stock level or apply a delta for a variant (by variant ID, SKU, or product ID); run --dry-run first to preview.",
+	Long:    "Set an absolute stock level or apply a delta for a variant (by variant ID, SKU, or product ID) at any location; stock may go below 0. Run --dry-run first to preview.",
 	Example: `  # Preview restocking a SKU by +50
   shoplazza products +stock --sku TS-RED-M --adjust 50 --dry-run
 
@@ -34,8 +30,8 @@ var stockShortcut = common.Shortcut{
 		{Name: "variant-id", Type: common.FlagString, Description: "Variant ID — the unique, exact target."},
 		{Name: "sku", Type: common.FlagString, Description: "Variant SKU. Resolves to one variant; a multi-match is refused with the candidates listed (there is no --all here: inventory writes target one variant)."},
 		{Name: "product-id", Type: common.FlagString, Description: "Product ID. Resolves to that product's single variant; a multi-variant product is refused with the candidates listed."},
-		{Name: "set", Type: common.FlagInt, Description: "Set inventory to an absolute target (≥ 0). Decreases work only at the default location of a single-location item. Mutually exclusive with --adjust."},
-		{Name: "adjust", Type: common.FlagInt, Description: "Stock delta (nonzero). Positive adds at any location; negative decreases (same gates as --set). Mutex with --set."},
+		{Name: "set", Type: common.FlagInt, Description: "Set inventory to an absolute target (may be negative). Mutually exclusive with --adjust."},
+		{Name: "adjust", Type: common.FlagInt, Description: "Stock delta (nonzero): positive adds, negative subtracts, and stock may go below 0. Mutex with --set."},
 		{Name: "location-id", Type: common.FlagString, Description: "Location ID (defaults to default location)."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
@@ -54,11 +50,8 @@ var stockShortcut = common.Shortcut{
 			return common.ExecResult{}, output.ErrValidation("one of --set or --adjust is required")
 		}
 
-		if gotSet && in.Flags.GetInt("set") < 0 {
-			return common.ExecResult{}, output.ErrValidation("--set must be ≥ 0, got %d", in.Flags.GetInt("set"))
-		}
 		if gotAdjust && in.Flags.GetInt("adjust") == 0 {
-			return common.ExecResult{}, output.ErrValidation("--adjust must be nonzero (positive adds, negative decreases)")
+			return common.ExecResult{}, output.ErrValidation("--adjust must be nonzero (positive adds, negative subtracts)")
 		}
 
 		// Resolve after the pure gates: a bad --set/--adjust must not cost a network
@@ -74,12 +67,11 @@ var stockShortcut = common.Shortcut{
 			}
 		}
 
-		adjust := in.Flags.GetInt("adjust")
 		var res common.ExecResult
-		if gotAdjust && adjust > 0 {
-			res, err = execStockAdd(ctx, in, variantID, locationID, adjust, base)
+		if gotAdjust {
+			res, err = execStockAdjust(ctx, in, variantID, locationID, in.Flags.GetInt("adjust"), base)
 		} else {
-			res, err = execStockSetOrDecrease(ctx, in, variantID, locationID, gotSet, base)
+			res, err = execStockSet(ctx, in, variantID, locationID, base)
 		}
 		if err != nil {
 			return common.ExecResult{}, target.hintIfDirectVariantID(err)
@@ -91,11 +83,9 @@ var stockShortcut = common.Shortcut{
 	},
 }
 
-// execStockAdd is the fast path for --adjust > 0: no level read.
-func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationID string, adjust, base int) (common.ExecResult, error) {
-	plans := []common.PlannedRequest{}
+func execStockAdjust(ctx context.Context, in common.ExecInput, variantID, locationID string, adjust, base int) (common.ExecResult, error) {
 	invPlan := PlanInventoryItemForVariant(variantID)
-	plans = append(plans, invPlan)
+	plans := []common.PlannedRequest{invPlan}
 
 	var locPlan common.PlannedRequest
 	needsDefaultLoc := locationID == ""
@@ -103,13 +93,10 @@ func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationI
 		locPlan = PlanDefaultLocation()
 		plans = append(plans, locPlan)
 	}
-
-	previewBody := map[string]any{
-		"inventory_item_id": stepRef(base + 0),
-		"location_id":       placeholderOr(locationID, stepRef(base+1)),
-		"stock_adjustment":  adjust,
-	}
-	plans = append(plans, PlanGetInventoryItem(stepRef(base+0)), PlanAdjustInventoryLevel(previewBody))
+	plans = append(plans,
+		PlanGetInventoryItem(stepRef(base+0)),
+		planStockDelta(stepRef(base+0), placeholderOr(locationID, stepRef(base+1)), adjust),
+	)
 
 	if in.DryRun {
 		return common.ExecResult{Plans: plans}, nil
@@ -129,44 +116,38 @@ func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationI
 		return common.ExecResult{}, err
 	}
 
-	resp, err := common.Send(ctx, in.Client, PlanAdjustInventoryLevel(map[string]any{
-		"inventory_item_id": invItemID,
-		"location_id":       locationID,
-		"stock_adjustment":  adjust,
-	}))
+	resp, err := common.Send(ctx, in.Client, planStockDelta(invItemID, locationID, adjust))
 	if err != nil {
-		return common.ExecResult{}, translateAdjustError(err)
+		return common.ExecResult{}, err
 	}
 	return common.ExecResult{Body: resp}, nil
 }
 
-// execStockSetOrDecrease handles --set and --adjust < 0: read the current level,
-// then route up (inventory_levels add) or down (variant inventory_quantity set).
-func execStockSetOrDecrease(ctx context.Context, in common.ExecInput, variantID, locationID string, gotSet bool, base int) (common.ExecResult, error) {
+func execStockSet(ctx context.Context, in common.ExecInput, variantID, locationID string, base int) (common.ExecResult, error) {
 	invPlan := PlanInventoryItemForVariant(variantID)
-	locPlan := PlanDefaultLocation() // always: decrement gating compares against it
-	levelsPlan := PlanListItemLevels(stepRef(base + 0))
-	plans := []common.PlannedRequest{invPlan, locPlan, levelsPlan, PlanGetInventoryItem(stepRef(base + 0))}
+	plans := []common.PlannedRequest{invPlan}
 
-	effectiveLoc := placeholderOr(locationID, stepRef(base+1))
-	if gotSet {
-		// Direction is unknown until the level is read: preview both writes.
-		target := in.Flags.GetInt("set")
-		plans = append(plans,
-			PlanAdjustInventoryLevel(map[string]any{
-				"inventory_item_id": stepRef(base + 0),
-				"location_id":       effectiveLoc,
-				"stock_adjustment":  "<if target > current: target minus current>",
-			}),
-			PlanUpdateVariant(variantID, map[string]any{
-				"variant": map[string]any{"inventory_quantity": target},
-			}),
-		)
-	} else {
-		plans = append(plans, PlanUpdateVariant(variantID, map[string]any{
-			"variant": map[string]any{"inventory_quantity": "<computed: current minus |adjust|>"},
-		}))
+	var locPlan common.PlannedRequest
+	needsDefaultLoc := locationID == ""
+	if needsDefaultLoc {
+		locPlan = PlanDefaultLocation()
+		plans = append(plans, locPlan)
 	}
+	effectiveLoc := placeholderOr(locationID, stepRef(base+1))
+	plans = append(plans,
+		PlanListItemLevels(stepRef(base+0)),
+		PlanGetInventoryItem(stepRef(base+0)),
+		PlanAdjustInventoryLevel(map[string]any{
+			"inventory_item_id": stepRef(base + 0),
+			"location_id":       effectiveLoc,
+			"stock_adjustment":  "<if target > current: target minus current>",
+		}),
+		PlanSetStock(map[string]any{
+			"inventory_item_id": stepRef(base + 0),
+			"location_id":       effectiveLoc,
+			"stock":             "<if target < current: target minus current>",
+		}),
+	)
 
 	if in.DryRun {
 		return common.ExecResult{Plans: plans}, nil
@@ -176,19 +157,18 @@ func execStockSetOrDecrease(ctx context.Context, in common.ExecInput, variantID,
 	if err != nil {
 		return common.ExecResult{}, err
 	}
-	defaultLoc, err := resolveDefaultLocationID(ctx, in.Client, locPlan)
-	if err != nil {
-		return common.ExecResult{}, err
-	}
-	if locationID == "" {
-		locationID = defaultLoc
+	if needsDefaultLoc {
+		locationID, err = resolveDefaultLocationID(ctx, in.Client, locPlan)
+		if err != nil {
+			return common.ExecResult{}, err
+		}
 	}
 
 	levelsResp, err := common.Send(ctx, in.Client, PlanListItemLevels(invItemID))
 	if err != nil {
 		return common.ExecResult{}, err
 	}
-	row, locCount, err := levelRowFor(levelsResp, locationID)
+	row, err := levelRowFor(levelsResp, locationID)
 	if err != nil {
 		return common.ExecResult{}, err
 	}
@@ -198,61 +178,34 @@ func execStockSetOrDecrease(ctx context.Context, in common.ExecInput, variantID,
 			return common.ExecResult{}, err
 		}
 	}
-
-	target := in.Flags.GetInt("set")
-	if !gotSet {
-		target = current + in.Flags.GetInt("adjust")
-	}
 	if err := requireTracking(ctx, in.Client, invItemID); err != nil {
 		return common.ExecResult{}, err
 	}
 
-	switch {
-	case target == current:
+	target := in.Flags.GetInt("set")
+	if target == current {
 		return common.ExecResult{Body: wrapLevelRow(row)}, nil
-	case target > current:
-		resp, aerr := common.Send(ctx, in.Client, PlanAdjustInventoryLevel(map[string]any{
+	}
+	resp, err := common.Send(ctx, in.Client, planStockDelta(invItemID, locationID, target-current))
+	if err != nil {
+		return common.ExecResult{}, err
+	}
+	return common.ExecResult{Body: resp}, nil
+}
+
+func planStockDelta(invItemID, locationID string, delta int) common.PlannedRequest {
+	if delta > 0 {
+		return PlanAdjustInventoryLevel(map[string]any{
 			"inventory_item_id": invItemID,
 			"location_id":       locationID,
-			"stock_adjustment":  target - current,
-		}))
-		if aerr != nil {
-			return common.ExecResult{}, translateAdjustError(aerr)
-		}
-		return common.ExecResult{Body: resp}, nil
+			"stock_adjustment":  delta,
+		})
 	}
-
-	// Decrement path: variant.inventory_quantity is an absolute set that lands
-	// on the default location, so gate anything it cannot express safely.
-	if target < 0 {
-		return common.ExecResult{}, output.ErrValidation(
-			"--adjust %d would take stock below 0 (current=%d); use --set 0 to zero it out", in.Flags.GetInt("adjust"), current)
-	}
-	if locationID != defaultLoc {
-		return common.ExecResult{}, output.ErrValidation(
-			"stock decrease writes variant.inventory_quantity, which only targets the default location (%s); got --location-id %s", defaultLoc, locationID)
-	}
-	if locCount > 1 {
-		return common.ExecResult{}, output.ErrValidation(
-			"stock decrease is unsupported for items stocked at multiple locations (%d found): variant.inventory_quantity semantics are only verified for single-location items", locCount)
-	}
-
-	if _, err = common.Send(ctx, in.Client, PlanUpdateVariant(variantID, map[string]any{
-		"variant": map[string]any{"inventory_quantity": target},
-	})); err != nil {
-		return common.ExecResult{}, err
-	}
-
-	// Re-read so the caller gets the same {"inventory_level": …} shape as adds.
-	afterResp, err := common.Send(ctx, in.Client, PlanListItemLevels(invItemID))
-	if err != nil {
-		return common.ExecResult{}, err
-	}
-	afterRow, _, err := levelRowFor(afterResp, locationID)
-	if err != nil {
-		return common.ExecResult{}, err
-	}
-	return common.ExecResult{Body: wrapLevelRow(afterRow)}, nil
+	return PlanSetStock(map[string]any{
+		"inventory_item_id": invItemID,
+		"location_id":       locationID,
+		"stock":             delta,
+	})
 }
 
 // resolveInventoryItemID runs the variant→inventory-item lookup plan and extracts the id.
@@ -297,24 +250,23 @@ func placeholderOr(v, placeholder string) string {
 	return v
 }
 
-// levelRowFor picks locationID's row out of a levels list response and reports
-// how many locations hold a level. A missing row is (nil, n, nil).
-func levelRowFor(resp map[string]any, locationID string) (map[string]any, int, error) {
+// levelRowFor picks locationID's row out of a levels list response. A missing row is (nil, nil).
+func levelRowFor(resp map[string]any, locationID string) (map[string]any, error) {
 	rows, ok := resp["inventory_levels"].([]any)
 	if !ok {
-		return nil, 0, output.ErrInternal("inventory_levels response missing 'inventory_levels' array")
+		return nil, output.ErrInternal("inventory_levels response missing 'inventory_levels' array")
 	}
 	var match map[string]any
 	for _, r := range rows {
 		row, ok := r.(map[string]any)
 		if !ok {
-			return nil, 0, output.ErrInternal("inventory_levels row not an object")
+			return nil, output.ErrInternal("inventory_levels row not an object")
 		}
 		if asString(row["location_id"]) == locationID {
 			match = row
 		}
 	}
-	return match, len(rows), nil
+	return match, nil
 }
 
 // stockOf reads a row's stock; the API omits the field when it is 0.
@@ -410,21 +362,4 @@ func asString(v any) string {
 	default:
 		return ""
 	}
-}
-
-// translateAdjustError converts 422 rejections (typically "stock would go negative") into ErrValidation;
-// other errors pass through unchanged.
-func translateAdjustError(err error) error {
-	var httpErr *client.HTTPError
-	if !errors.As(err, &httpErr) {
-		return err
-	}
-	if httpErr.StatusCode != 422 {
-		return err
-	}
-	body := httpErr.Body
-	if strings.Contains(body, `"current_stock"`) {
-		return output.ErrValidation("inventory adjustment rejected (resulting stock would be < 0). API said: %s", body)
-	}
-	return output.ErrValidation("inventory adjustment rejected by API: %s", body)
 }

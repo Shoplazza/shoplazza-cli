@@ -84,10 +84,8 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 4. **All required present** → run it. `+shortcuts` are safe to run directly; use `--dry-run`
    first for deletes, batch ops, and gift-card creation (stored value = money), per
    shoplazza-common → Safety protocol.
-5. **Degrade honestly**: if the platform cannot do it (e.g. decreasing stock at a
-   **non-default location** or on a **multi-location item** — see
-   [references/inventory-locations.md](references/inventory-locations.md)), emit **no write
-   command**; explain the limitation and offer a legitimate alternative.
+5. **Degrade honestly**: if the platform cannot do it, emit **no write command**; explain the
+   limitation and offer a legitimate alternative.
 
 ### Trigger phrase → shortcut
 
@@ -110,8 +108,8 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 改价 / 调价 / change the price to X | `+set-price` | **Target**: variant id → `--variant-id`; SKU → `--sku`; **product id → `--product-id`** (resolves that product's only variant; multi-variant is refused with the candidates listed); only a name? `+search --keyword` first. New price → `--price` verbatim; **`--price 0` CLEARS the price** (does not display ¥0) — surface that difference and get the user's confirmation before passing 0 |
 | 划线价 / compare-at price | `+set-price --compare-price` | only when the user names it |
 | 库存加 N / 补货 N 件 / add N stock | `+stock --adjust N` | 加/增加 N = positive delta → `--adjust N`. **Target**: variant id → `--variant-id`; SKU → `--sku`; product id → `--product-id` (single-variant products; multi-variant refused with candidates); only a name? `+search --keyword` first — never ask the user for a variant id |
-| 库存设为 N / set stock to N | `+stock --set N` | absolute target (≥ 0), either direction; decreases are gated to the **default location** of a **single-location item**; target flag as in the 库存加 N row |
-| 减库存 / 库存扣掉 N / reduce stock | `+stock --adjust -N` | 减/扣掉 N = negative delta → `--adjust -N`; the CLI refuses if the result would go below 0, if `--location-id` isn't the default location, or if the item is stocked at multiple locations — in those cases explain and offer `+unpublish` / stock-policy `deny` instead; target flag as in the 库存加 N row |
+| 库存设为 N / set stock to N | `+stock --set N` | absolute target, either direction, at any location; may be negative; target flag as in the 库存加 N row |
+| 减库存 / 库存扣掉 N / reduce stock | `+stock --adjust -N` | 减/扣掉 N = negative delta → `--adjust -N`; works at any location and stock may go below 0; target flag as in the 库存加 N row |
 | 加标签（保留原有）/ add tags | `+tag --add` | tags comma-separated; existing tags kept |
 | 去掉某标签 / remove a tag | `+tag --remove` | missing tags are ignored |
 | 标签整个换成… / replace all tags | `+tag --set` | replaces the full list — only on explicit "replace/换成/只保留" wording |
@@ -172,7 +170,7 @@ override only) · `--sku-template` / `--set-stock` / `--new-stock` on `+set-vari
 | "把 SKU TSHIRT-RED-M 的价格改成 24.99" | CREATE — `+set-price --sku TSHIRT-RED-M --price 24.99`; no `--all` for a single-variant intent |
 | "给变体 998877 调一下价格" | ASK — the new price; target `--variant-id 998877` is already known |
 | "给变体 12345 的库存加 50 件" | CREATE — `+stock --variant-id 12345 --adjust 50` |
-| "把变体 88664 的库存减少 30 件" | CREATE — `+stock --variant-id 88664 --adjust -30`; if the CLI refuses (below 0 / non-default location / multi-location item / product not tracking inventory), relay the reason and offer alternatives |
+| "把变体 88664 的库存减少 30 件" | CREATE — `+stock --variant-id 88664 --adjust -30`; if the CLI refuses (product not tracking inventory), relay the reason |
 | "给老客户发一张礼品卡" | ASK — `initial_value` + `code` (money; never fabricate) |
 | "建一个文胸套装，3 个颜色、15 个胸围码、6 个内裤码，统一 29.99" | ASK `--image` first, then two steps: `+create --title … --price 29.99 --image …` → `+set-variants --product-id <new> --add "Color:…" --add "Bra Size:…" --add "Brief Size:…"` (every combo copies 29.99) |
 | "给这个商品加个 White 色" | CREATE — `+set-variants --product-id <id> --add "Color:White" --new-price <n>`; ask the price if unknown (the new combos need one) |
@@ -222,7 +220,7 @@ shoplazza-common).
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Stock decrease rejected | The `inventory_levels` write leaves (`set-stock` / `update-level`) only add; decreases ride `variant.inventory_quantity`, which is default-location-only and unverified on multi-location items — `+stock` gates accordingly | Use `+stock --adjust -N` / `--set N`; when the gate fires, explain and offer alternatives (unpublish, stock-policy) |
+| `inventory set-stock` added instead of setting | `set-stock` adds its signed `stock` to the level (negative subtracts), despite its name | Use `+stock --set N` for an absolute target |
 | Product published when the user wanted a draft | `--published` on `+create` is a bare boolean — passing it publishes | Omit `--published` entirely for a draft (draft is the default) |
 | `unknown flag: --fields` on `+count` / other shortcuts | In this module `--fields` exists on `+search` **only** | Project with `--jq` elsewhere |
 | `+search --fields` result lacks a field you named | Names are **response keys** (`primary_image`, `price_min`, …); a misspelled or unknown name is silently ignored by the API. `id`, `title`, `created_at`, `updated_at` may come back regardless | Check names against the default output or `schema products.list --view response`; or skip `--fields` and project with `--jq` |
@@ -335,7 +333,7 @@ products gift-cards disable --params '{"id":"'$ID'"}' --dry-run
 ## References
 
 - [references/variants.md](references/variants.md) — variants CRUD, SKU lookup/update, option handling
-- [references/inventory-locations.md](references/inventory-locations.md) — inventory items vs levels, decrement gates, locations
+- [references/inventory-locations.md](references/inventory-locations.md) — inventory items vs levels, write routes, locations
 - [references/collections-collects.md](references/collections-collects.md) — curated & smart collections, collects, categories
 - [references/images.md](references/images.md) — product image CRUD
 - [references/gift-cards.md](references/gift-cards.md) — gift card lifecycle (no delete; disable)
