@@ -27949,6 +27949,10 @@
           "items": {
             "type": "string"
           }
+        },
+        {
+          "name": "redirect",
+          "type": "boolean"
         }
       ]
     },
