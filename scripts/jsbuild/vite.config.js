@@ -3,6 +3,7 @@ const { cwd } = require('process');
 const path = require('path');
 const { vitePluginAddExtensionId } = require('./plugin/vite-plugin-add-extension-id');
 const { vitePluginTransformExtensionHtml } = require('./plugin/vite-plugin-transform-extension-html');
+const { vitePluginInjectCss } = require('./plugin/vite-plugin-inject-css');
 
 function getDistPath() {
   return path.join(cwd(), 'dist');
@@ -11,7 +12,7 @@ function getDistPath() {
 module.exports = {
   // pageEntry = { [extensionId]: '<root>/extensions/<id>/src/index.js' }
   viteConfig: (pageEntry) => ({
-    plugins: [vitePluginTransformExtensionHtml(), vitePluginAddExtensionId()], // order matters: transform-html first
+    plugins: [vitePluginTransformExtensionHtml(), vitePluginAddExtensionId(), vitePluginInjectCss()], // order matters: transform-html first
     base: '/',
     root: cwd(),
     build: {

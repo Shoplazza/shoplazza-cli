@@ -1,10 +1,20 @@
 const fs = require('fs');
 const path = require('path');
+const acorn = require('acorn');
 const parseExtension = (str, name) => {
-  const data = str.split(/(?:import\s*(?:.*?)\s*from\s*(?:.*?)\s*;)/g);
-  const main = data[data.length - 1];
+  // Every top-level import (including side-effect ones like `import './a.css'`)
+  // must stay outside the IIFE, where `import` would be a syntax error.
+  const ast = acorn.parse(str, { ecmaVersion: 'latest', sourceType: 'module' });
+  const imports = ast.body.filter((node) => node.type === 'ImportDeclaration');
+  const importString = imports.map((node) => str.slice(node.start, node.end)).join(' ');
+  let main = '';
+  let cursor = 0;
+  for (const node of imports) {
+    main += str.slice(cursor, node.start);
+    cursor = node.end;
+  }
+  main += str.slice(cursor);
   const id = JSON.stringify(name);
-  const importString = str.match(/(?:import\s*(?:.*?)\s*from\s*(?:.*?)\s*;)/g)?.join(' ') || '';
   return `${importString}(function(){const __EXTENSION_ID__=${id};${main}})()`;
 };
 // Server extensions are invoked through their exported functions, so the entry
