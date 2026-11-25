@@ -172,7 +172,7 @@ override only) · `--sku-template` / `--set-stock` / `--new-stock` on `+set-vari
 | "把 SKU TSHIRT-RED-M 的价格改成 24.99" | CREATE — `+set-price --sku TSHIRT-RED-M --price 24.99`; no `--all` for a single-variant intent |
 | "给变体 998877 调一下价格" | ASK — the new price; target `--variant-id 998877` is already known |
 | "给变体 12345 的库存加 50 件" | CREATE — `+stock --variant-id 12345 --adjust 50` |
-| "把变体 88664 的库存减少 30 件" | CREATE — `+stock --variant-id 88664 --adjust -30`; if the CLI refuses (below 0 / non-default location / multi-location item), relay the reason and offer alternatives |
+| "把变体 88664 的库存减少 30 件" | CREATE — `+stock --variant-id 88664 --adjust -30`; if the CLI refuses (below 0 / non-default location / multi-location item / product not tracking inventory), relay the reason and offer alternatives |
 | "给老客户发一张礼品卡" | ASK — `initial_value` + `code` (money; never fabricate) |
 | "建一个文胸套装，3 个颜色、15 个胸围码、6 个内裤码，统一 29.99" | ASK `--image` first, then two steps: `+create --title … --price 29.99 --image …` → `+set-variants --product-id <new> --add "Color:…" --add "Bra Size:…" --add "Brief Size:…"` (every combo copies 29.99) |
 | "给这个商品加个 White 色" | CREATE — `+set-variants --product-id <id> --add "Color:White" --new-price <n>`; ask the price if unknown (the new combos need one) |

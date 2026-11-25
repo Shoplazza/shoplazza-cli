@@ -21,12 +21,14 @@ Decreases exist, but ride a different primitive: `PUT /variants/{variant_id}` wi
   happily store a negative — never let it), the effective `--location-id` is not the
   default location, or the item holds levels at **multiple locations**
   (`inventory_quantity` semantics are only verified for single-location items).
+- Any change is **refused** before writing when the product does not track inventory
+  (`inventory_item.tracking` off): the API rejects an add and silently ignores a decrease.
 
-**Tracked zero is unreachable** (all three routes verified live): `variant.inventory_quantity: 0`
-**clears tracking** (reads back `null`, like an untracked variant) instead of setting zero;
-`set-stock` with `stock: 0` returns `ok:true` but is **silently ignored**; `update-level`
-rejects `stock_adjustment ≤ 0`. To "sell out" a variant, decrease to 1 and take the last
-unit from another variant, or ask whether untracked (`null`) is acceptable — never claim 0 was set.
+**Zero reads back as absent**: `+stock --set 0` sets a tracked variant to 0 and tracking stays
+on (verified live), but the API omits zero values, so `stock` / `inventory_quantity` come back
+missing (`null`). That is 0, not untracked: read tracking from `inventory_item.tracking` /
+`product.inventory_tracking` (also omitted when false). `set-stock` with `stock: 0` returns
+`ok:true` but changes nothing; `update-level` rejects `stock_adjustment ≤ 0`.
 
 When the gate fires, degrade honestly: relay the CLI's reason, offer alternatives
 (`products +unpublish`, inventory policy `deny` when stock hits 0). Never bypass the gate

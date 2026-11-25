@@ -91,7 +91,7 @@ var stockShortcut = common.Shortcut{
 	},
 }
 
-// execStockAdd is the fast path for --adjust > 0: no reads beyond id resolution.
+// execStockAdd is the fast path for --adjust > 0: no level read.
 func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationID string, adjust, base int) (common.ExecResult, error) {
 	plans := []common.PlannedRequest{}
 	invPlan := PlanInventoryItemForVariant(variantID)
@@ -109,7 +109,7 @@ func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationI
 		"location_id":       placeholderOr(locationID, stepRef(base+1)),
 		"stock_adjustment":  adjust,
 	}
-	plans = append(plans, PlanAdjustInventoryLevel(previewBody))
+	plans = append(plans, PlanGetInventoryItem(stepRef(base+0)), PlanAdjustInventoryLevel(previewBody))
 
 	if in.DryRun {
 		return common.ExecResult{Plans: plans}, nil
@@ -124,6 +124,9 @@ func execStockAdd(ctx context.Context, in common.ExecInput, variantID, locationI
 		if err != nil {
 			return common.ExecResult{}, err
 		}
+	}
+	if err := requireTracking(ctx, in.Client, invItemID); err != nil {
+		return common.ExecResult{}, err
 	}
 
 	resp, err := common.Send(ctx, in.Client, PlanAdjustInventoryLevel(map[string]any{
@@ -143,7 +146,7 @@ func execStockSetOrDecrease(ctx context.Context, in common.ExecInput, variantID,
 	invPlan := PlanInventoryItemForVariant(variantID)
 	locPlan := PlanDefaultLocation() // always: decrement gating compares against it
 	levelsPlan := PlanListItemLevels(stepRef(base + 0))
-	plans := []common.PlannedRequest{invPlan, locPlan, levelsPlan}
+	plans := []common.PlannedRequest{invPlan, locPlan, levelsPlan, PlanGetInventoryItem(stepRef(base + 0))}
 
 	effectiveLoc := placeholderOr(locationID, stepRef(base+1))
 	if gotSet {
@@ -199,6 +202,9 @@ func execStockSetOrDecrease(ctx context.Context, in common.ExecInput, variantID,
 	target := in.Flags.GetInt("set")
 	if !gotSet {
 		target = current + in.Flags.GetInt("adjust")
+	}
+	if err := requireTracking(ctx, in.Client, invItemID); err != nil {
+		return common.ExecResult{}, err
 	}
 
 	switch {
@@ -256,6 +262,22 @@ func resolveInventoryItemID(ctx context.Context, c *client.Client, plan common.P
 		return "", err
 	}
 	return extractInventoryItemID(resp)
+}
+
+func requireTracking(ctx context.Context, c *client.Client, invItemID string) error {
+	resp, err := common.Send(ctx, c, PlanGetInventoryItem(invItemID))
+	if err != nil {
+		return err
+	}
+	item, ok := resp["inventory_item"].(map[string]any)
+	if !ok {
+		return output.ErrInternal("inventory item response missing 'inventory_item' object")
+	}
+	if tracking, _ := item["tracking"].(bool); !tracking {
+		return output.ErrValidation("this variant's product does not track inventory, so its stock cannot be changed").
+			WithHint("turn on the product's inventory tracking first ('products update' with product.inventory_tracking: true), then run +stock again")
+	}
+	return nil
 }
 
 // resolveDefaultLocationID runs the default-location lookup plan and extracts the id.

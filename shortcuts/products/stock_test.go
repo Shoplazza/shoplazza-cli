@@ -321,6 +321,12 @@ func stockBrokerServer(t *testing.T, opts stockBrokerOpts, calls *[]string) *htt
 			json.NewEncoder(w).Encode(map[string]any{"variant_inventory_items": []any{
 				map[string]any{"inventory_item_id": "ii-1", "variant_id": "v-1"},
 			}})
+		case strings.HasSuffix(path, "/inventory_items/ii-1") && r.Method == http.MethodGet:
+			item := map[string]any{"id": "ii-1"}
+			if !opts.untracked {
+				item["tracking"] = true
+			}
+			json.NewEncoder(w).Encode(map[string]any{"inventory_item": item})
 		case strings.HasSuffix(path, "/locations/default"):
 			json.NewEncoder(w).Encode(map[string]any{"location": map[string]any{"id": opts.defaultLoc}})
 		case strings.HasSuffix(path, "/inventory_levels") && r.Method == http.MethodGet:
@@ -346,6 +352,7 @@ type stockBrokerOpts struct {
 	defaultLoc string
 	levels     []map[string]any // rows returned by GET /inventory_levels
 	afterStock int              // stock reported on the re-read after a variant PUT
+	untracked  bool
 }
 
 // planQueryString renders a plan's query values for substring assertions.
@@ -482,9 +489,9 @@ func TestStockExecute_DryRunPlanCount(t *testing.T) {
 		flags     map[string]string
 		wantPlans int
 	}{
-		{"adjust, no location", map[string]string{"variant-id": "v-1", "adjust": "5"}, 2},
-		{"adjust, with location", map[string]string{"variant-id": "v-1", "adjust": "3", "location-id": "loc-1"}, 2},
-		{"set, no location", map[string]string{"variant-id": "v-1", "set": "10"}, 3},
+		{"adjust, no location", map[string]string{"variant-id": "v-1", "adjust": "5"}, 4},
+		{"adjust, with location", map[string]string{"variant-id": "v-1", "adjust": "3", "location-id": "loc-1"}, 3},
+		{"set, no location", map[string]string{"variant-id": "v-1", "set": "10"}, 6},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -493,8 +500,17 @@ func TestStockExecute_DryRunPlanCount(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Execute: %v", err)
 			}
-			if len(result.Plans) < c.wantPlans {
-				t.Errorf("expected ≥%d plans, got %d", c.wantPlans, len(result.Plans))
+			if len(result.Plans) != c.wantPlans {
+				t.Errorf("expected %d plans, got %d", c.wantPlans, len(result.Plans))
+			}
+			sawItemGet := false
+			for _, p := range result.Plans {
+				if p.Method == "GET" && strings.HasSuffix(p.Path, "/inventory_items/"+stepRef(0)) {
+					sawItemGet = true
+				}
+			}
+			if !sawItemGet {
+				t.Errorf("dry-run should preview GET /inventory_items/%s, plans: %+v", stepRef(0), result.Plans)
 			}
 		})
 	}
@@ -540,6 +556,38 @@ func TestStockExecute_SetLower_DecrementsViaVariantPut(t *testing.T) {
 	level, _ := result.Body["inventory_level"].(map[string]any)
 	if got, _ := asInt(level["stock"]); got != 4 {
 		t.Errorf("returned stock: got %v want 4", level["stock"])
+	}
+}
+
+func TestStockExecute_UntrackedRefusedBeforeWrite(t *testing.T) {
+	cases := []struct {
+		name  string
+		flags map[string]string
+	}{
+		{"decrease", map[string]string{"variant-id": "v-1", "set": "4"}},
+		{"add", map[string]string{"variant-id": "v-1", "adjust": "2"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var calls []string
+			srv := stockBrokerServer(t, stockBrokerOpts{
+				defaultLoc: "loc-1",
+				levels:     []map[string]any{{"location_id": "loc-1", "stock": 10}},
+				untracked:  true,
+			}, &calls)
+			defer srv.Close()
+
+			_, err := stockShortcut.Execute(context.Background(), stockInputWithClient(t, c.flags, srv.URL))
+			var ee *output.ExitError
+			if !errors.As(err, &ee) || ee.Code != output.ExitValidation || !strings.Contains(ee.Detail.Message, "does not track inventory") {
+				t.Fatalf("want a validation error saying the product does not track inventory, got %v", err)
+			}
+			for _, call := range calls {
+				if strings.HasPrefix(call, "PUT") {
+					t.Errorf("no write should be sent, calls: %v", calls)
+				}
+			}
+		})
 	}
 }
 

@@ -66,6 +66,10 @@ func PlanInventoryItemForVariant(variantID string) common.PlannedRequest {
 	}
 }
 
+func PlanGetInventoryItem(inventoryItemID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: inventoryItemsBase + "/" + inventoryItemID}
+}
+
 func PlanDefaultLocation() common.PlannedRequest {
 	return common.PlannedRequest{Method: "GET", Path: locationsBase + "/default"}
 }
