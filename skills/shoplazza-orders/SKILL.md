@@ -78,7 +78,8 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 4. **All required present** → execute, with safety per shoplazza-common:
    - **`+refund` moves money — ALWAYS `--dry-run` first**, restate in plain language (which
      order, how much, note, inventory returned or not), wait for the user's go-ahead, then
-     run for real.
+     run for real. An order paid through `customize_payment` or `bogus` stays in progress
+     until `orders refunds finish` → [references/refunds.md](references/refunds.md).
    - **Destructive leaves** (`orders cancel` / `orders delete` / `fulfillments cancel` /
      `risks delete` / `post-sales delete` / `shipping-schemas delete-zone`) — `--dry-run`
      first + restate, wait for the user's go-ahead, then run.

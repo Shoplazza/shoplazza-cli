@@ -2,8 +2,11 @@ package orders
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func TestChoosePaymentLine_SingleAutoSelected(t *testing.T) {
@@ -150,15 +153,70 @@ var refundExecFlags = map[string]string{
 	"payment-line-id": "string", "note": "string", "return-items": "bool",
 }
 
-func TestRefundExecute_DryRunReturnsTwoPlans(t *testing.T) {
-	in := newOrderExecInput(t, refundExecFlags, map[string]string{
-		"order-id": "ord-1", "amount": "10.00",
-	}, true)
-	result, err := refundShortcut.Execute(context.Background(), in)
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
+func TestRefundExecute_DryRunMarksResolvedValues(t *testing.T) {
+	cases := []struct {
+		name            string
+		values          map[string]string
+		wantPaymentLine string
+		wantLineItems   any
+	}{
+		{"payment line resolved at run time", map[string]string{"order-id": "ord-1", "amount": "10.00"}, "<resolved-from-step-0>", nil},
+		{"payment line given", map[string]string{"order-id": "ord-1", "amount": "10.00", "payment-line-id": "pl-9"}, "pl-9", nil},
+		{"return items resolved at run time", map[string]string{"order-id": "ord-1", "amount": "10.00", "return-items": "true"}, "<resolved-from-step-0>", "<resolved-from-step-0>"},
 	}
-	if len(result.Plans) != 2 {
-		t.Errorf("expected 2 plans (GET + POST), got %d", len(result.Plans))
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			result, err := refundShortcut.Execute(context.Background(), newOrderExecInput(t, refundExecFlags, c.values, true))
+			if err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+			if len(result.Plans) != 2 {
+				t.Fatalf("expected 2 plans (GET + POST), got %d", len(result.Plans))
+			}
+			refund := result.Plans[1].Body.(map[string]any)["refund"].(map[string]any)
+			payments := refund["refund_payments"].([]map[string]any)
+			if got := payments[0]["payment_line_id"]; got != c.wantPaymentLine {
+				t.Errorf("payment_line_id = %v, want %v", got, c.wantPaymentLine)
+			}
+			if got := refund["refund_line_items"]; got != c.wantLineItems {
+				t.Errorf("refund_line_items = %v, want %v", got, c.wantLineItems)
+			}
+		})
+	}
+}
+
+func TestRefundExecute_AmountMustBePositiveNumber(t *testing.T) {
+	cases := []struct {
+		amount  string
+		dryRun  bool
+		wantErr bool
+	}{
+		{"-5", true, true},
+		{"0", true, true},
+		{"0.00", true, true},
+		{"abc", true, true},
+		{"1e3", true, true},
+		{"abc", false, true},
+		{"29.99", true, false},
+		{"10", true, false},
+	}
+	for _, c := range cases {
+		t.Run(c.amount, func(t *testing.T) {
+			in := newOrderExecInput(t, refundExecFlags, map[string]string{"order-id": "ord-1", "amount": c.amount}, c.dryRun)
+			_, err := refundShortcut.Execute(context.Background(), in)
+			if !c.wantErr {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			var ee *output.ExitError
+			if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != "--amount" {
+				t.Fatalf("want a validation error on --amount, got %#v", err)
+			}
+			if want := "--amount must be a number greater than 0"; ee.Detail.Message != want {
+				t.Fatalf("message = %q, want %q", ee.Detail.Message, want)
+			}
+		})
 	}
 }
