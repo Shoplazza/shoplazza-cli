@@ -53,6 +53,11 @@ The structured-output contract, uniform across commands:
 - Success → stdout: `{"ok":true,"data":<body>}`
 - Failure → stderr: `{"ok":false,"error":{"type":…,"message":…}}`, non-zero exit.
 
+**`jq_failed_after_request` is the one failure that comes with data.** The request already
+succeeded (a write took effect) and only `-q` failed on the response: exit 2, the whole
+`{ok,data}` response on stdout, `error.detail` naming the request. Do not resend it; fix `-q`
+(the message names the failing path step and the keys at that level) or read stdout.
+
 **Response bodies nest under `.data`**, so every `jq` path starts at `.data` (e.g.
 `.data.products[].id`). Missing the `.data` prefix is the most common extraction mistake.
 

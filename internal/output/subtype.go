@@ -19,6 +19,8 @@ const (
 	SubtypeMisplacedParam       = "misplaced_param"        // --params key that is a request-body field
 	SubtypeMissingRequiredField = "missing_required_field" // required top-level body field absent from --data
 	SubtypeMissingRequiredParam = "missing_required_param" // required path/query key absent from --params, empty, or a placeholder
+
+	SubtypeJQAfterRequest = "jq_failed_after_request" // the request succeeded; --jq failed on its response
 )
 
 // ClassifyUsageError converts a cobra/pflag usage error (unknown command,

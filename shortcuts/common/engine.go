@@ -96,6 +96,9 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 	local := s.Local
 
 	cmd.RunE = func(c *cobra.Command, args []string) error {
+		if err := output.ValidateJQ(cmdutil.GetFormat(c), cmdutil.GetJQ(c)); err != nil {
+			return err
+		}
 		// Resolve required flags first: prompt in an interactive terminal, or
 		// fail fast (never block) with a naming error otherwise.
 		if err := checkRepeated(c, s.Flags); err != nil {
@@ -171,7 +174,7 @@ func Mount(s Shortcut, parent *cobra.Command, factory *cmdutil.Factory) {
 		if err != nil {
 			return classifySendError(err)
 		}
-		return output.PrintAPISuccess(c.OutOrStdout(), resp, format, jq)
+		return output.WithSentRequest(output.PrintAPISuccess(c.OutOrStdout(), resp, format, jq), p.Method, p.Path, 0, "")
 	}
 
 	// When the parent module opts into help grouping, a mounted shortcut lands in

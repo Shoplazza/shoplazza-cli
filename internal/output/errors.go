@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -105,6 +106,15 @@ func (e *ExitError) WithRequestID(id string) *ExitError {
 	}
 	e.Detail.Detail.RequestID = id
 	return e
+}
+
+// WithSentRequest names the request on a jq_failed_after_request error.
+func WithSentRequest(err error, method, path string, status int, requestID string) error {
+	var e *ExitError
+	if errors.As(err, &e) && e.Detail != nil && e.Detail.Subtype == SubtypeJQAfterRequest {
+		e.WithEndpoint(method, path).WithStatus(status).WithRequestID(requestID)
+	}
+	return err
 }
 
 // WithStatus attaches the HTTP status code to error.detail; no-op when 0.

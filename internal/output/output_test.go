@@ -199,24 +199,43 @@ func TestPrintAPISuccess_JQ_NilBody(t *testing.T) {
 
 func TestPrintAPISuccess_JQ_RuntimeError(t *testing.T) {
 	var buf bytes.Buffer
-	// `.foo + 1` on a number — gojq raises a runtime type error.
-	err := output.PrintAPISuccess(&buf, map[string]any{"x": float64(1)}, "json", ".data.x | .foo")
-	if err == nil {
-		t.Fatalf("expected runtime jq error, got nil")
+	err := output.PrintAPISuccess(&buf, map[string]any{"items": []any{"a"}, "x": float64(1)}, "json", ".data.items[], .data.x.foo")
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Detail.Subtype != output.SubtypeJQAfterRequest || ee.Error() != "jq: expected an object but got: number (1)" {
+		t.Errorf("err = %v, want gojq's error with subtype %s", err, output.SubtypeJQAfterRequest)
 	}
-	if !strings.Contains(err.Error(), "jq:") {
-		t.Errorf("err = %q, want it to contain 'jq:'", err.Error())
+	if got := buf.String(); !strings.HasPrefix(got, "{") || !strings.Contains(got, `"ok": true`) || !strings.Contains(got, `"x": 1`) {
+		t.Errorf("stdout = %q, want the whole envelope and no partial jq output", got)
 	}
 }
 
 func TestPrintBody_JQ(t *testing.T) {
-	var buf bytes.Buffer
-	body := map[string]any{"dry_run": true, "request": map[string]any{"method": "GET"}}
-	if err := output.PrintBody(&buf, body, "json", ".request.method"); err != nil {
-		t.Fatalf("PrintBody: %v", err)
-	}
-	if buf.String() != "GET\n" {
-		t.Errorf("PrintBody jq = %q, want %q", buf.String(), "GET\n")
+	body := map[string]any{"dry_run": true, "request": map[string]any{"method": "GET", "data": map[string]any{"product": map[string]any{"x": "s"}}}}
+	config := map[string]any{"data": map[string]any{"data": map[string]any{"schemas": []any{}, "settings": map[string]any{}}}}
+	list := map[string]any{"items": []any{map[string]any{"a": map[string]any{"b": 1}}, map[string]any{"a": "s"}}}
+	for _, c := range []struct {
+		body             any
+		expr, out, error string
+	}{
+		{body, ".request.method", "GET\n", ""},
+		{body, ".request.data.product.x.y", "", "jq: .request.data.product.x is a string, it has no .y"},
+		{config, ".data.sections[].id", "", "jq: .data.sections is null; .data has keys: data"},
+		{config, ".data.data.schemas.x", "", "jq: .data.data.schemas is an array, it has no .x"},
+		{config, ".data.data[0]", "", "jq: .data.data is an object (keys: schemas, settings), it has no [0]"},
+		{list, ".items[].a.b", "", "jq: .items[].a is a string, it has no .b"},
+		{body, ".request | .data.product.x.y", "", `jq: expected an object but got: string ("s")`},
+	} {
+		var buf bytes.Buffer
+		err := output.PrintBody(&buf, c.body, "json", c.expr)
+		if c.error == "" {
+			if err != nil || buf.String() != c.out {
+				t.Errorf("%s: out %q, err %v; want %q", c.expr, buf.String(), err, c.out)
+			}
+			continue
+		}
+		if err == nil || err.Error() != c.error || buf.Len() != 0 {
+			t.Errorf("%s: out %q, err %v; want error %q and no output", c.expr, buf.String(), err, c.error)
+		}
 	}
 }
 

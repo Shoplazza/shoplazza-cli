@@ -25,6 +25,9 @@ import (
 func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		// Auth is gated by the module's PersistentPreRunE; RunE assumes login.
+		if err := output.ValidateJQ(cmdutil.GetFormat(cmd), cmdutil.GetJQ(cmd)); err != nil {
+			return err
+		}
 		params, err := parseParams(cmd)
 		if err != nil {
 			return err
@@ -106,7 +109,8 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory)
 			}
 			return output.ErrInternal("%v", err)
 		}
-		return output.PrintAPISuccess(out, resp.Body, format, jq)
+		return output.WithSentRequest(output.PrintAPISuccess(out, resp.Body, format, jq),
+			req.Method, req.Path, resp.StatusCode, resp.RequestID())
 	}
 }
 

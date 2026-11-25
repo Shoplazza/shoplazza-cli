@@ -183,6 +183,49 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 			t.Errorf("%v: exit %d, path %q, want %q; stderr=%s", c.args, code, path, c.wantPath, stderr)
 		}
 	}
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"products", "update", "--params", `{"product_id":"p1"}`, "--data", `{"product":{}}`, "-q", ".data.["}, "invalid --jq expression"},
+		{[]string{"products", "update", "--params", `{"product_id":"p1"}`, "--data", `{"product":{}}`, "--format", "table", "-q", ".data"}, "--jq requires --format json"},
+		{[]string{"api", "rest", "PUT", "/openapi/2026-01/products/p1", "--data", `{"product":{}}`, "-q", ".data.["}, "invalid --jq expression"},
+		{[]string{"products", "+search", "--keyword", "x", "-q", ".data.["}, "invalid --jq expression"},
+	} {
+		before := hits
+		_, stderr, code := runCLI(t, bin, env, c.args...)
+		if code != 2 || hits != before || !strings.Contains(stderr, c.want) {
+			t.Errorf("%v: exit %d, sent %v, stderr %s; want exit 2, nothing sent, %q", c.args, code, hits != before, stderr, c.want)
+		}
+	}
+	for _, c := range []struct {
+		args         []string
+		method, path string
+		status       int
+	}{
+		{[]string{"products", "update", "--params", `{"product_id":"p1"}`, "--data", `{"product":{}}`}, "PUT", "/openapi/2026-01/products/p1", 200},
+		{[]string{"api", "rest", "GET", "/openapi/2026-01/products/p1"}, "GET", "/openapi/2026-01/products/p1", 200},
+		{[]string{"products", "+search", "--keyword", "x"}, "GET", "/openapi/2026-01/products", 0},
+	} {
+		before := hits
+		stdout, stderr, code := runCLI(t, bin, env, append(c.args, "-q", ".data.warehouse_id.x")...)
+		var e struct {
+			Error struct {
+				Type, Subtype, Message string
+				Detail                 struct {
+					StatusCode   int `json:"status_code"`
+					Method, Path string
+				}
+			} `json:"error"`
+		}
+		_ = json.Unmarshal([]byte(stderr), &e)
+		if code != 2 || hits != before+1 || !strings.Contains(stdout, `"warehouse_id": 638982951773671231`) ||
+			e.Error.Subtype != "jq_failed_after_request" || e.Error.Message != "jq: .data.warehouse_id is a number, it has no .x" ||
+			e.Error.Detail.Method != c.method || e.Error.Detail.Path != c.path || e.Error.Detail.StatusCode != c.status {
+			t.Errorf("%v -q failing after the call: exit %d, sent %d, stdout=%s stderr=%s", c.args, code, hits-before, stdout, stderr)
+		}
+	}
+
 	const big = "638982951773671231"
 	stdout, stderr, code := runCLI(t, bin, env, "products", "update", "--params", `{"product_id":`+big+`}`,
 		"--data", `{"product":{"vendor_id":`+big+`}}`, "-q", ".data.warehouse_id")

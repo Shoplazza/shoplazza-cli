@@ -56,6 +56,10 @@ Errors are written to **stderr** as:
   empty or left as a placeholder such as `<id>`; all listed in one error) and
   `missing_required_field` (a required top-level body field is absent from
   `--data`).
+  `jq_failed_after_request`: the request was sent and succeeded, but `-q` failed
+  on its response. The whole `{ok,data}` response is on stdout and `detail`
+  names the request (shortcuts that send several requests leave it empty). Do
+  not resend the request; fix `-q` or read stdout.
 - **`param`** — the offending flag/parameter name, when known.
 - **`message` / `hint`** — human text and a next step. Never parse `message`.
 - **`code` / `detail`** — server business code and HTTP context, for api/auth

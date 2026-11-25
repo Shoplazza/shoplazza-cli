@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
+	"regexp"
+	"slices"
+	"strings"
 
 	"github.com/itchyny/gojq"
 )
@@ -79,7 +83,14 @@ func PrintAPISuccess(w io.Writer, body any, format, jq string) error {
 		envelope["_notice"] = pendingNotice
 	}
 	if jq != "" {
-		return applyJQ(w, envelope, jq)
+		failure, err := filterJQ(w, envelope, jq)
+		if err != nil || failure == "" {
+			return err
+		}
+		if err := PrintJSON(w, envelope); err != nil {
+			return err
+		}
+		return ErrValidation("%s", failure).WithSubtype(SubtypeJQAfterRequest)
 	}
 	return PrintFormatted(w, envelope, format)
 }
@@ -95,17 +106,30 @@ func PrintAPISuccess(w io.Writer, body any, format, jq string) error {
 //   - objects/arrays: indented JSON (2-space).
 //   - numbers/bools/null: their JSON representation.
 func applyJQ(w io.Writer, v any, expr string) error {
+	failure, err := filterJQ(w, v, expr)
+	if err == nil && failure != "" {
+		err = ErrValidation("%s", failure)
+	}
+	return err
+}
+
+// filterJQ writes nothing and returns failure when expr fails at run time.
+func filterJQ(w io.Writer, v any, expr string) (failure string, err error) {
 	query, err := gojq.Parse(expr)
 	if err != nil {
-		return ErrValidation("invalid --jq expression: %v", err)
+		return "", ErrValidation("invalid --jq expression: %v", err)
 	}
 	normalised, err := normaliseForJQ(v)
 	if err != nil {
-		return ErrInternal("jq input marshal: %v", err)
+		return "", ErrInternal("jq input marshal: %v", err)
 	}
-	produced, allNull, err := runJQ(w, query, normalised)
-	if err != nil {
-		return err
+	var buf bytes.Buffer
+	produced, allNull, jqErr := runJQ(&buf, query, normalised)
+	if jqErr != nil {
+		return "jq: " + describeJQError(expr, normalised, jqErr), nil
+	}
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		return "", err
 	}
 	// A filter that selected nothing (no output, or only null) is the classic
 	// "why is it null?" confusion — e.g. `.request.path` on a real call, where
@@ -115,7 +139,103 @@ func applyJQ(w io.Writer, v any, expr string) error {
 	if produced == 0 || allNull {
 		writeJQEmptyHint(os.Stderr, expr)
 	}
+	return "", nil
+}
+
+func ValidateJQ(format, expr string) error {
+	if expr == "" {
+		return nil
+	}
+	if format != FormatJSON {
+		return ErrValidation("--jq requires --format json")
+	}
+	if _, err := gojq.Parse(expr); err != nil {
+		return ErrValidation("invalid --jq expression: %v", err)
+	}
 	return nil
+}
+
+var jqPathStep = regexp.MustCompile(`\.[A-Za-z_][A-Za-z0-9_]*|\.?\[-?\d*\]`)
+
+// describeJQError names the failing step of a plain path such as .a.b[].c.
+func describeJQError(expr string, input any, err error) string {
+	steps := jqPathStep.FindAllString(expr, -1)
+	if len(steps) == 0 || strings.Join(steps, "") != strings.TrimSpace(expr) {
+		return err.Error()
+	}
+	var grand []any
+	parents := []any{input}
+	for i, step := range steps {
+		next, failedOn, failed := runJQStep(parents, step)
+		if failed {
+			return describeJQStep(jqPath(steps[:i]), failedOn, step, jqPath(steps[:max(i-1, 0)]), grand)
+		}
+		grand, parents = parents, next
+	}
+	return err.Error()
+}
+
+func runJQStep(values []any, step string) (next []any, failedOn any, failed bool) {
+	if strings.HasPrefix(step, "[") {
+		step = "." + step
+	}
+	query, err := gojq.Parse(step)
+	if err != nil {
+		return nil, nil, false
+	}
+	for _, v := range values {
+		iter := query.Run(v)
+		for {
+			out, ok := iter.Next()
+			if !ok {
+				break
+			}
+			if _, isErr := out.(error); isErr {
+				return nil, v, true
+			}
+			next = append(next, out)
+		}
+	}
+	return next, nil, false
+}
+
+func describeJQStep(path string, v any, step, grandPath string, grand []any) string {
+	if strings.HasPrefix(step, ".[") {
+		step = step[1:]
+	}
+	switch x := v.(type) {
+	case nil:
+		for _, g := range grand {
+			if m, ok := g.(map[string]any); ok {
+				return fmt.Sprintf("%s is null; %s has keys: %s", path, grandPath, jqKeys(m))
+			}
+		}
+		return path + " is null"
+	case map[string]any:
+		return fmt.Sprintf("%s is an object (keys: %s), it has no %s", path, jqKeys(x), step)
+	case []any:
+		return fmt.Sprintf("%s is an array, it has no %s", path, step)
+	case string:
+		return fmt.Sprintf("%s is a string, it has no %s", path, step)
+	case bool:
+		return fmt.Sprintf("%s is a boolean, it has no %s", path, step)
+	}
+	return fmt.Sprintf("%s is a number, it has no %s", path, step)
+}
+
+func jqPath(steps []string) string {
+	if len(steps) == 0 {
+		return "."
+	}
+	return strings.Join(steps, "")
+}
+
+func jqKeys(m map[string]any) string {
+	keys := slices.Sorted(maps.Keys(m))
+	if len(keys) > 20 {
+		keys = append(keys[:20], "…")
+	}
+	return strings.Join(keys, ", ")
 }
 
 // runJQ evaluates query against input, writing each result to w. It reports how
@@ -129,7 +249,7 @@ func runJQ(w io.Writer, query *gojq.Query, input any) (produced int, allNull boo
 			return produced, allNull, nil
 		}
 		if jqErr, isErr := out.(error); isErr {
-			return produced, allNull, ErrValidation("jq: %v", jqErr)
+			return produced, allNull, jqErr
 		}
 		produced++
 		if out != nil {
