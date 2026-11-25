@@ -353,6 +353,10 @@ func TestShortcutListAndEnumFlags_MockServer(t *testing.T) {
 	if ids, _ := json.Marshal(scope["variant_ids"]); code != 0 || string(ids) != `["a","b","c"]` {
 		t.Errorf("--variants a --variants b,c: exit %d, variant_ids=%s, stderr=%s", code, ids, stderr)
 	}
+	_, stderr, code = runCLI(t, bin, env, "shop", "+upload-file", "--source-url", "https://example.com/a.jpg")
+	if b, _ := json.Marshal(body); code != 0 || string(b) != `{"original_source_list":["https://example.com/a.jpg"]}` {
+		t.Errorf("shop +upload-file: exit %d, body=%s, stderr=%s", code, b, stderr)
+	}
 
 	bad := []struct {
 		args  []string
@@ -363,6 +367,7 @@ func TestShortcutListAndEnumFlags_MockServer(t *testing.T) {
 		{[]string{"discounts", "+search", "--discount-type", "nope"}, "--discount-type"},
 		{[]string{"discounts", "+percent-code", "--target", "order", "--target", "product", "--percent-off", "10"}, "--target"},
 		{[]string{"discounts", "+percent-code", "--target", "order", "--percent-off", "10", "--percent-off", "20"}, "--percent-off"},
+		{[]string{"shop", "+upload-file", "--source-url", "/tmp/a.jpg"}, "--source-url"},
 	}
 	for _, c := range bad {
 		before := hits

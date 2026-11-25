@@ -2,7 +2,11 @@ package shop
 
 import (
 	"context"
+	"fmt"
+	"net/url"
+	"strings"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
@@ -15,18 +19,18 @@ var uploadFileShortcut = common.Shortcut{
 	Example: `  # Preview uploading one image URL
   shoplazza shop +upload-file --source-url https://cdn.example.com/a.jpg --dry-run
 
-  # Upload several URLs into the product folder
-  shoplazza shop +upload-file --source-url https://cdn.example.com/a.jpg --source-url https://cdn.example.com/b.jpg --folder product`,
+  # Upload several URLs
+  shoplazza shop +upload-file --source-url https://cdn.example.com/a.jpg --source-url https://cdn.example.com/b.jpg`,
 	Flags: []common.Flag{
-		{Name: "source-url", Type: common.FlagStringSlice, Required: true, Description: "Public URL(s) for the API to fetch. Can repeat."},
-		{Name: "folder", Type: common.FlagString, Default: "all_upload", Description: "Target folder.",
-			Completions: []string{"all_upload", "product"}},
+		{Name: "source-url", Type: common.FlagStringSlice, Required: true, Description: "Public http(s) URL(s) for the API to fetch. Can repeat."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		urls := in.Flags.GetStringSlice("source-url")
-		folder := in.Flags.GetString("folder")
+		if err := checkSourceURLs(urls); err != nil {
+			return common.ExecResult{}, err
+		}
 
-		postPlan := PlanFileUpload(urls, folder)
+		postPlan := PlanFileUpload(urls)
 
 		if in.DryRun {
 			// Dry-run shows both POST and GET shape (with placeholder task_id).
@@ -56,6 +60,26 @@ var uploadFileShortcut = common.Shortcut{
 		}
 		return common.ExecResult{Body: taskResp}, nil
 	},
+}
+
+func checkSourceURLs(urls []string) error {
+	var bad []string
+	hint := "the API downloads each URL itself and cannot read local files; host the file and pass its public link"
+	for _, raw := range urls {
+		if u, err := url.Parse(raw); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			bad = append(bad, fmt.Sprintf("%q", raw))
+			if strings.HasPrefix(raw, "data:") {
+				hint = `send data: URIs with 'shop files upload --data' ({"original_source_list":[...]}, inline, @file or - for stdin)`
+			}
+		}
+	}
+	if len(bad) == 0 {
+		return nil
+	}
+	return output.ErrValidation("--source-url takes http(s) URLs, got %s", strings.Join(bad, ", ")).
+		WithParam("--source-url").
+		WithSubtype(output.SubtypeInvalidFlagValue).
+		WithHint(hint)
 }
 
 func extractTaskID(resp map[string]any) string {

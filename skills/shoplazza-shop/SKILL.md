@@ -48,7 +48,7 @@ Intent → command, highest-fit tier first. Authoritative flags/params live in
 | SPU / landing-page / UTM breakdown | `shop analytics by-spu` (extra required `type`) / `by-land-page` (required `dimensions`) / `by-utm` |
 | 搜索词分析 / 搜了没结果的词 / on-site search keywords | `shop analytics search-keyword --data '{…,"sort_by":"count","sort_direction":"desc"}'` (`has_result` is a string `"0"`/`"1"`) |
 | 流量渠道 / 流量来源 / traffic by channel | `shop analytics traffic-channel` (required `dimensions` + `metrics`); valid channel names: `shop analytics traffic-channel-options` |
-| **Media library** — 上传文件到素材库 (public URL only) | `shop +upload-file --source-url <url> [--source-url <url> …] [--folder <name>]` |
+| **Media library** — 上传文件到素材库 (public URL only) | `shop +upload-file --source-url <url> [--source-url <url> …]` |
 | Check an upload task / 上传进度 | `shop files task --params '{"task_id":"<id>"}'` (the shortcut already fetches it once) |
 | Browse the media library / 看素材库 | `shop files list` (folder defaults to `all_upload`; `page_size` ≤ 300) |
 | File detail / delete a file | `shop files {get,delete} --params '{"file_uri":"<uri>"}'` |
@@ -75,7 +75,7 @@ about defaulted/optional fields.
 
 | Operation | Must ASK if missing | Default silently / never ask |
 |---|---|---|
-| `+upload-file` | a **public** URL (local file → degrade: explain the API only fetches public URLs, ask for a link or a host) | `--folder` (default `all_upload`) |
+| `+upload-file` | a **public** URL (local file → degrade: explain the API only fetches public URLs, ask for a link or a host) | — |
 | `pages create` | `title` | `url`, `meta_*`, `independent_seo` — omit; never fabricate SEO fields |
 | `redirects create` | `from_url`, `redirect_url`; `status` value if the wording doesn't settle it (enum not in schema — see Gotchas) | — |
 | `metafields-shop create` | `namespace`, `key`, `type`, `value` | `description`, `definition_id` (optional here) |
@@ -164,7 +164,7 @@ shop analytics overview --data '{"begin_time":"1782864000","end_time":"178415999
 # 4. Best-selling SKU over a window (sort desc by sales metric)
 shop analytics by-sku --data '{"begin_time":"1782864000","end_time":"1784159999","sort_by":"sales_total","sort_direction":"desc","page_size":10}'
 
-# 5. Upload a public image to the media library (async task; folder defaults to all_upload)
+# 5. Upload a public image to the media library (async task)
 shop +upload-file --source-url https://example.com/banner.png
 
 # 6. Create an "About Us" custom page

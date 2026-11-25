@@ -56,7 +56,6 @@
       "flags_must_not_contain": ["--folder"],
       "must_ask": false,
       "semantic_rubric": [
-        "--folder omitted (defaults to all_upload) without asking",
         "knows the upload is an async TASK — may follow up with shop files task to check status",
         "uses shop +upload-file (media library), not products images (product-attached)"
       ]
