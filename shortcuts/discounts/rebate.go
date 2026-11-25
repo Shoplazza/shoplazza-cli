@@ -41,7 +41,7 @@ var rebateShortcut = common.Shortcut{
 
 		{Name: "limit-max", Type: common.FlagInt, Description: "Max total discount uses across all customers (>0; omit for no limit)."},
 		{Name: "limit-user", Type: common.FlagInt, Description: "Max discount uses per customer (>0; omit for no limit)."},
-		{Name: "limit-order-once", Type: common.FlagBool, Default: true, Description: "Apply the discount at most once per order (default true): items beyond the qualifying threshold are charged at regular price. Set false to let the discount repeat across thresholds — e.g. 3 items get $50 off, 6 items get $100 off. Only valid with --type=amount-off|qty-off."},
+		{Name: "limit-order-once", Type: common.FlagBool, Default: true, Description: "Apply the discount at most once per order (default true): items beyond the qualifying threshold are charged at regular price. Set false to repeat a single tier for every multiple of its threshold — e.g. --tiers 100:10 takes $10 off at 100 and $30 off at 300; false takes exactly one tier. Only valid with --type=amount-off|qty-off."},
 
 		{Name: "combines", Type: common.FlagStringSlice, Description: "Allowed combinations (comma-separated subset of order/product/shipping; default: [] = no stacking).",
 			Completions: []string{"order", "product", "shipping"}},
@@ -76,6 +76,12 @@ var rebateShortcut = common.Shortcut{
 		// rejecting up-front avoids the API rejecting silently or applying inconsistently.
 		if in.Flags.Changed("limit-order-once") && rt.ObtainType == "percent" {
 			return common.PlannedRequest{}, output.ErrValidation("--limit-order-once is only valid for --type=amount-off or qty-off (got --type=%s)", in.Flags.GetString("type"))
+		}
+		if in.Flags.Changed("limit-order-once") && !in.Flags.GetBool("limit-order-once") && len(layers) > 1 {
+			return common.PlannedRequest{}, output.ErrValidation("--limit-order-once=false repeats a single tier for every multiple of its threshold; --tiers has %d tiers", len(layers)).
+				WithParam("--limit-order-once").
+				WithSubtype(output.SubtypeInvalidFlagValue).
+				WithHint("keep one tier (e.g. --tiers 100:10) to repeat it, or drop --limit-order-once=false to apply the highest tier reached once per order")
 		}
 
 		productIDs := common.IDList(in.Flags, "products")

@@ -73,35 +73,42 @@ func TestRebatePlan_OrderTargetWithScopeErrors(t *testing.T) {
 	}
 }
 
-func TestRebatePlan_DiscountBelowThreshold(t *testing.T) {
+func TestRebatePlan_TierRefusals(t *testing.T) {
+	const belowThreshold = "--tiers: each discount must be less than its threshold"
+	const uncappedOneTier = "--limit-order-once=false repeats a single tier for every multiple of its threshold; --tiers has 2 tiers"
 	cases := []struct {
-		name    string
-		values  map[string]string
-		wantErr bool
+		name      string
+		values    map[string]string
+		wantParam string
+		wantMsg   string
 	}{
-		{"amount-off discount above threshold", map[string]string{"target": "order", "tiers": "5:10"}, true},
-		{"amount-off discount equals threshold", map[string]string{"target": "order", "tiers": "10:10"}, true},
-		{"amount-off second tier too large", map[string]string{"target": "order", "tiers": "100:10,200:250"}, true},
-		{"amount-off product target", map[string]string{"target": "product", "tiers": "5:10", "products": "p-1"}, true},
-		{"amount-off below threshold", map[string]string{"target": "order", "tiers": "100:10,200:25"}, false},
-		{"qty-off compares item count", map[string]string{"target": "order", "type": "qty-off", "tiers": "2:10"}, false},
-		{"amount-percent compares a percent", map[string]string{"target": "order", "type": "amount-percent", "tiers": "5:10"}, false},
+		{"amount-off discount above threshold", map[string]string{"target": "order", "tiers": "5:10"}, "--tiers", belowThreshold},
+		{"amount-off discount equals threshold", map[string]string{"target": "order", "tiers": "10:10"}, "--tiers", belowThreshold},
+		{"amount-off second tier too large", map[string]string{"target": "order", "tiers": "100:10,200:250"}, "--tiers", belowThreshold},
+		{"amount-off product target", map[string]string{"target": "product", "tiers": "5:10", "products": "p-1"}, "--tiers", belowThreshold},
+		{"amount-off below threshold", map[string]string{"target": "order", "tiers": "100:10,200:25"}, "", ""},
+		{"qty-off compares item count", map[string]string{"target": "order", "type": "qty-off", "tiers": "2:10"}, "", ""},
+		{"amount-percent compares a percent", map[string]string{"target": "order", "type": "amount-percent", "tiers": "5:10"}, "", ""},
+		{"uncapped amount-off with two tiers", map[string]string{"target": "order", "tiers": "100:10,200:25", "limit-order-once": "false"}, "--limit-order-once", uncappedOneTier},
+		{"uncapped qty-off product with two tiers", map[string]string{"target": "product", "type": "qty-off", "tiers": "2:3,4:8", "products": "p-1", "limit-order-once": "false"}, "--limit-order-once", uncappedOneTier},
+		{"uncapped with one tier", map[string]string{"target": "order", "tiers": "100:10", "limit-order-once": "false"}, "", ""},
+		{"two tiers once per order", map[string]string{"target": "order", "tiers": "100:10,200:25", "limit-order-once": "true"}, "", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			_, err := rebateShortcut.Plan(newPlanInput(t, "rebate", rebateFlags(), c.values))
-			if !c.wantErr {
+			if c.wantParam == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
 				return
 			}
 			var ee *output.ExitError
-			if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != "--tiers" {
-				t.Fatalf("want a validation error on --tiers, got %#v", err)
+			if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != c.wantParam {
+				t.Fatalf("want a validation error on %s, got %#v", c.wantParam, err)
 			}
-			if want := "--tiers: each discount must be less than its threshold"; ee.Detail.Message != want {
-				t.Fatalf("message = %q, want %q", ee.Detail.Message, want)
+			if ee.Detail.Message != c.wantMsg {
+				t.Fatalf("message = %q, want %q", ee.Detail.Message, c.wantMsg)
 			}
 		})
 	}

@@ -497,20 +497,27 @@ func TestShortcut_Rebate_ScopeMutexRejected(t *testing.T) {
 	}
 }
 
-func TestShortcut_Rebate_LimitOrderWithPercentTypeRejected(t *testing.T) {
+func TestShortcut_Rebate_LimitOrderOnceRejected(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
-		"discounts", "+rebate",
-		"--target", "order",
-		"--tiers", "100:10",
-		"--type", "amount-percent",
-		"--limit-order-once=false",
-	)
-	if code == 0 {
-		t.Fatal("expected validation error when --limit-order-once used with percent type")
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"percent type", []string{"--tiers", "100:10", "--type", "amount-percent"}, "limit-order-once"},
+		{"two tiers", []string{"--tiers", "100:10,200:25", "--type", "qty-off"}, `"param": "--limit-order-once"`},
 	}
-	if !strings.Contains(stderr, "limit-order-once") {
-		t.Errorf("expected 'limit-order-once' in stderr, got: %s", stderr)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			args := append([]string{"discounts", "+rebate", "--target", "order", "--limit-order-once=false", "--dry-run"}, c.args...)
+			_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"}, args...)
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr: %s", code, stderr)
+			}
+			if !strings.Contains(stderr, c.want) {
+				t.Errorf("expected %s in stderr, got: %s", c.want, stderr)
+			}
+		})
 	}
 }
 
