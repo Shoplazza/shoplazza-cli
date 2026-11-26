@@ -293,18 +293,15 @@ func allScopes() []string {
 	return out
 }
 
-// RequestScope returns the read_/write_ scope a sent request needs.
-func RequestScope(method, path string) (string, bool) {
+// RequestScopes returns the read_/write_ scope pair of the resource a sent request acts on.
+func RequestScopes(method, path string) []string {
 	mod, cmd, ok := registry.LoadSpec().CommandForRequest(method, path)
 	if !ok {
-		return "", false
+		return nil
 	}
 	key := mod.Name
 	if len(cmd.Path) > 1 {
 		key += "." + strings.Join(cmd.Path[:len(cmd.Path)-1], ".")
 	}
-	if strings.EqualFold(method, "GET") {
-		return ReadScope(key)
-	}
-	return WriteScope(key)
+	return ModuleScopes(key)
 }

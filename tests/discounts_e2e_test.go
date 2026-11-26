@@ -1334,20 +1334,20 @@ func TestDiscountsRebate_ProductTarget_RequiresScope(t *testing.T) {
 func TestDiscounts_HTTPErrorEnvelope(t *testing.T) {
 	bin := buildBinary(t)
 	cases := []struct {
-		name          string
-		status        int
-		body          string
-		args          []string
-		wantCode      int
-		wantSubtype   string
-		wantScope     string
-		wantHintScope bool
+		name        string
+		status      int
+		body        string
+		args        []string
+		wantCode    int
+		wantSubtype string
+		wantScopes  string
 	}{
-		{"500", 500, `{"error":"internal server error"}`, []string{"discounts", "list"}, 1, "", "", false},
-		{"400 Unauthorized", 400, `"Unauthorized"`, []string{"discounts", "list"}, 3, "invalid_token", "", false},
-		{"403 {} on a read", 403, `{}`, []string{"discounts", "list"}, 3, "missing_scope", "read_price_rules", true},
-		{"403 {} on a write", 403, `{}`, []string{"discounts", "cancel", "--data", `{"ids":["d1"]}`}, 3, "missing_scope", "write_price_rules", true},
-		{"403 {} on an unmapped path", 403, `{}`, []string{"api", "rest", "GET", "/openapi/2025-06/script_tags"}, 3, "missing_scope", "", false},
+		{"500", 500, `{"error":"internal server error"}`, []string{"discounts", "list"}, 1, "", ""},
+		{"400 Unauthorized", 400, `"Unauthorized"`, []string{"discounts", "list"}, 3, "invalid_token", ""},
+		{"403 {} on a read", 403, `{}`, []string{"discounts", "list"}, 3, "missing_scope", "read_price_rules,write_price_rules"},
+		{"403 {} on a write", 403, `{}`, []string{"discounts", "cancel", "--data", `{"ids":["d1"]}`}, 3, "missing_scope", "read_price_rules,write_price_rules"},
+		{"403 {} on a read sent as POST", 403, `{}`, []string{"shop", "redirects", "search", "--data", `{"from_url":"/a"}`}, 3, "missing_scope", "read_shop_navigation,write_shop_navigation"},
+		{"403 {} on an unmapped path", 403, `{}`, []string{"api", "rest", "GET", "/openapi/2025-06/script_tags"}, 3, "missing_scope", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -1375,11 +1375,17 @@ func TestDiscounts_HTTPErrorEnvelope(t *testing.T) {
 			if got, _ := envelope.Error["subtype"].(string); got != c.wantSubtype {
 				t.Errorf("subtype = %q, want %q", got, c.wantSubtype)
 			}
-			if got, _ := envelope.Error["required_scope"].(string); got != c.wantScope {
-				t.Errorf("required_scope = %q, want %q", got, c.wantScope)
+			var scopes []string
+			if raw, _ := envelope.Error["required_scopes"].([]any); raw != nil {
+				for _, s := range raw {
+					scopes = append(scopes, fmt.Sprint(s))
+				}
 			}
-			if hint, _ := envelope.Error["hint"].(string); c.wantHintScope && !strings.Contains(hint, "--scope "+c.wantScope+" --merge-scopes") {
-				t.Errorf("hint = %q, want it to name --scope %s", hint, c.wantScope)
+			if got := strings.Join(scopes, ","); got != c.wantScopes {
+				t.Errorf("required_scopes = %q, want %q", got, c.wantScopes)
+			}
+			if hint, _ := envelope.Error["hint"].(string); c.wantSubtype == "missing_scope" && !strings.Contains(hint, "SHOPLAZZA_ACCESS_TOKEN") {
+				t.Errorf("hint = %q, want it to point at the injected token", hint)
 			}
 		})
 	}

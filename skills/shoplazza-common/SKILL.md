@@ -322,9 +322,9 @@ then switch again.
 
 ### Handling insufficient permissions
 
-`subtype: missing_scope` (exit 3): the token lacks a scope. `required_scope` names it when the
-request maps to a command — run `shoplazza auth login --scope <required_scope> --merge-scopes`,
-then retry; without it, run `auth scopes` to see what's granted. `subtype: invalid_token`
+`subtype: missing_scope` (exit 3): the token lacks a scope. `required_scopes` names the resource's
+read_/write_ pair when the request maps to a command — run `shoplazza auth login --scope
+<both, comma-separated> --merge-scopes`, then retry; without it, run `auth scopes` to see what's granted. `subtype: invalid_token`
 (exit 3): the store rejected the token — log in again.
 
 ## Profiles (multi-tenant)

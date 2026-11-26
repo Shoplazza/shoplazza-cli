@@ -18,7 +18,7 @@
 ### Fixed
 - Integers past 2^53 stay exact in `--data`, `--params` and `--jq`.
 - Spec leaves percent-encode path parameters (`#1001` works), split comma-joined values for array query parameters, and reject unknown, misplaced or missing `--params` keys and missing body fields before sending.
-- `-q` is checked before the request is sent. A rejected token is an `auth` / `invalid_token` error, and a bare 403 names the missing scope. Invalid `--data` / `--params` JSON says where it breaks.
+- `-q` is checked before the request is sent. A rejected token is an `auth` / `invalid_token` error, and a bare 403 names the read/write scope pair of the resource. Invalid `--data` / `--params` JSON says where it breaks.
 - Time and list flags parse the same way across shortcuts, and bad values exit 2. An unknown subcommand under a group exits 2 instead of printing help.
 - Discount shortcuts reject flags that do not match `--target`, fixed discounts not below their threshold, and several `+rebate` tiers with `--limit-order-once=false`.
 - `customers +create --no-marketing` also opts out of SMS marketing.

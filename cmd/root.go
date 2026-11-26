@@ -333,11 +333,18 @@ func nameMissingScope(e *output.ExitError) {
 	if d == nil || d.Subtype != output.SubtypeMissingScope || d.Detail == nil {
 		return
 	}
-	scope, ok := internalauth.RequestScope(d.Detail.Method, d.Detail.Path)
-	if !ok {
+	_, injected := os.LookupEnv(cmdutil.EnvAccessToken)
+	scopes := internalauth.RequestScopes(d.Detail.Method, d.Detail.Path)
+	if len(scopes) != 2 {
+		if injected {
+			d.Hint = "the token in " + cmdutil.EnvAccessToken + " lacks it: use a token granted the scope this endpoint needs"
+		}
 		return
 	}
-	d.Message = fmt.Sprintf("the access token lacks %s", scope)
-	d.Hint = fmt.Sprintf("run 'shoplazza auth login --scope %s --merge-scopes' to add it", scope)
-	e.WithField("required_scope", scope)
+	d.Message = fmt.Sprintf("the access token lacks %s or %s", scopes[0], scopes[1])
+	d.Hint = fmt.Sprintf("run 'shoplazza auth login --scope %s --merge-scopes' to add them", strings.Join(scopes, ","))
+	if injected {
+		d.Hint = fmt.Sprintf("the token in %s lacks them: use a token granted %s and %s", cmdutil.EnvAccessToken, scopes[0], scopes[1])
+	}
+	e.WithField("required_scopes", scopes)
 }

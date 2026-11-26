@@ -102,23 +102,25 @@ func TestReadWriteScope(t *testing.T) {
 	}
 }
 
-func TestRequestScope(t *testing.T) {
+func TestRequestScopes(t *testing.T) {
 	cases := []struct {
 		method, path string
 		want         string
 	}{
-		{"GET", "/openapi/2026-01/discounts", "read_price_rules"},
-		{"POST", "/openapi/2026-01/discounts/cancel", "write_price_rules"},
-		{"PUT", "/openapi/2026-01/variants/sku/CLV-SKU-1", "write_product"},
-		{"GET", "/openapi/2025-06/discounts?page=2", "read_price_rules"},
-		{"get", "/openapi/2026-01/discounts/715093959575087449", "read_price_rules"},
+		{"GET", "/openapi/2026-01/discounts", "read_price_rules write_price_rules"},
+		{"POST", "/openapi/2026-01/discounts/cancel", "read_price_rules write_price_rules"},
+		{"PUT", "/openapi/2026-01/variants/sku/CLV-SKU-1", "read_product write_product"},
+		{"POST", "/openapi/2026-01/redirects/detail", "read_shop_navigation write_shop_navigation"},
+		{"GET", "/openapi/2026-01/inventory_items/variant", "read_inventory write_inventory"},
+		{"GET", "/openapi/2025-06/discounts?page=2", "read_price_rules write_price_rules"},
+		{"get", "/openapi/2026-01/discounts/715093959575087449", "read_price_rules write_price_rules"},
 		{"GET", "/openapi/2025-06/script_tags", ""},
 		{"DELETE", "/openapi/2026-01/discounts", ""},
 	}
 	for _, c := range cases {
-		got, ok := RequestScope(c.method, c.path)
-		if got != c.want || ok != (c.want != "") {
-			t.Errorf("RequestScope(%s %s) = (%q, %v), want %q", c.method, c.path, got, ok, c.want)
+		got := strings.Join(RequestScopes(c.method, c.path), " ")
+		if got != c.want {
+			t.Errorf("RequestScopes(%s %s) = %q, want %q", c.method, c.path, got, c.want)
 		}
 	}
 }

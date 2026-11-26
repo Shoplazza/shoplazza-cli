@@ -58,8 +58,8 @@ Errors are written to **stderr** as:
   `--data`).
   `invalid_token` (type `auth`): the store rejected the access token; log in
   again. `missing_scope` (type `auth`): the store answered 403 with no reason;
-  a top-level `required_scope` names the scope when the request maps to a
-  command.
+  when the request maps to a command, `error.required_scopes` holds the read_/
+  write_ scope pair of the resource it acts on, and the token lacks one of them.
   `jq_failed_after_request`: the request was sent and succeeded, but `-q` failed
   on its response. The whole `{ok,data}` response is on stdout and `detail`
   names the request (shortcuts that send several requests leave it empty). Do
