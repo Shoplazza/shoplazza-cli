@@ -28,7 +28,7 @@ var shipShortcut = common.Shortcut{
 		{Name: "company", Type: common.FlagString, Description: "Carrier company name (e.g., DHL, UPS)."},
 		{Name: "company-code", Type: common.FlagString, Description: "Carrier company code."},
 		{Name: "tracking-url", Type: common.FlagString, Description: "Custom tracking URL."},
-		{Name: "line-items", Type: common.FlagString, Description: "Per-line qty as 'line-id:qty,...'; default: every line's remaining quantity (ordered minus already shipped)."},
+		{Name: "line-items", Type: common.FlagString, Description: "Per-line qty as 'line-id:qty,...'; default: every line's remaining quantity (ordered minus shipped and refunded)."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		orderID := in.Flags.GetString("order-id")
@@ -41,6 +41,7 @@ var shipShortcut = common.Shortcut{
 		cmdutil.AddString(fulfillment, "tracking_url", in.Flags.GetString("tracking-url"))
 
 		getPlan := PlanGet(orderID)
+		refundsPlan := PlanListRefunds(orderID)
 
 		if in.DryRun {
 			// Without fetching the order, build the body from --line-items only (no fulfillable check).
@@ -53,7 +54,7 @@ var shipShortcut = common.Shortcut{
 				fulfillment["line_items"] = items
 			}
 			postPlan := PlanCreateFulfillment(orderID, map[string]any{"fulfillment": fulfillment})
-			return common.ExecResult{Plans: []common.PlannedRequest{getPlan, postPlan}}, nil
+			return common.ExecResult{Plans: []common.PlannedRequest{getPlan, refundsPlan, postPlan}}, nil
 		}
 
 		// Live: GET the order; after the envelope is stripped the response is {"order": {...}}.
@@ -65,7 +66,12 @@ var shipShortcut = common.Shortcut{
 		if !ok {
 			return common.ExecResult{}, output.ErrInternal("order response missing 'order' object")
 		}
-		items, err := shipLineItems(order, lineItemsArg)
+		refunds, err := common.Send(ctx, in.Client, refundsPlan)
+		if err != nil {
+			return common.ExecResult{}, err
+		}
+		records, _ := refunds["records"].([]any)
+		items, err := shipLineItems(order, records, lineItemsArg)
 		if err != nil {
 			return common.ExecResult{}, err
 		}
@@ -104,8 +110,8 @@ func parseLineItemsArg(arg string) (map[string]int, error) {
 }
 
 // shipLineItems picks the line items to ship from the order and the --line-items spec.
-func shipLineItems(order map[string]any, lineItemsArg string) ([]map[string]any, error) {
-	fulfillable, err := extractFulfillableQuantities(order)
+func shipLineItems(order map[string]any, refunds []any, lineItemsArg string) ([]map[string]any, error) {
+	fulfillable, err := extractFulfillableQuantities(order, refunds)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +122,7 @@ func shipLineItems(order map[string]any, lineItemsArg string) ([]map[string]any,
 		}
 	}
 	if lineItemsArg == "" && len(requested) == 0 {
-		return nil, output.ErrValidation("nothing left to ship: every line item of this order has already been shipped")
+		return nil, output.ErrValidation("nothing left to ship: every line item of this order has already been shipped or refunded")
 	}
 	if lineItemsArg != "" {
 		userSpec, perr := parseLineItemsArg(lineItemsArg)
@@ -141,7 +147,7 @@ func shipLineItems(order map[string]any, lineItemsArg string) ([]map[string]any,
 	return items, nil
 }
 
-func extractFulfillableQuantities(order map[string]any) (map[string]int, error) {
+func extractFulfillableQuantities(order map[string]any, refunds []any) (map[string]int, error) {
 	raw, ok := order["line_items"].([]any)
 	if !ok {
 		return nil, output.ErrInternal("order response missing line_items array")
@@ -165,6 +171,24 @@ func extractFulfillableQuantities(order map[string]any) (map[string]int, error) 
 			}
 		}
 	}
+	removed := map[string]int{}
+	for _, r := range refunds {
+		rm, ok := r.(map[string]any)
+		if !ok || rm["refund_status"] == "failed" {
+			continue
+		}
+		items, _ := rm["refund_line_items"].([]any)
+		for _, item := range items {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			id, _ := m["line_item_id"].(string)
+			if n, ok := asInt(m["delete_quantity"]); ok {
+				removed[id] += n
+			}
+		}
+	}
 	out := map[string]int{}
 	for _, item := range raw {
 		m, ok := item.(map[string]any)
@@ -176,7 +200,7 @@ func extractFulfillableQuantities(order map[string]any) (map[string]int, error) 
 			continue
 		}
 		quantity, _ := asInt(m["quantity"])
-		out[id] = max(quantity-shipped[id], 0)
+		out[id] = max(quantity-shipped[id]-removed[id], 0)
 	}
 	return out, nil
 }

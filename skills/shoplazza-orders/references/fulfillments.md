@@ -31,7 +31,8 @@ all fulfillable items from the order):
 
 `id` is the only required line-item field; get line-item ids from `orders get`
 (`.data.order.line_items[].id`). `+ship` also checks each qty against what is left to ship (ordered quantity minus
-`ship_quantity` in the order's non-cancelled `fulfillments`) — the leaf does not, so check yourself.
+`ship_quantity` in the order's non-cancelled `fulfillments`, minus `delete_quantity` in the `refund_line_items` of its
+non-failed records from `orders refunds list-by-order`) — the leaf does not, so check yourself.
 
 `update` — all fields optional; send only what changes:
 `tracking_number` · `tracking_company` · `tracking_company_code` · `tracking_url` ·

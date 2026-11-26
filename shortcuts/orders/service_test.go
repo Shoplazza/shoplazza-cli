@@ -74,4 +74,7 @@ func TestPlanRefund_Shape(t *testing.T) {
 	if !strings.HasSuffix(p.Path, "/orders/ord-1/refund") {
 		t.Errorf("Path: got %q want suffix /orders/ord-1/refund", p.Path)
 	}
+	if l := PlanListRefunds("ord-1"); l.Method != "GET" || l.Path != p.Path {
+		t.Errorf("PlanListRefunds: got %s %s want GET %s", l.Method, l.Path, p.Path)
+	}
 }

@@ -66,3 +66,7 @@ func PlanUpdateFulfillment(orderID, fulfillmentID string, body map[string]any) c
 func PlanRefund(orderID string, body map[string]any) common.PlannedRequest {
 	return common.PlannedRequest{Method: "POST", Path: ordersBase + "/" + orderID + "/refund", Body: body}
 }
+
+func PlanListRefunds(orderID string) common.PlannedRequest {
+	return common.PlannedRequest{Method: "GET", Path: ordersBase + "/" + orderID + "/refund"}
+}

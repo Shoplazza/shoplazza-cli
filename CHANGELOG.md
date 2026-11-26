@@ -11,7 +11,7 @@
 ### Changed
 - `products +publish` / `+unpublish` / `+tag` / `+set-variants` take `--product-id` (`--id` still works). `discounts +percent-code --percent-off` and `+bxgy-code --get-percent-off` replace `--percent` / `--get-percent`, which are deprecated.
 - `products +stock` can decrease at any location and go below 0, and refuses a location the variant is not stocked at or a product that does not track inventory.
-- `orders +ship` without `--line-items` ships only what is left. Its `--notify` is removed; use `+update-tracking --notify`.
+- `orders +ship` without `--line-items` ships only what is left after earlier shipments and refunds. Its `--notify` is removed; use `+update-tracking --notify`.
 - `shop +upload-file` drops `--folder` and requires http(s) `--source-url` values; a comma splits a value only before `http(s)://`.
 - Auto-generated discount codes no longer start with `CLI-`. Code discounts default both names to the code; `--code`, `--name` and `--display-name` are checked against 50 / 50 / 20 characters.
 - `SHOPLAZZA_ACCESS_TOKEN` set to an empty string is a validation error instead of falling back to the saved login.
