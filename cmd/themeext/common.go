@@ -15,11 +15,6 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
-// envAccessToken is the CI/test injection bypass honored across the CLI (see
-// cmdutil.RequireAuth): a non-empty SHOPLAZZA_ACCESS_TOKEN skips login state
-// entirely and is used verbatim as the store bearer token.
-const envAccessToken = "SHOPLAZZA_ACCESS_TOKEN"
-
 // warnWriter picks the factory's stderr handle, falling back to os.Stderr —
 // helpers like dashboardClient have no *cobra.Command in scope. Copy of
 // cmd/app's warnWriter (private there).
@@ -76,7 +71,11 @@ func storeTokenFor(ctx context.Context, f *cmdutil.Factory, override string) (st
 // of cmd/app's requireLogin (private there). SHOPLAZZA_ACCESS_TOKEN bypasses
 // the gate, matching cmdutil.RequireAuth's project-wide contract.
 func requireLogin(ctx context.Context, f *cmdutil.Factory) error {
-	if os.Getenv(envAccessToken) != "" {
+	envTok, err := cmdutil.AccessTokenEnv()
+	if err != nil {
+		return err
+	}
+	if envTok != "" {
 		return nil
 	}
 	mgr := internalauth.NewManager(f.Config, f.ConfigPath, f.AuthClient)
@@ -101,17 +100,21 @@ func requireLogin(ctx context.Context, f *cmdutil.Factory) error {
 // state) — base URL is SHOPLAZZA_CLI_API_BASE_URL when set, else
 // https://<domain> (mirrors cmdutil.NewDefaultFactory's wiring).
 func storeClient(ctx context.Context, f *cmdutil.Factory, override string) (*client.Client, string, error) {
+	envTok, err := cmdutil.AccessTokenEnv()
+	if err != nil {
+		return nil, "", err
+	}
 	domain, sErr := resolveStore(f, override)
 	if sErr != nil {
 		return nil, "", sErr
 	}
-	if tok := os.Getenv(envAccessToken); tok != "" {
+	if envTok != "" {
 		base := os.Getenv("SHOPLAZZA_CLI_API_BASE_URL")
 		if base == "" {
 			base = "https://" + domain
 		}
 		c := client.New(base)
-		c.SetBearerToken(tok)
+		c.SetBearerToken(envTok)
 		// Injected token: the audit id must be injected too (see RequireAuth).
 		c.SetCliUserID(cmdutil.CliUserIDEnv())
 		return c, domain, nil

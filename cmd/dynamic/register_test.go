@@ -505,7 +505,7 @@ func findChild(t *testing.T, parent *cobra.Command, name string) *cobra.Command 
 func notLoggedInFactory(t *testing.T) *cmdutil.Factory {
 	t.Helper()
 	dir := testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	out := &strings.Builder{}
 	cfg := core.CliConfig{ConfigVersion: 2, CurrentProfile: "us",
 		Profiles: []core.ProfileConfig{{Name: "us", Account: "a@co.com", StoreDomain: "us.myshoplazza.com"}}}

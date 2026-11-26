@@ -430,7 +430,7 @@ shoplazza doctor check      # diagnose CLI health
 | Variable | Description |
 |----------|-------------|
 | `SHOPLAZZA_UAT` | User Access Token for non-interactive login (equivalent to `--uat`) |
-| `SHOPLAZZA_ACCESS_TOKEN` | Use this store access token directly, skipping login (CI). Needs a store target: `SHOPLAZZA_CLI_API_BASE_URL` or a profile |
+| `SHOPLAZZA_ACCESS_TOKEN` | Use this store access token directly, skipping login (CI). Needs a store target: `SHOPLAZZA_CLI_API_BASE_URL` or a profile. Set but empty is an error; unset it to use the saved login |
 | `SHOPLAZZA_CLI_API_BASE_URL` | Store base URL used with `SHOPLAZZA_ACCESS_TOKEN` (e.g. `https://my-store.myshoplazza.com`) |
 | `SHOPLAZZA_CLI_PROFILE` | Profile to use (overridden by `--profile`) |
 | `SHOPLAZZA_CLI_FORMAT` | Pin the default output format (`json`/`pretty`/`table`/`ndjson`/`csv`), overriding TTY auto-detection; `--format` still overrides it. Use `=json` to force machine output in a pty |

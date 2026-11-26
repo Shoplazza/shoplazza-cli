@@ -24,7 +24,7 @@ import (
 func tempAuthFactory(t *testing.T, srvURL string) (*cmdutil.Factory, *bytes.Buffer) {
 	t.Helper()
 	dir := testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	t.Setenv("SHOPLAZZA_UAT", "")
 	out := &bytes.Buffer{}
 	f := &cmdutil.Factory{
