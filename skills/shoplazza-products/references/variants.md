@@ -8,7 +8,7 @@ the `products +set-variants` shortcut (all in SKILL.md). Never hand-write a `var
 in a `products update` body: it is a full replace — unlisted variants are deleted, and listed
 variants without their `id` are matched by option values (exact, case-sensitive) and recreated
 with sku/stock reset when nothing matches.
-Each takes `--variant-id`, `--sku`, or `--product-id`, so you rarely need to resolve by hand.
+`+set-price` and `+stock` take `--variant-id`, `--sku`, or `--product-id` (`+set-variants` takes `--product-id`), so you rarely need to resolve by hand.
 
 ## Command surface
 

@@ -15,7 +15,7 @@ Keeping them separate is what lets `... | jq` and NDJSON streaming work.
 
 ## Success envelope
 
-`--format json` (the default) wraps every API success as:
+`--format json` (the default when stdout is not a terminal) wraps every API success as:
 
 ```json
 { "ok": true, "data": <payload> }
@@ -35,11 +35,8 @@ Errors are written to **stderr** as:
   "error": {
     "type": "validation",
     "subtype": "unknown_flag",
-    "param": "--bogus",
-    "code": "",
     "message": "unknown flag: --bogus",
-    "hint": "run the command with --help to list valid flags",
-    "detail": { "status_code": 0, "request_id": "", "method": "", "path": "" }
+    "hint": "run the command with --help to list valid flags"
   }
 }
 ```
@@ -58,19 +55,21 @@ Errors are written to **stderr** as:
   `--data`).
   `invalid_token` (type `auth`): the store rejected the access token; log in
   again. `missing_scope` (type `auth`): the store answered 403 with no reason;
-  when the request maps to a command, `error.required_scopes` holds the read_/
-  write_ scope pair of the resource it acts on, and the token lacks one of them.
+  when the CLI knows the scope pair of the resource the request acts on,
+  `error.required_scopes` holds that read_/write_ pair, and the token lacks one
+  of them.
   `jq_failed_after_request`: the request was sent and succeeded, but `-q` failed
   on its response. The whole `{ok,data}` response is on stdout and `detail`
   names the request (shortcuts that send several requests leave it empty). Do
   not resend the request; fix `-q` or read stdout.
 - **`param`** — the offending flag/parameter name, when known.
 - **`message` / `hint`** — human text and a next step. Never parse `message`.
-- **`code` / `detail`** — server business code and HTTP context, for api/auth
-  errors.
+- **`code` / `detail`** — server business code and HTTP context (`status_code`,
+  `request_id`, `method`, `path`), present on api/auth errors.
 
 Even cobra usage errors (unknown command / flag, missing required flag, bad
-argument) come through this envelope — stderr is always parseable JSON.
+argument) come through this envelope — stderr is parseable JSON unless the
+format is `pretty` / `table` and stderr is a terminal.
 
 ## Exit codes
 
@@ -103,7 +102,7 @@ It never appears on stdout data, and never in `pretty`/`table`/`ndjson`.
 Use `--format ndjson` for large list reads: one compact JSON record per line,
 so the result doesn't inflate into one giant array that overflows a tool-result
 limit. The `{ok,data}` envelope is dropped in this mode — you get the records
-directly.
+directly, without `cursor` / `has_more`; page through a list with `json`.
 
 ## Environment opt-outs
 

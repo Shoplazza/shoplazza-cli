@@ -20,7 +20,7 @@ shop languages enable --params '{"language_code":"ja-JP"}'
 #    becomes the language's ENTIRE relation set: anything you omit is UNPUBLISHED.
 #    So: merge the language's CURRENT market ids with the new one — never send only
 #    the new market. The runnable merge pattern:
-MIDS=$(shop languages list --jq '[.data.languages[] | select(.language_code=="ja-JP") | .market_ids[]] + ["<new-mid>"]')
+MIDS=$(shop languages list --jq '[.data.languages[] | select(.code=="ja-JP") | .markets[]?.id] + ["<new-mid>"]')
 shop languages publish --params '{"language_code":"ja-JP"}' --data "{\"market_ids\":$MIDS}" --dry-run
 # then restate which markets the language ends up in, and wait for the user's go-ahead
 ```

@@ -73,7 +73,7 @@ read fields directly (e.g. `logged_in`).
 | `-q, --jq <expr>` | Filter JSON output with a jq expression. **Outputs raw scalars by default** (no surrounding quotes, just a trailing newline) — **do not add `-r`**: cobra parses `-r` as a separate flag and rejects the command. It is a single-string flag. |
 | `--fields <f1,f2,…>` | Response field projection on **a few shortcuts only** — verified: `products +search` (comma-separated: `products +search --fields id,title`). **Not universal** — most commands have no `--fields`; check `<shortcut> --help` before using it. Names are response keys; the server may still return extra base fields and silently ignores unknown names. |
 | `--page-limit <n>` | Page size, 1–250, on list shortcuts. **The API default is 10** — see "Reading a filtered list" below. |
-| `--format json\|pretty\|table` | Output format, default `json`. Use `json` for scripts/jq, `pretty`/`table` for humans. Global flag. |
+| `--format json\|pretty\|table` | Output format: `json` by default, but `pretty` when stdout is a terminal (a pty included) and none of `CI` / `SHOPLAZZA_CLI_NO_INTERACTIVE` / `--no-input` is set — `--jq` needs `json`. Use `json` for scripts/jq, `pretty`/`table` for humans. Global flag. |
 | `--profile <name>` | Profile to use for this invocation (see "Profiles"). Global flag. |
 
 Field projection: a few search shortcuts accept `--fields` (verify with `--help`); everywhere else, project/filter with `--jq`.
@@ -271,12 +271,13 @@ When acting as an AI agent to log the user in: run `auth login` in the **backgro
 `--poll-interval` / `--timeout`, defaults 2s / 300s), **extract the authorization URL from its
 output and hand it to the user**; the command returns on its own after the user authorizes.
 
-**Missing flags become on-screen questions when a terminal is present.** `auth login` (and
-`app init`) asks for what you left out only when stdin **and** stderr are both real terminals and
+**Missing flags become on-screen questions when a terminal is present.** `auth login`, `app init`,
+shortcuts (a missing required flag) and spec leaves (a missing path param) ask for what you left
+out, and destructive writes ask to confirm, only when stdin **and** stderr are both real terminals and
 neither `SHOPLAZZA_CLI_NO_INTERACTIVE` nor `CI` is set (present and non-empty = set); otherwise a
 missing flag is an error pointing at that flag. **A harness that hands the child process a pty
 passes that check** and the command waits on a keypress that never comes — export
-`SHOPLAZZA_CLI_NO_INTERACTIVE=1` once for the session if yours does.
+`SHOPLAZZA_CLI_NO_INTERACTIVE=1` once for the session if yours does (it also keeps `--format` at `json`).
 
 It only switches prompting **off**. There is no `--interactive` flag and no env var to force it
 on — deliberately, since forcing it would hang for good wherever no terminal exists.
@@ -304,7 +305,7 @@ top of the gate above. Browser logins driven from a pty-allocating harness still
 shoplazza auth status                                                  # auth state / identity / current store
 shoplazza auth scopes                                                  # supported scopes + scopes granted to the account
 shoplazza auth store use -s another-store.myshoplazza.com [--scope …]  # exchange a token for that store, set as current profile
-shoplazza auth logout                                                  # log out of the current store
+shoplazza auth logout                                                  # log out of the account and delete EVERY profile (one store: profile remove)
 ```
 
 Which command switches the store:
@@ -323,7 +324,7 @@ then switch again.
 ### Handling insufficient permissions
 
 `subtype: missing_scope` (exit 3): the token lacks a scope. `required_scopes` names the resource's
-read_/write_ pair when the request maps to a command — run `shoplazza auth login --scope
+read_/write_ pair when the CLI knows it — run `shoplazza auth login --scope
 <both, comma-separated> --merge-scopes`, then retry; without it, run `auth scopes` to see what's granted. `subtype: invalid_token`
 (exit 3): the store rejected the token — log in again.
 
@@ -354,8 +355,9 @@ A relative path is rejected with a `validation` error (exit 2) on every command 
 
 ## Update notice
 
-When the CLI detects a new version after running, it prints a one-line notice **to stderr**
-(`⚡ shoplazza-cli X is available …`). It never appears in the JSON on stdout. **Do not
+When the CLI detects a new version, a json success envelope carries `_notice.update`
+(`current` / `latest` / `message`); the `⚡ shoplazza-cli X is available …` line goes to stderr
+only when stderr is a terminal. **Do not
 silently ignore it**: after finishing the user's current request, tell them the current /
 latest version and offer to update:
 

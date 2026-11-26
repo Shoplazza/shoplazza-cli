@@ -41,7 +41,7 @@ and `shoplazza schema discounts.<cmd>`, not this table.
 | Delete many finished discounts | `discounts batch-delete --data '{"ids":[...]}'` |
 | Update an automatic discount | `discounts update-automatic --params '{"id":"<id>"}' --data '<body>'` |
 | Update a non-automatic (code) discount | `discounts update-non-automatic --params '{"id":"<id>"}' --data '<body>'` |
-| Configure cross-type combination rules | `discounts combine --data '<rules>'` |
+| Change which discount types existing discounts stack with | `discounts combine --data '{"ids":["<id>"],"discount_combines":["order","product"]}'` |
 | Coupon campaigns (vouchers) | `discounts coupons {create,get,update}` |
 
 ## Acting on a request
@@ -112,7 +112,7 @@ Only the **no-default** flags are askable. Caps are NOT here — they default to
 | `+amount-code` | `--off` (¥), `--target`, scope if `--target=product` | `--target` from wording | same as `+percent-code`, plus `--limit-order-once` |
 | `+free-shipping-code` | — (nothing strictly required) | `--off` only if user said "立减Y元运费" | `--off`, `--min-amount`, `--min-quantity`, `--countries`, caps, `--combines`, `--code`, `--name`, time |
 | `+bxgy-code` | buy-side scope, `--buy-quantity` **or** `--buy-amount`, get-side scope, `--get-quantity`, one of `--get-free`/`--get-percent-off`/`--get-off` | buy/get qty from "买N件送M件"; `--get-percent-off`/`--get-off` from "打折"/"立减" wording (neither = `--get-free`) | `--limit-order` (default 1), caps, `--combines`, `--code`, `--name`, time, `--exclude` |
-| `+flashsale` | `--value` **only** (never ask `--type` — it defaults to `percent`) | `--type` from wording (`percent` for "X折/X%off", `fixed-price` for "一口价Y元", `off` for "立减Y元"); scope from named products | `--type` (default percent), scope (omit = all products), `--price-rule`, `--stock`, per-user caps, `--combines`, `--name`, time |
+| `+flashsale` | `--value` **only** (never ask `--type` — it defaults to `percent`) | `--type` from wording (`percent` for "X折/X%off", `fixed-price` for "一口价Y元", `off` for "立减Y元"); scope from named variants / collections (no `--products`) | `--type` (default percent), scope (omit = all products), `--price-rule`, `--stock`, per-user caps, `--combines`, `--name`, time |
 | `+mn-discount` | `--tiers` | `--scope` ("最高档"=`highest`, "全部档"=`all`; also `highest-all`) | `--scope`, `--price-sort`, scope flags (omit = all products), caps, `--combines`, `--name`, time, `--exclude` |
 | `+rebate` | `--target`, `--tiers` | `--type` from wording — see trigger table above | scope if `--target=order`, `--limit-order-once`, caps, `--combines`, `--type` if user didn't disambiguate, `--name`, time |
 
@@ -186,13 +186,14 @@ Anything else is exit 2, and so is an `--end` that is not after `--start`.
 
 **Targeting / eligibility helpers** (all optional, on most shortcuts):
 - `--exclude` — turns the scope IDs into a **blocklist** (apply to all products EXCEPT those
-  listed). Needs a scope flag to have effect.
+  listed). Without a scope flag, or with `--target=order`, it is rejected (exit 2).
 - `--customer-segments <ids>` — restrict the discount to customers in the given segment IDs
   (omit = all customers eligible).
 
 **Discount stacking:** `--combines` controls whether *this* discount may stack with others.
-Default is empty (no stacking). To allow: `--combines order,product,shipping` (subset). For
-*global* cross-type rules (independent of `--combines`), use `discounts combine`.
+Default is empty (no stacking). To allow: `--combines order,product,shipping` (subset). To
+change it on discounts that already exist, use `discounts combine` (`ids` and
+`discount_combines`, both required).
 
 ## Discovering
 
@@ -244,8 +245,8 @@ Mapping back to shortcuts:
 | `+rebate --type=amount-off` / `amount-percent` | `rebate_cta_otr` / `rebate_cta_otp` |
 | `+rebate --type=qty-off` / `qty-percent` | `rebate_ctq_otr` / `rebate_ctq_otp` |
 
-Filtering with `--discount-type rebate` returns nothing — that label doesn't exist; use one of
-the four `rebate_*` enums.
+`--discount-type rebate` is rejected (exit 2, `invalid_flag_value`) — that label doesn't exist;
+use one of the four `rebate_*` enums.
 
 ## Lifecycle — body shapes are asymmetric
 
@@ -266,7 +267,7 @@ active one: `cancel` it first, then `delete`.
 There is no `+update` shortcut. Compose the update body from a `get` and feed it back:
 
 ```bash
-discounts get --params '{"id":"<id>"}' --jq '.data.discount' > /tmp/d.json
+discounts get --params '{"id":"<id>"}' --jq '{discount: .data.discount}' > /tmp/d.json
 # edit /tmp/d.json …
 discounts update-automatic --params '{"id":"<id>"}' --data @/tmp/d.json --dry-run
 ```
@@ -316,7 +317,7 @@ shoplazza-common).
 | 403 `PermissionDenied` "check if a store is a new marketing store" on every `discounts` call, reads included | A store-side check, not a scope: this store isn't enabled for the discounts API. The envelope's generic re-login `hint` does not apply | Don't re-login or retry. Confirm `read_price_rules` / `write_price_rules` are in `auth scopes` → `granted_scopes` (the discounts scopes; none is named "discount"); if they are, tell the user discounts can't be managed through the CLI on this store and stop |
 | `null` after `get` / `get-by-code` | discount object is nested under `.data.discount` | Start jq at `.data.discount.discount_info.…` |
 | `+search --query` returns 0 rows for a discount the user named | The name must contain the whole `--query` string (case-insensitive); no word splitting or fuzzy matching ("双十一大促活动" misses "双十一大促") | Retry with a shorter core keyword (e.g. "双十一") before telling the user it doesn't exist |
-| `--discount-type rebate` matches nothing | "rebate" is not an enum | Use `rebate_cta_otr` / `rebate_ctq_otr` / `rebate_cta_otp` / `rebate_ctq_otp` |
+| `invalid --discount-type value "rebate"` | "rebate" is not an enum | Use `rebate_cta_otr` / `rebate_ctq_otr` / `rebate_cta_otp` / `rebate_ctq_otp` |
 | `--limit-max must be > 0 (got -1)` | Caps are positive-only; `-1` is rejected | **Omit** the cap entirely for "no limit" — don't pass `-1` |
 | `unknown flag: --off` on `+percent-code` | percent-code uses `--percent-off`, not `--off` | `--percent-off 15` (1-99) |
 | `unknown flag: --discount` on `+flashsale` | flashsale uses `--value` | `--value 50` (+ `--type`) |
@@ -352,7 +353,7 @@ discounts cancel --data "{\"ids\":[\"$ID\"]}" --dry-run     # check first
 discounts cancel --data "{\"ids\":[\"$ID\"]}"               # only after the user agrees (next turn)
 
 # 6. Hard-delete the now-finished discount
-discounts delete --params "{\"id\":\"$ID\"}"
+discounts delete --params "{\"id\":\"$ID\"}" --dry-run      # real run only after the user agrees
 ```
 
 ## References

@@ -19,5 +19,5 @@ Optional query filters (only pass them when the user asks — don't invent filte
 
 | Param | Values |
 |---|---|
-| `status` | `authorized` · `void` (cancelled) · `processing` · `success` · `error` · `refunding` · `refunded` · `refund_failed` · `expire` |
+| `status` | `authorized` · `void` (cancelled) · `processing` · `success` · `failure` / `error` (both mean failed; query each) · `refunding` · `refunded` · `refund_failed` · `expired` |
 | `payment_channel` | channel name, e.g. `paypal` |

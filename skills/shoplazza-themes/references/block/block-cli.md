@@ -209,7 +209,7 @@ Returns `revert_id`.
 ## block revert-gen — undo a write
 
 Restores the card to its state before the write identified by `revert_id` (from any create,
-update, delete or revert response). It returns a new `revert_id`, so undo and redo can repeat.
+update, delete or revert response). Its response gives `.data.data[].new_revert_id` (the `revert_id` there echoes the one sent), so undo and redo can repeat.
 
 ```bash
 themes block revert-gen --params '{"oseid":"<oseid>"}' --data '{"revert_id":"<revert_id>"}'

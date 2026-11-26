@@ -96,7 +96,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 新建商品 / 建品 / 上新 / create a new product | `+create` | product name → `--title` verbatim; 售价 → `--price`; 主图/图片 URL → `--image`; "上架" wording → add `--published`; "存草稿/draft" → **omit** `--published` |
 | 建多规格商品 / 有颜色和尺码的商品 / create a product with color & size options | `+create` then `+set-variants --add` | step 1: `+create` as above (draft); step 2: each dimension → one `--add "Name:v1,v2,…"` (max 3, order = storefront order) in one call (no price: every combo copies the price `+create` set; no `--existing`: the created variant takes the first values); per-combo skus → `--sku-template` with `{Name}` placeholders; publish last |
 | 加一个颜色 / 加几个码 / add a spec value | `+set-variants --add` | `--product-id` (or resolve by name); the dimension + new values → `--add "Color:White"`; one new variant per existing combination of the other dimensions (combos deleted earlier stay deleted); new combos need `--new-price` (per value: `--new-price "Color:White=19,Black=21"`) and, on products that require variant images, `--new-image` |
-| 加一个规格维度 / add a whole new dimension (e.g. 加个尺码规格) | `+set-variants --add` + `--existing` | unknown dimension name = new dimension. Existing variants take the value named by `--existing "Size:<value>"` (required when the dimension gets several values) and keep id/sku/stock/image; the other values get new variants copying price/compare-at/weight/image — **no sku, no stock** (`--new-stock` sets one). No price needed. Ask which value the current variants are before running |
+| 加一个规格维度 / add a whole new dimension (e.g. 加个尺码规格) | `+set-variants --add` + `--existing` | unknown dimension name = new dimension. Existing variants take the value named by `--existing "Size:<value>"` (required when the dimension gets several values) and keep id/sku/stock/image; the other values get new variants copying price/compare-at/cost/weight (and the image on products that require one) — **no sku, no stock** (`--new-stock` sets one). No price needed. Ask which value the current variants are before running |
 | 删掉某个颜色/码 / remove a spec value | `+set-variants --remove` | `--remove "Color:Red"`; affected variants are deleted and listed in the output. Values need their exact spelling (case-sensitive; a case-only mismatch is refused with a "did you mean"). A name/value that doesn't exist is an error — fix the spelling, never report success |
 | 不按某规格分了 / drop a whole dimension | `+set-variants --drop` | `--drop "Size"` keeps every variant (ids kept); when variants would merge into one combination it is refused — ask which value's variants to keep, then `--drop "Size=M"` (the other values' variants are deleted) |
 | 规格值只保留… / 整个换成… / set one dimension's values | `+set-variants --set` | `--set "Color:Red,Blue"` makes that dimension's values exactly these (order = storefront order); values not listed are removed with their variants, new ones get variants |
@@ -241,7 +241,7 @@ shoplazza-common).
 | `--product-id` refused: "product … has N variants" | A multi-variant product has no single price or stock target | Ask the user which one, using the candidates in the `hint` (capped at 10 — it names the command that lists the rest), then re-run with `--variant-id` or `--sku`. Never guess `variants[0]` |
 | Price vanished after `+set-price --price 0` | `'0'` / `'0.00'` **clears** the price rather than setting zero | Only pass 0 when the user wants the price cleared |
 | Wanted `gift-cards delete` | No delete endpoint exists (subcommands: batch-create / create / disable / get / list / update) | `gift-cards disable` stops redemption; tell the user it disables, not deletes |
-| `variants update` 404 with product_id in path | `variants get` / `update` are variant-scoped: `/variants/{variant_id}` — no product_id | Only `variants list` / `create` / `delete` are product-scoped (`delete` needs BOTH ids) |
+| `variants update` refused: `unknown --params key: product_id` (`unknown_param`) | `variants get` / `update` are variant-scoped: `/variants/{variant_id}` — no product_id | Only `variants list` / `create` / `delete` are product-scoped (`delete` needs BOTH ids) |
 | `inventory set-stock` rejects a variant id | Inventory levels key on `inventory_item_id`, which ≠ variant id | Map first: `inventory list-by-variant --params '{"variant_ids":["<id>"]}'` |
 | `comments create` rejected for missing fields | `star`, `like`, `created_at`, `user_name`, `content`, `product_id` are ALL required | See [references/comments.md](references/comments.md); use `like: 0` if unknown |
 | "加进合集" attempted via `collections update` | Product↔collection membership is a `collect` record | `collects create` (one) / `collects batch-create` (many) |
@@ -250,8 +250,8 @@ shoplazza-common).
 ## Recipes
 
 ```bash
-# 1. All unpublished products from vendor Nike
-products +search --vendor Nike --published unpublished
+# 1. All unpublished products from vendor Nike (while .data.has_more is true, rerun with --cursor <.data.cursor>)
+products +search --vendor Nike --published unpublished --page-limit 250
 
 # 2. Ids, titles and main image only, of products with "hoodie" in the title
 products +search --keyword hoodie --fields id,title,primary_image
@@ -262,9 +262,9 @@ products +count --published published --jq '.data.count'
 # 4. Create a draft product (draft = no --published)
 products +create --title "Lycra 瑜伽裤" --price 39.99 --image https://cdn.example.com/yoga.jpg
 
-# 5. Publish a product you only know by name
-ID=$(products +search --keyword "瑜伽裤" --jq '.data.products[0].id')
-products +publish --product-id "$ID"
+# 5. Publish a product you only know by name — several matches → ask which one
+products +search --keyword "瑜伽裤" --jq '.data.products[] | {id, title}'
+products +publish --product-id <id>
 
 # 6. Restock / reprice a product you only know by product id (single-variant product)
 #    --product-id resolves the one variant. A multi-variant product is refused with

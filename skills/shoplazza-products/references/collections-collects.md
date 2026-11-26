@@ -18,7 +18,7 @@ Verify shapes with `shoplazza schema products.collections.<cmd>`.
 |---|---|---|
 | `collections create` | `POST /collections` | body `collection.title` is the **only required field** — do not fabricate description/SEO/image |
 | `collections get` / `list` / `count` | `GET /collections[/{id}|/count]` | |
-| `collections update` | `PUT /collections/{id}` | metadata of the collection, not its membership |
+| `collections update` | `PUT /collections/{id}` | the collection's own fields; for membership use `collects` |
 | `collections delete` | `DELETE /collections/{id}` | destructive → `--dry-run` first |
 | `collections update-smart-rule` | `PATCH /collections/{id}/smart-rule` | smart collections only |
 | `collections async-create` | `POST /collections/async` | smart collections; products match in the background and the response carries `async_task_id` (`0` for a manual collection: use `create`) |

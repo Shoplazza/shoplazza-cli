@@ -16,8 +16,7 @@
       ],
       "flags_must_not_contain": [
         "--promote",
-        "--publish",
-        "--theme "
+        "--publish"
       ],
       "must_ask": false,
       "semantic_rubric": [

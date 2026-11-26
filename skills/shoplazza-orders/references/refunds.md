@@ -17,7 +17,7 @@ leaf only for split / itemized refunds the shortcut can't express.
 
 Store-wide `list` / `count` filters: `order_ids` (≤10) · `refund_order_ids` (≤20) ·
 `refund_statuses` (enum `pending` in progress / `finished` / `failed`) · `sort_by`
-(`created_at`/`updated_at`) · `sort_direction` (`asc`/`desc`) · `created_at_start/end` ·
+(`created_at`/`updated_at`) · `sort_direction` (`asc`/`desc`) (`list` only) · `created_at_start/end` ·
 `updated_at_start/end`.
 
 **Per-order vs store-wide:** "订单 X 的退款记录" → `list-by-order` (path param). The
@@ -56,7 +56,7 @@ partially or fully refunded. **Only for orders paid through a custom payment cha
 test channel (`bogus`)** — platform-settled channels finish on their own.
 
 - Required: path `order_id`; body `post_sale_id` + `refund_record_id` (both returned by
-  `refunds create` / `+refund`, or from `refunds list-by-order` records).
+  `refunds create` / `+refund`; `refunds list-by-order` records carry only the refund record `id`).
 - Optional body: `refund_time` (RFC3339 third-party completion time), `transaction_number`,
   `payment_channel`, `extra_info` (`{"pos":"…"}`).
 - Finalizes a refund's status — restate and `--dry-run` first like other order writes.

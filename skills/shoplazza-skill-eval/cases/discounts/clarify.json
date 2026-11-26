@@ -15,7 +15,7 @@
       ],
       "flags_must_not_contain": ["--percent", "--amount", "--target"],
       "semantic_rubric": [
-        "several discount-code types exist (+percent-code / +amount-code / +bxgy-code / +free-shipping-code / +mn-discount / +rebate), and the request names none — asks WHICH type rather than picking one",
+        "several discount-code types exist (+percent-code / +amount-code / +bxgy-code / +free-shipping-code), and the request names none — asks WHICH type rather than picking one",
         "does NOT emit any +*-code create command with a guessed type",
         "does not fabricate a code value, a discount amount, or a validity window"
       ]

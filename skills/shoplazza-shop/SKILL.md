@@ -48,7 +48,7 @@ Intent → command, highest-fit tier first. Authoritative flags/params live in
 | SPU / landing-page / UTM breakdown | `shop analytics by-spu` (extra required `type`) / `by-land-page` (required `dimensions`) / `by-utm` |
 | 搜索词分析 / 搜了没结果的词 / on-site search keywords | `shop analytics search-keyword --data '{…,"sort_by":"count","sort_direction":"desc"}'` (`has_result` is a string `"0"`/`"1"`) |
 | 流量渠道 / 流量来源 / traffic by channel | `shop analytics traffic-channel` (required `dimensions` + `metrics`); valid channel names: `shop analytics traffic-channel-options` |
-| **Media library** — 上传文件到素材库 (public URL only) | `shop +upload-file --source-url <url> [--source-url <url> …]` |
+| **Media library** — 上传文件到素材库 | `shop +upload-file --source-url <url> [--source-url <url> …]` (http(s) URLs); a local file → `shop files upload --data '{"original_source_list":["data:<mime>;base64,…"]}'` |
 | Check an upload task / 上传进度 | `shop files task --params '{"task_id":"<id>"}'` (the shortcut already fetches it once) |
 | Browse the media library / 看素材库 | `shop files list` (folder defaults to `all_upload`; `page_size` ≤ 300) |
 | File detail / delete a file | `shop files {get,delete} --params '{"file_uri":"<uri>"}'` |
@@ -75,7 +75,7 @@ about defaulted/optional fields.
 
 | Operation | Must ASK if missing | Default silently / never ask |
 |---|---|---|
-| `+upload-file` | a **public** URL (local file → degrade: explain the API only fetches public URLs, ask for a link or a host) | — |
+| `+upload-file` | a **public** URL, or where the local file is (never invent either) | — |
 | `pages create` | `title` | `url`, `meta_*`, `independent_seo` — omit; never fabricate SEO fields |
 | `redirects create` | `from_url`, `redirect_url`; `status` value if the wording doesn't settle it (enum not in schema — see Gotchas) | — |
 | `metafields-shop create` | `namespace`, `key`, `type`, `value` | `description`, `definition_id` (optional here) |
@@ -119,10 +119,12 @@ is in shoplazza-common → Authentication.
 
 | Operation | Needs | Grant |
 |---|---|---|
-| read (`info get`, `analytics *`, `files list/get/task`, `* list/get/count`) | `shop` read scope | `auth login --domain shop` |
-| write (`+upload-file`, `* create/update/delete`, `languages enable/publish`, …) | `shop` write scope | `auth login --domain shop` |
+| read (`info get`, `* list/get/count`) | the sub-area's read scope | `auth login --domain shop` |
+| write (`* create/update/delete`, `languages enable/publish`, …) | the sub-area's write scope | `auth login --domain shop` |
 
-Look up exact scope literals with `shoplazza auth scopes`; `--domain shop` expands into them.
+Each sub-area has its own read_/write_ pair: `shop` (info, markets, languages, menu),
+`collection` (blogs, articles), `shop_navigation` (pages, redirects), `product`
+(carrier-services); files, metafields and analytics need none. `--domain shop` expands into all of them.
 
 ## Gotchas
 
@@ -138,7 +140,7 @@ shoplazza-common).
 | Unsure what to put in a menu item's `url_obj` | The link `type` values are not enumerated in the schema | Copy `url_obj` from an existing item of the same kind in `menu list` (`type` + `source_id` + `url`); never invent a `type` or `source_id` |
 | Tried to update shop name/address | `info update` exposes **one** editable field: `shop.customer_email` | Anything else is not updatable via this endpoint; say so |
 | `info update` needs a `shop_id` the user can't know | `shop_id` is a required path param | Resolve first: `shop info get --jq '.data.id'` |
-| Asked to upload a **local** file | `+upload-file` takes **public URLs, NOT local files** (verbatim in its help); the API fetches the URL | Degrade: no write; ask for a public link or suggest hosting it first |
+| Asked to upload a **local** file | `+upload-file` takes only http(s) URLs; the API fetches each one | Base64 it into a `data:` URI and send `shop files upload --data @body.json` (`{"original_source_list":["data:image/png;base64,…"]}`), then check `shop files task` |
 | Upload "done" but file missing | Upload is an **async task** — POST returns a `task_id`; the shortcut auto-fetches the task once | Re-check with `shop files task --params '{"task_id":"…"}'` until `status`/`success_list` settle |
 | `blogs create` title ignored / rejected | Blog title key is capital **`Title`** (required, 1–100), not lowercase `title` | `shop blogs create --data '{"blog":{"Title":"…"}}'` — confirm fields via `schema shop.blogs.create` |
 | What values can `redirects` `status` take? | `status` is **required** but the schema documents no enum — **do not invent one** | Check `schema shop.redirects.create`, inspect existing rules (`shop redirects list --jq '.data.redirects[].status'`) or the OpenAPI docs; ask the user if still ambiguous |

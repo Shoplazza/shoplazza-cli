@@ -16,8 +16,7 @@
         "--company"
       ],
       "flags_must_not_contain": [
-        "--line-items",
-        "--notify"
+        "--line-items"
       ],
       "must_ask": false,
       "semantic_rubric": [

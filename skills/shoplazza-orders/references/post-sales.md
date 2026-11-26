@@ -15,5 +15,4 @@ as `post_sale_id`.
 `processing` · `finished`.
 
 Note: the list is store-wide (no `order_id` param). To trace one order's after-sales, start
-from the `post_sale_id` returned by its refund creation, or from
-`refunds list-by-order` records.
+from the `post_sale_id` returned by its refund creation.

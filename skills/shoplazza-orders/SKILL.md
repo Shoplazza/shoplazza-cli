@@ -44,7 +44,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | User intent | Command |
 |-------------|---------|
 | Search / filter orders | `orders +search [--email <addr>] [--keyword <no/name/email>] [--status …] [--financial-status …] [--fulfillment-status …] [--customer-id <id>] [--since <t>] [--until <t>]` |
-| Count orders | `orders +count` — same filters as `+search`, minus `--page-limit` |
+| Count orders | `orders +count` — same filters as `+search`, minus `--page-limit` / `--cursor` |
 | Ship an order (发货) | `orders +ship --order-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--tracking-url <url>] [--line-items id:qty,…]` |
 | Refund a buyer (退款; money → `--dry-run` first) | `orders +refund --order-id <id> --amount <n> [--note <txt>] [--return-items] [--payment-line-id <id>]` |
 | Fix / update tracking info | `orders +update-tracking --order-id <id> --fulfillment-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--tracking-url <url>] [--notify]` |
@@ -128,7 +128,7 @@ Only **no-default** flags are askable.
 | `+update-tracking` | whichever of `--order-id` / `--fulfillment-id` / `--tracking` is missing | `--company`, `--tracking-url` only if the user gave them | `--company-code`, `--notify` (set only on explicit re-notify wording) |
 | `+search` / `+count` | *(nothing — all filters optional; never ask)* | filters from wording via the enum table | `--page-limit`; time bounds only from the user's own time words |
 | `cancel` (leaf) | order id if absent | `reason` body only if the user stated one | `reason` (optional — omit if not given) |
-| `create` (leaf) | any missing required buyer/address sub-field (`last_name`, `email`, `country_code`, `province_code`, `city`, `address`, `zip`) and the line item(s) — **never fabricate identity, address, or price**; ask or look up `variant_id` via `products +search` | `currency_code` from the store (`shop info get --jq '.data.currency'`); a neutral `shipping_name` label ("Standard Shipping"); an omitted catalog `price` (the variant prices it) | notify flags, `tags`, `note`, `discount_application`, `payment_line` (record payment via `orders pay`) |
+| `create` (leaf) | any missing required buyer/address sub-field (`last_name`, `email`, `country_code`, `province`, `province_code`, `city`, `address`, `zip`) and the line item(s) — **never fabricate identity, address, or price**; ask or look up `variant_id` via `products +search` | `currency_code` from the store (`shop info get --jq '.data.currency'`); a neutral `shipping_name` label ("Standard Shipping"); an omitted catalog `price` (the variant prices it) | notify flags, `tags`, `note`, `discount_application`, `payment_line` (record payment via `orders pay`) |
 
 ### Never-ask list
 
@@ -171,7 +171,7 @@ matches orders in any of them; a value not in this table is exit 2.
 `now`, `today`, `yesterday`, `-7d` / `+12h` (relative to now), `2026-09-01`, `2026-09-01 08:00`,
 RFC3339 (`2026-09-01T00:00:00+08:00`) or unix seconds; anything else is exit 2. A value without an
 offset is **UTC** (so are `today` / `yesterday`): for a store-local day pass the offset, e.g.
-`--since 2026-09-01T00:00:00+08:00` — the shop's `timezone` (`shop info get`, e.g. `+0800`) works as-is. The CLI sends RFC3339 UTC; `--dry-run` shows it. To filter on a *different* moment, drop to the `list` leaf, which exposes one
+`--since 2026-09-01T00:00:00+08:00` — the offset is the first five characters of the shop's `timezone` (`shop info get`): `+0800`, or `+0100` from Berlin's `+010014` (`+0200` in summer time). The CLI sends RFC3339 UTC; `--dry-run` shows it. To filter on a *different* moment, drop to the `list` leaf, which exposes one
 `_min`/`_max` pair per time field; pick it from the user's verb:
 
 | User's words | Param |
@@ -248,11 +248,10 @@ shoplazza-common).
 | Filtered on `unfulfilled` / `fulfilled` | Not in the enum | 未发货 = `waiting`; see the enum table above |
 | `orders get` finds nothing for a `#…` number | `get` takes the internal `order_id`; order numbers are a different key | `get-by-number --params '{"number":"…"}'` (a leading `#` is fine) |
 | `+refund` errors "order has N payment_lines" | Multi-payment-line order needs an explicit choice | Re-run with `--payment-line-id` from the listed candidates |
-| `+refund` / `+ship` dry-run prints TWO requests | These shortcuts GET the order first (resolve payment lines / fulfillable items), then POST | Expected. The dry-run POST body omits looked-up data (e.g. `refund_line_items`, empty `payment_line_id`) — the live run fills them in |
+| `+refund` / `+ship` dry-run prints TWO requests | These shortcuts GET the order first (resolve payment lines / fulfillable items), then POST | Expected. A value the live run reads from the order shows as `"<resolved-from-step-0>"` in the dry-run POST body (`+refund`: `payment_line_id` unless `--payment-line-id` is given, `refund_line_items` with `--return-items`; `+ship`: `line_items` unless `--line-items` is given) |
 | Cancelled the order when only a shipment should die (or vice versa) | 取消订单 ≠ 取消发货记录 | Order → `orders cancel`; fulfillment → `orders fulfillments cancel` (both path ids) |
 | Hand-built `refunds create` body for a simple refund | The leaf needs the full body incl. `refund_payments` | Prefer `+refund`; leaf only for split/itemized refunds → [references/refunds.md](references/refunds.md) |
 | Store-wide `refunds list` for one order's records | Two different endpoints | One order → `refunds list-by-order --params '{"order_id":"…"}'` |
-| `--status` with a comma list on `+search` | Shortcut flags are single-valued | Multi-status → `orders list --params '{"status":["opened","placed"]}'` |
 | A search "for one buyer" returns the whole store | The filter was dropped, or the page just looks small | Cross-check with `orders +count` filtered vs unfiltered before answering — see shoplazza-common → "Reading a filtered list" |
 | `keyword_scope_fields=["email"]` or `["order_no"]` returns 0 hits | Those are the schema **description's** example strings, not the accepted vocabulary | Use the `fuzzy_fields` field names (`shipping_email`, `number`, `name`, …) — see "Searching orders precisely" |
 | `unknown flag: --fields` | No orders command has `--fields` | Project with `--jq` |

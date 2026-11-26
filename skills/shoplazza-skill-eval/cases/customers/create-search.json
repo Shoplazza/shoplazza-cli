@@ -15,7 +15,7 @@
       "must_ask": false,
       "semantic_rubric": [
         "name split into --first-name Jane / --last-name Doe",
-        "不要订阅营销 → --no-marketing (the default is subscribe, so the flag MUST be set)",
+        "不要订阅营销 → --no-marketing (the default is subscribe, so the flag MUST be set), and the reply says SMS marketing is turned off too",
         "--email XOR --phone respected: email given, phone not set"
       ]
     },
