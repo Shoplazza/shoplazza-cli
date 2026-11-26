@@ -13,17 +13,17 @@
       "flags_must_contain": [
         "--order-id 1122334455",
         "--tracking SF1234567890",
-        "--company",
-        "--notify"
+        "--company"
       ],
       "flags_must_not_contain": [
-        "--line-items"
+        "--line-items",
+        "--notify"
       ],
       "must_ask": false,
       "semantic_rubric": [
         "tracking number SF1234567890 verbatim; --company carries 顺丰 (or SF Express equivalent)",
-        "--line-items omitted → all fulfillable items ship by default (whole-order intent)",
-        "--notify set because the user asked to notify the buyer",
+        "--line-items omitted → every line's remaining quantity ships by default (whole-order intent)",
+        "the buyer is emailed by a follow-up +update-tracking --order-id 1122334455 --fulfillment-id <.data.fulfillment.id from +ship> --tracking SF1234567890 --notify; +ship itself has no --notify (the create request has no email option)",
         "uses +ship, not the fulfillments create leaf"
       ]
     }

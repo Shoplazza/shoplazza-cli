@@ -45,7 +45,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 |-------------|---------|
 | Search / filter orders | `orders +search [--email <addr>] [--keyword <no/name/email>] [--status …] [--financial-status …] [--fulfillment-status …] [--customer-id <id>] [--since <t>] [--until <t>]` |
 | Count orders | `orders +count` — same filters as `+search`, minus `--page-limit` |
-| Ship an order (发货) | `orders +ship --order-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--line-items id:qty,…] [--notify]` |
+| Ship an order (发货) | `orders +ship --order-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--line-items id:qty,…]` |
 | Refund a buyer (退款; money → `--dry-run` first) | `orders +refund --order-id <id> --amount <n> [--note <txt>] [--return-items] [--payment-line-id <id>]` |
 | Fix / update tracking info | `orders +update-tracking --order-id <id> --fulfillment-id <id> --tracking <no> [--company <name>] [--tracking-url <url>] [--notify]` |
 | Get one order by internal ID | `orders get --params '{"order_id":"<id>"}'` |
@@ -102,7 +102,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 还没发货的订单 / unshipped orders | `+search --fulfillment-status waiting` | 未发货 = `waiting` — there is **no** `unfulfilled` value |
 | 某客户 / 某邮箱的订单 / orders from customer X | `+search` | customer id → `--customer-id`; a full email address → `--email` (exact match, the precise path); never stuff an id or an address into `--keyword` when a dedicated flag exists |
 | 有多少订单 / 订单总数 / how many orders | `+count` | "总共" = no filters, do not ask for a time range; count from `.data.count` |
-| 发货 / 标记发货 / ship order X | `+ship` | tracking no → `--tracking` verbatim; carrier name → `--company`; "通知买家" → `--notify`; whole order = omit `--line-items` |
+| 发货 / 标记发货 / ship order X | `+ship` | tracking no → `--tracking` verbatim; carrier name → `--company`; "通知买家" → then `+update-tracking --fulfillment-id <.data.fulfillment.id> --tracking <same no> --notify` (the create request has no email option); whole order = omit `--line-items` |
 | 部分发货 / ship only some items | `+ship --line-items id:qty,…` | per-line quantities as `line-id:qty` pairs |
 | 退款 / 给买家退 X 元 / refund the buyer | `+refund` | amount → `--amount` verbatim; stated reason → `--note`; "库存退回去/restock" → `--return-items` |
 | 改运单号 / 运单号填错了 / fix the tracking number | `+update-tracking` | needs all three: `--order-id`, `--fulfillment-id`, `--tracking` |
@@ -124,7 +124,7 @@ Only **no-default** flags are askable.
 | Shortcut | Must ASK if user did not specify | Infer if possible | Default silently |
 |---|---|---|---|
 | `+refund` | `--amount` (**money — never fabricate**; you may offer to look up the order total via `orders get` for a full refund, but still confirm the number); `--order-id` if absent | `--note` from the stated reason; `--return-items` from 库存退回/restock wording | `--payment-line-id` (only needed when the order has multiple payment lines — the CLI errors with candidates; pick or ask then) |
-| `+ship` | `--tracking` (**never invent a tracking number**); `--order-id` if absent | `--company` from a named carrier (keep the user's naming); `--notify` from 通知买家 wording | `--line-items` (omit = all fulfillable items), `--company-code` |
+| `+ship` | `--tracking` (**never invent a tracking number**); `--order-id` if absent | `--company` from a named carrier (keep the user's naming); a follow-up `+update-tracking … --notify` from 通知买家 wording | `--line-items` (omit = every line's remaining quantity), `--company-code` |
 | `+update-tracking` | whichever of `--order-id` / `--fulfillment-id` / `--tracking` is missing | `--company`, `--tracking-url` only if the user gave them | `--notify` (set only on explicit re-notify wording) |
 | `+search` / `+count` | *(nothing — all filters optional; never ask)* | filters from wording via the enum table | `--page-limit`; time bounds only from the user's own time words |
 | `cancel` (leaf) | order id if absent | `reason` body only if the user stated one | `reason` (optional — omit if not given) |
@@ -133,7 +133,7 @@ Only **no-default** flags are askable.
 ### Never-ask list
 
 Flags with a CLI default or omit-to-disable — they never appear in a question:
-`--notify` (omit unless the user asks to notify) · `--line-items` (default: all fulfillable) ·
+`--notify` (omit unless the user asks to notify) · `--line-items` (default: every line's remaining quantity) ·
 `--company` / `--company-code` (optional carrier info) · `--payment-line-id` (only after a
 multi-payment-line error) · `--note` (only if a reason was given) · `--return-items` (explicit
 wording only) · `--tracking-url` · `--page-limit` · `--since` / `--until` (only from the
@@ -145,7 +145,7 @@ user's own time words — never invent a time range).
 |---|---|
 | "订单 111222 退 15.50 给买家，备注 wrong size，库存退回" | REFUND — `+refund --order-id 111222 --amount 15.50 --note "wrong size" --return-items`; `--dry-run` first, restate, wait for go-ahead, then run |
 | "给订单 333444 退个款" | ASK — the amount (money; never invent). Do NOT ask which order — it's in the utterance. May offer a full-refund lookup, still confirm |
-| "订单 555 可以发货了，运单号 YT123，中通，通知买家" | SHIP — `+ship --order-id 555 --tracking YT123 --company 中通 --notify`; safe to run directly |
+| "订单 555 可以发货了，运单号 YT123，中通，通知买家" | SHIP — `+ship --order-id 555 --tracking YT123 --company 中通`, then `+update-tracking --order-id 555 --fulfillment-id <.data.fulfillment.id> --tracking YT123 --notify` to email the buyer; safe to run directly |
 | "把订单 666 标记发货" | ASK — the tracking number (required, never fabricate); carrier is optional, offer alongside but don't block on it |
 | "找最近 7 天还没发货的订单" | SEARCH — `+search --fulfillment-status waiting --since <today-7d>`; no `--until` |
 | "取消订单 777，原因是买家申请" | CANCEL — `orders cancel --params '{"order_id":"777"}' --data '{"reason":"买家申请"}'`; `--dry-run` first + restate |
@@ -281,8 +281,9 @@ orders +count --jq '.data.count'
 # 5. Order detail by order number
 orders get-by-number --params '{"number":"2026071500123"}' --jq '.data.order'
 
-# 6. Ship the whole order and notify the buyer
-orders +ship --order-id 4300123 --tracking SF0011223344 --company "顺丰" --notify
+# 6. Ship the whole order, then email the buyer (the create request has no email option)
+FID=$(orders +ship --order-id 4300123 --tracking SF0011223344 --company "顺丰" --jq '.data.fulfillment.id')
+orders +update-tracking --order-id 4300123 --fulfillment-id "$FID" --tracking SF0011223344 --notify
 
 # 7. Fix a mistyped tracking number (no re-notify)
 orders +update-tracking --order-id 991100 --fulfillment-id 77001 --tracking YT5544332211

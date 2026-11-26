@@ -30,10 +30,10 @@ all fulfillable items from the order):
 ```
 
 `id` is the only required line-item field; get line-item ids from `orders get`
-(`.data.order.line_items[].id`). `+ship` also validates qty ≤ `fulfillable_quantity` — the
-leaf does not, so check yourself.
+(`.data.order.line_items[].id`). `+ship` also checks each qty against what is left to ship (ordered quantity minus
+`ship_quantity` in the order's non-cancelled `fulfillments`) — the leaf does not, so check yourself.
 
 `update` — all fields optional; send only what changes:
 `tracking_number` · `tracking_company` · `tracking_company_code` · `tracking_url` ·
 `send_email` (bool — re-notify the customer) · `phone_number`.
-`--notify` on the shortcuts maps to `send_email: true`.
+`+update-tracking --notify` maps to `send_email: true`. `create` has no such field, so `+ship` has no way to ask for the email.

@@ -20,15 +20,14 @@ var shipShortcut = common.Shortcut{
 	Example: `  # Preview shipping the whole order
   shoplazza orders +ship --order-id 12345 --tracking SF123456789 --company SF --dry-run
 
-  # Ship specific line items and notify the customer
-  shoplazza orders +ship --order-id 12345 --tracking SF123456789 --line-items li-1:2,li-2:1 --notify`,
+  # Ship specific line items
+  shoplazza orders +ship --order-id 12345 --tracking SF123456789 --line-items li-1:2,li-2:1`,
 	Flags: []common.Flag{
 		{Name: "order-id", Type: common.FlagString, Required: true, Description: "Order ID.", Picker: orderPicker},
 		{Name: "tracking", Type: common.FlagString, Required: true, Description: "Tracking number."},
 		{Name: "company", Type: common.FlagString, Description: "Carrier company name (e.g., DHL, UPS)."},
 		{Name: "company-code", Type: common.FlagString, Description: "Carrier company code."},
-		{Name: "line-items", Type: common.FlagString, Description: "Per-line qty as 'line-id:qty,...'; default: all fulfillable."},
-		{Name: "notify", Type: common.FlagBool, Description: "Notify customer."},
+		{Name: "line-items", Type: common.FlagString, Description: "Per-line qty as 'line-id:qty,...'; default: every line's remaining quantity (ordered minus already shipped)."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
 		orderID := in.Flags.GetString("order-id")
@@ -36,7 +35,6 @@ var shipShortcut = common.Shortcut{
 		company := in.Flags.GetString("company")
 		companyCode := in.Flags.GetString("company-code")
 		lineItemsArg := in.Flags.GetString("line-items")
-		notify := in.Flags.GetBool("notify")
 
 		getPlan := PlanGet(orderID)
 
@@ -44,9 +42,6 @@ var shipShortcut = common.Shortcut{
 			// Without fetching the order, build the body from --line-items only (no fulfillable check).
 			fulfillment := map[string]any{
 				"tracking_number": tracking,
-			}
-			if notify {
-				fulfillment["send_email"] = true
 			}
 			cmdutil.AddString(fulfillment, "tracking_company", company)
 			cmdutil.AddString(fulfillment, "tracking_company_code", companyCode)
@@ -70,7 +65,7 @@ var shipShortcut = common.Shortcut{
 		if !ok {
 			return common.ExecResult{}, output.ErrInternal("order response missing 'order' object")
 		}
-		fulfillment, err := buildShipBody(order, lineItemsArg, tracking, company, companyCode, notify)
+		fulfillment, err := buildShipBody(order, lineItemsArg, tracking, company, companyCode)
 		if err != nil {
 			return common.ExecResult{}, err
 		}
@@ -108,12 +103,20 @@ func parseLineItemsArg(arg string) (map[string]int, error) {
 }
 
 // buildShipBody constructs the POST /fulfillments body from the order and the --line-items spec.
-func buildShipBody(order map[string]any, lineItemsArg, tracking, company, companyCode string, notify bool) (map[string]any, error) {
+func buildShipBody(order map[string]any, lineItemsArg, tracking, company, companyCode string) (map[string]any, error) {
 	fulfillable, err := extractFulfillableQuantities(order)
 	if err != nil {
 		return nil, err
 	}
-	requested := fulfillable
+	requested := map[string]int{}
+	for id, qty := range fulfillable {
+		if qty > 0 {
+			requested[id] = qty
+		}
+	}
+	if lineItemsArg == "" && len(requested) == 0 {
+		return nil, output.ErrValidation("nothing left to ship: every line item of this order has already been shipped")
+	}
 	if lineItemsArg != "" {
 		userSpec, perr := parseLineItemsArg(lineItemsArg)
 		if perr != nil {
@@ -125,7 +128,7 @@ func buildShipBody(order map[string]any, lineItemsArg, tracking, company, compan
 				return nil, output.ErrValidation("--line-items: line item %q not found on order", id)
 			}
 			if qty > avail {
-				return nil, output.ErrValidation("--line-items: line item %q requested qty %d > fulfillable_quantity %d", id, qty, avail)
+				return nil, output.ErrValidation("--line-items: line item %q requested qty %d, only %d left to ship", id, qty, avail)
 			}
 		}
 		requested = userSpec
@@ -138,9 +141,6 @@ func buildShipBody(order map[string]any, lineItemsArg, tracking, company, compan
 		"tracking_number": tracking,
 		"line_items":      items,
 	}
-	if notify {
-		body["send_email"] = true
-	}
 	cmdutil.AddString(body, "tracking_company", company)
 	cmdutil.AddString(body, "tracking_company_code", companyCode)
 	return body, nil
@@ -150,6 +150,25 @@ func extractFulfillableQuantities(order map[string]any) (map[string]int, error) 
 	raw, ok := order["line_items"].([]any)
 	if !ok {
 		return nil, output.ErrInternal("order response missing line_items array")
+	}
+	shipped := map[string]int{}
+	fulfillments, _ := order["fulfillments"].([]any)
+	for _, f := range fulfillments {
+		fm, ok := f.(map[string]any)
+		if !ok || fm["status"] == "cancelled" {
+			continue
+		}
+		items, _ := fm["line_items"].([]any)
+		for _, item := range items {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			id, _ := m["id"].(string)
+			if n, ok := asInt(m["ship_quantity"]); ok {
+				shipped[id] += n
+			}
+		}
 	}
 	out := map[string]int{}
 	for _, item := range raw {
@@ -161,16 +180,8 @@ func extractFulfillableQuantities(order map[string]any) (map[string]int, error) 
 		if id == "" {
 			continue
 		}
-		// When fulfillable_quantity is absent, fall back to the line item's total quantity.
-		var quantity int
-		if fulfillableQuantity, ok := asInt(m["fulfillable_quantity"]); ok && fulfillableQuantity > 0 {
-			quantity = fulfillableQuantity
-		} else if totalQuantity, ok := asInt(m["quantity"]); ok && totalQuantity > 0 {
-			quantity = totalQuantity
-		} else {
-			continue
-		}
-		out[id] = quantity
+		quantity, _ := asInt(m["quantity"])
+		out[id] = max(quantity-shipped[id], 0)
 	}
 	return out, nil
 }
