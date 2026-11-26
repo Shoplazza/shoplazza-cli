@@ -92,7 +92,8 @@ answer rather than an error:
 `--page-limit` says otherwise (max 250), with `has_more` / `cursor` marking the rest.
 `has_more` may come back `null` rather than `false`, so treat "not `true`" as the end.
 Whenever the answer depends on *completeness* — "how many", "which ones", "all of X", any
-total you compute yourself — pass `--page-limit 250` and follow the cursor. For a pure count,
+total you compute yourself — pass `--page-limit 250` and, while `has_more` is `true`, rerun with
+the same flags plus `--cursor <.data.cursor>` (spec leaves: `"cursor"` in `--params`). For a pure count,
 prefer the domain's `+count` shortcut over counting rows.
 
 **2. Silently-dropped filters — the API ignores query params it does not recognise.** It

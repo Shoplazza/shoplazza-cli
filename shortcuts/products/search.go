@@ -13,7 +13,7 @@ var searchShortcut = common.Shortcut{
 	Command: "+search",
 	Use:     "+search",
 	Short:   "Quickly search products",
-	Long:    "Search the catalog by title, vendor, collection, or published status. Returns one page — set --page-limit and follow has_more/cursor for the rest.",
+	Long:    "Search the catalog by title, vendor, collection, or published status. " + common.OnePage,
 	Example: `  # Published products by title, 50 per page
   shoplazza products +search --keyword shirt --published published --page-limit 50
 
@@ -28,6 +28,7 @@ var searchShortcut = common.Shortcut{
 		{Name: "vendor", Type: common.FlagString, Description: "Filter by vendor name (exact match)."},
 		{Name: "collection-id", Type: common.FlagString, Description: "Filter by collection ID."},
 		common.PageLimitFlag(),
+		common.CursorFlag(),
 		{Name: "fields", Type: common.FlagStringSlice, Description: "Product fields to return, by response key (comma-separated, e.g. id,title,primary_image). created_at/updated_at may also come back; unknown names are silently ignored."},
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
@@ -49,6 +50,7 @@ var searchShortcut = common.Shortcut{
 		if pl > 0 {
 			q["per_page"] = pl
 		}
+		cmdutil.AddString(q, "cursor", in.Flags.GetString("cursor"))
 		if fields := listFieldSelectors(in.Flags.GetStringSlice("fields")); len(fields) > 0 {
 			q["fields"] = fields
 		}

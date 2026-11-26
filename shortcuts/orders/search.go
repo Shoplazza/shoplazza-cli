@@ -10,7 +10,7 @@ var searchShortcut = common.Shortcut{
 	Command: "+search",
 	Use:     "+search",
 	Short:   "Quickly search orders",
-	Long:    "Search orders by keyword, email, status, or time window. Returns one page — set --page-limit and follow has_more/cursor for the rest.",
+	Long:    "Search orders by keyword, email, status, or time window. " + common.OnePage,
 	Example: `  # Paid orders since a date, 50 per page
   shoplazza orders +search --financial-status paid --since 2026-09-01 --page-limit 50
 
@@ -24,6 +24,7 @@ var searchShortcut = common.Shortcut{
 		common.SinceFlag("when the order was placed", "placed_at"),
 		common.UntilFlag("when the order was placed", "placed_at"),
 		common.PageLimitFlag(),
+		common.CursorFlag(),
 	}...),
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
 		pl, err := common.GetValidatedPageLimit(in)
@@ -41,6 +42,7 @@ var searchShortcut = common.Shortcut{
 		if pl > 0 {
 			q["page_size"] = pl
 		}
+		cmdutil.AddString(q, "cursor", in.Flags.GetString("cursor"))
 		return PlanList(q), nil
 	},
 }

@@ -10,7 +10,7 @@ var searchShortcut = common.Shortcut{
 	Command: "+search",
 	Use:     "+search",
 	Short:   "Quickly search customers",
-	Long:    "Find customers by email, phone, or signup window. Returns one page — set --page-limit and follow has_more/cursor for the rest.",
+	Long:    "Find customers by email, phone, or signup window. " + common.OnePage,
 	Example: `  # Find a customer by email
   shoplazza customers +search --email a@b.com
 
@@ -22,6 +22,7 @@ var searchShortcut = common.Shortcut{
 		common.SinceFlag("when the customer was created", "created_at"),
 		common.UntilFlag("when the customer was created", "created_at"),
 		common.PageLimitFlag(),
+		common.CursorFlag(),
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
 		pl, err := common.GetValidatedPageLimit(in)
@@ -37,6 +38,7 @@ var searchShortcut = common.Shortcut{
 		if pl > 0 {
 			q["page_size"] = pl
 		}
+		cmdutil.AddString(q, "cursor", in.Flags.GetString("cursor"))
 		return PlanList(q), nil
 	},
 }

@@ -16,7 +16,7 @@ import (
 var productSearchFlags = map[string]string{
 	"keyword": "string", "published": "string", "vendor": "string",
 	"collection-id": "string",
-	"page-limit":    "int", "fields": "stringslice",
+	"page-limit":    "int", "fields": "stringslice", "cursor": "string",
 }
 
 func TestProductSearchPlan_DefaultsSuccess(t *testing.T) {
@@ -29,11 +29,14 @@ func TestProductSearchPlan_DefaultsSuccess(t *testing.T) {
 
 func TestProductSearchPlan_WithKeywordSuccess(t *testing.T) {
 	in := shortcuttest.PlanInput(t, "search", productSearchFlags, map[string]string{
-		"keyword": "shirt", "page-limit": "10",
+		"keyword": "shirt", "page-limit": "10", "cursor": "c-2",
 	})
-	_, err := searchShortcut.Plan(in)
+	p, err := searchShortcut.Plan(in)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.Query["cursor"] != "c-2" || p.Query["per_page"] != 10 {
+		t.Errorf("--cursor/--page-limit must reach cursor/per_page, got %v / %v", p.Query["cursor"], p.Query["per_page"])
 	}
 }
 

@@ -12,7 +12,7 @@ var searchShortcut = common.Shortcut{
 	Command: "+search",
 	Use:     "+search",
 	Short:   "Search discounts by keyword or code",
-	Long:    "Search discounts by name, code, type, target, or progress. Returns one page — set --page-limit and follow has_more/cursor for the rest.",
+	Long:    "Search discounts by name, code, type, target, or progress. " + common.OnePage,
 	Example: `  # Find a discount by code
   shoplazza discounts +search --discount-code SAVE20
 
@@ -35,6 +35,7 @@ var searchShortcut = common.Shortcut{
 		{Name: "discount-method", Type: common.FlagStringSlice, Description: "Filter by method: automatic|discount_code.",
 			Enum: []string{"automatic", "discount_code"}},
 		common.PageLimitFlag(),
+		common.CursorFlag(),
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
 		q := map[string]any{}
@@ -47,6 +48,7 @@ var searchShortcut = common.Shortcut{
 		if ps := in.Flags.GetInt("page-limit"); ps > 0 {
 			q["page_size"] = ps
 		}
+		cmdutil.AddString(q, "cursor", in.Flags.GetString("cursor"))
 		return PlanList(q), nil
 	},
 }

@@ -127,7 +127,7 @@ shoplazza-common).
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Wanted a filtered count (e.g. customers who signed up this month) | `+count` takes no filters — the count endpoint returns the store total only | Page through `+search` with the filter (follow `has_more`/`cursor`) and count the rows |
+| Wanted a filtered count (e.g. customers who signed up this month) | `+count` takes no filters — the count endpoint returns the store total only | Page through `+search` with the filter (`--page-limit 250`, then `--cursor <.data.cursor>` while `has_more` is `true`) and count the rows |
 | `+create` rejected: "exactly one of --email or --phone is required" | Strict XOR — both given, or neither | Pass exactly one; if the user gave neither, ASK — never fabricate contact info |
 | Spec-leaf `create` fails without `contact_type` | The leaf body requires `contact_type`; `+create` fills it automatically (`email` / `phone` to match the flag) | Prefer `+create`; on the leaf, set `"contact_type"` to match the identifier you send |
 | Customer's old tags vanished after tagging | `update` `tags` REPLACES the whole array | Read-merge-write: `get` current tags, append, then `update` with the merged array |

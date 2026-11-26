@@ -11,7 +11,7 @@ var orderSearchFlags = map[string]string{
 	"keyword": "string", "status": "stringslice",
 	"financial-status": "stringslice", "fulfillment-status": "stringslice",
 	"customer-id": "string", "since": "string", "until": "string",
-	"page-limit": "int",
+	"page-limit": "int", "cursor": "string",
 }
 
 func TestOrderSearchPlan_DefaultsSuccess(t *testing.T) {
@@ -25,11 +25,14 @@ func TestOrderSearchPlan_DefaultsSuccess(t *testing.T) {
 func TestOrderSearchPlan_WithFiltersSuccess(t *testing.T) {
 	in := shortcuttest.PlanInput(t, "search", orderSearchFlags, map[string]string{
 		"status": "placed", "financial-status": "paid,refunded", "page-limit": "5",
-		"since": "2026-11-01 08:00", "until": "1800000000",
+		"since": "2026-11-01 08:00", "until": "1800000000", "cursor": "c-2",
 	})
 	p, err := searchShortcut.Plan(in)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.Query["cursor"] != "c-2" || p.Query["page_size"] != 5 {
+		t.Errorf("--cursor/--page-limit must reach cursor/page_size, got %v / %v", p.Query["cursor"], p.Query["page_size"])
 	}
 	if !reflect.DeepEqual(p.Query["status"], []string{"placed"}) || !reflect.DeepEqual(p.Query["financial_status"], []string{"paid", "refunded"}) {
 		t.Errorf("status filters must be sent as arrays, got status=%#v financial_status=%#v", p.Query["status"], p.Query["financial_status"])

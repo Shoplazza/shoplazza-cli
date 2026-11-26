@@ -28,6 +28,16 @@ func PageLimitFlag() Flag {
 	}
 }
 
+const OnePage = "Returns one page: while .data.has_more is true, run it again with the same flags plus --cursor <.data.cursor> for the next page."
+
+func CursorFlag() Flag {
+	return Flag{
+		Name:        "cursor",
+		Type:        FlagString,
+		Description: "Cursor for the next page: the previous page's .data.cursor; keep the other flags the same.",
+	}
+}
+
 // ValidatePageLimit enforces the 1-250 bound advertised by PageLimitFlag.
 // A value of 0 means unset and is allowed (the shortcut drops it from the query).
 func ValidatePageLimit(pl int) error {
