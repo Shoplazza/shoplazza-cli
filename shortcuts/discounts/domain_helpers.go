@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
@@ -223,9 +224,17 @@ func activityWindow(in common.PlanInput) (int64, int64, error) {
 // buildAutoInfoFromFlags returns a base discount_info map with auto-filled
 // common fields (name/display/start/end) for non-code (auto-applied) discounts.
 func buildAutoInfoFromFlags(in common.PlanInput) (map[string]any, error) {
-	name := common.AutoName(in.Tool)
+	name, err := activityName(in, common.AutoName(in.Tool))
+	if err != nil {
+		return nil, err
+	}
+	nameFrom := ""
 	if in.Flags.Changed("name") {
-		name = in.Flags.GetString("name")
+		nameFrom = "--name"
+	}
+	display, err := displayName(in, name, nameFrom)
+	if err != nil {
+		return nil, err
 	}
 
 	startsAt, endsAt, err := activityWindow(in)
@@ -235,7 +244,7 @@ func buildAutoInfoFromFlags(in common.PlanInput) (map[string]any, error) {
 
 	return map[string]any{
 		"discount_name": name,
-		"display_name":  common.TruncateName(name, 20),
+		"display_name":  display,
 		"starts_at":     startsAt,
 		"ends_at":       endsAt,
 	}, nil
@@ -259,14 +268,17 @@ func planCreateCode(in common.PlanInput, payload map[string]any) common.PlannedR
 // buildCodeInfoFromFlags returns a base discount_info map for code discounts,
 // with auto-generated code when --code is not supplied.
 func buildCodeInfoFromFlags(in common.PlanInput) (map[string]any, error) {
-	name := common.AutoName(in.Tool)
-	if in.Flags.Changed("name") {
-		name = in.Flags.GetString("name")
-	}
-
-	code := GenerateCode()
+	code, codeFrom := GenerateCode(), ""
 	if in.Flags.Changed("code") {
-		code = in.Flags.GetString("code")
+		code, codeFrom = in.Flags.GetString("code"), "--code"
+	}
+	name, err := activityName(in, code)
+	if err != nil {
+		return nil, err
+	}
+	display, err := displayName(in, code, codeFrom)
+	if err != nil {
+		return nil, err
 	}
 
 	startsAt, endsAt, err := activityWindow(in)
@@ -276,11 +288,71 @@ func buildCodeInfoFromFlags(in common.PlanInput) (map[string]any, error) {
 
 	return map[string]any{
 		"discount_name":  name,
-		"display_name":   common.TruncateName(name, 20),
+		"display_name":   display,
 		"discount_codes": []string{code},
 		"starts_at":      startsAt,
 		"ends_at":        endsAt,
 	}, nil
+}
+
+const (
+	maxDiscountNameLen = 50
+	maxDisplayNameLen  = 20
+)
+
+func nameFlag(code bool) common.Flag {
+	def := "auto-generated if omitted"
+	if code {
+		def = "default: the code"
+	}
+	return common.Flag{Name: "name", Type: common.FlagString,
+		Description: fmt.Sprintf("Activity name shown in the admin, at most %d characters (%s).", maxDiscountNameLen, def)}
+}
+
+func displayNameFlag(code bool) common.Flag {
+	def := "--name; without --name, the generated name cut to 20 characters"
+	if code {
+		def = "the code; required when the code is longer"
+	}
+	return common.Flag{Name: "display-name", Type: common.FlagString,
+		Description: fmt.Sprintf("Name buyers see at checkout, at most %d characters (default: %s).", maxDisplayNameLen, def)}
+}
+
+func activityName(in common.PlanInput, def string) (string, error) {
+	name := def
+	if in.Flags.Changed("name") {
+		name = in.Flags.GetString("name")
+	}
+	if n := utf8.RuneCountInString(name); n > maxDiscountNameLen {
+		return "", output.ErrValidation("--name is %d characters; the limit is %d", n, maxDiscountNameLen).
+			WithParam("--name").
+			WithSubtype(output.SubtypeInvalidFlagValue)
+	}
+	return name, nil
+}
+
+// defFrom "" marks a CLI-generated default, the only name cut to fit the display limit.
+func displayName(in common.PlanInput, def, defFrom string) (string, error) {
+	if in.Flags.Changed("display-name") {
+		display := in.Flags.GetString("display-name")
+		if n := utf8.RuneCountInString(display); n > maxDisplayNameLen {
+			return "", output.ErrValidation("--display-name is %d characters; buyers see at most %d", n, maxDisplayNameLen).
+				WithParam("--display-name").
+				WithSubtype(output.SubtypeInvalidFlagValue)
+		}
+		return display, nil
+	}
+	n := utf8.RuneCountInString(def)
+	if n <= maxDisplayNameLen {
+		return def, nil
+	}
+	if defFrom == "" {
+		return common.TruncateName(def, maxDisplayNameLen), nil
+	}
+	return "", output.ErrValidation("--display-name is required: the display name buyers see defaults to %s, which is %d characters; the limit is %d", defFrom, n, maxDisplayNameLen).
+		WithParam("--display-name").
+		WithSubtype(output.SubtypeMissingRequiredFlag).
+		WithHint(fmt.Sprintf("pass --display-name with at most %d characters", maxDisplayNameLen))
 }
 
 // validateCombines reads --combines, validates each entry, and returns a
@@ -333,7 +405,8 @@ func codeOffFlags() []common.Flag {
 		{Name: "min-amount", Type: common.FlagFloat, Description: "Minimum order amount (--target=order only; rejected with --target=product)."},
 		{Name: "min-quantity", Type: common.FlagInt, Default: 1, Description: "Minimum item count (--target=product only; rejected with --target=order; default 1)."},
 		{Name: "code", Type: common.FlagString, Description: "Discount code (auto-generated if omitted)."},
-		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
+		nameFlag(true),
+		displayNameFlag(true),
 		common.StartTimeFlag(),
 		common.EndTimeFlag(),
 		{Name: "combines", Type: common.FlagStringSlice,

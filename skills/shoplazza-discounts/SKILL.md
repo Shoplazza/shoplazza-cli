@@ -70,7 +70,7 @@ caps), it's fine to *mention* in your reply that redemptions will be unlimited �
 block, don't turn it into an `AskUserQuestion`.
 
 **Never-ask list** (all have CLI defaults or omit-to-disable — never a question):
-`--start` (default `now`) · `--end` (default `-1`/forever) · `--name` (auto-generated) ·
+`--start` (default `now`) · `--end` (default `-1`/forever) · `--name` (code shortcuts: the code; others auto-generated) · `--display-name` (code shortcuts: the code; others `--name`) ·
 `--code` (auto-generated) · `--combines` (default empty = no stacking) · `--limit-max` /
 `--limit-user` (omit = no limit) · `--limit-user-variant` / `--limit-user-product` /
 `--limit-user-all` (flashsale; omit = no limit) · `--limit-order` (`+bxgy-code`, default `1`) ·
@@ -320,7 +320,7 @@ shoplazza-common).
 | `delete` returns 4xx with progress message | Discount is not `finished` | `cancel` first, then `delete` |
 | `--target=product` rejected "requires one of --products/--collections/--variants" | Product scope is mandatory when target=product | Pass a scope flag |
 | `+percent-code`/`+amount-code`: "`--products` / `--min-quantity` only applies to `--target=product`" or "`--min-amount` only applies to `--target=order`" | Each target takes its own flags: order → `--min-amount`; product → a scope flag + `--min-quantity` | "指定商品满3件打8折" → `--target product --products <ids> --min-quantity 3`; "全单满100减5" → `--target order --min-amount 100` |
-| `display_name` looks truncated in response | Server auto-truncates to ~20 chars | Pass `--name` explicitly if it matters |
+| "`--display-name` is required" | The name buyers see allows 20 characters (the admin `--name` allows 50); it defaults to the code on code shortcuts and to `--name` on the others | Add a short `--display-name`; keep the long text in `--name` |
 | Created two discounts with the same `--code` | Codes are unique per store | Pass an explicit unique `--code`, or omit to auto-generate a 6-character code |
 | Code in the `--dry-run` preview differs from the created code | Without `--code` each run generates a new 6-character code; the dry-run JSON's `hint` names the previewed one | If you show the preview to the merchant, run the real command with `--code <that code>` |
 | Wanted to update via shortcut | There is no `+update` | Use `update-automatic` / `update-non-automatic` with a full body |

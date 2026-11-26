@@ -43,7 +43,8 @@ var mnDiscountShortcut = common.Shortcut{
 		{Name: "limit-max", Type: common.FlagInt, Description: "Max total discount uses across all customers (>0; omit for no limit)."},
 		{Name: "limit-user", Type: common.FlagInt, Description: "Max discount uses per customer (>0; omit for no limit)."},
 
-		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
+		nameFlag(false),
+		displayNameFlag(false),
 		common.StartTimeFlag(),
 		common.EndTimeFlag(),
 		customerSegmentsFlag(),

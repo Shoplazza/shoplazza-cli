@@ -141,8 +141,9 @@ func TestBuildAutoInfoFromFlags_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	if info["discount_name"] == "" {
-		t.Error("discount_name should be auto-generated")
+	name, _ := info["discount_name"].(string)
+	if !strings.HasPrefix(name, "cli_rebate_") || info["display_name"] != name[:20] {
+		t.Errorf("discount_name/display_name = %v/%v, want a generated cli_rebate_ name and its first 20 characters", name, info["display_name"])
 	}
 	if info["starts_at"] == nil {
 		t.Error("starts_at should be set")
@@ -152,14 +153,59 @@ func TestBuildAutoInfoFromFlags_Defaults(t *testing.T) {
 	}
 }
 
-func TestBuildAutoInfoFromFlags_CustomName(t *testing.T) {
-	in := newPlanInput(t, "rebate", map[string]string{"name": "string", "start": "string", "end": "string"}, map[string]string{"name": "My Campaign"})
-	info, err := buildAutoInfoFromFlags(in)
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
+func TestDiscountInfoNames(t *testing.T) {
+	long := "Black Friday 2026 Big Sale"
+	code30 := "SPRING-SALE-2026-TWENTY-OFF-30"
+	cases := []struct {
+		name        string
+		code        bool
+		values      map[string]string
+		wantName    string
+		wantDisplay string
+		wantParam   string
+	}{
+		{"auto: --name is both names", false, map[string]string{"name": "My Campaign"}, "My Campaign", "My Campaign", ""},
+		{"auto: 20 CJK chars fit the display name", false, map[string]string{"name": "黑色星期五黑色星期五黑色星期五黑色星期五"}, "黑色星期五黑色星期五黑色星期五黑色星期五", "黑色星期五黑色星期五黑色星期五黑色星期五", ""},
+		{"auto: long --name needs --display-name", false, map[string]string{"name": long}, "", "", "--display-name"},
+		{"auto: --display-name for a long --name", false, map[string]string{"name": long, "display-name": "BF Sale"}, long, "BF Sale", ""},
+		{"auto: --display-name over 20", false, map[string]string{"display-name": "Black Friday Big Sale"}, "", "", "--display-name"},
+		{"auto: --name over 50", false, map[string]string{"name": strings.Repeat("x", 51), "display-name": "x"}, "", "", "--name"},
+		{"code: defaults to the generated code", true, nil, "<code>", "<code>", ""},
+		{"code: defaults to --code", true, map[string]string{"code": "SAVE20"}, "SAVE20", "SAVE20", ""},
+		{"code: --name names the activity, buyers still see the code", true, map[string]string{"code": "SAVE20", "name": "Spring"}, "Spring", "SAVE20", ""},
+		{"code: a long --name needs no --display-name", true, map[string]string{"name": long}, long, "<code>", ""},
+		{"code: long --code needs --display-name", true, map[string]string{"code": code30}, "", "", "--display-name"},
+		{"code: --display-name for a long --code", true, map[string]string{"code": code30, "display-name": "Spring 20% off"}, code30, "Spring 20% off", ""},
 	}
-	if info["discount_name"] != "My Campaign" {
-		t.Errorf("discount_name: got %v want My Campaign", info["discount_name"])
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var info map[string]any
+			var err error
+			if c.code {
+				info, err = buildCodeInfoFromFlags(newPlanInput(t, "code", combinesFlags(), c.values))
+			} else {
+				flags := map[string]string{"name": "string", "display-name": "string", "start": "string", "end": "string"}
+				info, err = buildAutoInfoFromFlags(newPlanInput(t, "rebate", flags, c.values))
+			}
+			if c.wantParam != "" {
+				var ee *output.ExitError
+				if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != c.wantParam {
+					t.Fatalf("want a validation error on %s, got %#v", c.wantParam, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			wantName, wantDisplay := c.wantName, c.wantDisplay
+			if codes, _ := info["discount_codes"].([]string); len(codes) == 1 {
+				wantName = strings.ReplaceAll(wantName, "<code>", codes[0])
+				wantDisplay = strings.ReplaceAll(wantDisplay, "<code>", codes[0])
+			}
+			if info["discount_name"] != wantName || info["display_name"] != wantDisplay {
+				t.Errorf("discount_name/display_name = %v/%v, want %v/%v", info["discount_name"], info["display_name"], wantName, wantDisplay)
+			}
+		})
 	}
 }
 
@@ -322,13 +368,14 @@ func TestBuildCodeDiscountPayload_Refusals(t *testing.T) {
 
 func combinesFlags() map[string]string {
 	return map[string]string{
-		"combines":   "stringslice",
-		"limit-max":  "int",
-		"limit-user": "int",
-		"code":       "string",
-		"name":       "string",
-		"start":      "string",
-		"end":        "string",
+		"combines":     "stringslice",
+		"limit-max":    "int",
+		"limit-user":   "int",
+		"code":         "string",
+		"name":         "string",
+		"display-name": "string",
+		"start":        "string",
+		"end":          "string",
 	}
 }
 
@@ -366,9 +413,6 @@ func TestBuildCodeInfoFromFlags_Defaults(t *testing.T) {
 	info, err := buildCodeInfoFromFlags(in)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if info["discount_name"] == "" {
-		t.Error("discount_name should be auto-generated")
 	}
 	codes, _ := info["discount_codes"].([]string)
 	if len(codes) == 0 {

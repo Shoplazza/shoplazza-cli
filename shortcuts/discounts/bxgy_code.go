@@ -44,7 +44,8 @@ var bxgyCodeShortcut = common.Shortcut{
 		{Name: "get-free", Type: common.FlagBool, Description: "Gift the get-side items for free (mutex with --get-percent-off / --get-off)."},
 
 		{Name: "code", Type: common.FlagString, Description: "Discount code (auto-generated if omitted)."},
-		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
+		nameFlag(true),
+		displayNameFlag(true),
 		common.StartTimeFlag(),
 		common.EndTimeFlag(),
 		{Name: "combines", Type: common.FlagStringSlice,

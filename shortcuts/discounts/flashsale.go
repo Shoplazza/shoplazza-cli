@@ -46,7 +46,8 @@ var flashsaleShortcut = common.Shortcut{
 			Description: "Allowed combinations (subset of order/product/shipping; default: [] = no stacking).",
 			Completions: []string{"order", "product", "shipping"}},
 
-		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
+		nameFlag(false),
+		displayNameFlag(false),
 		common.StartTimeFlag(),
 		common.EndTimeFlag(),
 		customerSegmentsFlag(),

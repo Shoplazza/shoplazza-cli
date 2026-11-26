@@ -47,7 +47,8 @@ var rebateShortcut = common.Shortcut{
 			Completions: []string{"order", "product", "shipping"}},
 		customerSegmentsFlag(),
 
-		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
+		nameFlag(false),
+		displayNameFlag(false),
 		common.StartTimeFlag(),
 		common.EndTimeFlag(),
 	},
