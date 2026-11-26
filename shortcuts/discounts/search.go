@@ -50,81 +50,75 @@ var searchShortcut = common.Shortcut{
 		{Name: "until", Type: common.FlagString, Description: "Only discounts that start at or before this time (ends_date). Accepts " + common.TimeFormats + "."},
 		{Name: "combines", Type: common.FlagStringSlice, Description: "Only discounts that stack with any of: order|product|shipping.",
 			Enum: []string{"order", "product", "shipping"}},
-		{Name: "source", Type: common.FlagStringSlice, Description: "Who created the discount: manual|goaffpro|fintouch|mambasms|stamped|recommendation|athena|other, or a numeric source ID. Discounts made through the API, this CLI included, are other."},
+		{Name: "source", Type: common.FlagStringSlice, Description: "Who created the discount: " + strings.Join(sourceNames(), "|") + ", or a numeric source ID. Discounts made through the API, this CLI included, are other.",
+			Completions: sourceNames()},
 		{Name: "ids", Type: common.FlagStringSlice, Description: "Discount IDs, comma-separated."},
 		common.PageLimitFlag(),
 		common.CursorFlag(),
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
-		q, err := searchQuery(in.Flags)
-		if err != nil {
-			return common.PlannedRequest{}, err
+		q := map[string]any{}
+		cmdutil.AddString(q, "discount_name", in.Flags.GetString("query"))
+		cmdutil.AddString(q, "discount_code", in.Flags.GetString("discount-code"))
+		cmdutil.AddSlice(q, "progress", in.Flags.GetStringSlice("progress"))
+		cmdutil.AddSlice(q, "discount_type", in.Flags.GetStringSlice("discount-type"))
+		cmdutil.AddSlice(q, "discount_targets", in.Flags.GetStringSlice("discount-target"))
+		cmdutil.AddSlice(q, "discount_methods", in.Flags.GetStringSlice("discount-method"))
+		cmdutil.AddSlice(q, "discount_combines", in.Flags.GetStringSlice("combines"))
+		cmdutil.AddSlice(q, "ids", in.Flags.GetStringSlice("ids"))
+		if in.Flags.Changed("source") {
+			ids, err := sourceIDs(in.Flags.GetStringSlice("source"))
+			if err != nil {
+				return common.PlannedRequest{}, err
+			}
+			q["source_ids"] = ids
+		}
+		if ps := in.Flags.GetInt("page-limit"); ps > 0 {
+			q["page_size"] = ps
+		}
+		cmdutil.AddString(q, "cursor", in.Flags.GetString("cursor"))
+		// -1 leaves a side unbounded: the server reads a lone starts_date or ends_date as a lower bound.
+		if in.Flags.Changed("since") || in.Flags.Changed("until") {
+			q["starts_date"], q["ends_date"] = "-1", "-1"
 		}
 		if err := common.AddTimeRangeAs(q, in, "starts_date", "ends_date"); err != nil {
 			return common.PlannedRequest{}, err
 		}
-		openSearchWindow(q)
 		return PlanList(q), nil
 	},
 }
 
-func searchQuery(f common.FlagSet) (map[string]any, error) {
-	q := map[string]any{}
-	cmdutil.AddString(q, "discount_name", f.GetString("query"))
-	cmdutil.AddString(q, "discount_code", f.GetString("discount-code"))
-	cmdutil.AddSlice(q, "progress", f.GetStringSlice("progress"))
-	cmdutil.AddSlice(q, "discount_type", f.GetStringSlice("discount-type"))
-	cmdutil.AddSlice(q, "discount_targets", f.GetStringSlice("discount-target"))
-	cmdutil.AddSlice(q, "discount_methods", f.GetStringSlice("discount-method"))
-	cmdutil.AddSlice(q, "discount_combines", f.GetStringSlice("combines"))
-	cmdutil.AddSlice(q, "ids", f.GetStringSlice("ids"))
-	if f.Changed("source") {
-		ids, err := sourceIDs(f.GetStringSlice("source"))
-		if err != nil {
-			return nil, err
-		}
-		q["source_ids"] = ids
+func sourceNames() []string {
+	names := make([]string, len(discountSources))
+	for i, s := range discountSources {
+		names[i] = s.name
 	}
-	if ps := f.GetInt("page-limit"); ps > 0 {
-		q["page_size"] = ps
-	}
-	cmdutil.AddString(q, "cursor", f.GetString("cursor"))
-	return q, nil
+	return names
 }
 
 func sourceIDs(values []string) ([]string, error) {
 	ids := make([]string, 0, len(values))
-next:
 	for _, v := range values {
-		v = strings.TrimSpace(v)
-		if _, err := strconv.ParseUint(v, 10, 64); err == nil {
-			ids = append(ids, v)
-			continue
+		id, ok := sourceID(v)
+		if !ok {
+			return nil, output.ErrValidation("--source %q is neither a source name nor a numeric source ID", v).
+				WithParam("--source").
+				WithSubtype(output.SubtypeInvalidFlagValue).
+				WithHint("accepted: " + strings.Join(sourceNames(), ", ") + ", or a numeric source ID")
 		}
-		names := make([]string, 0, len(discountSources))
-		for _, s := range discountSources {
-			if strings.EqualFold(v, s.name) {
-				ids = append(ids, s.id)
-				continue next
-			}
-			names = append(names, s.name)
-		}
-		return nil, output.ErrValidation("--source %q is neither a source name nor a numeric source ID", v).
-			WithParam("--source").
-			WithSubtype(output.SubtypeInvalidFlagValue).
-			WithHint("source names: " + strings.Join(names, ", "))
+		ids = append(ids, id)
 	}
 	return ids, nil
 }
 
-// openSearchWindow sends -1 (no bound) for the missing side: the server reads a lone starts_date or ends_date as a lower bound.
-func openSearchWindow(q map[string]any) {
-	_, hasStart := q["starts_date"]
-	_, hasEnd := q["ends_date"]
-	switch {
-	case hasStart && !hasEnd:
-		q["ends_date"] = "-1"
-	case hasEnd && !hasStart:
-		q["starts_date"] = "-1"
+func sourceID(v string) (string, bool) {
+	if _, err := strconv.ParseUint(v, 10, 64); err == nil {
+		return v, true
 	}
+	for _, s := range discountSources {
+		if strings.EqualFold(v, s.name) {
+			return s.id, true
+		}
+	}
+	return "", false
 }

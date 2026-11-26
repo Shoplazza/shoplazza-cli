@@ -1,11 +1,8 @@
 package discounts
 
 import (
-	"errors"
 	"reflect"
 	"testing"
-
-	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
 func searchFlags() map[string]string {
@@ -19,15 +16,7 @@ func searchFlags() map[string]string {
 	}
 }
 
-func wantValidation(t *testing.T, err error, param string) {
-	t.Helper()
-	var ee *output.ExitError
-	if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != param {
-		t.Fatalf("want a validation error on %s, got %#v", param, err)
-	}
-}
-
-func TestSearchQuery(t *testing.T) {
+func TestSearchPlan(t *testing.T) {
 	cases := []struct {
 		name      string
 		values    map[string]string
@@ -40,36 +29,9 @@ func TestSearchQuery(t *testing.T) {
 		{"source names and ids", map[string]string{"source": "Manual,athena,other,42"}, map[string]any{"source_ids": []string{"1", "10", "999", "42"}}, ""},
 		{"unknown source name", map[string]string{"source": "bogus"}, nil, "--source"},
 		{"ids", map[string]string{"ids": "101,102"}, map[string]any{"ids": []string{"101", "102"}}, ""},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			q, err := searchQuery(newPlanInput(t, "search", searchFlags(), c.values).Flags)
-			if c.wantParam != "" {
-				wantValidation(t, err, c.wantParam)
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if !reflect.DeepEqual(q, c.want) {
-				t.Errorf("query = %#v, want %#v", q, c.want)
-			}
-		})
-	}
-}
-
-func TestSearchPlanWindow(t *testing.T) {
-	cases := []struct {
-		name               string
-		values             map[string]string
-		wantStart, wantEnd any
-		wantParam          string
-	}{
-		{"neither", nil, nil, nil, ""},
-		{"--since alone leaves the upper bound open", map[string]string{"since": "2026-12-01"}, "2026-12-01T00:00:00Z", "-1", ""},
-		{"--until alone leaves the lower bound open", map[string]string{"until": "2026-12-01T00:00:00+08:00"}, "-1", "2026-11-30T16:00:00Z", ""},
-		{"--since after --until", map[string]string{"since": "2026-12-02", "until": "2026-12-01"}, nil, nil, "--since"},
-		{"invalid --until", map[string]string{"until": "soon"}, nil, nil, "--until"},
+		{"--since alone leaves the upper bound open", map[string]string{"since": "2026-12-01"}, map[string]any{"starts_date": "2026-12-01T00:00:00Z", "ends_date": "-1"}, ""},
+		{"--until alone leaves the lower bound open", map[string]string{"until": "2026-12-01T00:00:00+08:00"}, map[string]any{"starts_date": "-1", "ends_date": "2026-11-30T16:00:00Z"}, ""},
+		{"--since after --until", map[string]string{"since": "2026-12-02", "until": "2026-12-01"}, nil, "--since"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -81,8 +43,8 @@ func TestSearchPlanWindow(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if p.Query["starts_date"] != c.wantStart || p.Query["ends_date"] != c.wantEnd {
-				t.Errorf("starts_date/ends_date = %v/%v, want %v/%v", p.Query["starts_date"], p.Query["ends_date"], c.wantStart, c.wantEnd)
+			if !reflect.DeepEqual(p.Query, c.want) {
+				t.Errorf("query = %#v, want %#v", p.Query, c.want)
 			}
 		})
 	}

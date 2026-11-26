@@ -228,11 +228,11 @@ func buildAutoInfoFromFlags(in common.PlanInput) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	nameFrom := ""
-	if in.Flags.Changed("name") {
-		nameFrom = "--name"
+	displayDef := name
+	if !in.Flags.Changed("name") {
+		displayDef = common.TruncateName(name, maxDisplayNameLen)
 	}
-	display, err := displayName(in, name, nameFrom)
+	display, err := displayName(in, displayDef, "--name")
 	if err != nil {
 		return nil, err
 	}
@@ -268,15 +268,15 @@ func planCreateCode(in common.PlanInput, payload map[string]any) common.PlannedR
 // buildCodeInfoFromFlags returns a base discount_info map for code discounts,
 // with auto-generated code when --code is not supplied.
 func buildCodeInfoFromFlags(in common.PlanInput) (map[string]any, error) {
-	code, codeFrom := GenerateCode(), ""
+	code := GenerateCode()
 	if in.Flags.Changed("code") {
-		code, codeFrom = in.Flags.GetString("code"), "--code"
+		code = in.Flags.GetString("code")
 	}
 	name, err := activityName(in, code)
 	if err != nil {
 		return nil, err
 	}
-	display, err := displayName(in, code, codeFrom)
+	display, err := displayName(in, code, "--code")
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +310,7 @@ func nameFlag(code bool) common.Flag {
 }
 
 func displayNameFlag(code bool) common.Flag {
-	def := "--name; without --name, the generated name cut to 20 characters"
+	def := fmt.Sprintf("--name; without --name, the generated name cut to %d characters", maxDisplayNameLen)
 	if code {
 		def = "the code; required when the code is longer"
 	}
@@ -331,8 +331,7 @@ func activityName(in common.PlanInput, def string) (string, error) {
 	return name, nil
 }
 
-// defFrom "" marks a CLI-generated default, the only name cut to fit the display limit.
-func displayName(in common.PlanInput, def, defFrom string) (string, error) {
+func displayName(in common.PlanInput, def, defFlag string) (string, error) {
 	if in.Flags.Changed("display-name") {
 		display := in.Flags.GetString("display-name")
 		if n := utf8.RuneCountInString(display); n > maxDisplayNameLen {
@@ -342,17 +341,13 @@ func displayName(in common.PlanInput, def, defFrom string) (string, error) {
 		}
 		return display, nil
 	}
-	n := utf8.RuneCountInString(def)
-	if n <= maxDisplayNameLen {
-		return def, nil
+	if n := utf8.RuneCountInString(def); n > maxDisplayNameLen {
+		return "", output.ErrValidation("--display-name is required: the display name buyers see defaults to %s, which is %d characters; the limit is %d", defFlag, n, maxDisplayNameLen).
+			WithParam("--display-name").
+			WithSubtype(output.SubtypeMissingRequiredFlag).
+			WithHint(fmt.Sprintf("pass --display-name with at most %d characters", maxDisplayNameLen))
 	}
-	if defFrom == "" {
-		return common.TruncateName(def, maxDisplayNameLen), nil
-	}
-	return "", output.ErrValidation("--display-name is required: the display name buyers see defaults to %s, which is %d characters; the limit is %d", defFrom, n, maxDisplayNameLen).
-		WithParam("--display-name").
-		WithSubtype(output.SubtypeMissingRequiredFlag).
-		WithHint(fmt.Sprintf("pass --display-name with at most %d characters", maxDisplayNameLen))
+	return def, nil
 }
 
 // validateCombines reads --combines, validates each entry, and returns a

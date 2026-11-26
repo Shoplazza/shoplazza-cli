@@ -45,6 +45,14 @@ func newPlanInput(t *testing.T, tool string, flags map[string]string, values map
 	return common.PlanInput{Tool: tool, Flags: common.NewCobraFlagSet(cmd)}
 }
 
+func wantValidation(t *testing.T, err error, param string) {
+	t.Helper()
+	var ee *output.ExitError
+	if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != param {
+		t.Fatalf("want a validation error on %s, got %#v", param, err)
+	}
+}
+
 // ── GenerateCode ──────────────────────────────────────────────────────────────
 
 func TestGenerateCode(t *testing.T) {
@@ -142,7 +150,7 @@ func TestBuildAutoInfoFromFlags_Defaults(t *testing.T) {
 		t.Fatalf("unexpected err: %v", err)
 	}
 	name, _ := info["discount_name"].(string)
-	if !strings.HasPrefix(name, "cli_rebate_") || info["display_name"] != name[:20] {
+	if !strings.HasPrefix(name, "cli_rebate_") || info["display_name"] != name[:maxDisplayNameLen] {
 		t.Errorf("discount_name/display_name = %v/%v, want a generated cli_rebate_ name and its first 20 characters", name, info["display_name"])
 	}
 	if info["starts_at"] == nil {
@@ -170,40 +178,28 @@ func TestDiscountInfoNames(t *testing.T) {
 		{"auto: --display-name for a long --name", false, map[string]string{"name": long, "display-name": "BF Sale"}, long, "BF Sale", ""},
 		{"auto: --display-name over 20", false, map[string]string{"display-name": "Black Friday Big Sale"}, "", "", "--display-name"},
 		{"auto: --name over 50", false, map[string]string{"name": strings.Repeat("x", 51), "display-name": "x"}, "", "", "--name"},
-		{"code: defaults to the generated code", true, nil, "<code>", "<code>", ""},
 		{"code: defaults to --code", true, map[string]string{"code": "SAVE20"}, "SAVE20", "SAVE20", ""},
 		{"code: --name names the activity, buyers still see the code", true, map[string]string{"code": "SAVE20", "name": "Spring"}, "Spring", "SAVE20", ""},
-		{"code: a long --name needs no --display-name", true, map[string]string{"name": long}, long, "<code>", ""},
+		{"code: a long --name needs no --display-name", true, map[string]string{"code": "SAVE20", "name": long}, long, "SAVE20", ""},
 		{"code: long --code needs --display-name", true, map[string]string{"code": code30}, "", "", "--display-name"},
 		{"code: --display-name for a long --code", true, map[string]string{"code": code30, "display-name": "Spring 20% off"}, code30, "Spring 20% off", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			var info map[string]any
-			var err error
+			build := buildAutoInfoFromFlags
 			if c.code {
-				info, err = buildCodeInfoFromFlags(newPlanInput(t, "code", combinesFlags(), c.values))
-			} else {
-				flags := map[string]string{"name": "string", "display-name": "string", "start": "string", "end": "string"}
-				info, err = buildAutoInfoFromFlags(newPlanInput(t, "rebate", flags, c.values))
+				build = buildCodeInfoFromFlags
 			}
+			info, err := build(newPlanInput(t, "rebate", combinesFlags(), c.values))
 			if c.wantParam != "" {
-				var ee *output.ExitError
-				if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != c.wantParam {
-					t.Fatalf("want a validation error on %s, got %#v", c.wantParam, err)
-				}
+				wantValidation(t, err, c.wantParam)
 				return
 			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			wantName, wantDisplay := c.wantName, c.wantDisplay
-			if codes, _ := info["discount_codes"].([]string); len(codes) == 1 {
-				wantName = strings.ReplaceAll(wantName, "<code>", codes[0])
-				wantDisplay = strings.ReplaceAll(wantDisplay, "<code>", codes[0])
-			}
-			if info["discount_name"] != wantName || info["display_name"] != wantDisplay {
-				t.Errorf("discount_name/display_name = %v/%v, want %v/%v", info["discount_name"], info["display_name"], wantName, wantDisplay)
+			if info["discount_name"] != c.wantName || info["display_name"] != c.wantDisplay {
+				t.Errorf("discount_name/display_name = %v/%v, want %v/%v", info["discount_name"], info["display_name"], c.wantName, c.wantDisplay)
 			}
 		})
 	}
@@ -232,10 +228,7 @@ func TestBuildAutoInfoFromFlags_Window(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			info, err := buildAutoInfoFromFlags(newPlanInput(t, "rebate", flags, c.values))
 			if c.wantParam != "" {
-				var ee *output.ExitError
-				if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Param != c.wantParam {
-					t.Fatalf("want a validation error on %s, got %#v", c.wantParam, err)
-				}
+				wantValidation(t, err, c.wantParam)
 				return
 			}
 			if err != nil {
@@ -415,8 +408,8 @@ func TestBuildCodeInfoFromFlags_Defaults(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	codes, _ := info["discount_codes"].([]string)
-	if len(codes) == 0 {
-		t.Error("discount_codes should contain at least one code")
+	if len(codes) != 1 || info["discount_name"] != codes[0] || info["display_name"] != codes[0] {
+		t.Errorf("discount_codes/discount_name/display_name = %v/%v/%v, want one generated code that is both names", codes, info["discount_name"], info["display_name"])
 	}
 }
 
