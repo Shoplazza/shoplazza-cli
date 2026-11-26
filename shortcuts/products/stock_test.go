@@ -432,9 +432,9 @@ func TestStockExecute_DryRunPlanCount(t *testing.T) {
 		flags     map[string]string
 		wantPlans int
 	}{
-		{"adjust, no location", map[string]string{"variant-id": "v-1", "adjust": "5"}, 4},
-		{"adjust, with location", map[string]string{"variant-id": "v-1", "adjust": "3", "location-id": "loc-1"}, 3},
-		{"adjust negative, no location", map[string]string{"variant-id": "v-1", "adjust": "-3"}, 4},
+		{"adjust, no location", map[string]string{"variant-id": "v-1", "adjust": "5"}, 5},
+		{"adjust, with location", map[string]string{"variant-id": "v-1", "adjust": "3", "location-id": "loc-1"}, 4},
+		{"adjust negative, no location", map[string]string{"variant-id": "v-1", "adjust": "-3"}, 5},
 		{"set, no location", map[string]string{"variant-id": "v-1", "set": "10"}, 6},
 		{"set negative", map[string]string{"variant-id": "v-1", "set": "-1"}, 6},
 	}
@@ -526,7 +526,11 @@ func TestStockExecute_DecreaseViaSetStock(t *testing.T) {
 
 func TestStockExecute_APIErrorPassesThrough(t *testing.T) {
 	var calls []string
-	srv := stockBrokerServer(t, stockBrokerOpts{defaultLoc: "loc-1", adjustStatus: 422}, &calls)
+	srv := stockBrokerServer(t, stockBrokerOpts{
+		defaultLoc:   "loc-1",
+		levels:       []map[string]any{{"location_id": "loc-1", "stock": 0}},
+		adjustStatus: 422,
+	}, &calls)
 	defer srv.Close()
 
 	_, err := stockShortcut.Execute(context.Background(), stockInputWithClient(t, map[string]string{"variant-id": "v-1", "adjust": "5"}, srv.URL))
@@ -536,13 +540,20 @@ func TestStockExecute_APIErrorPassesThrough(t *testing.T) {
 	}
 }
 
-func TestStockExecute_UntrackedRefusedBeforeWrite(t *testing.T) {
+func TestStockExecute_RefusedBeforeWrite(t *testing.T) {
+	const untracked = "this variant's product does not track inventory, so its stock cannot be changed"
+	const notStocked = "this variant is not stocked at location loc-2 (stocked at: loc-1)"
 	cases := []struct {
-		name  string
-		flags map[string]string
+		name      string
+		flags     map[string]string
+		untracked bool
+		wantMsg   string
 	}{
-		{"decrease", map[string]string{"variant-id": "v-1", "set": "4"}},
-		{"add", map[string]string{"variant-id": "v-1", "adjust": "2"}},
+		{"untracked decrease", map[string]string{"set": "4"}, true, untracked},
+		{"untracked add", map[string]string{"adjust": "2"}, true, untracked},
+		{"not stocked, set", map[string]string{"set": "4", "location-id": "loc-2"}, false, notStocked},
+		{"not stocked, add", map[string]string{"adjust": "2", "location-id": "loc-2"}, false, notStocked},
+		{"not stocked, subtract", map[string]string{"adjust": "-2", "location-id": "loc-2"}, false, notStocked},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -550,24 +561,27 @@ func TestStockExecute_UntrackedRefusedBeforeWrite(t *testing.T) {
 			srv := stockBrokerServer(t, stockBrokerOpts{
 				defaultLoc: "loc-1",
 				levels:     []map[string]any{{"location_id": "loc-1", "stock": 10}},
-				untracked:  true,
+				untracked:  c.untracked,
 			}, &calls)
 			defer srv.Close()
 
+			c.flags["variant-id"] = "v-1"
 			_, err := stockShortcut.Execute(context.Background(), stockInputWithClient(t, c.flags, srv.URL))
 			var ee *output.ExitError
-			if !errors.As(err, &ee) || ee.Code != output.ExitValidation || !strings.Contains(ee.Detail.Message, "does not track inventory") {
-				t.Fatalf("want a validation error saying the product does not track inventory, got %v", err)
+			if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Message != c.wantMsg {
+				t.Fatalf("want validation error %q, got %v", c.wantMsg, err)
+			}
+			if c.wantMsg == notStocked && (ee.Detail.Param != "--location-id" || !strings.Contains(ee.Detail.Hint, `create-level --data '{"inventory_item_id":"ii-1","location_id":"loc-2"}'`)) {
+				t.Errorf("want --location-id and a create-level hint, got param=%q hint=%q", ee.Detail.Param, ee.Detail.Hint)
 			}
 			for _, call := range calls {
-				if strings.HasPrefix(call, "PUT") {
+				if !strings.HasPrefix(call, "GET") {
 					t.Errorf("no write should be sent, calls: %v", calls)
 				}
 			}
 		})
 	}
 }
-
 func TestStockExecute_SetHigher_AddsViaInventoryLevels(t *testing.T) {
 	var calls []string
 	srv := stockBrokerServer(t, stockBrokerOpts{

@@ -9,13 +9,15 @@ the item and location for you. Come here for multi-location work or item-level s
 Whatever their names say, both `inventory_levels` stock writes add to the level (verified
 live): `inventory update-level` (PUT `/inventory_levels`) adds `stock_adjustment`, which must
 be > 0; `inventory set-stock` (POST `/inventory_levels/set`) adds its signed `stock`, so a
-negative value subtracts and 0 changes nothing. Neither sets an absolute value.
-`products +stock` wraps both:
+negative value subtracts and 0 changes nothing. Neither sets an absolute value. Where the
+item is not stocked yet, `set-stock` creates the level and `update-level` returns 404
+`inventory level not found`. `products +stock` wraps both:
 
 - `+stock --adjust N`: positive adds via `update-level`, negative subtracts via `set-stock`.
 - `+stock --set N`: reads the current level and writes the difference the same way.
-- Both work at any location (`--location-id`, else the default location), and stock may go
-  below 0: the platform stores negative stock.
+- Both work at any location where the variant is stocked (`--location-id`, else the default
+  location); anywhere else `+stock` refuses and prints the `inventory create-level` command
+  that connects it. Stock may go below 0: the platform stores negative stock.
 - Any change is **refused** before writing when the product does not track inventory
   (`inventory_item.tracking` off): both level writes would return 400, and `variants update`
   silently ignores `inventory_quantity`.
@@ -25,8 +27,10 @@ on (verified live), but the API omits zero values, so `stock` / `inventory_quant
 missing (`null`). That is 0, not untracked: read tracking from `inventory_item.tracking` /
 `product.inventory_tracking` (also omitted when false).
 
-`variants update` with `inventory_quantity` is a third route: an **absolute set** that lands on
-the **default location**, unverified on multi-location items. Prefer `+stock`.
+`variants update` with `inventory_quantity` is a third route: it sets the **default location's**
+level to that value. The variant's `inventory_quantity` reads back as the **total** across
+locations, so on a multi-location item it shows the value plus the other locations' stock
+(verified live). Prefer `+stock`.
 
 ## Concepts
 
@@ -55,16 +59,17 @@ Verify shapes with `shoplazza schema products.inventory.<cmd>`.
 | `inventory list-levels` | `GET /inventory_levels` | filter by `inventory_item_ids` / `location_ids` |
 | `inventory set-stock` | `POST /inventory_levels/set` | body `inventory_item_id`, `location_id`, `stock` — **adds** the signed value (negative subtracts) |
 | `inventory update-level` | `PUT /inventory_levels` | body `inventory_item_id`, `location_id`, `stock_adjustment` — **adds**, > 0 only |
-| `inventory create-level` | `POST /inventory_levels` | connect an item to a location (body: both ids) |
+| `inventory create-level` | `POST /inventory_levels` | connect an item to a location (body: both ids); the new level starts at 0 |
 | `inventory delete-level` | `DELETE /inventory_levels` | disconnect an item from a location (body: both ids) |
 
-`delete-level` removes the item–location *connection*, it is not a stock decrement.
+`delete-level` removes the item–location connection and discards the stock held there;
+reconnecting starts from 0. An item must stay stocked at one location at least.
 
 ## Locations commands
 
 | Command | HTTP | Notes |
 |---|---|---|
-| `locations list` | `GET /locations` | `status`, `sort_by`, cursor paging |
+| `locations list` | `GET /locations` | `status` as a number (0 all, 1 active, 2 inactive), `sort_by`, cursor paging |
 | `locations count` | `GET /locations/count` | |
 | `locations get` | `GET /locations/{location_id}` | |
 | `locations get-default` | `GET /locations/default` | the location `+stock` uses when `--location-id` is omitted |

@@ -46,9 +46,10 @@ Notable body fields (see `schema products.variants.update --view request` for al
 `option1/2/3`, `price`, `compare_at_price`, `sku`, `barcode`, `weight`, `weight_unit`,
 `cost_price`, `note`, `image_id` / `image.src`, `inventory_quantity`.
 
-`inventory_quantity` in an update body is an **absolute set** that lands on the **default
-location**, unverified on multi-location items (see [inventory-locations.md](inventory-locations.md)).
-Prefer `products +stock --adjust N` / `--set N`, which works at any location.
+`inventory_quantity` in an update body sets the **default location's** stock, but reads back as
+the total across locations, so on a multi-location item it will not equal what you wrote (see
+[inventory-locations.md](inventory-locations.md)). Prefer `products +stock --adjust N` / `--set N`,
+which works at any location.
 
 ## Resolving a product id to a variant id
 

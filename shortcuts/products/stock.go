@@ -3,7 +3,9 @@ package products
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
@@ -94,6 +96,7 @@ func execStockAdjust(ctx context.Context, in common.ExecInput, variantID, locati
 		plans = append(plans, locPlan)
 	}
 	plans = append(plans,
+		PlanListItemLevels(stepRef(base+0)),
 		PlanGetInventoryItem(stepRef(base+0)),
 		planStockDelta(stepRef(base+0), placeholderOr(locationID, stepRef(base+1)), adjust),
 	)
@@ -111,6 +114,9 @@ func execStockAdjust(ctx context.Context, in common.ExecInput, variantID, locati
 		if err != nil {
 			return common.ExecResult{}, err
 		}
+	}
+	if _, err := stockedLevel(ctx, in.Client, invItemID, locationID); err != nil {
+		return common.ExecResult{}, err
 	}
 	if err := requireTracking(ctx, in.Client, invItemID); err != nil {
 		return common.ExecResult{}, err
@@ -164,19 +170,13 @@ func execStockSet(ctx context.Context, in common.ExecInput, variantID, locationI
 		}
 	}
 
-	levelsResp, err := common.Send(ctx, in.Client, PlanListItemLevels(invItemID))
+	row, err := stockedLevel(ctx, in.Client, invItemID, locationID)
 	if err != nil {
 		return common.ExecResult{}, err
 	}
-	row, err := levelRowFor(levelsResp, locationID)
+	current, err := stockOf(row)
 	if err != nil {
 		return common.ExecResult{}, err
-	}
-	current := 0
-	if row != nil {
-		if current, err = stockOf(row); err != nil {
-			return common.ExecResult{}, err
-		}
 	}
 	if err := requireTracking(ctx, in.Client, invItemID); err != nil {
 		return common.ExecResult{}, err
@@ -215,6 +215,27 @@ func resolveInventoryItemID(ctx context.Context, c *client.Client, plan common.P
 		return "", err
 	}
 	return extractInventoryItemID(resp)
+}
+
+func stockedLevel(ctx context.Context, c *client.Client, invItemID, locationID string) (map[string]any, error) {
+	resp, err := common.Send(ctx, c, PlanListItemLevels(invItemID))
+	if err != nil {
+		return nil, err
+	}
+	row, err := levelRowFor(resp, locationID)
+	if err != nil || row != nil {
+		return row, err
+	}
+	var stocked []string
+	rows, _ := resp["inventory_levels"].([]any)
+	for _, r := range rows {
+		if m, ok := r.(map[string]any); ok {
+			stocked = append(stocked, asString(m["location_id"]))
+		}
+	}
+	return nil, output.ErrValidation("this variant is not stocked at location %s (stocked at: %s)", locationID, strings.Join(stocked, ", ")).
+		WithParam("--location-id").
+		WithHint(fmt.Sprintf(`pick one of those with --location-id, or connect it first: products inventory create-level --data '{"inventory_item_id":"%s","location_id":"%s"}'`, invItemID, locationID))
 }
 
 func requireTracking(ctx context.Context, c *client.Client, invItemID string) error {
