@@ -3335,7 +3335,7 @@
             "save-general"
           ],
           "summary": "Save general shipping schema",
-          "description": "Create or Modify a general shipping schema.",
+          "description": "Replace the store's general shipping schema with the one in the request. `shippings` is a full replacement, not a merge: zones left out of the request are deleted, and so are plans left out of a zone; an empty `shippings` is rejected. To add or change a single zone, use Create shipping zone or Update shipping zone instead. Otherwise read the schema with Get general shipping schema first and send every zone back with its `id`.\nA zone or plan with an `id` is updated; one without is created.",
           "hidden": false,
           "http": {
             "method": "POST",

@@ -81,7 +81,8 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
      run for real. An order paid through `customize_payment` or `bogus` stays in progress
      until `orders refunds finish` → [references/refunds.md](references/refunds.md).
    - **Destructive leaves** (`orders cancel` / `orders delete` / `fulfillments cancel` /
-     `risks delete` / `post-sales delete` / `shipping-schemas delete-zone`) — `--dry-run`
+     `risks delete` / `post-sales delete` / `shipping-schemas delete-zone` /
+     `shipping-schemas save-general`) — `--dry-run`
      first + restate, wait for the user's go-ahead, then run.
    - **`orders pay` writes a payment record — same treatment as `+refund`**: `--dry-run`
      first, restate (which order, channel, transaction no), wait for the user's go-ahead.

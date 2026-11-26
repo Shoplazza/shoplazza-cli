@@ -111,12 +111,12 @@
       "must_ask": false,
       "semantic_rubric": [
         "configuring the general schema → save-general with body {\"shipping_schemas\":{ … }}; name is required and set to the user's exact new label '2026 全球默认运费'",
-        "this is a MODIFY, not a create: reads the existing schema via get-general first to carry its id back in the body (include id to modify), instead of dropping a brand-new schema",
+        "this is a MODIFY, not a create: reads the existing schema via get-general first and sends it back with only the name changed — the schema id plus every zone with its id, plans and areas; save-general replaces the zone list, so a zone left out is deleted and an empty shippings is rejected",
         "does not fabricate the new name — it is the user's own string",
         "write op: --dry-run first + restate the name change before saving"
       ]
     },
-    "notes": "Grounded: `orders shipping-schemas save-general --help` (flags --data/--dry-run) and `schema orders.shipping-schemas.save-general --view request` — POST /shipping-schemas/general; body {\"shipping_schemas\":{id?,name*,shippings[]}}; name required, include id to modify. Pairs with get-general-01 (read then configure)."
+    "notes": "Grounded: `orders shipping-schemas save-general --help` (flags --data/--dry-run) and `schema orders.shipping-schemas.save-general --view request` — POST /shipping-schemas/general; body {\"shipping_schemas\":{id?,name*,shippings[]}}; name required; shippings is the full zone list (zones left out are deleted, an empty list is rejected), measured on the dev store 2026-11-26. Pairs with get-general-01 (read then configure)."
   },
   {
     "case_id": "orders.shipping-schemas.get-available-lines-01",
