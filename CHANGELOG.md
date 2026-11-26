@@ -6,21 +6,23 @@
 - `+search` in orders, customers, products and discounts takes `--cursor` to read past the first page.
 - `orders +ship --tracking-url` and `orders +update-tracking --company-code`.
 - An unknown flag or subcommand suggests near names, including same-named commands in other groups.
+- Discount shortcuts take `--display-name`, the name buyers see. `discounts +search` takes `--since` / `--until` (start time), `--combines`, `--source` and `--ids`.
 
 ### Changed
 - `products +publish` / `+unpublish` / `+tag` / `+set-variants` take `--product-id` (`--id` still works). `discounts +percent-code --percent-off` and `+bxgy-code --get-percent-off` replace `--percent` / `--get-percent`, which are deprecated.
 - `products +stock` can decrease at any location and go below 0, and refuses a location the variant is not stocked at or a product that does not track inventory.
 - `orders +ship` without `--line-items` ships only what is left. Its `--notify` is removed; use `+update-tracking --notify`.
-- `shop +upload-file` drops `--folder` and requires http(s) `--source-url` values.
-- Auto-generated discount codes no longer start with `CLI-`.
+- `shop +upload-file` drops `--folder` and requires http(s) `--source-url` values; a comma splits a value only before `http(s)://`.
+- Auto-generated discount codes no longer start with `CLI-`. Code discounts default both names to the code; `--code`, `--name` and `--display-name` are checked against 50 / 50 / 20 characters.
 - `SHOPLAZZA_ACCESS_TOKEN` set to an empty string is a validation error instead of falling back to the saved login.
 
 ### Fixed
 - Integers past 2^53 stay exact in `--data`, `--params` and `--jq`.
-- Spec leaves percent-encode path parameters (`#1001` works), split comma-joined values for array query parameters, and reject unknown, misplaced or missing `--params` keys and missing body fields before sending.
+- Spec leaves percent-encode path parameters (`#1001` works), split comma-joined values for array query parameters, and reject unknown, misplaced or missing `--params` keys, missing body fields and fields left outside their wrapper before sending.
 - `-q` is checked before the request is sent. A rejected token is an `auth` / `invalid_token` error, and a bare 403 names the read/write scope pair of the resource. Invalid `--data` / `--params` JSON says where it breaks.
 - Time and list flags parse the same way across shortcuts, and bad values exit 2. An unknown subcommand under a group exits 2 instead of printing help.
-- Discount shortcuts reject flags that do not match `--target`, fixed discounts not below their threshold, and several `+rebate` tiers with `--limit-order-once=false`.
+- Discount shortcuts reject flags that do not match `--target`, fixed discounts not below their threshold, and several `+rebate` tiers with `--limit-order-once=false`. `orders +refund --amount` must be a number above 0.
+- `products +set-variants` names the dimension when a per-value flag leaves out `Dim:`.
 - `customers +create --no-marketing` also opts out of SMS marketing.
 
 ## 2.2.7 - 2026-11-19
