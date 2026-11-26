@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
@@ -22,10 +23,10 @@ var uploadFileShortcut = common.Shortcut{
   # Upload several URLs
   shoplazza shop +upload-file --source-url https://cdn.example.com/a.jpg --source-url https://cdn.example.com/b.jpg`,
 	Flags: []common.Flag{
-		{Name: "source-url", Type: common.FlagStringArray, Required: true, Description: "Public http(s) URL for the API to fetch. Repeat the flag for several; a comma stays part of the URL."},
+		{Name: "source-url", Type: common.FlagStringArray, Required: true, Description: "Public http(s) URL for the API to fetch. Repeat the flag or join URLs with commas for several; a comma not followed by http:// or https:// stays part of the URL."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
-		urls := in.Flags.GetStringArray("source-url")
+		urls := splitSourceURLs(in.Flags.GetStringArray("source-url"))
 		if err := checkSourceURLs(urls); err != nil {
 			return common.ExecResult{}, err
 		}
@@ -60,6 +61,21 @@ var uploadFileShortcut = common.Shortcut{
 		}
 		return common.ExecResult{Body: taskResp}, nil
 	},
+}
+
+var nextSourceURL = regexp.MustCompile(`(?i),\s*https?://`)
+
+// splitSourceURLs splits a value only where a comma starts another http(s) URL.
+func splitSourceURLs(values []string) []string {
+	var urls []string
+	for _, v := range values {
+		for loc := nextSourceURL.FindStringIndex(v); loc != nil; loc = nextSourceURL.FindStringIndex(v) {
+			urls = append(urls, v[:loc[0]])
+			v = strings.TrimLeft(v[loc[0]+1:], " \t")
+		}
+		urls = append(urls, v)
+	}
+	return urls
 }
 
 func checkSourceURLs(urls []string) error {

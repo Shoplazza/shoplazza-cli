@@ -92,6 +92,7 @@ func TestUploadFileShortcutExecute_DryRun(t *testing.T) {
 	cases := []struct {
 		name     string
 		urls     []string
+		want     []string // the original_source_list sent; nil means urls unchanged
 		wantErr  string
 		wantHint string
 	}{
@@ -104,6 +105,10 @@ func TestUploadFileShortcutExecute_DryRun(t *testing.T) {
 		{name: "ftp", urls: []string{"ftp://example.com/a.jpg"}, wantErr: `"ftp://example.com/a.jpg"`},
 		{name: "no host", urls: []string{"https:///a.jpg"}, wantErr: `"https:///a.jpg"`},
 		{name: "one bad among good", urls: []string{"https://example.com/a.jpg", "./b.jpg"}, wantErr: `got "./b.jpg"`},
+		{name: "URLs joined by commas", urls: []string{"https://example.com/a.jpg,http://example.com/b.jpg, HTTPS://example.com/c.jpg"},
+			want: []string{"https://example.com/a.jpg", "http://example.com/b.jpg", "HTTPS://example.com/c.jpg"}},
+		{name: "joined URLs keep the commas inside each", urls: []string{"https://res.cloudinary.com/demo/image/upload/w_300,h_200/a.jpg,https://example.com/b.jpg", "https://example.com/c.jpg"},
+			want: []string{"https://res.cloudinary.com/demo/image/upload/w_300,h_200/a.jpg", "https://example.com/b.jpg", "https://example.com/c.jpg"}},
 		{name: "data uri", urls: []string{"data:image/png;base64,iVBORw0KGgo="}, wantErr: `got "data:image/png;base64,iVBORw0KGgo="`, wantHint: "shop files upload --data"},
 	}
 	for _, c := range cases {
@@ -131,9 +136,13 @@ func TestUploadFileShortcutExecute_DryRun(t *testing.T) {
 				t.Fatalf("dry-run should return 2 plans (POST + GET), got %d", len(result.Plans))
 			}
 			body, _ := result.Plans[0].Body.(map[string]any)
+			want := c.want
+			if want == nil {
+				want = c.urls
+			}
 			got, _ := body["original_source_list"].([]string)
-			if len(body) != 1 || strings.Join(got, " ") != strings.Join(c.urls, " ") {
-				t.Errorf("POST body: got %v want only original_source_list %q", body, c.urls)
+			if len(body) != 1 || strings.Join(got, " ") != strings.Join(want, " ") {
+				t.Errorf("POST body: got %v want only original_source_list %q", body, want)
 			}
 		})
 	}
