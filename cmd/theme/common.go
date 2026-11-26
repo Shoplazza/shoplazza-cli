@@ -25,10 +25,6 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/theme/env"
 )
 
-// envAccessToken is the CI/test bypass honored across the CLI: a non-empty
-// SHOPLAZZA_ACCESS_TOKEN is used verbatim as the store bearer token.
-const envAccessToken = "SHOPLAZZA_ACCESS_TOKEN"
-
 // resolvedStore is the outcome of resolving where a theme command acts: a store
 // client bound to a token, the store domain (for banners/results), and the
 // environment block that was selected (empty when no -e), whose theme/path/
@@ -76,19 +72,23 @@ func resolveStore(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command) (
 	// from -e (store=/profile=), else SHOPLAZZA_CLI_API_BASE_URL, else the
 	// current profile's domain. Base URL is that env var when set, else
 	// https://<domain>.
-	if tok := os.Getenv(envAccessToken); tok != "" {
+	envTok, err := cmdutil.AccessTokenEnv()
+	if err != nil {
+		return resolvedStore{}, err
+	}
+	if envTok != "" {
 		domain := envDomain(f, selEnv)
 		base := os.Getenv("SHOPLAZZA_CLI_API_BASE_URL")
 		if base == "" {
 			if domain == "" {
 				return resolvedStore{}, output.ErrWithHint(output.ExitValidation, output.TypeValidation,
-					envAccessToken+" is set but no store target is available",
+					cmdutil.EnvAccessToken+" is set but no store target is available",
 					"set SHOPLAZZA_CLI_API_BASE_URL, or select a store via -e or a profile")
 			}
 			base = "https://" + domain
 		}
 		c := client.New(base)
-		c.SetBearerToken(tok)
+		c.SetBearerToken(envTok)
 		c.SetCliUserID(cmdutil.CliUserIDEnv())
 		echoTarget(cmd, domain, envName)
 		return resolvedStore{Client: c, Domain: domain, Env: selEnv}, nil

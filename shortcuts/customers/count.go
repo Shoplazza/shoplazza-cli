@@ -10,8 +10,8 @@ var countShortcut = common.Shortcut{
 	Use:     "+count",
 	Short:   "Quickly count customers",
 	Long: "Return the total number of customers in the store, without fetching the rows. " +
-		"The count endpoint takes no filters — to count a filtered subset, run 'customers +search' " +
-		"and read the completeness basis it reports.",
+		"The count endpoint takes no filters — to count a filtered subset, page through " +
+		"'customers +search' with the filter (--page-limit 250, then --cursor while .data.has_more is true) and count the rows.",
 	Example: `  # Total customers
   shoplazza customers +count`,
 	Plan: func(_ common.PlanInput) (common.PlannedRequest, error) {

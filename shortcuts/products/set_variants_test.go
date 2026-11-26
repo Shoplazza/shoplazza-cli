@@ -915,7 +915,7 @@ func (s *editServer) run(t *testing.T, product map[string]any, args ...string) (
 			cmd.Flags().String(f.Name, "", "")
 		}
 	}
-	cmd.SetArgs(append([]string{"--id=p-1"}, args...))
+	cmd.SetArgs(append([]string{"--product-id=p-1"}, args...))
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("cmd.Execute: %v", err)
 	}
@@ -1087,6 +1087,15 @@ func TestSetVariants_CombinedRefusals(t *testing.T) {
 		{"per-value price not covering a new value", colorSizeProduct(), []string{"--add=Color:Green,Pink", "--new-price=Color:Green=1"}, "Pink"},
 		{"new variant without an image", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9"}, "--new-image"},
 		{"image not on the product", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=//x.webp"}, "not one of the product's images"},
+		{"image URL with a query not on the product", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=//x.webp?w=200"}, "not one of the product's images"},
+		{"schemeless image URL with a query", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=img.example.com/x.webp?w=200"}, "not one of the product's images"},
+		{"per-value price on a value with a slash, without its dimension name", colorSizeProduct(), []string{"--add=Color:Black/White", "--new-price=Black/White=5"}, `has the wrong per-value format: write "Color:Black/White=5"`},
+		{"per-value image on a value with a slash, without its dimension name", lensProduct("6lenses"), []string{"--add=Color:Red/White", "--new-price=9", "--new-image=Red/White=img-Black"}, `has the wrong per-value format: write "Color:Red/White=img-Black"`},
+		{"per-value image without its dimension name", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=Red=img-Black"}, `has the wrong per-value format: write "Color:Red=img-Black"`},
+		{"per-value image URL without its dimension name", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=Red=https://b.webp"}, `has the wrong per-value format: write "Color:Red=https://b.webp"`},
+		{"per-value price without its dimension name", colorSizeProduct(), []string{"--add=Color:Green", "--new-price=Green=5"}, `has the wrong per-value format: write "Color:Green=5"`},
+		{"per-value price on a value no dimension has", colorSizeProduct(), []string{"--add=Color:Green", "--new-price=Pink=5"}, `has the wrong per-value format: write "<Dim>:Pink=5"`},
+		{"only a --set-price without its dimension name", colorSizeProduct(), []string{"--set-price=Red=5"}, `has the wrong per-value format: write "Color:Red=5"`},
 		{"per-value price on a missing value", colorSizeProduct(), []string{"--set-price=Size:XL=5"}, "no value"},
 		{"per-value forms on two dimensions", colorSizeProduct(), []string{"--set-price=Size:S=5", "--set-price=Color:Red=6"}, "one dimension"},
 		{"more than 300 variants", colorSizeProduct(), []string{"--add=A:" + manyValues(80), "--existing=A:a0", "--new-price=1"}, "at most 300"},

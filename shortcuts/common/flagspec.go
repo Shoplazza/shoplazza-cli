@@ -1,12 +1,17 @@
 package common
 
-import "github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+import (
+	"fmt"
 
-// IDFlag returns a required --id string flag with the given description.
-// Used for single-resource shortcuts (+get, +delete, +publish, +cancel, etc.).
-func IDFlag(description string) Flag {
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+)
+
+// IDFlag returns the required --<resource>-id string flag of a single-resource
+// shortcut, with --id kept working as a hidden alias.
+func IDFlag(resource, description string) Flag {
 	return Flag{
-		Name:        "id",
+		Name:        resource + "-id",
+		Aliases:     []string{"id"},
 		Type:        FlagString,
 		Required:    true,
 		Description: description,
@@ -23,6 +28,16 @@ func PageLimitFlag() Flag {
 	}
 }
 
+const OnePage = "Returns one page: while .data.has_more is true, run it again with the same flags plus --cursor <.data.cursor> for the next page."
+
+func CursorFlag() Flag {
+	return Flag{
+		Name:        "cursor",
+		Type:        FlagString,
+		Description: "Cursor for the next page: the previous page's .data.cursor; keep the other flags the same.",
+	}
+}
+
 // ValidatePageLimit enforces the 1-250 bound advertised by PageLimitFlag.
 // A value of 0 means unset and is allowed (the shortcut drops it from the query).
 func ValidatePageLimit(pl int) error {
@@ -30,7 +45,8 @@ func ValidatePageLimit(pl int) error {
 		return nil
 	}
 	if pl < 1 || pl > 250 {
-		return output.ErrValidation("--page-limit must be between 1 and 250, got %d", pl)
+		return output.ErrValidation("--page-limit must be between 1 and 250, got %d", pl).
+			WithParam("--page-limit").WithSubtype(output.SubtypeInvalidFlagValue)
 	}
 	return nil
 }
@@ -45,42 +61,39 @@ func GetValidatedPageLimit(in PlanInput) (int, error) {
 	return pl, nil
 }
 
-// SinceFlag returns the standardized --since string flag (ISO date).
-// Maps to the API's created_at_min / placed_at_min depending on the endpoint.
-func SinceFlag() Flag {
+// SinceFlag returns --since, the lower bound written to <field>_min by
+// AddTimeRange; subject says what the field times, e.g. "when the order was placed".
+func SinceFlag(subject, field string) Flag {
 	return Flag{
 		Name:        "since",
 		Type:        FlagString,
-		Description: "Lower time bound (ISO date or unix ts).",
+		Description: fmt.Sprintf("Lower bound on %s, inclusive (%s_min). Accepts %s.", subject, field, TimeFormats),
 	}
 }
 
-// UntilFlag returns the standardized --until string flag (ISO date).
-func UntilFlag() Flag {
+// UntilFlag returns --until, the upper bound written to <field>_max by AddTimeRange.
+func UntilFlag(subject, field string) Flag {
 	return Flag{
 		Name:        "until",
 		Type:        FlagString,
-		Description: "Upper time bound (ISO date or unix ts).",
+		Description: fmt.Sprintf("Upper bound on %s, inclusive (%s_max). Accepts %s.", subject, field, TimeFormats),
 	}
 }
 
-// StartTimeFlag returns the standardized --start string flag for
-// activity/campaign start. Values are parsed by ParseTime.
+// StartTimeFlag returns --start, the activity's starts_at.
 func StartTimeFlag() Flag {
 	return Flag{
 		Name:        "start",
 		Type:        FlagString,
-		Description: "Start time (now | +Nh/+Nd/+Nw | YYYY-MM-DDTHH:MM:SS | unix-seconds; UTC; default: now).",
+		Description: "Activity start time (starts_at). Accepts " + TimeFormats + ". Default: now.",
 	}
 }
 
-// EndTimeFlag returns the standardized --end string flag for
-// activity/campaign end. Values are parsed by ParseTime; forever / -1
-// mean no expiry.
+// EndTimeFlag returns --end, the activity's ends_at; forever / -1 mean no expiry.
 func EndTimeFlag() Flag {
 	return Flag{
 		Name:        "end",
 		Type:        FlagString,
-		Description: "End time (now | +Nh/+Nd/+Nw | YYYY-MM-DDTHH:MM:SS | unix-seconds | forever | -1; UTC; default: -1 = no expiry).",
+		Description: "Activity end time (ends_at). Accepts " + TimeFormats + "; or forever | -1 for no expiry. Default: forever.",
 	}
 }

@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/testenv"
 )
 
 // TestDefaultOutputFormat: SHOPLAZZA_CLI_FORMAT sets the --format default when
@@ -20,6 +23,43 @@ func TestDefaultOutputFormat(t *testing.T) {
 	t.Setenv("SHOPLAZZA_CLI_FORMAT", "bogus")
 	if got := defaultOutputFormat(); got != output.FormatJSON {
 		t.Errorf("invalid env = %q, want json fallback", got)
+	}
+}
+
+func TestNameMissingScope(t *testing.T) {
+	const generic = "the access token lacks a scope this endpoint needs"
+	cases := []struct {
+		name, envToken, method, path string
+		wantScopes                   []string
+		wantMessage, wantHint        string
+	}{
+		{"saved login, mapped", "", "POST", "/openapi/2026-01/redirects/detail",
+			[]string{"read_shop_navigation", "write_shop_navigation"},
+			"the access token lacks read_shop_navigation or write_shop_navigation",
+			"run 'shoplazza auth login --scope read_shop_navigation,write_shop_navigation --merge-scopes' to add them"},
+		{"injected token, mapped", "tok", "GET", "/openapi/2026-01/discounts",
+			[]string{"read_price_rules", "write_price_rules"},
+			"the access token lacks read_price_rules or write_price_rules",
+			"the token in SHOPLAZZA_ACCESS_TOKEN lacks them: use a token granted read_price_rules and write_price_rules"},
+		{"saved login, unmapped", "", "GET", "/openapi/2025-06/script_tags", nil, generic,
+			"run 'shoplazza auth scopes' to see the granted scopes, then add the missing one with 'shoplazza auth login --scope <scope> --merge-scopes'"},
+		{"injected token, unmapped", "tok", "GET", "/openapi/2025-06/script_tags", nil, generic,
+			"the token in SHOPLAZZA_ACCESS_TOKEN lacks it: use a token granted the scope this endpoint needs"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if c.envToken == "" {
+				testenv.Unsetenv(t, cmdutil.EnvAccessToken)
+			} else {
+				t.Setenv(cmdutil.EnvAccessToken, c.envToken)
+			}
+			e := output.ErrAPI(403, `{}`, "req-1").WithEndpoint(c.method, c.path)
+			nameMissingScope(e)
+			got, _ := e.Detail.Extra["required_scopes"].([]string)
+			if strings.Join(got, " ") != strings.Join(c.wantScopes, " ") || e.Detail.Message != c.wantMessage || e.Detail.Hint != c.wantHint {
+				t.Errorf("required_scopes %q, message %q, hint %q; want %q, %q, %q", got, e.Detail.Message, e.Detail.Hint, c.wantScopes, c.wantMessage, c.wantHint)
+			}
+		})
 	}
 }
 

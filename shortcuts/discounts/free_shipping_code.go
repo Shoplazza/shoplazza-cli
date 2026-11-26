@@ -27,9 +27,10 @@ var freeShippingCodeShortcut = common.Shortcut{
 		{Name: "off", Type: common.FlagFloat, Description: "Fixed amount off shipping (omit = 100% free shipping)."},
 		{Name: "min-amount", Type: common.FlagFloat, Description: "Minimum order amount (mutex with --min-quantity)."},
 		{Name: "min-quantity", Type: common.FlagInt, Description: "Minimum item count (mutex with --min-amount)."},
-		{Name: "countries", Type: common.FlagString, Description: "ISO country codes (comma-separated) or 'all'."},
-		{Name: "code", Type: common.FlagString, Description: "Discount code (auto-generated if omitted)."},
-		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
+		{Name: "countries", Type: common.FlagStringSlice, Description: "ISO country codes (comma-separated) or 'all'."},
+		codeFlag(),
+		nameFlag(true),
+		displayNameFlag(true),
 		common.StartTimeFlag(),
 		common.EndTimeFlag(),
 		{Name: "combines", Type: common.FlagStringSlice,
@@ -42,7 +43,7 @@ var freeShippingCodeShortcut = common.Shortcut{
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
 		info, err := buildCodeInfoFromFlags(in)
 		if err != nil {
-			return common.PlannedRequest{}, output.Errorf(output.ExitValidation, "validation", "%s", err)
+			return common.PlannedRequest{}, err
 		}
 		info["discount_type"] = "code_free_shipping"
 		// Server-side validation requires discount_target. Hard-code "shipping"
@@ -76,16 +77,12 @@ var freeShippingCodeShortcut = common.Shortcut{
 		}
 
 		entitledArea := map[string]any{}
-		countries := in.Flags.GetString("countries")
-		if countries != "" && countries != "all" {
-			codes := common.ParseProducts(countries)
-			if len(codes) > 0 {
-				areaObjs := make([]any, len(codes))
-				for i, c := range codes {
-					areaObjs[i] = map[string]any{"country_code": c}
-				}
-				entitledArea["areas"] = areaObjs
+		if codes := common.IDList(in.Flags, "countries"); len(codes) > 0 {
+			areaObjs := make([]any, len(codes))
+			for i, c := range codes {
+				areaObjs[i] = map[string]any{"country_code": c}
 			}
+			entitledArea["areas"] = areaObjs
 		}
 
 		rule, err := codeRuleFromFlags(in)
@@ -122,6 +119,6 @@ var freeShippingCodeShortcut = common.Shortcut{
 				"entitled_area":     entitledArea,
 			},
 		}
-		return PlanCreateNonAutomatic(payload), nil
+		return planCreateCode(in, payload), nil
 	},
 }

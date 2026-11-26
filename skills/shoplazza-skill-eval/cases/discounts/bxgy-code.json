@@ -14,7 +14,7 @@
       "flags_must_not_contain": ["--buy-amount", "--get-percent", "--get-off", "--limit-max", "--limit-user"],
       "must_ask": false,
       "semantic_rubric": [
-        "送/赠 wording maps to --get-free (not --get-percent / --get-off)",
+        "送/赠 wording maps to --get-free (not --get-percent-off / --get-off)",
         "buy side uses --products + --buy-quantity; get side uses --get-products + --get-quantity (no invented --buy/--get flags)",
         "--limit-order left to its default (1 set per order), not asked",
         "quantities 2 and 1 verbatim from the utterance"

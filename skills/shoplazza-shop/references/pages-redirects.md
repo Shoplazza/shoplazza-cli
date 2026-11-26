@@ -5,7 +5,7 @@
 Content pages, **not** theme/template editing.
 
 ```bash
-shop pages list         --params '{"page_size":10}'                  # page_size REQUIRED (≥1)
+shop pages list         --params '{"page_size":10}'                  # page_size optional (default 10, ≥1)
 shop pages get          --params '{"id":"<id>"}'
 shop pages count        --params '{"title":"…"}'                     # optional title filter
 shop pages search       --params '{"url":"/pages/about-us"}'         # url REQUIRED

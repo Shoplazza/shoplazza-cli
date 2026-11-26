@@ -1,7 +1,6 @@
 package themes
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
@@ -62,8 +62,8 @@ func readJSONObjectInput(flag, val string) (map[string]any, error) {
 		return nil, err
 	}
 	var out map[string]any
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, output.ErrValidation("%s must be a JSON object: %v", flag, err)
+	if err := cmdutil.DecodeJSON(raw, &out); err != nil {
+		return nil, output.ErrValidation("%v", cmdutil.JSONInputError(flag, raw, err, "object"))
 	}
 	return out, nil
 }

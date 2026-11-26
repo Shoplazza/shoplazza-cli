@@ -56,7 +56,7 @@ block), not on the card — check the schema's block list for where it lives.
 |---|---|---|---|
 | `replace_props` | Card-level fields (merge; only the keys to change; one op per card) | `target`, `props` | `section_id` |
 | `update_slot` | A block's fields (merge) | `target`, `props` | Block row `target`, copied |
-| `append_array_item` | Add a block at the end of a container; model `value` on an existing block of that type | `target`, `value{type, settings}` | Container = block `target` + `.blocks` (card level `<sid>.blocks`). `type` must be a key of the card's schema `blocks`; `limit` / `max_blocks` are checked |
+| `append_array_item` | Add a block at the end of a container; model `value` on an existing block of that type | `target`, `value{type, settings}` | Container = block `target` + `.blocks` (card level `<sid>.blocks`). `type` must be a key of the card's schema `blocks`; `max_blocks` is checked, a block type's `limit` is not — count existing blocks of that type yourself |
 | `remove_array_item` | Remove a block | `target` | Block row `target` |
 | `move_array_item` | Reorder a block within its container | `target`, `to_index` (0-based) | Block row `target` |
 | `add_section` | Add a card | `name` [+ `value`, `position`] | See [card-add.md](card-add.md) |
@@ -149,7 +149,7 @@ re-read shows (field `label`s, old → new), not what was sent. `success` but th
 | `position "after:header": "header" is not a section id; …` | Anchor is an area name, not a card | Anchor on a header / footer member id from the whole-page read; none → the theme has no such area, see [card-add.md → Placement](card-add.md#placement) |
 | `block type "<t>" is not allowed in "<card>" (schema allows: <types>)` | Block type not in the schema | Use an allowed type; none fits → say so |
 | `--ops is empty and nothing else was requested` · `--ops is empty, so --session is required` | Empty batch without `--promote`, or without `--session` | Pass ops, or `--session <oseid> --promote` |
-| Exit 1, `N of M ops failed`, `failed:[i…]`, per-op `results[].result` | Those ops rejected; the rest are saved in the session | Fix and resend **only** the failed ops, same `--session` |
+| Exit 1, `N of M ops failed`, `failed:[i…]`, per-op `results[].result` | Those ops rejected; the rest are saved in the session, and `--promote` / `--publish` did not run | Fix and resend **only** the failed ops, same `--session`, with the same `--promote` / `--publish` as the first call |
 | ↳ `invalid_field:<key>` | No such field at this level | Re-read the schema, find the level that has the `label`, change target / op |
 | ↳ `invalid_value:<key>` | Out of range, off `step`, or not in `options` | User's value → state the range; your own pick → choose a legal one |
 | ↳ `target_not_found` | Stale block index or unknown section | Re-read, copy the target again |

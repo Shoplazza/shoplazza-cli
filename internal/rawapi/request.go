@@ -3,6 +3,7 @@ package rawapi
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
@@ -64,6 +65,10 @@ func ResolveTemplatedPath(pathTemplate string, params map[string]any) (string, m
 	return expandPath(pathTemplate, params)
 }
 
+func escapePathValue(v string) string {
+	return url.PathEscape(v)
+}
+
 func expandPath(path string, params map[string]any) (string, map[string]any, error) {
 	if params == nil {
 		params = map[string]any{}
@@ -88,7 +93,7 @@ func expandPath(path string, params map[string]any) (string, map[string]any, err
 		if !ok || fmt.Sprint(raw) == "" {
 			return "", nil, fmt.Errorf("missing required path parameter: %s", key)
 		}
-		path = strings.Replace(path, "{"+key+"}", fmt.Sprint(raw), 1)
+		path = strings.Replace(path, "{"+key+"}", escapePathValue(fmt.Sprint(raw)), 1)
 		delete(out, key)
 	}
 	return NormalizePath(path), out, nil

@@ -1,11 +1,14 @@
 package cmdutil
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+	"unicode/utf8"
 )
 
 // ResolveInput resolves special input conventions for raw JSON flags.
@@ -56,6 +59,79 @@ func ResolveInput(raw string, stdin io.Reader) (string, error) {
 	return raw, nil
 }
 
+// DecodeJSON is json.Unmarshal with numbers kept as json.Number, so an integer
+// past 2^53 is re-encoded digit for digit.
+func DecodeJSON(data []byte, v any) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	if err := dec.Decode(v); err != nil {
+		return err
+	}
+	end := dec.InputOffset()
+	if _, err := dec.Token(); err != io.EOF {
+		for end < int64(len(data)) && strings.ContainsRune(" \t\r\n", rune(data[end])) {
+			end++
+		}
+		return &trailingDataError{offset: end}
+	}
+	return nil
+}
+
+type trailingDataError struct{ offset int64 }
+
+func (e *trailingDataError) Error() string { return "invalid character after top-level value" }
+
+// JSONInputError describes a DecodeJSON error on raw; want is "object", "array", or "" for any JSON value.
+func JSONInputError(flag string, raw []byte, err error, want string) error {
+	var syn *json.SyntaxError
+	var typ *json.UnmarshalTypeError
+	var trail *trailingDataError
+	kind := strings.TrimSpace("JSON " + want)
+	switch {
+	case errors.Is(err, io.EOF):
+		return fmt.Errorf("%s is empty", flag)
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return fmt.Errorf("%s is not valid %s: a closing } or ] is missing", flag, kind)
+	case errors.As(err, &trail):
+		next, _ := utf8.DecodeRune(raw[trail.offset:])
+		return fmt.Errorf("%s is not valid %s: unexpected %q after the end of the %s (%s)",
+			flag, kind, next, topLevelKind(raw), jsonPosition(raw, trail.offset))
+	case errors.As(err, &syn):
+		return fmt.Errorf("%s is not valid %s: %s (%s)", flag, kind, syn.Error(), jsonPosition(raw, syn.Offset-1))
+	case errors.As(err, &typ) && typ.Field == "":
+		return fmt.Errorf("%s must be a JSON %s, got %s", flag, want, withArticle(typ.Value))
+	}
+	return fmt.Errorf("%s: %v", flag, err)
+}
+
+func jsonPosition(raw []byte, offset int64) string {
+	offset = max(0, min(offset, int64(len(raw))))
+	before := raw[:offset]
+	line := bytes.Count(before, []byte("\n")) + 1
+	column := len(before) - bytes.LastIndexByte(before, '\n')
+	return fmt.Sprintf("line %d, column %d", line, column)
+}
+
+func topLevelKind(raw []byte) string {
+	switch t := bytes.TrimSpace(raw); {
+	case len(t) > 0 && t[0] == '{':
+		return "object"
+	case len(t) > 0 && t[0] == '[':
+		return "array"
+	}
+	return "value"
+}
+
+func withArticle(jsonType string) string {
+	if jsonType == "bool" {
+		return "true or false"
+	}
+	if strings.ContainsRune("aeiou", rune(jsonType[0])) {
+		return "an " + jsonType
+	}
+	return "a " + jsonType
+}
+
 // ParseJSONMap parses a JSON object from raw input.
 func ParseJSONMap(input, label string, stdin io.Reader) (map[string]any, error) {
 	resolved, err := ResolveInput(input, stdin)
@@ -66,8 +142,8 @@ func ParseJSONMap(input, label string, stdin io.Reader) (map[string]any, error) 
 		return map[string]any{}, nil
 	}
 	var result map[string]any
-	if err := json.Unmarshal([]byte(resolved), &result); err != nil {
-		return nil, fmt.Errorf("%s invalid format, expected JSON object", label)
+	if err := DecodeJSON([]byte(resolved), &result); err != nil {
+		return nil, JSONInputError(label, []byte(resolved), err, "object")
 	}
 	return result, nil
 }
@@ -87,8 +163,8 @@ func ParseOptionalBody(httpMethod, data string, stdin io.Reader) (any, error) {
 		return nil, nil
 	}
 	var body any
-	if err := json.Unmarshal([]byte(resolved), &body); err != nil {
-		return nil, fmt.Errorf("--data invalid JSON format")
+	if err := DecodeJSON([]byte(resolved), &body); err != nil {
+		return nil, JSONInputError("--data", []byte(resolved), err, "")
 	}
 	return body, nil
 }

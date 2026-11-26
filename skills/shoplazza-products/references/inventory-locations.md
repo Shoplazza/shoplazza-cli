@@ -4,33 +4,33 @@ Inventory tracks stock per **inventory item** per **location**. For the everyday
 ("give variant X more/less stock") use the `products +stock` shortcut (SKILL.md) — it resolves
 the item and location for you. Come here for multi-location work or item-level settings.
 
-## ⚠️ Decreases are gated — know the two write routes
+## ⚠️ Both level writes are deltas — know the routes
 
-The `inventory_levels` write leaves **only add**: `inventory set-stock` (POST
-`/inventory_levels/set`) and `inventory update-level` (PUT `/inventory_levels`) both
-increase the level despite names like "Set inventory quantity", and both reject
-`stock_adjustment ≤ 0`.
+Whatever their names say, both `inventory_levels` stock writes add to the level (verified
+live): `inventory update-level` (PUT `/inventory_levels`) adds `stock_adjustment`, which must
+be > 0; `inventory set-stock` (POST `/inventory_levels/set`) adds its signed `stock`, so a
+negative value subtracts and 0 changes nothing. Neither sets an absolute value. Where the
+item is not stocked yet, `set-stock` creates the level and `update-level` returns 404
+`inventory level not found`. `products +stock` wraps both:
 
-Decreases exist, but ride a different primitive: `PUT /variants/{variant_id}` with
-`variant.inventory_quantity` — an **absolute set** (not a delta) that lands on the
-**default location**. `products +stock` wraps both routes and gates the decrement:
+- `+stock --adjust N`: positive adds via `update-level`, negative subtracts via `set-stock`.
+- `+stock --set N`: reads the current level and writes the difference the same way.
+- Both work at any location where the variant is stocked (`--location-id`, else the default
+  location); anywhere else `+stock` refuses and prints the `inventory create-level` command
+  that connects it. Stock may go below 0: the platform stores negative stock.
+- Any change is **refused** before writing when the product does not track inventory
+  (`inventory_item.tracking` off): both level writes would return 400, and `variants update`
+  silently ignores `inventory_quantity`.
 
-- `+stock --adjust N`: positive adds at any location; negative decreases.
-- `+stock --set N`: absolute target (≥ 0), either direction.
-- A decrease is **refused** by the CLI when: the result would go below 0 (the API would
-  happily store a negative — never let it), the effective `--location-id` is not the
-  default location, or the item holds levels at **multiple locations**
-  (`inventory_quantity` semantics are only verified for single-location items).
+**Zero reads back as absent**: `+stock --set 0` sets a tracked variant to 0 and tracking stays
+on (verified live), but the API omits zero values, so `stock` / `inventory_quantity` come back
+missing (`null`). That is 0, not untracked: read tracking from `inventory_item.tracking` /
+`product.inventory_tracking` (also omitted when false).
 
-**Tracked zero is unreachable** (all three routes verified live): `variant.inventory_quantity: 0`
-**clears tracking** (reads back `null`, like an untracked variant) instead of setting zero;
-`set-stock` with `stock: 0` returns `ok:true` but is **silently ignored**; `update-level`
-rejects `stock_adjustment ≤ 0`. To "sell out" a variant, decrease to 1 and take the last
-unit from another variant, or ask whether untracked (`null`) is acceptable — never claim 0 was set.
-
-When the gate fires, degrade honestly: relay the CLI's reason, offer alternatives
-(`products +unpublish`, inventory policy `deny` when stock hits 0). Never bypass the gate
-by calling `variants update` with `inventory_quantity` directly on a multi-location item.
+`variants update` with `inventory_quantity` is a third route: it sets the **default location's**
+level to that value. The variant's `inventory_quantity` reads back as the **total** across
+locations, so on a multi-location item it shows the value plus the other locations' stock
+(verified live). Prefer `+stock`.
 
 ## Concepts
 
@@ -57,18 +57,19 @@ Verify shapes with `shoplazza schema products.inventory.<cmd>`.
 | `inventory get-item` | `GET /inventory_items/{inventory_item_id}` | |
 | `inventory update-item` | `PUT /inventory_items/{inventory_item_id}` | body `inventory_item.tracking` (bool), `.tracking_policy` |
 | `inventory list-levels` | `GET /inventory_levels` | filter by `inventory_item_ids` / `location_ids` |
-| `inventory set-stock` | `POST /inventory_levels/set` | body `inventory_item_id`, `location_id`, `stock` — **adds** |
-| `inventory update-level` | `PUT /inventory_levels` | body `inventory_item_id`, `location_id`, `stock_adjustment` — **adds** |
-| `inventory create-level` | `POST /inventory_levels` | connect an item to a location (body: both ids) |
+| `inventory set-stock` | `POST /inventory_levels/set` | body `inventory_item_id`, `location_id`, `stock` — **adds** the signed value (negative subtracts) |
+| `inventory update-level` | `PUT /inventory_levels` | body `inventory_item_id`, `location_id`, `stock_adjustment` — **adds**, > 0 only |
+| `inventory create-level` | `POST /inventory_levels` | connect an item to a location (body: both ids); the new level starts at 0 |
 | `inventory delete-level` | `DELETE /inventory_levels` | disconnect an item from a location (body: both ids) |
 
-`delete-level` removes the item–location *connection*, it is not a stock decrement.
+`delete-level` removes the item–location connection and discards the stock held there;
+reconnecting starts from 0. An item must stay stocked at one location at least.
 
 ## Locations commands
 
 | Command | HTTP | Notes |
 |---|---|---|
-| `locations list` | `GET /locations` | `status`, `sort_by`, cursor paging |
+| `locations list` | `GET /locations` | `status` as a number (0 all, 1 active, 2 inactive), `sort_by`, cursor paging |
 | `locations count` | `GET /locations/count` | |
 | `locations get` | `GET /locations/{location_id}` | |
 | `locations get-default` | `GET /locations/default` | the location `+stock` uses when `--location-id` is omitted |
@@ -92,7 +93,7 @@ products +stock --variant-id 12345 --adjust 50 --location-id 777
 # multi-variant one is refused with its candidates listed)
 products +stock --product-id 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf --adjust 50
 
-# Decrease by 30 (default location, single-location item)
+# Decrease by 30 at the default location
 products +stock --variant-id 12345 --adjust -30
 
 # Turn off inventory tracking for an item

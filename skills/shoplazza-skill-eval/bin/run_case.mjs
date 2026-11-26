@@ -192,9 +192,9 @@ function inferSvc(cmd) {
   return normalizeCmd(cmd).split(/\s+/)[0] || null;
 }
 
-const MONEY_FLAGS = ['--percent', '--off', '--value', '--tiers', '--limit-max',
+const MONEY_FLAGS = ['--percent', '--percent-off', '--off', '--value', '--tiers', '--limit-max',
   '--limit-user', '--min-amount', '--min-quantity', '--buy-quantity', '--buy-amount',
-  '--get-quantity', '--get-percent', '--get-off', '--stock', '--limit-order',
+  '--get-quantity', '--get-percent', '--get-percent-off', '--get-off', '--stock', '--limit-order',
   '--limit-user-variant', '--limit-user-product', '--limit-user-all'];
 
 function fabricatedValueScan(commands, input, expected) {

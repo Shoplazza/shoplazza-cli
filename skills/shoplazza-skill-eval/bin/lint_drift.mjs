@@ -40,7 +40,7 @@ const COMMON_MECHANIC_FLAGS = new Set([
 
 // Negative mentions: a line that *documents* a nonexistent token on purpose
 // ("There is no `+update`", "`--buy/--get` rejected", "unknown flag: --discount",
-// or a tier-trap gotcha cell like "`customers +count` → unknown command").
+// or a tier-trap gotcha cell like "`customers +delete` → unknown command").
 // Applies to bare `+shortcut`/`--flag` mentions AND to `unknown-command` findings
 // for full invocations. Runnable recipes/fences don't carry negation words, so
 // they still fail strictly when they name a command that truly drifted away.
@@ -170,7 +170,7 @@ function main() {
           checked++;
           if (!surface.hasCommandPath(path)) {
             // Skip when the line documents the command as nonexistent on purpose
-            // (gotcha/tier-trap cells, e.g. "`customers +count` → unknown command").
+            // (gotcha/tier-trap cells, e.g. "`customers +delete` → unknown command").
             if (!NEGATION_RE.test(ref.context || '')) {
               findings.push({ file, line: ref.line, kind: 'unknown-command', token: path.join(' '), raw: ref.raw });
             }

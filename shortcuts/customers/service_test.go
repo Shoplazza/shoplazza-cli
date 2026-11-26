@@ -3,6 +3,8 @@ package customers
 import (
 	"strings"
 	"testing"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/internal/shortcuttest"
 )
 
 func TestCustomerPlanList_Shape(t *testing.T) {
@@ -15,6 +17,17 @@ func TestCustomerPlanList_Shape(t *testing.T) {
 	}
 	if p.Query["limit"] != 20 {
 		t.Errorf("Query not propagated: %v", p.Query)
+	}
+}
+
+func TestCustomerSearchPlan_Paging(t *testing.T) {
+	flags := map[string]string{"email": "string", "phone": "string", "since": "string", "until": "string", "page-limit": "int", "cursor": "string"}
+	p, err := searchShortcut.Plan(shortcuttest.PlanInput(t, "search", flags, map[string]string{"page-limit": "5", "cursor": "c-2"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.Query["cursor"] != "c-2" || p.Query["page_size"] != 5 {
+		t.Errorf("--cursor/--page-limit must reach cursor/page_size, got %v / %v", p.Query["cursor"], p.Query["page_size"])
 	}
 }
 

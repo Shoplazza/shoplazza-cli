@@ -56,7 +56,6 @@
       "flags_must_not_contain": ["--folder"],
       "must_ask": false,
       "semantic_rubric": [
-        "--folder omitted (defaults to all_upload) without asking",
         "knows the upload is an async TASK — may follow up with shop files task to check status",
         "uses shop +upload-file (media library), not products images (product-attached)"
       ]
@@ -67,21 +66,21 @@
     "type": "behavior",
     "skill": "shoplazza-shop",
     "operation": "shop.upload-file",
-    "scenario": "要传本地文件 — API 只收公网 URL, 必须降级询问而不是编造 URL",
+    "scenario": "要传本地文件 — +upload-file 只收 http(s) URL，本地文件转成 data: URI 走 shop files upload",
     "input": "把我电脑里的 banner.png 上传到素材库",
     "expected": {
       "route_to_skill": "shoplazza-shop",
-      "access_tier": "shortcut",
+      "access_tier": "leaf",
       "must_ask": true,
-      "ask_must_cover": ["公网|URL|url|链接|public"],
+      "ask_must_cover": ["路径|path|哪里|在哪|位置|目录|文件夹|folder|URL|url|链接"],
       "flags_must_not_contain": ["--source-url"],
       "semantic_rubric": [
-        "recognizes +upload-file takes PUBLIC URLs, NOT local files (stated verbatim in its --help)",
-        "does not fabricate a URL for the local file and does not emit a write",
-        "explains the limitation and asks for a public link (or proposes hosting the file somewhere reachable first)"
+        "recognizes +upload-file takes only http(s) URLs, so the local file does not go into --source-url",
+        "plans shop files upload with the file as a data: URI in original_source_list (e.g. --data @body.json)",
+        "does not fabricate a URL or a file path; asks where banner.png is (or for a link) before writing"
       ]
     },
-    "notes": "Degradation case. Help text: 'Submit a file upload task (takes public URLs, NOT local files)'."
+    "notes": "Verified 2026-11-26 on a dev store: a data:image/png;base64 URI in original_source_list uploads to the media library."
   },
   {
     "case_id": "shop.files-01",

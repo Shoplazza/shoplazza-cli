@@ -1,11 +1,11 @@
 package themes
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 )
 
@@ -127,8 +127,8 @@ func validateSectionValue(value map[string]any) error {
 // parseOps decodes the --ops JSON array.
 func parseOps(raw []byte) ([]editOp, error) {
 	var ops []editOp
-	if err := json.Unmarshal(raw, &ops); err != nil {
-		return nil, output.ErrValidation("--ops is not a valid JSON array: %v", err)
+	if err := cmdutil.DecodeJSON(raw, &ops); err != nil {
+		return nil, output.ErrValidation("%v", cmdutil.JSONInputError("--ops", raw, err, "array"))
 	}
 	return ops, nil // an empty batch is syntax-legal; editExecute rules on it
 }

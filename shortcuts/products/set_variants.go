@@ -18,18 +18,18 @@ import (
 var setVariantsShortcut = common.Shortcut{
 	Service: "products",
 	Command: "+set-variants",
-	Use:     `+set-variants --id <product-id> [--add|--remove|--set|--drop|--rename ...] [--new-price ...] [--set-price ...]`,
+	Use:     `+set-variants --product-id <id> [--add|--remove|--set|--drop|--rename ...] [--new-price ...] [--set-price ...]`,
 	Short:   "Edit a product's option matrix (add/remove/set/rename values, add/drop/rename dimensions, price variants) in one request",
 	Example: `  # Drop lenses keeping the 6lenses variants, keep one style and rename it, one price for all
-  shoplazza products +set-variants --id 12345 --drop "lenses=6lenses" --set "Style:Ocean" \
+  shoplazza products +set-variants --product-id 12345 --drop "lenses=6lenses" --set "Style:Ocean" \
     --rename "Style:Ocean=2 lenses" --set-price 19.9 --dry-run
 
   # Add a Size dimension (existing variants become M) and a color with its own image
-  shoplazza products +set-variants --id 12345 --add "Size:S,M,L" --existing "Size:M" \
+  shoplazza products +set-variants --product-id 12345 --add "Size:S,M,L" --existing "Size:M" \
     --add "Color:Red" --new-image "Color:Red=https://img.example.com/red.png" --new-price 24.99
 
   # Price per value
-  shoplazza products +set-variants --id 12345 --set-price "Size:S=20,M=30,L=40"`,
+  shoplazza products +set-variants --product-id 12345 --set-price "Size:S=20,M=30,L=40"`,
 	Long: `Edit an existing product's specification matrix in one request: the CLI reads
 the product, applies every edit to it and writes the full variant list back.
 
@@ -85,7 +85,7 @@ output is a bounded summary ({kept, cloned, created, deleted} + details, and
 --dry-run reads the product and prints the exact request plus the summary.`,
 	DryRunReads: true,
 	Flags: []common.Flag{
-		{Name: "id", Type: common.FlagString, Required: true, Description: "Product ID (required)."},
+		common.IDFlag("product", "Product ID (required)."),
 		{Name: "add", Type: common.FlagStringArray, Description: `"Dim:v1,v2": add values; an unknown dimension name adds that dimension.`},
 		{Name: "remove", Type: common.FlagStringArray, Description: `"Dim:v1,v2": delete values and the variants using them.`},
 		{Name: "set", Type: common.FlagStringArray, Description: `"Dim:v1,v2": make the dimension's values exactly these (order = storefront order).`},
@@ -100,9 +100,9 @@ output is a bounded summary ({kept, cloned, created, deleted} + details, and
 		{Name: "sku-template", Type: common.FlagString, Description: `SKU pattern with {Option Name} placeholders (names after the edit), e.g. "TS-{Color}-{Size}". Applied to EVERY variant.`},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
-		id := strings.TrimSpace(in.Flags.GetString("id"))
+		id := strings.TrimSpace(in.Flags.GetString("product-id"))
 		if id == "" {
-			return common.ExecResult{}, output.ErrValidation("--id is required")
+			return common.ExecResult{}, output.ErrValidation("--product-id is required")
 		}
 		plan, err := parseEditFlags(in)
 		if err != nil {
@@ -413,6 +413,17 @@ func (m *matrix) findValue(d int, v string) (int, error) {
 		return -1, output.ErrValidation("option %q has no value %q (existing: %s)", dim.Name, v, strings.Join(dim.Values, ","))
 	}
 	return i, nil
+}
+
+// dimsHolding names the dimensions that have value v.
+func (m *matrix) dimsHolding(v string) []string {
+	var names []string
+	for _, d := range m.dims {
+		if i, _ := lookup(d.Values, strings.TrimSpace(v)); i >= 0 {
+			names = append(names, d.Name)
+		}
+	}
+	return names
 }
 
 func (m *matrix) missingDim(name string) error {
@@ -1117,6 +1128,7 @@ type perValue struct {
 	scalar  string
 	dim     string
 	pairs   [][2]string
+	bare    string            // "value=x" without "Dim:"
 	d       int               // the dimension's index once bound, -1 if none
 	byValue map[string]string // value (as on the edited matrix) → raw
 }
@@ -1131,6 +1143,12 @@ func parsePerValue(flag string, raws []string, isPrice bool) (perValue, error) {
 	for _, raw := range raws {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
+			continue
+		}
+		if before, _, ok := strings.Cut(raw, "="); ok && !strings.Contains(before, ":") {
+			if p.bare == "" {
+				p.bare = raw
+			}
 			continue
 		}
 		if p.plainForm(raw) {
@@ -1182,10 +1200,27 @@ func (p perValue) plainForm(raw string) bool {
 		strings.HasPrefix(raw, "http:") || strings.HasPrefix(raw, "https:")
 }
 
-func (p perValue) any() bool { return p.scalar != "" || p.dim != "" }
+func (p perValue) any() bool { return p.scalar != "" || p.dim != "" || p.bare != "" }
 
 // bind resolves the per-value form against the edited matrix.
 func (p *perValue) bind(m *matrix) error {
+	if p.bare != "" {
+		v, _, _ := strings.Cut(p.bare, "=")
+		names := m.dimsHolding(v)
+		if !p.isPrice && len(names) == 0 {
+			if p.scalar != "" {
+				return output.ErrValidation("%s is given two plain values (%q, %q)", p.flag, p.scalar, p.bare)
+			}
+			p.scalar, p.bare = p.bare, ""
+			return nil
+		}
+		dim := "<Dim>"
+		if len(names) == 1 {
+			dim = names[0]
+		}
+		return output.ErrValidation(`%s has the wrong per-value format: write %q`, p.flag, dim+":"+p.bare).
+			WithHint("dimensions: " + m.describe())
+	}
 	if p.dim == "" {
 		return nil
 	}

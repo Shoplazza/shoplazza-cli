@@ -67,6 +67,9 @@ func TestFillRequired_NonInteractive_NamesMissing(t *testing.T) {
 	if !strings.Contains(hint, "--title") || hint == "" {
 		t.Errorf("hint should tell the user how to pass them: %q", hint)
 	}
+	if ee.Detail.Subtype != output.SubtypeMissingRequiredFlag || ee.Detail.Param != "--title" {
+		t.Errorf("subtype/param = %q/%q, want %s/--title", ee.Detail.Subtype, ee.Detail.Param, output.SubtypeMissingRequiredFlag)
+	}
 }
 
 func TestFillRequired_NonInteractive_AllSet_OK(t *testing.T) {

@@ -23,7 +23,7 @@ var createShortcut = common.Shortcut{
 		{Name: "first-name", Type: common.FlagString, Description: "First name."},
 		{Name: "last-name", Type: common.FlagString, Description: "Last name."},
 		{Name: "tags", Type: common.FlagStringSlice, Description: "Tags (comma-separated)."},
-		{Name: "no-marketing", Type: common.FlagBool, Description: "Do not subscribe to marketing (default: subscribe)."},
+		{Name: "no-marketing", Type: common.FlagBool, Description: "Do not subscribe to email or SMS marketing (default: subscribe to email; SMS follows the store default)."},
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
 		body, err := buildCreateCustomerBody(
@@ -62,5 +62,8 @@ func buildCreateCustomerBody(email, phone, firstName, lastName string, tags []st
 		c["tags"] = tags
 	}
 	c["accepts_marketing"] = !noMarketing
+	if noMarketing {
+		c["accepts_sms_marketing"] = false
+	}
 	return map[string]any{"customer": c}, nil
 }

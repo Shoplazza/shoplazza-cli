@@ -58,7 +58,7 @@
     "expected": {
       "route_to_skill": "shoplazza-orders",
       "must_not_route_to": [],
-      "semantic_rubric": ["Lands in orders: either orders +search --keyword alice@example.com (keyword matches email per --help) directly, or resolves the customer id first and then orders +search --customer-id"]
+      "semantic_rubric": ["Lands in orders: either orders +search --email alice@example.com directly, or resolves the customer id first and then orders +search --customer-id"]
     },
     "notes": "customers +search as an intermediate step is acceptable; the final answer must come from an orders query."
   }

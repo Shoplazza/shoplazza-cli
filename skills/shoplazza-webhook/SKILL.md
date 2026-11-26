@@ -66,8 +66,10 @@ Subscribing to an event is a **webhook**, not an `orders`/`products` command. (S
 
 ## Permissions · Scope
 
-Authorization is by domain. Grant: `auth login --domain webhook`. Look up exact scope literals
-with `shoplazza auth scopes`.
+Webhook needs no store scope: `--domain webhook` expands to **zero** scopes. Don't run
+`auth login --domain webhook` — authorization replaces the grant server-side, so it can revoke
+the scopes other domains rely on. A 401/403 here means the account login is missing or
+expired — check `auth status`.
 
 ## Gotchas
 

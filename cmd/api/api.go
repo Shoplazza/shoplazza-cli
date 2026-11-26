@@ -27,7 +27,7 @@ const apiLong = `Raw access to the Shoplazza Open Platform API.
 
 Access tiers (high → low abstraction):
   shortcuts  shoplazza products +search / shoplazza discounts +flashsale
-  resource   shoplazza products list / shoplazza orders get --params '{"id":"o1"}'
+  resource   shoplazza products list / shoplazza orders get --params '{"order_id":"o1"}'
   api rest   shoplazza api rest <METHOD> <PATH>   (escape hatch — full coverage)
 
 Requires an active session — run 'shoplazza auth login' first.
@@ -77,6 +77,9 @@ func newCmdRest(f *cmdutil.Factory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			format := cmdutil.GetFormat(cmd)
 			jq := cmdutil.GetJQ(cmd)
+			if err := output.ValidateJQ(format, jq); err != nil {
+				return err
+			}
 			opts.Method = strings.ToUpper(args[0])
 			opts.Path = rawapi.NormalizePath(args[1])
 			opts.Ctx = cmd.Context()
@@ -96,7 +99,7 @@ func newCmdRest(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				var httpErr *client.HTTPError
 				if errors.As(err, &httpErr) {
-					return output.ErrAPI(httpErr.StatusCode, httpErr.Body, response.RequestID())
+					return output.ErrAPI(httpErr.StatusCode, httpErr.Body, response.RequestID()).WithEndpoint(httpErr.Method, httpErr.Path)
 				}
 				var netErr net.Error
 				if errors.As(err, &netErr) {
@@ -104,14 +107,16 @@ func newCmdRest(f *cmdutil.Factory) *cobra.Command {
 				}
 				return output.ErrInternal("%v", err)
 			}
-			if response.Body == nil && (response.StatusCode != 0 || response.ContentType != "" || len(response.Headers) > 0) {
-				return output.PrintAPISuccess(cmd.OutOrStdout(), map[string]any{
+			body := response.Body
+			if body == nil && (response.StatusCode != 0 || response.ContentType != "" || len(response.Headers) > 0) {
+				body = map[string]any{
 					"status_code":  response.StatusCode,
 					"content_type": response.ContentType,
 					"headers":      response.Headers,
-				}, format, jq)
+				}
 			}
-			return output.PrintAPISuccess(cmd.OutOrStdout(), response.Body, format, jq)
+			return output.WithSentRequest(output.PrintAPISuccess(cmd.OutOrStdout(), body, format, jq),
+				request.Method, request.Path, response.StatusCode, response.RequestID())
 		},
 	}
 

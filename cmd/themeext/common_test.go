@@ -160,9 +160,21 @@ func TestRequireLogin_EnvTokenBypass(t *testing.T) {
 	if err := requireLogin(context.Background(), &cmdutil.Factory{}); err != nil {
 		t.Fatalf("requireLogin must pass with SHOPLAZZA_ACCESS_TOKEN set, got %v", err)
 	}
+	testenv.IsolateConfigDir(t)
+	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	var ee *output.ExitError
+	if err := requireLogin(context.Background(), &cmdutil.Factory{}); !errors.As(err, &ee) || ee.Code != output.ExitValidation {
+		t.Fatalf("SHOPLAZZA_ACCESS_TOKEN set but empty must be a validation error, got %v", err)
+	}
 }
 
 func TestStoreClient_EnvTokenBypass(t *testing.T) {
+	testenv.IsolateConfigDir(t)
+	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	var ee *output.ExitError
+	if _, _, err := storeClient(context.Background(), &cmdutil.Factory{}, "shop.myshoplaza.com"); !errors.As(err, &ee) || ee.Code != output.ExitValidation {
+		t.Fatalf("SHOPLAZZA_ACCESS_TOKEN set but empty must be a validation error, got %v", err)
+	}
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "tok_env")
 	t.Setenv("SHOPLAZZA_CLI_API_BASE_URL", "")
 	c, domain, err := storeClient(context.Background(), &cmdutil.Factory{}, "shop.myshoplaza.com")
@@ -227,7 +239,7 @@ func runTECmd(t *testing.T, f *cmdutil.Factory, args ...string) {
 // created and no token is persisted under its keychain slot (tech design
 // §4.2, zero residue for an ad-hoc domain).
 func TestTE_AdhocDomain_NoPersistence(t *testing.T) {
-	t.Setenv(envAccessToken, "") // force the profile/ephemeral path, not the env bypass
+	testenv.Unsetenv(t, cmdutil.EnvAccessToken) // force the profile/ephemeral path, not the env bypass
 	srv := testenv.NewStoreATExchangeStub(t, "at-tmp")
 	defer srv.Close()
 	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com", "us") // only us
@@ -253,7 +265,7 @@ func TestTE_AdhocDomain_NoPersistence(t *testing.T) {
 // the profile's own keychain slot (proving the mint+persist path ran, not the
 // ephemeral one).
 func TestTE_DomainMatchesProfile_UsesProfileCreds(t *testing.T) {
-	t.Setenv(envAccessToken, "") // force the profile/ephemeral path, not the env bypass
+	testenv.Unsetenv(t, cmdutil.EnvAccessToken) // force the profile/ephemeral path, not the env bypass
 	srv := testenv.NewStoreATExchangeStub(t, "at-us")
 	defer srv.Close()
 	f := cmdtest.SeedLoggedInWithProfiles(t, "alice@co.com", "us")

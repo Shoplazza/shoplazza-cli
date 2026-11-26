@@ -1,8 +1,7 @@
 # products suppliers · procurement — reference
 
 Supply-side operations: supplier profiles and procurement (purchase) orders submitted to
-them. Receiving a procurement is one of the legitimate ways stock increases — remember the
-platform-wide rule: **inventory only goes up** (see
+them. Receiving a procurement is one of the ways stock increases (other stock writes:
 [inventory-locations.md](inventory-locations.md)).
 
 ## Suppliers
@@ -15,7 +14,7 @@ Verify shapes with `shoplazza schema products.suppliers.<cmd>`.
 | `suppliers create` | `POST /suppliers` | `--data '{"supplier":{"title":"…"}}'` — `title` is the only required field (`url` optional) |
 | `suppliers get` | `GET /suppliers/{id}` | `--params '{"id":"<id>"}'` |
 | `suppliers list` | `GET /suppliers` | |
-| `suppliers update` | `PUT /suppliers/{id}` | `--params` + `--data '{"supplier":{…}}'` |
+| `suppliers update` | `PUT /suppliers/{id}` | `--params` + `--data '{"supplier":{"url":"…"}}'` — `url` is the only field (required); the title cannot be changed |
 
 ## Procurement orders
 

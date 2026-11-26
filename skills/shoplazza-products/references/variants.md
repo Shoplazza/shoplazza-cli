@@ -8,7 +8,7 @@ the `products +set-variants` shortcut (all in SKILL.md). Never hand-write a `var
 in a `products update` body: it is a full replace — unlisted variants are deleted, and listed
 variants without their `id` are matched by option values (exact, case-sensitive) and recreated
 with sku/stock reset when nothing matches.
-Each takes `--variant-id`, `--sku`, or `--product-id`, so you rarely need to resolve by hand.
+`+set-price` and `+stock` take `--variant-id`, `--sku`, or `--product-id` (`+set-variants` takes `--product-id`), so you rarely need to resolve by hand.
 
 ## Command surface
 
@@ -33,10 +33,8 @@ and `delete` are product-scoped. Passing `product_id` to `update`, or omitting i
 
 ## Updating a variant
 
-Send **only the fields to change**, nested under the required `variant` object. The schema
-marks some fields (e.g. `price`) required on the body, but the CLI does not pre-validate
-body fields and the endpoint accepts partial updates — do not pad the body with fields the
-user never mentioned.
+Send **only the fields to change**, nested under the required `variant` object. Fields left
+out keep their current values — do not pad the body with fields the user never mentioned.
 
 ```bash
 # Change option1 to XL — nothing else touched
@@ -48,11 +46,10 @@ Notable body fields (see `schema products.variants.update --view request` for al
 `option1/2/3`, `price`, `compare_at_price`, `sku`, `barcode`, `weight`, `weight_unit`,
 `cost_price`, `note`, `image_id` / `image.src`, `inventory_quantity`.
 
-`inventory_quantity` in an update body is an **absolute set** and CAN decrease stock — but
-the write lands on the **default location**, and its semantics on multi-location items are
-unverified (see [inventory-locations.md](inventory-locations.md)). Prefer
-`products +stock --adjust -N` / `--set N`, which applies the safety gates for you; never
-call this field directly on a multi-location item.
+`inventory_quantity` in an update body sets the **default location's** stock, but reads back as
+the total across locations, so on a multi-location item it will not equal what you wrote (see
+[inventory-locations.md](inventory-locations.md)). Prefer `products +stock --adjust N` / `--set N`,
+which works at any location.
 
 ## Resolving a product id to a variant id
 

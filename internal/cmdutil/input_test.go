@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -76,7 +77,8 @@ func TestParseOptionalBody_PostEmpty(t *testing.T) {
 }
 
 func TestParseOptionalBody_PostValidJSON(t *testing.T) {
-	body, err := ParseOptionalBody("POST", `{"key":"val"}`, nil)
+	const in = `{"id":638982951773671231,"key":"val","price":1.50}`
+	body, err := ParseOptionalBody("POST", in, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -86,6 +88,9 @@ func TestParseOptionalBody_PostValidJSON(t *testing.T) {
 	}
 	if m["key"] != "val" {
 		t.Errorf("body[key] = %v, want val", m["key"])
+	}
+	if out, _ := json.Marshal(body); string(out) != in {
+		t.Errorf("re-encoded body = %s, want %s", out, in)
 	}
 }
 
@@ -102,9 +107,15 @@ func TestParseOptionalBody_ValidJSON(t *testing.T) {
 }
 
 func TestParseOptionalBody_InvalidJSON(t *testing.T) {
-	_, err := ParseOptionalBody("POST", `not-json`, nil)
-	if err == nil {
-		t.Error("expected error for invalid JSON body")
+	for _, c := range []struct{ in, want string }{
+		{`not-json`, `--data is not valid JSON: invalid character 'o' in literal null (expecting 'u') (line 1, column 2)`},
+		{`{"a":1} x`, `--data is not valid JSON: unexpected 'x' after the end of the object (line 1, column 9)`},
+		{`{"a":1}{"b":2}`, `--data is not valid JSON: unexpected '{' after the end of the object (line 1, column 8)`},
+		{`[1,2] ]`, `--data is not valid JSON: unexpected ']' after the end of the array (line 1, column 7)`},
+	} {
+		if _, err := ParseOptionalBody("POST", c.in, nil); err == nil || err.Error() != c.want {
+			t.Errorf("%s: error = %v, want %s", c.in, err, c.want)
+		}
 	}
 }
 
@@ -118,15 +129,27 @@ func TestParseJSONMap_Empty(t *testing.T) {
 }
 
 func TestParseJSONMap_ValidJSON(t *testing.T) {
-	m, err := ParseJSONMap(`{"k":"v"}`, "test", nil)
-	if err != nil || m["k"] != "v" {
+	m, err := ParseJSONMap(`{"k":"v","id":638982951773671231}`, "test", nil)
+	if err != nil || m["k"] != "v" || m["id"] != json.Number("638982951773671231") {
 		t.Errorf("valid: got (%v, %v)", m, err)
 	}
 }
 
 func TestParseJSONMap_InvalidJSON(t *testing.T) {
-	_, err := ParseJSONMap(`[1,2,3]`, "test", nil)
-	if err == nil {
-		t.Error("expected error for JSON array (not object)")
+	for _, c := range []struct{ in, want string }{
+		{`[1,2,3]`, `--data must be a JSON object, got an array`},
+		{`"text"`, `--data must be a JSON object, got a string`},
+		{`{"k":"v"} x`, `--data is not valid JSON object: unexpected 'x' after the end of the object (line 1, column 11)`},
+		{`{"product":{"title":"a"}}}`, `--data is not valid JSON object: unexpected '}' after the end of the object (line 1, column 26)`},
+		{`{"a":1}，`, `--data is not valid JSON object: unexpected '，' after the end of the object (line 1, column 8)`},
+		{`{"customer":{"first_name":"a"} "x":1}`, `--data is not valid JSON object: invalid character '"' after object key:value pair (line 1, column 32)`},
+		{"{\n  \"a\": 1\n  \"b\": 2\n}", `--data is not valid JSON object: invalid character '"' after object key:value pair (line 3, column 3)`},
+		{`{'product':{}}`, `--data is not valid JSON object: invalid character '\'' looking for beginning of object key string (line 1, column 2)`},
+		{`{"product":{"title":"a"}`, `--data is not valid JSON object: a closing } or ] is missing`},
+		{` `, `--data is empty`},
+	} {
+		if _, err := ParseJSONMap(c.in, "--data", nil); err == nil || err.Error() != c.want {
+			t.Errorf("%q: error = %v, want %s", c.in, err, c.want)
+		}
 	}
 }

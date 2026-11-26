@@ -1,17 +1,18 @@
 package discounts
 
 import (
+	"strings"
 	"testing"
 )
 
 func mnDiscountFlags() map[string]string {
 	return map[string]string{
-		"tiers": "string", "scope": "string",
-		"products": "string", "collections": "string", "variants": "string",
+		"tiers": "stringslice", "scope": "string",
+		"products": "stringslice", "collections": "stringslice", "variants": "stringslice",
 		"exclude": "bool", "price-sort": "string",
 		"combines": "stringslice", "limit-max": "int", "limit-user": "int",
 		"name": "string", "start": "string", "end": "string",
-		"customer-segments": "string",
+		"customer-segments": "stringslice",
 	}
 }
 
@@ -37,8 +38,16 @@ func TestMNDiscountPlan_Refusals(t *testing.T) {
 
 func TestMNDiscountPlan_HighestScopeSuccess(t *testing.T) {
 	in := newPlanInput(t, "mn-discount", mnDiscountFlags(), map[string]string{"tiers": "2:30,3:50", "price-sort": "desc"})
-	_, err := mnDiscountShortcut.Plan(in)
+	p, err := mnDiscountShortcut.Plan(in)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(p.DryRunHint, "every product in the store") || !strings.Contains(p.DryRunHint, "--products") {
+		t.Errorf("no scope: hint %q should say every product in the store and name --products", p.DryRunHint)
+	}
+
+	in = newPlanInput(t, "mn-discount", mnDiscountFlags(), map[string]string{"tiers": "2:30", "products": "p-1", "exclude": "true"})
+	if p, _ = mnDiscountShortcut.Plan(in); p.DryRunHint != "" {
+		t.Errorf("--products --exclude given: want no hint, got %q", p.DryRunHint)
 	}
 }

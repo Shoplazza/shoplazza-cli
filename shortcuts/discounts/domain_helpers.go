@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
@@ -18,7 +19,7 @@ const codeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 func customerSegmentsFlag() common.Flag {
 	return common.Flag{
 		Name:        "customer-segments",
-		Type:        common.FlagString,
+		Type:        common.FlagStringSlice,
 		Description: "Customer segment IDs comma-separated; only customers in any of these segments can use the discount (omit = all customers eligible).",
 	}
 }
@@ -26,7 +27,7 @@ func customerSegmentsFlag() common.Flag {
 // resolveEntitledCustomer builds the entitled_customer payload from --customer-segments.
 // Returns {} when unset (no restriction); {customer_segment_ids: [...]} otherwise.
 func resolveEntitledCustomer(in common.PlanInput) map[string]any {
-	ids := common.ParseProducts(in.Flags.GetString("customer-segments"))
+	ids := common.IDList(in.Flags, "customer-segments")
 	if len(ids) == 0 {
 		return map[string]any{}
 	}
@@ -105,6 +106,13 @@ func resolveScope(productIDs, collectionIDs, variantIDs []string, exclude, requi
 	}
 }
 
+func allProductsHint(scope map[string]any, n scopeNames) string {
+	if scope["selection"] != "all" {
+		return ""
+	}
+	return fmt.Sprintf("applies to every product in the store because no %s was given; pass one to limit it", n.scopeList())
+}
+
 // excludeFlag is the standardized --exclude / --get-exclude toggle. name is
 // "exclude" (default scope) or "get-exclude" (bxgy get-side). side labels the
 // scope in the help text ("" for the primary scope, "get-side " for bxgy get).
@@ -113,17 +121,17 @@ func excludeFlag(name, side string) common.Flag {
 		Name: name,
 		Type: common.FlagBool,
 		Description: fmt.Sprintf("Treat the %sscope IDs as a blocklist: the discount applies to all products EXCEPT "+
-			"those listed (selection=exclude). Requires one of the scope flags; without them it has no effect.", side),
+			"those listed (selection=exclude). Requires one of the scope flags.", side),
 	}
 }
 
-// GenerateCode returns a random "CLI-XXXXXX" discount code (6 uppercase alphanumeric).
+// GenerateCode returns a random 6-character uppercase alphanumeric discount code.
 func GenerateCode() string {
 	b := make([]byte, 6)
 	for i := range b {
 		b[i] = codeChars[rand.Intn(len(codeChars))]
 	}
-	return "CLI-" + string(b)
+	return string(b)
 }
 
 // RebateType describes a rebate's API-side discount/condition/obtain triple.
@@ -179,78 +187,178 @@ func ParseFlashsaleType(t string) (string, error) {
 	}
 }
 
+// activityWindow resolves --start / --end into starts_at / ends_at unix
+// seconds; --start defaults to now and ends_at -1 means no expiry.
+func activityWindow(in common.PlanInput) (int64, int64, error) {
+	start, startSet, err := common.TimeFlag(in, "start")
+	if err != nil {
+		return 0, 0, err
+	}
+	if !startSet {
+		start = time.Now()
+	}
+	if !in.Flags.Changed("end") {
+		return start.Unix(), -1, nil
+	}
+	switch strings.ToLower(strings.TrimSpace(in.Flags.GetString("end"))) {
+	case "forever", "-1":
+		return start.Unix(), -1, nil
+	}
+	end, _, err := common.TimeFlag(in, "end")
+	if err != nil {
+		return 0, 0, err
+	}
+	if end.Unix() <= start.Unix() {
+		startLabel := "--start"
+		if !startSet {
+			startLabel = "the start time, now"
+		}
+		return 0, 0, output.ErrValidation("--end (%s) must be after %s (%s)",
+			end.UTC().Format(time.RFC3339), startLabel, start.UTC().Format(time.RFC3339)).
+			WithParam("--end").
+			WithSubtype(output.SubtypeInvalidFlagValue)
+	}
+	return start.Unix(), end.Unix(), nil
+}
+
 // buildAutoInfoFromFlags returns a base discount_info map with auto-filled
 // common fields (name/display/start/end) for non-code (auto-applied) discounts.
 func buildAutoInfoFromFlags(in common.PlanInput) (map[string]any, error) {
-	name := common.AutoName(in.Tool)
-	if in.Flags.Changed("name") {
-		name = in.Flags.GetString("name")
+	name, err := activityName(in, common.AutoName(in.Tool))
+	if err != nil {
+		return nil, err
+	}
+	displayDef := name
+	if !in.Flags.Changed("name") {
+		displayDef = common.TruncateName(name, maxDisplayNameLen)
+	}
+	display, err := displayName(in, displayDef, "--name")
+	if err != nil {
+		return nil, err
 	}
 
-	startsAt := time.Now().Unix()
-	if in.Flags.Changed("start") {
-		ts, err := common.ParseTime(in.Flags.GetString("start"))
-		if err != nil {
-			return nil, fmt.Errorf("--start: %w", err)
-		}
-		startsAt = ts
-	}
-
-	endsAt := int64(-1)
-	if in.Flags.Changed("end") {
-		ts, err := common.ParseTime(in.Flags.GetString("end"))
-		if err != nil {
-			return nil, fmt.Errorf("--end: %w", err)
-		}
-		endsAt = ts
+	startsAt, endsAt, err := activityWindow(in)
+	if err != nil {
+		return nil, err
 	}
 
 	return map[string]any{
 		"discount_name": name,
-		"display_name":  common.TruncateName(name, 20),
+		"display_name":  display,
 		"starts_at":     startsAt,
 		"ends_at":       endsAt,
 	}, nil
 }
 
+func planCreateCode(in common.PlanInput, payload map[string]any) common.PlannedRequest {
+	p := PlanCreateNonAutomatic(payload)
+	if in.Flags.Changed("code") {
+		return p
+	}
+	disc, _ := payload["discount"].(map[string]any)
+	info, _ := disc["discount_info"].(map[string]any)
+	if codes, _ := info["discount_codes"].([]string); len(codes) == 1 {
+		p.DryRunHint = fmt.Sprintf(
+			"discount code %s was generated for this preview; a run without --dry-run generates a different one. Pass --code %s to keep it.",
+			codes[0], codes[0])
+	}
+	return p
+}
+
 // buildCodeInfoFromFlags returns a base discount_info map for code discounts,
 // with auto-generated code when --code is not supplied.
 func buildCodeInfoFromFlags(in common.PlanInput) (map[string]any, error) {
-	name := common.AutoName(in.Tool)
-	if in.Flags.Changed("name") {
-		name = in.Flags.GetString("name")
-	}
-
 	code := GenerateCode()
 	if in.Flags.Changed("code") {
 		code = in.Flags.GetString("code")
+		if n := utf8.RuneCountInString(code); n > maxCodeLen {
+			return nil, output.ErrValidation("--code is %d characters; the limit is %d", n, maxCodeLen).
+				WithParam("--code").
+				WithSubtype(output.SubtypeInvalidFlagValue)
+		}
+	}
+	name, err := activityName(in, code)
+	if err != nil {
+		return nil, err
+	}
+	display, err := displayName(in, code, "--code")
+	if err != nil {
+		return nil, err
 	}
 
-	startsAt := time.Now().Unix()
-	if in.Flags.Changed("start") {
-		ts, err := common.ParseTime(in.Flags.GetString("start"))
-		if err != nil {
-			return nil, fmt.Errorf("--start: %w", err)
-		}
-		startsAt = ts
-	}
-
-	endsAt := int64(-1)
-	if in.Flags.Changed("end") {
-		ts, err := common.ParseTime(in.Flags.GetString("end"))
-		if err != nil {
-			return nil, fmt.Errorf("--end: %w", err)
-		}
-		endsAt = ts
+	startsAt, endsAt, err := activityWindow(in)
+	if err != nil {
+		return nil, err
 	}
 
 	return map[string]any{
 		"discount_name":  name,
-		"display_name":   common.TruncateName(name, 20),
+		"display_name":   display,
 		"discount_codes": []string{code},
 		"starts_at":      startsAt,
 		"ends_at":        endsAt,
 	}, nil
+}
+
+const (
+	maxDiscountNameLen = 50
+	maxDisplayNameLen  = 20
+	maxCodeLen         = 50
+)
+
+func codeFlag() common.Flag {
+	return common.Flag{Name: "code", Type: common.FlagString,
+		Description: fmt.Sprintf("Discount code, at most %d characters (auto-generated if omitted).", maxCodeLen)}
+}
+
+func nameFlag(code bool) common.Flag {
+	def := "auto-generated if omitted"
+	if code {
+		def = "default: the code"
+	}
+	return common.Flag{Name: "name", Type: common.FlagString,
+		Description: fmt.Sprintf("Activity name shown in the admin, at most %d characters (%s).", maxDiscountNameLen, def)}
+}
+
+func displayNameFlag(code bool) common.Flag {
+	def := fmt.Sprintf("--name; without --name, the generated name cut to %d characters", maxDisplayNameLen)
+	if code {
+		def = "the code; required when the code is longer"
+	}
+	return common.Flag{Name: "display-name", Type: common.FlagString,
+		Description: fmt.Sprintf("Name buyers see at checkout, at most %d characters (default: %s).", maxDisplayNameLen, def)}
+}
+
+func activityName(in common.PlanInput, def string) (string, error) {
+	name := def
+	if in.Flags.Changed("name") {
+		name = in.Flags.GetString("name")
+	}
+	if n := utf8.RuneCountInString(name); n > maxDiscountNameLen {
+		return "", output.ErrValidation("--name is %d characters; the limit is %d", n, maxDiscountNameLen).
+			WithParam("--name").
+			WithSubtype(output.SubtypeInvalidFlagValue)
+	}
+	return name, nil
+}
+
+func displayName(in common.PlanInput, def, defFlag string) (string, error) {
+	if in.Flags.Changed("display-name") {
+		display := in.Flags.GetString("display-name")
+		if n := utf8.RuneCountInString(display); n > maxDisplayNameLen {
+			return "", output.ErrValidation("--display-name is %d characters; buyers see at most %d", n, maxDisplayNameLen).
+				WithParam("--display-name").
+				WithSubtype(output.SubtypeInvalidFlagValue)
+		}
+		return display, nil
+	}
+	if n := utf8.RuneCountInString(def); n > maxDisplayNameLen {
+		return "", output.ErrValidation("--display-name is required: the display name buyers see defaults to %s, which is %d characters; the limit is %d", defFlag, n, maxDisplayNameLen).
+			WithParam("--display-name").
+			WithSubtype(output.SubtypeMissingRequiredFlag).
+			WithHint(fmt.Sprintf("pass --display-name with at most %d characters", maxDisplayNameLen))
+	}
+	return def, nil
 }
 
 // validateCombines reads --combines, validates each entry, and returns a
@@ -289,21 +397,22 @@ func codeRuleFromFlags(in common.PlanInput) (map[string]any, error) {
 }
 
 // codeOffFlags returns the shared flag set for +percent-code and +amount-code.
-// The value flag is shortcut-specific (--percent for percent-code, --off for
+// The value flag is shortcut-specific (--percent-off for percent-code, --off for
 // amount-code — they mean different things) and is declared in each shortcut.
 func codeOffFlags() []common.Flag {
 	return []common.Flag{
 		{Name: "target", Type: common.FlagString, Required: true,
 			Description: "Discount scope: order or product (required).",
 			Completions: []string{"order", "product"}},
-		{Name: "products", Type: common.FlagString, Description: "Product IDs comma-separated (--target=product; mutex with --variants / --collections)."},
-		{Name: "variants", Type: common.FlagString, Description: "Variant IDs comma-separated (--target=product; mutex with --products / --collections)."},
-		{Name: "collections", Type: common.FlagString, Description: "Collection IDs comma-separated (--target=product; mutex with --products / --variants)."},
+		{Name: "products", Type: common.FlagStringSlice, Description: "Product IDs comma-separated (--target=product only; mutex with --variants / --collections)."},
+		{Name: "variants", Type: common.FlagStringSlice, Description: "Variant IDs comma-separated (--target=product only; mutex with --products / --collections)."},
+		{Name: "collections", Type: common.FlagStringSlice, Description: "Collection IDs comma-separated (--target=product only; mutex with --products / --variants)."},
 		excludeFlag("exclude", ""),
-		{Name: "min-amount", Type: common.FlagFloat, Description: "Minimum order amount (only meaningful for --target=order)."},
-		{Name: "min-quantity", Type: common.FlagInt, Default: 1, Description: "Minimum item count (only meaningful for --target=product; default 1)."},
-		{Name: "code", Type: common.FlagString, Description: "Discount code (auto-generated if omitted)."},
-		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
+		{Name: "min-amount", Type: common.FlagFloat, Description: "Minimum order amount (--target=order only; rejected with --target=product)."},
+		{Name: "min-quantity", Type: common.FlagInt, Default: 1, Description: "Minimum item count (--target=product only; rejected with --target=order; default 1)."},
+		codeFlag(),
+		nameFlag(true),
+		displayNameFlag(true),
 		common.StartTimeFlag(),
 		common.EndTimeFlag(),
 		{Name: "combines", Type: common.FlagStringSlice,
@@ -378,7 +487,7 @@ func buildCodeDiscountPayload(in common.PlanInput, discountType, obtainType stri
 	}
 	info, err := buildCodeInfoFromFlags(in)
 	if err != nil {
-		return nil, output.Errorf(output.ExitValidation, "validation", "%s", err)
+		return nil, err
 	}
 	info["discount_type"] = discountType
 	info["discount_target"] = target
@@ -393,6 +502,21 @@ func buildCodeDiscountPayload(in common.PlanInput, discountType, obtainType stri
 		if in.Flags.GetBool("exclude") {
 			return nil, output.ErrValidation("--exclude only applies to --target=product")
 		}
+		var offTarget []string
+		for _, name := range []string{"products", "variants", "collections", "min-quantity"} {
+			if in.Flags.Changed(name) {
+				offTarget = append(offTarget, "--"+name)
+			}
+		}
+		if len(offTarget) > 0 {
+			verb := "applies"
+			if len(offTarget) > 1 {
+				verb = "apply"
+			}
+			return nil, output.ErrValidation("%s only %s to --target=product", strings.Join(offTarget, ", "), verb).
+				WithParam(offTarget[0]).
+				WithHint("for a discount on specific products or with a minimum item count, use --target=product; for the whole order, drop these flags")
+		}
 		entitledProduct = map[string]any{}
 		min := in.Flags.GetFloat("min-amount")
 		condType = "no_condition"
@@ -401,10 +525,15 @@ func buildCodeDiscountPayload(in common.PlanInput, discountType, obtainType stri
 		}
 		condValue = strconv.FormatFloat(min, 'f', -1, 64)
 	} else {
+		if in.Flags.Changed("min-amount") {
+			return nil, output.ErrValidation("--min-amount only applies to --target=order").
+				WithParam("--min-amount").
+				WithHint("for a per-product threshold use --min-quantity; for a minimum order amount, use --target=order")
+		}
 		scope, err := resolveScope(
-			common.ParseProducts(in.Flags.GetString("products")),
-			common.ParseProducts(in.Flags.GetString("collections")),
-			common.ParseProducts(in.Flags.GetString("variants")),
+			common.IDList(in.Flags, "products"),
+			common.IDList(in.Flags, "collections"),
+			common.IDList(in.Flags, "variants"),
 			in.Flags.GetBool("exclude"), true, defaultScopeNames())
 		if err != nil {
 			return nil, err

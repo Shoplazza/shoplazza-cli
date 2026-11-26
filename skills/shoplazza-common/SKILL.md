@@ -39,12 +39,24 @@ Start every operation at the **highest tier that fits** and stop as soon as one 
 
 In `shoplazza <svc> --help`, entries prefixed with `+` are shortcuts; the rest are spec leaves.
 
+A spec leaf's `--params` takes only the path / query parameters `schema <svc>.<cmd>` lists; body
+fields go in `--data`. A `--params` key that is undeclared (`unknown_param`) or is a body field
+(`misplaced_param`), a required path / query key that is absent, empty or still a placeholder such
+as `<id>` (`missing_required_param`, all such keys listed in one error), or a required top-level
+body field missing from `--data` (`missing_required_field`), fails with exit 2 before anything is
+sent, `--dry-run` included.
+
 ## Output envelope (.data wrapper)
 
 The structured-output contract, uniform across commands:
 
 - Success → stdout: `{"ok":true,"data":<body>}`
 - Failure → stderr: `{"ok":false,"error":{"type":…,"message":…}}`, non-zero exit.
+
+**`jq_failed_after_request` is the one failure that comes with data.** The request already
+succeeded (a write took effect) and only `-q` failed on the response: exit 2, the whole
+`{ok,data}` response on stdout, `error.detail` naming the request. Do not resend it; fix `-q`
+(the message names the failing path step and the keys at that level) or read stdout.
 
 **Response bodies nest under `.data`**, so every `jq` path starts at `.data` (e.g.
 `.data.products[].id`). Missing the `.data` prefix is the most common extraction mistake.
@@ -61,10 +73,14 @@ read fields directly (e.g. `logged_in`).
 | `-q, --jq <expr>` | Filter JSON output with a jq expression. **Outputs raw scalars by default** (no surrounding quotes, just a trailing newline) — **do not add `-r`**: cobra parses `-r` as a separate flag and rejects the command. It is a single-string flag. |
 | `--fields <f1,f2,…>` | Response field projection on **a few shortcuts only** — verified: `products +search` (comma-separated: `products +search --fields id,title`). **Not universal** — most commands have no `--fields`; check `<shortcut> --help` before using it. Names are response keys; the server may still return extra base fields and silently ignores unknown names. |
 | `--page-limit <n>` | Page size, 1–250, on list shortcuts. **The API default is 10** — see "Reading a filtered list" below. |
-| `--format json\|pretty\|table` | Output format, default `json`. Use `json` for scripts/jq, `pretty`/`table` for humans. Global flag. |
+| `--format json\|pretty\|table` | Output format: `json` by default, but `pretty` when stdout is a terminal (a pty included) and none of `CI` / `SHOPLAZZA_CLI_NO_INTERACTIVE` / `--no-input` is set — `--jq` needs `json`. Use `json` for scripts/jq, `pretty`/`table` for humans. Global flag. |
 | `--profile <name>` | Profile to use for this invocation (see "Profiles"). Global flag. |
 
 Field projection: a few search shortcuts accept `--fields` (verify with `--help`); everywhere else, project/filter with `--jq`.
+
+List flags on shortcuts (`--variants`, `--tags`, `--status`, …) take comma-separated values or a
+repeated flag: `--variants a,b` = `--variants a --variants b`. A single-value flag given twice, or a
+value outside a flag's fixed list, is exit 2 (`invalid_flag_value`) instead of last-one-wins.
 
 ## Reading a filtered list
 
@@ -76,7 +92,8 @@ answer rather than an error:
 `--page-limit` says otherwise (max 250), with `has_more` / `cursor` marking the rest.
 `has_more` may come back `null` rather than `false`, so treat "not `true`" as the end.
 Whenever the answer depends on *completeness* — "how many", "which ones", "all of X", any
-total you compute yourself — pass `--page-limit 250` and follow the cursor. For a pure count,
+total you compute yourself — pass `--page-limit 250` and, while `has_more` is `true`, rerun with
+the same flags plus `--cursor <.data.cursor>` (spec leaves: `"cursor"` in `--params`). For a pure count,
 prefer the domain's `+count` shortcut over counting rows.
 
 **2. Silently-dropped filters — the API ignores query params it does not recognise.** It
@@ -167,10 +184,11 @@ shoplazza api rest POST /openapi/2026-01/discounts/automatic --data @body.json
 
 Supports `--params` / `--data` (incl. `-` for stdin, `@file` for a file), `--dry-run`, `-q/--jq`.
 
-**Large integer ids → quote them in JSON.** In `--params` / `--data`, pass a big numeric id as a
-**string** (`{"id":"669923000979557666"}`), not a bare number — bare large ints get float-coerced
-(→ `6.69…e+17`) and the request is rejected. Applies anywhere an id exceeds ~15 digits
-(e.g. `shop redirects`).
+**Multi-value query params → JSON array.** An array param (`ids`, `status`, `spus`, …) reaches
+the API as repeated keys (`?ids=a&ids=b`); the API reads a comma-joined value as one literal that
+matches nothing. In `--params` write `{"ids":["a","b"]}`. Spec leaves also split a comma-joined
+string for an array param; `api rest` sends a string as-is. A single value that contains a comma
+goes in a one-item array (`{"vendors":["Nike, Inc."]}`).
 
 ## Installation
 
@@ -253,12 +271,13 @@ When acting as an AI agent to log the user in: run `auth login` in the **backgro
 `--poll-interval` / `--timeout`, defaults 2s / 300s), **extract the authorization URL from its
 output and hand it to the user**; the command returns on its own after the user authorizes.
 
-**Missing flags become on-screen questions when a terminal is present.** `auth login` (and
-`app init`) asks for what you left out only when stdin **and** stderr are both real terminals and
+**Missing flags become on-screen questions when a terminal is present.** `auth login`, `app init`,
+shortcuts (a missing required flag) and spec leaves (a missing path param) ask for what you left
+out, and destructive writes ask to confirm, only when stdin **and** stderr are both real terminals and
 neither `SHOPLAZZA_CLI_NO_INTERACTIVE` nor `CI` is set (present and non-empty = set); otherwise a
 missing flag is an error pointing at that flag. **A harness that hands the child process a pty
 passes that check** and the command waits on a keypress that never comes — export
-`SHOPLAZZA_CLI_NO_INTERACTIVE=1` once for the session if yours does.
+`SHOPLAZZA_CLI_NO_INTERACTIVE=1` once for the session if yours does (it also keeps `--format` at `json`).
 
 It only switches prompting **off**. There is no `--interactive` flag and no env var to force it
 on — deliberately, since forcing it would hang for good wherever no terminal exists.
@@ -286,7 +305,7 @@ top of the gate above. Browser logins driven from a pty-allocating harness still
 shoplazza auth status                                                  # auth state / identity / current store
 shoplazza auth scopes                                                  # supported scopes + scopes granted to the account
 shoplazza auth store use -s another-store.myshoplazza.com [--scope …]  # exchange a token for that store, set as current profile
-shoplazza auth logout                                                  # log out of the current store
+shoplazza auth logout                                                  # log out of the account and delete EVERY profile (one store: profile remove)
 ```
 
 Which command switches the store:
@@ -304,9 +323,10 @@ then switch again.
 
 ### Handling insufficient permissions
 
-On 401/403 for a write, the error envelope's `hint` says what's missing. Grant it as directed:
-`shoplazza auth login --domain <that module>` (or `--scope <missing scope>`), then retry. Run
-`auth scopes` first to see what's already granted.
+`subtype: missing_scope` (exit 3): the token lacks a scope. `required_scopes` names the resource's
+read_/write_ pair when the CLI knows it — run `shoplazza auth login --scope
+<both, comma-separated> --merge-scopes`, then retry; without it, run `auth scopes` to see what's granted. `subtype: invalid_token`
+(exit 3): the store rejected the token — log in again.
 
 ## Profiles (multi-tenant)
 
@@ -335,8 +355,9 @@ A relative path is rejected with a `validation` error (exit 2) on every command 
 
 ## Update notice
 
-When the CLI detects a new version after running, it prints a one-line notice **to stderr**
-(`⚡ shoplazza-cli X is available …`). It never appears in the JSON on stdout. **Do not
+When the CLI detects a new version, a json success envelope carries `_notice.update`
+(`current` / `latest` / `message`); the `⚡ shoplazza-cli X is available …` line goes to stderr
+only when stderr is a terminal. **Do not
 silently ignore it**: after finishing the user's current request, tell them the current /
 latest version and offer to update:
 

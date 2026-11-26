@@ -253,3 +253,46 @@ func expandSchemaRefDepth(spec *Spec, ref string, seen map[string]bool, depth in
 		"fields": expandFields(spec, sch.Fields, seen, depth),
 	}
 }
+
+// CommandForRequest finds the command whose method and path template match a sent request.
+func (s *Spec) CommandForRequest(method, reqPath string) (Module, Command, bool) {
+	if i := strings.IndexAny(reqPath, "?#"); i >= 0 {
+		reqPath = reqPath[:i]
+	}
+	got := strings.Split(strings.Trim(reqPath, "/"), "/")
+	var bestMod Module
+	var bestCmd Command
+	best := -1
+	for _, m := range s.Modules {
+		for _, c := range m.Commands {
+			if !strings.EqualFold(c.HTTP.Method, method) {
+				continue
+			}
+			if n, ok := matchPathTemplate(strings.Split(strings.Trim(c.HTTP.Path, "/"), "/"), got); ok && n > best {
+				bestMod, bestCmd, best = m, c, n
+			}
+		}
+	}
+	return bestMod, bestCmd, best >= 0
+}
+
+func matchPathTemplate(tmpl, got []string) (int, bool) {
+	if len(tmpl) != len(got) {
+		return 0, false
+	}
+	literal := 0
+	for i, seg := range tmpl {
+		switch {
+		case i == 1 && tmpl[0] == "openapi":
+		case strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}"):
+			if got[i] == "" {
+				return 0, false
+			}
+		case seg == got[i]:
+			literal++
+		default:
+			return 0, false
+		}
+	}
+	return literal, true
+}

@@ -176,7 +176,7 @@ func TestPromptFlagWith_EmptyPickerFallsThrough(t *testing.T) {
 }
 
 func TestWithPicker_DoesNotMutateOriginal(t *testing.T) {
-	base := IDFlag("Product ID")
+	base := IDFlag("product", "Product ID")
 	p := &ResourcePicker{Path: "/x"}
 	withP := base.WithPicker(p)
 	if base.Picker != nil {

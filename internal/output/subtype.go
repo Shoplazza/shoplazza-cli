@@ -13,6 +13,17 @@ const (
 	SubtypeInvalidFlagValue    = "invalid_flag_value"
 	SubtypeInvalidArgument     = "invalid_argument"
 	SubtypeUsage               = "usage_error" // generic cobra usage fallback
+
+	// Spec-leaf --params / --data checks against the command's metadata.
+	SubtypeUnknownParam         = "unknown_param"          // --params key the command does not declare
+	SubtypeMisplacedParam       = "misplaced_param"        // --params key that is a request-body field
+	SubtypeMissingRequiredField = "missing_required_field" // required top-level body field absent from --data
+	SubtypeMissingRequiredParam = "missing_required_param" // required path/query key absent from --params, empty, or a placeholder
+
+	SubtypeJQAfterRequest = "jq_failed_after_request" // the request succeeded; --jq failed on its response
+
+	SubtypeInvalidToken = "invalid_token" // the store answered 400 "Unauthorized" to the access token
+	SubtypeMissingScope = "missing_scope" // the store answered 403 with no reason
 )
 
 // ClassifyUsageError converts a cobra/pflag usage error (unknown command,

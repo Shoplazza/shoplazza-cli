@@ -41,6 +41,12 @@ func IsolateConfigDir(t *testing.T) string {
 	return dir
 }
 
+func Unsetenv(t *testing.T, key string) {
+	t.Helper()
+	t.Setenv(key, "")
+	_ = os.Unsetenv(key)
+}
+
 // SkillsDir creates and returns the Agent Skills directory for the current home.
 // Isolate the home first, or this touches the developer's own ~/.agents/skills.
 func SkillsDir(t *testing.T) string {

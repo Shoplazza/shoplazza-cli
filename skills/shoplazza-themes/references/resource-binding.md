@@ -72,7 +72,7 @@ it does".
 A `source`-type field binds an ongoing flash-sale activity. Candidates are **only flash sales that
 are ongoing** — other discount types don't show on the card, and not-started or finished sales
 don't display. Keep both conditions. Id and name: shoplazza-discounts → the ongoing-flash-sale
-recipe (`discount_info.id`, `discount_info.discount_name`).
+recipe (`id`, `discount_name`).
 
 - Fill the field with the same shape as its current value (same keys); a key the lookup can't
   supply (such as a cover image) stays empty.

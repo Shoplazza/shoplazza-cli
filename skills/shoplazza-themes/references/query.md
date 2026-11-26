@@ -86,6 +86,7 @@ wrong handle or session id just gives a broken link.
 | Custom page | `/pages/<handle>` | `shop pages list` → `url` (shoplazza-shop); the `url` is already the path |
 | Blog | `/blogs/<handle>` | `shop blogs list` → `handle` (shoplazza-shop) |
 | Article | `/blogs/<blog_handle>/<article_handle>` | `shop blogs list` + `shop articles list` → `handle` (shoplazza-shop) |
+| Funnel page | `/funnel/landing-<id>` · `/funnel/detail-<id>` · `/funnel/checkout-<id>` | `url` of its `type:"funnel"` row in `+page -t <funnel theme> --list` |
 
 A handle always comes from a real record. A page that needs one with no record found, or a page
 not in this table → preview the home page and say why.

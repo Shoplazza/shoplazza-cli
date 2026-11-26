@@ -14,14 +14,14 @@ var amountCodeShortcut = common.Shortcut{
 	Example: `  # Preview a $10-off order code
   shoplazza discounts +amount-code --target order --off 10 --code TENOFF --dry-run
 
-  # $5 off specific products with a minimum order amount
-  shoplazza discounts +amount-code --target product --off 5 --products p-1,p-2 --min-amount 50`,
+  # $5 off specific products when at least 2 of them are bought
+  shoplazza discounts +amount-code --target product --off 5 --products p-1,p-2 --min-quantity 2`,
 	Flags: append(codeOffFlags(),
 		common.Flag{
 			Name:        "off",
 			Type:        common.FlagFloat,
 			Required:    true,
-			Description: "Fixed amount off (required).",
+			Description: "Fixed amount off, less than --min-amount when that is set (required).",
 		},
 		common.Flag{
 			Name:        "limit-order-once",
@@ -39,6 +39,9 @@ var amountCodeShortcut = common.Shortcut{
 		if err != nil {
 			return common.PlannedRequest{}, err
 		}
+		if minAmount := in.Flags.GetFloat("min-amount"); minAmount > 0 && off >= minAmount {
+			return common.PlannedRequest{}, output.ErrValidation("--off must be less than --min-amount").WithParam("--off")
+		}
 		// Server-side validation requires limit_order_discount for
 		// fixed_price_reduction. Default 1 = one use per order;
 		// --limit-order-once=false opts into unlimited (-1).
@@ -47,6 +50,6 @@ var amountCodeShortcut = common.Shortcut{
 			limitOrder = -1
 		}
 		payload["discount"].(map[string]any)["discount_rule"].(map[string]any)["limit_order_discount"] = limitOrder
-		return PlanCreateNonAutomatic(payload), nil
+		return planCreateCode(in, payload), nil
 	},
 }

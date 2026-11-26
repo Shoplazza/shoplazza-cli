@@ -15,7 +15,7 @@
       "must_ask": false,
       "semantic_rubric": [
         "name split into --first-name Jane / --last-name Doe",
-        "不要订阅营销 → --no-marketing (the default is subscribe, so the flag MUST be set)",
+        "不要订阅营销 → --no-marketing (the default is subscribe, so the flag MUST be set), and the reply says SMS marketing is turned off too",
         "--email XOR --phone respected: email given, phone not set"
       ]
     },
@@ -66,20 +66,20 @@
     "type": "behavior",
     "skill": "shoplazza-customers",
     "operation": "customers.count",
-    "scenario": "客户总数 — customers 没有 +count shortcut, 正确用 count leaf",
+    "scenario": "客户总数 — 用 +count shortcut",
     "input": "我们店一共有多少注册客户？",
     "expected": {
       "route_to_skill": "shoplazza-customers",
-      "access_tier": "leaf",
-      "command_prefix": "customers count",
+      "access_tier": "shortcut",
+      "command_prefix": "customers +count",
       "flags_must_not_contain": ["--data"],
       "must_ask": false,
       "semantic_rubric": [
-        "there is NO customers +count shortcut — the count LEAF is the correct tier; does not invent customers +count",
+        "uses the customers +count shortcut, not the count leaf",
         "does not list all customers and count them manually",
         "extracts the number from .data"
       ]
     },
-    "notes": "Tier trap: products/orders have +count, customers does not (shortcuts are only +create and +search)."
+    "notes": "+count takes no flags; it returns the store total."
   }
 ]

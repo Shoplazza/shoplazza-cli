@@ -16,7 +16,7 @@
       "semantic_rubric": [
         "--vendor Nike taken verbatim (vendor is an exact-match filter per --help), not put into --keyword",
         "未上架 mapped to --published unpublished (documented values: published, unpublished, any)",
-        "does not set --page-limit or --fields uninvited",
+        "does not set --fields uninvited; 所有 → --page-limit 250, then --cursor <.data.cursor> while .data.has_more is true",
         "any jq extraction starts at .data, without -r"
       ]
     },

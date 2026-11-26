@@ -27,7 +27,7 @@ func TestRequireLogin_NotLoggedIn(t *testing.T) {
 	// whether the developer running the test is logged in. The keychain reads
 	// os.UserConfigDir(), driven by HOME / XDG_CONFIG_HOME.
 	testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 
 	f := &cmdutil.Factory{Config: core.CliConfig{}, AuthClient: client.New("http://unused")}
 	err := requireLogin(context.Background(), f)
@@ -45,7 +45,7 @@ func TestRequireLogin_NotLoggedIn(t *testing.T) {
 // of f.AuthClient (e.g. auth calls).
 func TestDashboardClient_DoesNotMutateAuthClient(t *testing.T) {
 	dir := testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 
 	// Seed UAT + partner token in the isolated keychain so PartnerToken() succeeds.
 	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_1"); err != nil {
@@ -82,7 +82,7 @@ func TestDashboardClient_DoesNotMutateAuthClient(t *testing.T) {
 func seedLoginKeychain(t *testing.T) string {
 	t.Helper()
 	dir := testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_1"); err != nil {
 		t.Fatalf("keychain Set uat: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestDashboardClient_WarnsOnUserIDFailure(t *testing.T) {
 // actionable hint, instead of flowing an empty store_id to the backend.
 func TestResolveStoreID_EmptyWithNilError(t *testing.T) {
 	dir := testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	f := &cmdutil.Factory{
 		Config:     core.CliConfig{},
 		ConfigPath: filepath.Join(dir, "config.json"),
@@ -255,7 +255,7 @@ func TestResolveStoreID_EmptyWithNilError(t *testing.T) {
 // exchange+persistState side effect) behind a limited-scope profile's back.
 func TestResolveStoreID_FromProfileConfig_NoV1Exchange(t *testing.T) {
 	dir := testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	// A logged-in account so the old code path COULD reach the v1 exchange if
 	// it were still consulted.
 	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_seed"); err != nil {
@@ -297,7 +297,7 @@ func TestResolveStoreID_FromProfileConfig_NoV1Exchange(t *testing.T) {
 // profile-scoped exchange) already has it. Still must not touch the v1 path.
 func TestResolveStoreID_FromProfileMeta_NoV1Exchange(t *testing.T) {
 	dir := testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_seed"); err != nil {
 		t.Fatalf("keychain Set uat: %v", err)
 	}

@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 
 	"github.com/spf13/cobra"
@@ -414,5 +416,132 @@ func TestMount_FlagAliasResolvesToCanonicalName(t *testing.T) {
 	}
 	if strings.Contains(usage, "--theme string") {
 		t.Errorf("the alias leaked into --help:\n%s", usage)
+	}
+}
+
+// A deprecated spelling stays in --help with a [deprecated] prefix, satisfies
+// Required, and reaches Plan under the canonical name; both spellings at once
+// is a validation error.
+func TestMount_DeprecatedAliasListedAndResolved(t *testing.T) {
+	type got struct {
+		pct  float64
+		tags []string
+	}
+	newShortcut := func(g *got) common.Shortcut {
+		return common.Shortcut{
+			Service: "svc", Command: "+probe", Use: "+probe",
+			Flags: []common.Flag{
+				{Name: "percent-off", DeprecatedAliases: []string{"percent"}, Type: common.FlagFloat, Required: true, Description: "Percent off."},
+				{Name: "tags", DeprecatedAliases: []string{"tag"}, Type: common.FlagStringSlice, Description: "Tags."},
+			},
+			Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
+				g.pct = in.Flags.GetFloat("percent-off")
+				g.tags = in.Flags.GetStringSlice("tags")
+				return common.PlannedRequest{Method: "GET", Path: "/x"}, nil
+			},
+		}
+	}
+	run := func(args ...string) (got, error) {
+		var g got
+		parent := &cobra.Command{Use: "svc", SilenceErrors: true, SilenceUsage: true}
+		common.Mount(newShortcut(&g), parent, newFakeFactory(t))
+		parent.SetOut(&bytes.Buffer{})
+		parent.SetErr(&bytes.Buffer{})
+		parent.SetArgs(append([]string{"+probe", "--dry-run"}, args...))
+		return g, parent.Execute()
+	}
+
+	for _, args := range [][]string{
+		{"--percent-off", "20", "--tags", "a,b"},
+		{"--percent", "20", "--tag", "a,b"},
+	} {
+		g, err := run(args...)
+		if err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		if g.pct != 20 || strings.Join(g.tags, ",") != "a,b" {
+			t.Errorf("%v reached the shortcut as %+v, want pct=20 tags=[a b]", args, g)
+		}
+	}
+
+	if _, err := run("--percent", "20", "--percent-off", "20"); err == nil || !strings.Contains(err.Error(), "pass only --percent-off") {
+		t.Errorf("both spellings: want a 'pass only --percent-off' error, got %v", err)
+	}
+
+	var sink got
+	parent := &cobra.Command{Use: "svc"}
+	common.Mount(newShortcut(&sink), parent, newFakeFactory(t))
+	usage := parent.Commands()[0].LocalFlags().FlagUsages()
+	for _, want := range []string{"--percent-off float", "--percent float", "[deprecated] Percent off.", "--tag strings", "[deprecated] Tags."} {
+		if !strings.Contains(usage, want) {
+			t.Errorf("--help is missing %q:\n%s", want, usage)
+		}
+	}
+}
+
+func TestMount_FlagValueChecks(t *testing.T) {
+	var gotStatus, gotTags []string
+	s := common.Shortcut{
+		Service: "svc", Command: "+probe", Use: "+probe",
+		Flags: []common.Flag{
+			{Name: "target", Type: common.FlagString, Enum: []string{"order", "product"}},
+			{Name: "percent-off", DeprecatedAliases: []string{"percent"}, Type: common.FlagFloat},
+			{Name: "limit", Type: common.FlagInt},
+			{Name: "status", Type: common.FlagStringSlice, Enum: []string{"paid", "refunded"}},
+			{Name: "tags", Type: common.FlagStringSlice},
+		},
+		Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
+			gotStatus, gotTags = in.Flags.GetStringSlice("status"), in.Flags.GetStringSlice("tags")
+			return common.PlannedRequest{Method: "GET", Path: "/x"}, nil
+		},
+	}
+	cases := []struct {
+		name               string
+		args               []string
+		wantParam, wantMsg string
+		wantHint           string
+		wantStatus         []string
+		wantTags           []string
+	}{
+		{"single-value flag repeated", []string{"--target", "order", "--target", "product"},
+			"--target", `--target was given 2 times ("order", "product")`, "pass --target once", nil, nil},
+		{"int flag repeated", []string{"--limit", "1", "--limit", "2"}, "--limit", "given 2 times", "", nil, nil},
+		{"deprecated alias repeated", []string{"--percent", "10", "--percent", "20"}, "--percent", "given 2 times", "", nil, nil},
+		{"enum string rejected", []string{"--target", "bogus"},
+			"--target", `invalid --target value "bogus"`, "accepted: order, product", nil, nil},
+		{"enum slice item rejected", []string{"--status", "paid,bogus,nope"},
+			"--status", `invalid --status value "bogus", "nope"`, "comma-separate or repeat", nil, nil},
+		{"enum slice comma-separated", []string{"--status", "paid,refunded"}, "", "", "", []string{"paid", "refunded"}, nil},
+		{"enum slice repeated", []string{"--status", "paid", "--status", "refunded"}, "", "", "", []string{"paid", "refunded"}, nil},
+		{"slice items trimmed, empties dropped", []string{"--status", "paid, refunded", "--tags", " a ,, b "},
+			"", "", "", []string{"paid", "refunded"}, []string{"a", "b"}},
+		{"enum string accepted", []string{"--target", "order"}, "", "", "", nil, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotStatus, gotTags = nil, nil
+			parent := &cobra.Command{Use: "svc", SilenceErrors: true, SilenceUsage: true}
+			common.Mount(s, parent, newFakeFactory(t))
+			parent.SetOut(&bytes.Buffer{})
+			parent.SetErr(&bytes.Buffer{})
+			parent.SetArgs(append([]string{"+probe", "--dry-run"}, c.args...))
+			err := parent.Execute()
+			if c.wantParam == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if strings.Join(gotStatus, "|") != strings.Join(c.wantStatus, "|") || strings.Join(gotTags, "|") != strings.Join(c.wantTags, "|") {
+					t.Errorf("status/tags = %q/%q, want %q/%q", gotStatus, gotTags, c.wantStatus, c.wantTags)
+				}
+				return
+			}
+			var ee *output.ExitError
+			if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Subtype != output.SubtypeInvalidFlagValue || ee.Detail.Param != c.wantParam {
+				t.Fatalf("want invalid_flag_value on %s, got %#v", c.wantParam, err)
+			}
+			if !strings.Contains(ee.Detail.Message, c.wantMsg) || !strings.Contains(ee.Detail.Hint, c.wantHint) {
+				t.Errorf("message/hint = %q / %q, want %q / %q", ee.Detail.Message, ee.Detail.Hint, c.wantMsg, c.wantHint)
+			}
+		})
 	}
 }

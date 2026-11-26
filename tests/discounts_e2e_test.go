@@ -4,8 +4,10 @@ package tests_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -58,7 +60,7 @@ func TestDiscountsList_WithFilters(t *testing.T) {
 
 	_, _, code := runCLI(t, bin, env,
 		"discounts", "list",
-		"--params", `{"discount_name":"summer","progress":"ongoing","status":"active","type":"code","per_page":5}`,
+		"--params", `{"discount_name":"summer","progress":"ongoing","discount_type":"code_percent","page_size":5}`,
 	)
 	if code != 0 {
 		t.Fatalf("unexpected exit code %d", code)
@@ -69,8 +71,8 @@ func TestDiscountsList_WithFilters(t *testing.T) {
 	if !strings.Contains(capturedQuery, "progress=ongoing") {
 		t.Errorf("query %q missing progress=ongoing", capturedQuery)
 	}
-	if !strings.Contains(capturedQuery, "per_page=5") {
-		t.Errorf("query %q missing per_page=5", capturedQuery)
+	if !strings.Contains(capturedQuery, "page_size=5") {
+		t.Errorf("query %q missing page_size=5", capturedQuery)
 	}
 }
 
@@ -246,10 +248,10 @@ func TestDiscountsCombine_MockServer(t *testing.T) {
 // ── shortcuts: +search ────────────────────────────────────────────────────────
 
 func TestShortcut_Search(t *testing.T) {
-	var capturedQuery string
+	var capturedQuery url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
+		capturedQuery = r.URL.Query()
 		json.NewEncoder(w).Encode(map[string]any{"discounts": []any{}})
 	}))
 	defer srv.Close()
@@ -257,15 +259,25 @@ func TestShortcut_Search(t *testing.T) {
 	bin := buildBinary(t)
 	env := apiEnv(srv.URL)
 
-	_, _, code := runCLI(t, bin, env, "discounts", "+search", "--query", "flash", "--progress", "ongoing")
+	_, stderr, code := runCLI(t, bin, env, "discounts", "+search", "--query", "flash", "--progress", "ongoing",
+		"--since", "2026-12-01T05:00:00Z", "--source", "manual,other", "--combines", "order")
 	if code != 0 {
-		t.Fatalf("unexpected exit code %d", code)
+		t.Fatalf("unexpected exit code %d, stderr=%s", code, stderr)
 	}
-	if !strings.Contains(capturedQuery, "discount_name=flash") {
-		t.Errorf("query %q missing discount_name=flash", capturedQuery)
+	want := map[string]string{
+		"discount_name": "flash", "progress": "ongoing",
+		"starts_date": "2026-12-01T05:00:00Z", "ends_date": "-1",
+		"source_ids": "1|999", "discount_combines": "order",
 	}
-	if !strings.Contains(capturedQuery, "progress=ongoing") {
-		t.Errorf("query %q missing progress=ongoing", capturedQuery)
+	for k, v := range want {
+		if got := strings.Join(capturedQuery[k], "|"); got != v {
+			t.Errorf("%s = %q, want %q", k, got, v)
+		}
+	}
+
+	stdout, stderr, code := runCLI(t, bin, env, "discounts", "+search", "--until", "2026-12-01T05:00:00Z", "--dry-run")
+	if code != 0 || !strings.Contains(stdout, `"starts_date": "-1"`) || !strings.Contains(stdout, `"ends_date": "2026-12-01T05:00:00Z"`) {
+		t.Errorf("--until --dry-run: exit %d, want the window in RFC3339 UTC; stdout=%s stderr=%s", code, stdout, stderr)
 	}
 }
 
@@ -497,20 +509,27 @@ func TestShortcut_Rebate_ScopeMutexRejected(t *testing.T) {
 	}
 }
 
-func TestShortcut_Rebate_LimitOrderWithPercentTypeRejected(t *testing.T) {
+func TestShortcut_Rebate_LimitOrderOnceRejected(t *testing.T) {
 	bin := buildBinary(t)
-	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
-		"discounts", "+rebate",
-		"--target", "order",
-		"--tiers", "100:10",
-		"--type", "amount-percent",
-		"--limit-order-once=false",
-	)
-	if code == 0 {
-		t.Fatal("expected validation error when --limit-order-once used with percent type")
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"percent type", []string{"--tiers", "100:10", "--type", "amount-percent"}, "limit-order-once"},
+		{"two tiers", []string{"--tiers", "100:10,200:25", "--type", "qty-off"}, `"param": "--limit-order-once"`},
 	}
-	if !strings.Contains(stderr, "limit-order-once") {
-		t.Errorf("expected 'limit-order-once' in stderr, got: %s", stderr)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			args := append([]string{"discounts", "+rebate", "--target", "order", "--limit-order-once=false", "--dry-run"}, c.args...)
+			_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"}, args...)
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr: %s", code, stderr)
+			}
+			if !strings.Contains(stderr, c.want) {
+				t.Errorf("expected %s in stderr, got: %s", c.want, stderr)
+			}
+		})
 	}
 }
 
@@ -1010,28 +1029,45 @@ func TestShortcut_PercentCode_OrderTarget_AutoCode(t *testing.T) {
 	bin := buildBinary(t)
 	env := apiEnv(srv.URL)
 
-	_, _, code := runCLI(t, bin, env, "discounts", "+percent-code", "--target", "order", "--percent", "10")
-	if code != 0 {
-		t.Fatalf("unexpected exit code %d", code)
+	// --percent is the deprecated spelling of --percent-off and must still work.
+	for _, flag := range []string{"--percent-off", "--percent"} {
+		receivedBody = nil
+		_, _, code := runCLI(t, bin, env, "discounts", "+percent-code", "--target", "order", flag, "10")
+		if code != 0 {
+			t.Fatalf("%s: unexpected exit code %d", flag, code)
+		}
+
+		discount, _ := receivedBody["discount"].(map[string]any)
+		info, _ := discount["discount_info"].(map[string]any)
+
+		codes, _ := info["discount_codes"].([]any)
+		if len(codes) == 0 {
+			t.Fatalf("%s: discount_codes must not be empty", flag)
+		}
+		code0, _ := codes[0].(string)
+		if len(code0) != 6 {
+			t.Errorf("%s: auto-generated code %q must be 6 characters", flag, code0)
+		}
+		if info["discount_type"] != "code_percent" {
+			t.Errorf("%s: discount_type = %v, want code_percent", flag, info["discount_type"])
+		}
+		layer, _ := discount["discount_layer"].(map[string]any)
+		if layer["obtain_type"] != "percent" {
+			t.Errorf("%s: obtain_type = %v, want percent", flag, layer["obtain_type"])
+		}
+		layers, _ := layer["layers"].([]any)
+		if len(layers) != 1 {
+			t.Fatalf("%s: discount_layer.layers len = %d, want 1", flag, len(layers))
+		}
+		if first, _ := layers[0].(map[string]any); first["obtain_value"] != "10" {
+			t.Errorf("%s: layers[0].obtain_value = %v, want \"10\"", flag, first["obtain_value"])
+		}
 	}
 
-	discount, _ := receivedBody["discount"].(map[string]any)
-	info, _ := discount["discount_info"].(map[string]any)
-
-	codes, _ := info["discount_codes"].([]any)
-	if len(codes) == 0 {
-		t.Fatal("discount_codes must not be empty")
-	}
-	code0, _ := codes[0].(string)
-	if !strings.HasPrefix(code0, "CLI-") {
-		t.Errorf("auto-generated code %q must start with CLI-", code0)
-	}
-	if info["discount_type"] != "code_percent" {
-		t.Errorf("discount_type = %v, want code_percent", info["discount_type"])
-	}
-	layer, _ := discount["discount_layer"].(map[string]any)
-	if layer["obtain_type"] != "percent" {
-		t.Errorf("obtain_type = %v, want percent", layer["obtain_type"])
+	receivedBody = nil
+	_, stderr, code := runCLI(t, bin, env, "discounts", "+percent-code", "--target", "order", "--percent-off", "10", "--code", strings.Repeat("C", 51))
+	if code != 2 || !strings.Contains(stderr, `"param": "--code"`) || receivedBody != nil {
+		t.Errorf("--code over 50: exit %d, want 2 naming --code and no request sent; stderr=%s", code, stderr)
 	}
 }
 
@@ -1150,7 +1186,7 @@ func TestShortcut_BxgyCode_Payload(t *testing.T) {
 
 // TestShortcut_BxgyCode_ObtainCount verifies the qty from --get <id>:<qty>
 // (qty > 1) is threaded into discount_layer.layers[0].obtain_count. Pairs
-// with --get-percent to also cover the percent obtain_type path.
+// with --get-percent-off to also cover the percent obtain_type path.
 func TestShortcut_BxgyCode_ObtainCount(t *testing.T) {
 	var receivedBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1169,7 +1205,7 @@ func TestShortcut_BxgyCode_ObtainCount(t *testing.T) {
 		"discounts", "+bxgy-code",
 		"--products", "gid_a", "--buy-quantity", "2",
 		"--get-products", "gid_b", "--get-quantity", "3",
-		"--get-percent", "50",
+		"--get-percent-off", "50",
 	)
 	if code != 0 {
 		t.Fatalf("unexpected exit code %d", code)
@@ -1178,7 +1214,7 @@ func TestShortcut_BxgyCode_ObtainCount(t *testing.T) {
 	discount, _ := receivedBody["discount"].(map[string]any)
 	layer, _ := discount["discount_layer"].(map[string]any)
 	if layer["obtain_type"] != "percent" {
-		t.Errorf("obtain_type = %v, want percent (with --get-percent)", layer["obtain_type"])
+		t.Errorf("obtain_type = %v, want percent (with --get-percent-off)", layer["obtain_type"])
 	}
 	layers, _ := layer["layers"].([]any)
 	if len(layers) != 1 {
@@ -1239,20 +1275,20 @@ func TestShortcut_BxgyCode_GetOff(t *testing.T) {
 }
 
 // TestShortcut_BxgyCode_GetDiscountAndGetOffMutex verifies that passing
-// both --get-percent and --get-off rejects with ExitValidation.
+// both --get-percent-off and --get-off rejects with ExitValidation.
 func TestShortcut_BxgyCode_GetDiscountAndGetOffMutex(t *testing.T) {
 	bin := buildBinary(t)
 	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+bxgy-code",
 		"--products", "gid_a", "--buy-quantity", "1",
 		"--get-products", "gid_b", "--get-quantity", "1",
-		"--get-percent", "50",
+		"--get-percent-off", "50",
 		"--get-off", "10",
 	)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (ExitValidation); stderr=%s", code, stderr)
 	}
-	if !strings.Contains(stderr, "--get-percent") || !strings.Contains(stderr, "--get-off") {
+	if !strings.Contains(stderr, "--get-percent-off") || !strings.Contains(stderr, "--get-off") {
 		t.Errorf("stderr does not name both flags: %s", stderr)
 	}
 }
@@ -1282,7 +1318,7 @@ func TestDiscountsRebate_ProductTarget_RequiresScope(t *testing.T) {
 	_, stderr, code := runCLI(t, bin, []string{"SHOPLAZZA_ACCESS_TOKEN=test_token", "SHOPLAZZA_CLI_API_BASE_URL=http://unused"},
 		"discounts", "+rebate",
 		"--target", "product",
-		"--tiers", "3:20",
+		"--tiers", "30:20",
 		// --products / --variants / --collections intentionally omitted.
 	)
 	if code != 2 {
@@ -1295,30 +1331,62 @@ func TestDiscountsRebate_ProductTarget_RequiresScope(t *testing.T) {
 
 // ── HTTP 500 error handling ───────────────────────────────────────────────────
 
-func TestDiscounts_HTTP500_JSONErrorEnvelope(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"error": "internal server error"})
-	}))
-	defer srv.Close()
-
+func TestDiscounts_HTTPErrorEnvelope(t *testing.T) {
 	bin := buildBinary(t)
-	env := apiEnv(srv.URL)
+	cases := []struct {
+		name        string
+		status      int
+		body        string
+		args        []string
+		wantCode    int
+		wantSubtype string
+		wantScopes  string
+	}{
+		{"500", 500, `{"error":"internal server error"}`, []string{"discounts", "list"}, 1, "", ""},
+		{"400 Unauthorized", 400, `"Unauthorized"`, []string{"discounts", "list"}, 3, "invalid_token", ""},
+		{"403 {} on a read", 403, `{}`, []string{"discounts", "list"}, 3, "missing_scope", "read_price_rules,write_price_rules"},
+		{"403 {} on a write", 403, `{}`, []string{"discounts", "cancel", "--data", `{"ids":["d1"]}`}, 3, "missing_scope", "read_price_rules,write_price_rules"},
+		{"403 {} on a read sent as POST", 403, `{}`, []string{"shop", "redirects", "search", "--data", `{"from_url":"/a"}`}, 3, "missing_scope", "read_shop_navigation,write_shop_navigation"},
+		{"403 {} on an unmapped path", 403, `{}`, []string{"api", "rest", "GET", "/openapi/2025-06/script_tags"}, 3, "missing_scope", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(c.status)
+				fmt.Fprint(w, c.body)
+			}))
+			defer srv.Close()
 
-	_, stderr, code := runCLI(t, bin, env, "discounts", "list")
-	if code == 0 {
-		t.Fatal("expected non-zero exit code on HTTP 500")
-	}
-
-	var envelope map[string]any
-	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &envelope); err != nil {
-		t.Fatalf("stderr is not JSON: %v\nstderr: %s", err, stderr)
-	}
-	if ok, _ := envelope["ok"].(bool); ok {
-		t.Error("envelope.ok should be false")
-	}
-	if envelope["error"] == nil {
-		t.Error("envelope.error field must be present")
+			_, stderr, code := runCLI(t, bin, apiEnv(srv.URL), c.args...)
+			if code != c.wantCode {
+				t.Fatalf("exit code = %d, want %d; stderr: %s", code, c.wantCode, stderr)
+			}
+			var envelope struct {
+				OK    bool           `json:"ok"`
+				Error map[string]any `json:"error"`
+			}
+			if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &envelope); err != nil {
+				t.Fatalf("stderr is not JSON: %v\nstderr: %s", err, stderr)
+			}
+			if envelope.OK || envelope.Error == nil {
+				t.Fatalf("want ok=false with an error object, got %s", stderr)
+			}
+			if got, _ := envelope.Error["subtype"].(string); got != c.wantSubtype {
+				t.Errorf("subtype = %q, want %q", got, c.wantSubtype)
+			}
+			var scopes []string
+			if raw, _ := envelope.Error["required_scopes"].([]any); raw != nil {
+				for _, s := range raw {
+					scopes = append(scopes, fmt.Sprint(s))
+				}
+			}
+			if got := strings.Join(scopes, ","); got != c.wantScopes {
+				t.Errorf("required_scopes = %q, want %q", got, c.wantScopes)
+			}
+			if hint, _ := envelope.Error["hint"].(string); c.wantSubtype == "missing_scope" && !strings.Contains(hint, "SHOPLAZZA_ACCESS_TOKEN") {
+				t.Errorf("hint = %q, want it to point at the injected token", hint)
+			}
+		})
 	}
 }

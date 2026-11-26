@@ -25,9 +25,9 @@ and the safety protocol. This file covers only the customers domain and never re
 The `customers` module manages customer (buyer) profiles and their shipping addresses. All
 three access tiers apply (tier-selection rule is in shoplazza-common — prefer `+shortcut`).
 
-Shortcuts are **`+create` and `+search` only**. There is **no `+count`** — counting is the
-`count` spec leaf — and no `+update` / `+delete`; updates are the `update` leaf, and this
-module has **no customer-delete command at all** (only addresses have `delete`).
+Shortcuts are **`+create`, `+search` and `+count`**. There is no `+update` / `+delete`; updates
+are the `update` leaf, and this module has **no customer-delete command at all** (only addresses
+have `delete`).
 
 ## Command map
 
@@ -38,7 +38,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 |-------------|---------|
 | Create a customer | `customers +create (--email <e> \| --phone <p>) [--first-name --last-name --tags --no-marketing]` |
 | Find customer by email / phone | `customers +search --email <e>` / `customers +search --phone <p>` |
-| Total customer count | `customers count` (leaf — there is NO `+count`) |
+| Total customer count | `customers +count` (store total; takes no filters) |
 | Get one customer by ID | `customers get --params '{"customer_id":"<id>"}'` |
 | List / filter customers (cursor paging, ids, contact) | `customers list --params '{…}'` |
 | Update name / tags / marketing subscription | `customers update --params '{"customer_id":"<id>"}' --data '{"customer":{…}}'` |
@@ -66,10 +66,10 @@ question:
 | User says | Command | How to extract values |
 |---|---|---|
 | 新建客户 / 建个客户档案 / add a new customer | `+create` | exactly ONE of `--email` / `--phone`; a full name like "Jane Doe" splits into `--first-name Jane --last-name Doe` |
-| 不要订阅营销 / 不订阅邮件 / don't subscribe to marketing | `+create … --no-marketing` | default is subscribe — the flag MUST be set on explicit opt-out wording |
+| 不要订阅营销 / 不订阅邮件 / don't subscribe to marketing | `+create … --no-marketing` | default subscribes to email and leaves SMS to the store default; the flag turns off both — it MUST be set on explicit opt-out wording; on email-only wording (不订阅邮件) tell the user SMS marketing is off too |
 | 按邮箱查客户 / find the customer by email | `+search --email <e>` | the ask is the customer record, not their orders |
 | 按手机号查客户 / look up by phone | `+search --phone <p>` | do not invent `--since`/`--until` time bounds |
-| 一共多少客户 / 注册客户数 / how many customers | `count` | leaf, no flags; extract with `--jq '.data.count'` |
+| 一共多少客户 / 注册客户数 / how many customers | `+count` | no flags; extract with `--jq '.data.count'` |
 | 给客户 X 打标签 / tag customer X | `update` | tags is a WHOLE-ARRAY replace — read-merge-write (see Gotchas) |
 | 退订邮件营销 / unsubscribe email marketing | `update` with `{"customer":{"accepts_marketing":false}}` | email only — do NOT touch `accepts_sms_marketing` |
 | 退订短信营销 / unsubscribe SMS marketing | `update` with `{"customer":{"accepts_sms_marketing":false}}` | SMS only — do NOT touch `accepts_marketing` |
@@ -115,7 +115,7 @@ in shoplazza-common → Authentication.
 
 | Operation | Needs | Grant |
 |---|---|---|
-| read (`get` / `list` / `count` / `+search` / `addresses get\|list`) | `customers` read scope | `auth login --domain customers` |
+| read (`get` / `list` / `count` / `+search` / `+count` / `addresses get\|list`) | `customers` read scope | `auth login --domain customers` |
 | write (`+create` / `create` / `update` / `addresses create\|update\|delete\|set-default`) | `customers` write scope | `auth login --domain customers` |
 
 Look up exact scope literals with `shoplazza auth scopes`; `--domain customers` expands into them.
@@ -127,29 +127,30 @@ shoplazza-common).
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `customers +count` → unknown command | Shortcuts are `+create`/`+search` only (unlike products/orders, customers has no `+count`) | `customers count` (leaf), extract with `--jq '.data.count'` — never list-and-count manually |
+| Wanted a filtered count (e.g. customers who signed up this month) | `+count` takes no filters — the count endpoint returns the store total only | Page through `+search` with the filter (`--page-limit 250`, then `--cursor <.data.cursor>` while `has_more` is `true`) and count the rows |
 | `+create` rejected: "exactly one of --email or --phone is required" | Strict XOR — both given, or neither | Pass exactly one; if the user gave neither, ASK — never fabricate contact info |
 | Spec-leaf `create` fails without `contact_type` | The leaf body requires `contact_type`; `+create` fills it automatically (`email` / `phone` to match the flag) | Prefer `+create`; on the leaf, set `"contact_type"` to match the identifier you send |
 | Customer's old tags vanished after tagging | `update` `tags` REPLACES the whole array | Read-merge-write: `get` current tags, append, then `update` with the merged array |
-| Unsubscribed more than the user asked | Email (`accepts_marketing`) and SMS (`accepts_sms_marketing`) are separate booleans | Change only the one named; leave the other out of the body |
+| Unsubscribed more than the user asked | Email (`accepts_marketing`) and SMS (`accepts_sms_marketing`) are separate booleans | On `update`, change only the one named; leave the other out of the body |
 | Tried to change email / phone via `update` | The update body only accepts `first_name` / `last_name` / `accepts_marketing` / `accepts_sms_marketing` / `tags` | Not expressible via `update` — check `schema customers.update` |
-| Leaf `list` ignores a `phone` param | `list` documents `email` and `contact` query params, not `phone` | Prefer `+search --phone` (it sends `contact`); on the leaf use `"contact"` (matches the customer's primary contact — email or phone) |
+| Leaf `list` rejects a `phone` param (exit 2, `unknown_param`) | `list` takes `email` and `contact` query params, not `phone` | Prefer `+search --phone` (it sends `contact`); on the leaf use `"contact"` (matches the customer's primary contact — email or phone) |
 | `unknown flag: --fields` on `customers +search` | The customers list endpoint documents no `fields` param, so the flag was removed rather than left as a silent no-op | Project with `--jq` |
 | Wanted to delete a customer | No customer-delete command exists in this module (only `addresses delete`) | Not expressible at tiers 1–2; confirm an endpoint exists before reaching for `api rest` |
 | Set default via `addresses update` with `"default":true` | A dedicated endpoint owns this | `addresses set-default --params '{"customer_id":…,"address_id":…}'` — path params only, no `--data` |
 | `+search --since/--until` returns "wrong" customers | They map to `created_at_min`/`created_at_max` — bounds on the customer's CREATION time | Only pass them when the user asks for a signup-time window |
+| `invalid --since` / `--until` (exit 2) | Accepted: `now`, `today`, `yesterday`, `-7d` / `+12h`, `2026-09-01`, `2026-09-01 08:00`, RFC3339, unix seconds; no offset = UTC | Rewrite the value in one of those forms; for a store-local day give a time and the store's offset (`2026-09-01T00:00:00+08:00`) — a bare date takes no offset |
 
 ## Recipes
 
 ```bash
-# 1. New customer with email, opted out of marketing emails
+# 1. New customer with email, opted out of email and SMS marketing
 customers +create --email jane.doe@example.com --first-name Jane --last-name Doe --no-marketing
 
 # 2. Find a customer by phone (project with --jq; +search has no --fields)
 customers +search --phone 13800138000 --jq '.data.customers[] | {id, name, email, phone}'
 
 # 3. Total registered customers
-customers count --jq '.data.count'
+customers +count --jq '.data.count'
 
 # 4. Tag customer 424242 as VIP without clobbering existing tags (read-merge-write)
 customers get --params '{"customer_id":"424242"}' --jq '.data.customer.tags'

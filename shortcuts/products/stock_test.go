@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -84,24 +85,6 @@ func TestExtractDefaultLocationID_OK(t *testing.T) {
 	}
 }
 
-func TestTranslateAdjustError_NegativeStockTranslated(t *testing.T) {
-	httpErr := &client.HTTPError{
-		StatusCode: 422,
-		Body:       `{"error":"insufficient_stock","current_stock":5}`,
-	}
-	got := translateAdjustError(httpErr)
-	var exit *output.ExitError
-	if !errors.As(got, &exit) {
-		t.Fatalf("expected ExitError, got %T", got)
-	}
-	if exit.Code != output.ExitValidation {
-		t.Errorf("Code: got %v want ExitValidation", exit.Code)
-	}
-	if !strings.Contains(exit.Error(), "5") {
-		t.Errorf("error string should include current_stock=5; got: %q", exit.Error())
-	}
-}
-
 func TestPlaceholderOr(t *testing.T) {
 	if got := placeholderOr("real", "<ph>"); got != "real" {
 		t.Errorf("non-empty: got %q want real", got)
@@ -111,16 +94,16 @@ func TestPlaceholderOr(t *testing.T) {
 	}
 }
 
-func TestLevelRowFor_MatchAndCount(t *testing.T) {
+func TestLevelRowFor_Match(t *testing.T) {
 	resp := map[string]any{
 		"inventory_levels": []any{
 			map[string]any{"location_id": "loc-1", "stock": float64(42)},
 			map[string]any{"location_id": "loc-2", "stock": float64(7)},
 		},
 	}
-	row, n, err := levelRowFor(resp, "loc-2")
-	if err != nil || n != 2 {
-		t.Fatalf("got (n=%d, %v) want (2, nil)", n, err)
+	row, err := levelRowFor(resp, "loc-2")
+	if err != nil {
+		t.Fatalf("levelRowFor: %v", err)
 	}
 	if row == nil || asString(row["location_id"]) != "loc-2" {
 		t.Errorf("row: got %v want loc-2", row)
@@ -133,9 +116,9 @@ func TestLevelRowFor_NoMatch(t *testing.T) {
 			map[string]any{"location_id": "loc-1", "stock": float64(42)},
 		},
 	}
-	row, n, err := levelRowFor(resp, "loc-9")
-	if err != nil || n != 1 || row != nil {
-		t.Errorf("got (row=%v, n=%d, %v) want (nil, 1, nil)", row, n, err)
+	row, err := levelRowFor(resp, "loc-9")
+	if err != nil || row != nil {
+		t.Errorf("got (row=%v, %v) want (nil, nil)", row, err)
 	}
 }
 
@@ -145,14 +128,14 @@ func TestLevelRowFor_NumericLocationID(t *testing.T) {
 			map[string]any{"location_id": json.Number("583169022443404898"), "stock": float64(3)},
 		},
 	}
-	row, _, err := levelRowFor(resp, "583169022443404898")
+	row, err := levelRowFor(resp, "583169022443404898")
 	if err != nil || row == nil {
 		t.Errorf("numeric location_id should match its decimal string; got (%v, %v)", row, err)
 	}
 }
 
 func TestLevelRowFor_MissingKey(t *testing.T) {
-	if _, _, err := levelRowFor(map[string]any{}, "loc-1"); err == nil {
+	if _, err := levelRowFor(map[string]any{}, "loc-1"); err == nil {
 		t.Error("expected error when inventory_levels key missing")
 	}
 }
@@ -251,40 +234,6 @@ func TestExtractDefaultLocationID_MissingID(t *testing.T) {
 	}
 }
 
-// ── translateAdjustError ──────────────────────────────────────────────────────
-
-func TestTranslateAdjustError_NonHTTP(t *testing.T) {
-	orig := errors.New("network failure")
-	got := translateAdjustError(orig)
-	if got != orig {
-		t.Errorf("non-HTTP should pass through; got %T", got)
-	}
-}
-
-func TestTranslateAdjustError_Non422(t *testing.T) {
-	orig := &client.HTTPError{StatusCode: 500, Body: "server error"}
-	got := translateAdjustError(orig)
-	if got != orig {
-		t.Errorf("non-422 should pass through; got %T", got)
-	}
-}
-
-func TestTranslateAdjustError_422WithCurrentStock(t *testing.T) {
-	orig := &client.HTTPError{StatusCode: 422, Body: `{"current_stock":0}`}
-	got := translateAdjustError(orig)
-	if got == orig {
-		t.Error("422 with current_stock should be reclassified")
-	}
-}
-
-func TestTranslateAdjustError_422Generic(t *testing.T) {
-	orig := &client.HTTPError{StatusCode: 422, Body: `{"error":"invalid"}`}
-	got := translateAdjustError(orig)
-	if got == orig {
-		t.Error("generic 422 should be reclassified")
-	}
-}
-
 func TestExtractInventoryItemID_NonMapItem(t *testing.T) {
 	resp := map[string]any{"variant_inventory_items": []any{"not-a-map"}}
 	_, err := extractInventoryItemID(resp)
@@ -311,28 +260,37 @@ func stockInputWithClient(t *testing.T, values map[string]string, baseURL string
 
 func stockBrokerServer(t *testing.T, opts stockBrokerOpts, calls *[]string) *httptest.Server {
 	t.Helper()
-	variantPut := false
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		path := r.URL.Path
-		*calls = append(*calls, r.Method+" "+path)
+		raw, _ := io.ReadAll(r.Body)
+		*calls = append(*calls, strings.TrimSpace(r.Method+" "+path+" "+string(raw)))
 		switch {
 		case strings.HasSuffix(path, "/inventory_items/variant"):
 			json.NewEncoder(w).Encode(map[string]any{"variant_inventory_items": []any{
 				map[string]any{"inventory_item_id": "ii-1", "variant_id": "v-1"},
 			}})
+		case strings.HasSuffix(path, "/inventory_items/ii-1") && r.Method == http.MethodGet:
+			item := map[string]any{"id": "ii-1"}
+			if !opts.untracked {
+				item["tracking"] = true
+			}
+			json.NewEncoder(w).Encode(map[string]any{"inventory_item": item})
 		case strings.HasSuffix(path, "/locations/default"):
 			json.NewEncoder(w).Encode(map[string]any{"location": map[string]any{"id": opts.defaultLoc}})
 		case strings.HasSuffix(path, "/inventory_levels") && r.Method == http.MethodGet:
-			rows := opts.levels
-			if variantPut {
-				rows = []map[string]any{{"location_id": opts.defaultLoc, "stock": opts.afterStock}}
-			}
-			json.NewEncoder(w).Encode(map[string]any{"inventory_levels": rows})
+			json.NewEncoder(w).Encode(map[string]any{"inventory_levels": opts.levels})
 		case strings.HasSuffix(path, "/inventory_levels") && r.Method == http.MethodPut:
+			if opts.adjustStatus != 0 {
+				w.Header().Set("Request-Id", "req-422")
+				w.WriteHeader(opts.adjustStatus)
+				w.Write([]byte(`{"code":"Unprocessable","message":"rejected"}`))
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]any{"inventory_level": map[string]any{"location_id": opts.defaultLoc}})
+		case strings.HasSuffix(path, "/inventory_levels/set") && r.Method == http.MethodPost:
 			json.NewEncoder(w).Encode(map[string]any{"inventory_level": map[string]any{"location_id": opts.defaultLoc}})
 		case strings.Contains(path, "/variants/") && r.Method == http.MethodPut:
-			variantPut = true
 			json.NewEncoder(w).Encode(map[string]any{"variant": map[string]any{"id": "v-1"}})
 		default:
 			t.Errorf("unexpected call: %s %s", r.Method, path)
@@ -341,11 +299,12 @@ func stockBrokerServer(t *testing.T, opts stockBrokerOpts, calls *[]string) *htt
 	}))
 }
 
-// stockBrokerServer mocks the four endpoints the slow path touches.
+// stockBrokerServer mocks the endpoints +stock touches.
 type stockBrokerOpts struct {
-	defaultLoc string
-	levels     []map[string]any // rows returned by GET /inventory_levels
-	afterStock int              // stock reported on the re-read after a variant PUT
+	defaultLoc   string
+	levels       []map[string]any // rows returned by GET /inventory_levels
+	untracked    bool
+	adjustStatus int // non-zero: PUT /inventory_levels fails with this status
 }
 
 // planQueryString renders a plan's query values for substring assertions.
@@ -465,15 +424,6 @@ func TestStockExecute_SetAdjustRefusals(t *testing.T) {
 	}
 }
 
-func TestStockExecute_SetNegativeErrors(t *testing.T) {
-	in := newProductExecInput(t, stockExecFlags, map[string]string{
-		"variant-id": "v-1", "set": "-1",
-	}, false)
-	if _, err := stockShortcut.Execute(context.Background(), in); err == nil {
-		t.Error("expected error when --set is negative")
-	}
-}
-
 // Dry-run previews the whole chain: a lookup plus the write. --set previews
 // one more step than --adjust because it must read the current level first.
 func TestStockExecute_DryRunPlanCount(t *testing.T) {
@@ -482,9 +432,11 @@ func TestStockExecute_DryRunPlanCount(t *testing.T) {
 		flags     map[string]string
 		wantPlans int
 	}{
-		{"adjust, no location", map[string]string{"variant-id": "v-1", "adjust": "5"}, 2},
-		{"adjust, with location", map[string]string{"variant-id": "v-1", "adjust": "3", "location-id": "loc-1"}, 2},
-		{"set, no location", map[string]string{"variant-id": "v-1", "set": "10"}, 3},
+		{"adjust, no location", map[string]string{"variant-id": "v-1", "adjust": "5"}, 5},
+		{"adjust, with location", map[string]string{"variant-id": "v-1", "adjust": "3", "location-id": "loc-1"}, 4},
+		{"adjust negative, no location", map[string]string{"variant-id": "v-1", "adjust": "-3"}, 5},
+		{"set, no location", map[string]string{"variant-id": "v-1", "set": "10"}, 6},
+		{"set negative", map[string]string{"variant-id": "v-1", "set": "-1"}, 6},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -493,14 +445,26 @@ func TestStockExecute_DryRunPlanCount(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Execute: %v", err)
 			}
-			if len(result.Plans) < c.wantPlans {
-				t.Errorf("expected ≥%d plans, got %d", c.wantPlans, len(result.Plans))
+			if len(result.Plans) != c.wantPlans {
+				t.Errorf("expected %d plans, got %d", c.wantPlans, len(result.Plans))
+			}
+			sawItemGet := false
+			for _, p := range result.Plans {
+				if p.Method == "GET" && strings.HasSuffix(p.Path, "/inventory_items/"+stepRef(0)) {
+					sawItemGet = true
+				}
+				if strings.Contains(p.Path, "/variants/") {
+					t.Errorf("dry-run should not preview a variant write, got %+v", p)
+				}
+			}
+			if !sawItemGet {
+				t.Errorf("dry-run should preview GET /inventory_items/%s, plans: %+v", stepRef(0), result.Plans)
 			}
 		})
 	}
 }
 
-func TestStockExecute_AdjustNegativeDryRun_PreviewsVariantPut(t *testing.T) {
+func TestStockExecute_AdjustNegativeDryRun_PreviewsSetStock(t *testing.T) {
 	in := newProductExecInput(t, stockExecFlags, map[string]string{
 		"variant-id": "v-1", "adjust": "-3",
 	}, true)
@@ -509,88 +473,115 @@ func TestStockExecute_AdjustNegativeDryRun_PreviewsVariantPut(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	last := result.Plans[len(result.Plans)-1]
-	if last.Method != "PUT" || !strings.HasSuffix(last.Path, "/variants/v-1") {
-		t.Errorf("decrement preview should end on PUT /variants/v-1, got %+v", last)
+	body, _ := last.Body.(map[string]any)
+	if last.Method != "POST" || !strings.HasSuffix(last.Path, "/inventory_levels/set") || body["stock"] != -3 {
+		t.Errorf("decrease preview should end on POST /inventory_levels/set with stock -3, got %+v", last)
 	}
 }
 
-func TestStockExecute_SetLower_DecrementsViaVariantPut(t *testing.T) {
+func TestStockExecute_DecreaseViaSetStock(t *testing.T) {
+	cases := []struct {
+		name   string
+		flags  map[string]string
+		levels []map[string]any
+		want   string
+	}{
+		{"set lower", map[string]string{"set": "4"}, []map[string]any{{"location_id": "loc-1", "stock": 10}},
+			`{"inventory_item_id":"ii-1","location_id":"loc-1","stock":-6}`},
+		{"set negative", map[string]string{"set": "-3"}, []map[string]any{{"location_id": "loc-1", "stock": 2}},
+			`{"inventory_item_id":"ii-1","location_id":"loc-1","stock":-5}`},
+		{"multi-location", map[string]string{"set": "1"}, []map[string]any{{"location_id": "loc-1", "stock": 9}, {"location_id": "loc-2", "stock": 3}},
+			`{"inventory_item_id":"ii-1","location_id":"loc-1","stock":-8}`},
+		{"adjust below zero", map[string]string{"adjust": "-8"}, []map[string]any{{"location_id": "loc-1", "stock": 5}},
+			`{"inventory_item_id":"ii-1","location_id":"loc-1","stock":-8}`},
+		{"non-default location", map[string]string{"adjust": "-3", "location-id": "loc-2"}, []map[string]any{{"location_id": "loc-2", "stock": 9}},
+			`{"inventory_item_id":"ii-1","location_id":"loc-2","stock":-3}`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var calls []string
+			srv := stockBrokerServer(t, stockBrokerOpts{defaultLoc: "loc-1", levels: c.levels}, &calls)
+			defer srv.Close()
+
+			c.flags["variant-id"] = "v-1"
+			result, err := stockShortcut.Execute(context.Background(), stockInputWithClient(t, c.flags, srv.URL))
+			if err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+			var writes []string
+			for _, call := range calls {
+				if !strings.HasPrefix(call, "GET") {
+					writes = append(writes, call)
+				}
+			}
+			if len(writes) != 1 || !strings.HasSuffix(writes[0], "/inventory_levels/set "+c.want) {
+				t.Errorf("writes: got %q want one POST /inventory_levels/set %s", writes, c.want)
+			}
+			if _, ok := result.Body["inventory_level"]; !ok {
+				t.Errorf("want the inventory_level response, got %v", result.Body)
+			}
+		})
+	}
+}
+
+func TestStockExecute_APIErrorPassesThrough(t *testing.T) {
 	var calls []string
 	srv := stockBrokerServer(t, stockBrokerOpts{
-		defaultLoc: "loc-1",
-		levels:     []map[string]any{{"location_id": "loc-1", "stock": 10}},
-		afterStock: 4,
+		defaultLoc:   "loc-1",
+		levels:       []map[string]any{{"location_id": "loc-1", "stock": 0}},
+		adjustStatus: 422,
 	}, &calls)
 	defer srv.Close()
 
-	in := stockInputWithClient(t, map[string]string{"variant-id": "v-1", "set": "4"}, srv.URL)
-	result, err := stockShortcut.Execute(context.Background(), in)
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	sawVariantPut := false
-	for _, c := range calls {
-		if strings.HasPrefix(c, "PUT") && strings.Contains(c, "/variants/v-1") {
-			sawVariantPut = true
-		}
-	}
-	if !sawVariantPut {
-		t.Errorf("expected PUT /variants/v-1, calls: %v", calls)
-	}
-	level, _ := result.Body["inventory_level"].(map[string]any)
-	if got, _ := asInt(level["stock"]); got != 4 {
-		t.Errorf("returned stock: got %v want 4", level["stock"])
+	_, err := stockShortcut.Execute(context.Background(), stockInputWithClient(t, map[string]string{"variant-id": "v-1", "adjust": "5"}, srv.URL))
+	var httpErr *client.HTTPError
+	if !errors.As(err, &httpErr) || httpErr.StatusCode != 422 || httpErr.RequestID != "req-422" {
+		t.Errorf("want the 422 HTTPError with its request id, got %#v", err)
 	}
 }
 
-func TestStockExecute_AdjustNegative_BelowZeroErrors(t *testing.T) {
-	var calls []string
-	srv := stockBrokerServer(t, stockBrokerOpts{
-		defaultLoc: "loc-1",
-		levels:     []map[string]any{{"location_id": "loc-1", "stock": 5}},
-	}, &calls)
-	defer srv.Close()
+func TestStockExecute_RefusedBeforeWrite(t *testing.T) {
+	const untracked = "this variant's product does not track inventory, so its stock cannot be changed"
+	const notStocked = "this variant is not stocked at location loc-2 (stocked at: loc-1)"
+	cases := []struct {
+		name      string
+		flags     map[string]string
+		untracked bool
+		wantMsg   string
+	}{
+		{"untracked decrease", map[string]string{"set": "4"}, true, untracked},
+		{"untracked add", map[string]string{"adjust": "2"}, true, untracked},
+		{"not stocked, set", map[string]string{"set": "4", "location-id": "loc-2"}, false, notStocked},
+		{"not stocked, add", map[string]string{"adjust": "2", "location-id": "loc-2"}, false, notStocked},
+		{"not stocked, subtract", map[string]string{"adjust": "-2", "location-id": "loc-2"}, false, notStocked},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var calls []string
+			srv := stockBrokerServer(t, stockBrokerOpts{
+				defaultLoc: "loc-1",
+				levels:     []map[string]any{{"location_id": "loc-1", "stock": 10}},
+				untracked:  c.untracked,
+			}, &calls)
+			defer srv.Close()
 
-	in := stockInputWithClient(t, map[string]string{"variant-id": "v-1", "adjust": "-8"}, srv.URL)
-	_, err := stockShortcut.Execute(context.Background(), in)
-	if err == nil || !strings.Contains(err.Error(), "below 0") {
-		t.Errorf("expected below-0 validation error, got %v", err)
+			c.flags["variant-id"] = "v-1"
+			_, err := stockShortcut.Execute(context.Background(), stockInputWithClient(t, c.flags, srv.URL))
+			var ee *output.ExitError
+			if !errors.As(err, &ee) || ee.Code != output.ExitValidation || ee.Detail.Message != c.wantMsg {
+				t.Fatalf("want validation error %q, got %v", c.wantMsg, err)
+			}
+			if c.wantMsg == notStocked && (ee.Detail.Param != "--location-id" || !strings.Contains(ee.Detail.Hint, `create-level --data '{"inventory_item_id":"ii-1","location_id":"loc-2"}'`)) {
+				t.Errorf("want --location-id and a create-level hint, got param=%q hint=%q", ee.Detail.Param, ee.Detail.Hint)
+			}
+			for _, call := range calls {
+				if !strings.HasPrefix(call, "GET") {
+					t.Errorf("no write should be sent, calls: %v", calls)
+				}
+			}
+		})
 	}
 }
-
-func TestStockExecute_Decrement_NonDefaultLocationErrors(t *testing.T) {
-	var calls []string
-	srv := stockBrokerServer(t, stockBrokerOpts{
-		defaultLoc: "loc-1",
-		levels:     []map[string]any{{"location_id": "loc-2", "stock": 9}},
-	}, &calls)
-	defer srv.Close()
-
-	in := stockInputWithClient(t, map[string]string{"variant-id": "v-1", "adjust": "-3", "location-id": "loc-2"}, srv.URL)
-	_, err := stockShortcut.Execute(context.Background(), in)
-	if err == nil || !strings.Contains(err.Error(), "default location") {
-		t.Errorf("expected default-location gate, got %v", err)
-	}
-}
-
-func TestStockExecute_Decrement_MultiLocationErrors(t *testing.T) {
-	var calls []string
-	srv := stockBrokerServer(t, stockBrokerOpts{
-		defaultLoc: "loc-1",
-		levels: []map[string]any{
-			{"location_id": "loc-1", "stock": 9},
-			{"location_id": "loc-2", "stock": 3},
-		},
-	}, &calls)
-	defer srv.Close()
-
-	in := stockInputWithClient(t, map[string]string{"variant-id": "v-1", "adjust": "-3"}, srv.URL)
-	_, err := stockShortcut.Execute(context.Background(), in)
-	if err == nil || !strings.Contains(err.Error(), "multiple locations") {
-		t.Errorf("expected multi-location gate, got %v", err)
-	}
-}
-
 func TestStockExecute_SetHigher_AddsViaInventoryLevels(t *testing.T) {
 	var calls []string
 	srv := stockBrokerServer(t, stockBrokerOpts{

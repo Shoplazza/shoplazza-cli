@@ -66,6 +66,25 @@ func TestResolveTemplatedPath_SingleParam(t *testing.T) {
 	}
 }
 
+func TestResolveTemplatedPath_EscapesValues(t *testing.T) {
+	for _, c := range []struct{ value, want string }{
+		{"1001", "/orders/number/1001"},
+		{"#1001", "/orders/number/%231001"},
+		{"1001?x=1", "/orders/number/1001%3Fx=1"},
+		{"50%", "/orders/number/50%25"},
+		{"100 1", "/orders/number/100%201"},
+		{"café", "/orders/number/caf%C3%A9"},
+		{"img/2026/a.png", "/orders/number/img%2F2026%2Fa.png"},
+		{"https://cdn.x/a/b.jpg", "/orders/number/https:%2F%2Fcdn.x%2Fa%2Fb.jpg"},
+		{"../../products/123", "/orders/number/..%2F..%2Fproducts%2F123"},
+	} {
+		path, _, err := rawapi.ResolveTemplatedPath("/orders/number/{number}", map[string]any{"number": c.value})
+		if err != nil || path != c.want {
+			t.Errorf("%q: path = %q, err = %v; want %q", c.value, path, err, c.want)
+		}
+	}
+}
+
 func TestResolveTemplatedPath_MissingParam(t *testing.T) {
 	_, _, err := rawapi.ResolveTemplatedPath("/openapi/products/{id}", nil)
 	if err == nil {

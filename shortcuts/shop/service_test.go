@@ -6,7 +6,7 @@ import (
 )
 
 func TestPlanFileUpload_Shape(t *testing.T) {
-	p := PlanFileUpload([]string{"https://example.com/img.jpg"}, "images")
+	p := PlanFileUpload([]string{"https://example.com/img.jpg"})
 	if p.Method != "POST" {
 		t.Errorf("Method: got %q want POST", p.Method)
 	}
@@ -17,23 +17,12 @@ func TestPlanFileUpload_Shape(t *testing.T) {
 	if !ok {
 		t.Fatalf("Body not map[string]any: %T", p.Body)
 	}
-	if b["folder"] != "images" {
-		t.Errorf("folder: got %v want images", b["folder"])
+	if len(b) != 1 {
+		t.Errorf("Body: got %v want only original_source_list", b)
 	}
 	urls, _ := b["original_source_list"].([]string)
 	if len(urls) != 1 || urls[0] != "https://example.com/img.jpg" {
 		t.Errorf("original_source_list: %v", b["original_source_list"])
-	}
-}
-
-func TestPlanFileUpload_NoFolder(t *testing.T) {
-	p := PlanFileUpload([]string{"https://example.com/img.jpg"}, "")
-	b, ok := p.Body.(map[string]any)
-	if !ok {
-		t.Fatalf("Body not map[string]any: %T", p.Body)
-	}
-	if _, exists := b["folder"]; exists {
-		t.Error("folder key should be absent when empty")
 	}
 }
 

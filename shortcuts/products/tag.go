@@ -16,22 +16,22 @@ import (
 var tagShortcut = common.Shortcut{
 	Service: "products",
 	Command: "+tag",
-	Use:     "+tag --id <product-id> (--add a,b | --remove c,d | --set x,y,z)",
+	Use:     "+tag --product-id <id> (--add a,b | --remove c,d | --set x,y,z)",
 	Short:   "Add or remove product tags without clobbering the existing ones",
 	Long:    "Add, remove, or replace a product's tags while preserving the rest; run --dry-run first to preview the request.",
 	Example: `  # Preview adding tags (existing tags kept)
-  shoplazza products +tag --id 12345 --add summer,sale --dry-run
+  shoplazza products +tag --product-id 12345 --add summer,sale --dry-run
 
   # Replace all tags with exactly this list
-  shoplazza products +tag --id 12345 --set clearance`,
+  shoplazza products +tag --product-id 12345 --set clearance`,
 	Flags: []common.Flag{
-		common.IDFlag("Product ID (required).").WithPicker(productPicker),
+		common.IDFlag("product", "Product ID (required).").WithPicker(productPicker),
 		{Name: "add", Type: common.FlagStringSlice, Description: "Tags to add (comma-separated); existing tags are kept."},
 		{Name: "remove", Type: common.FlagStringSlice, Description: "Tags to remove (comma-separated); missing tags are ignored."},
 		{Name: "set", Type: common.FlagStringSlice, Description: "Replace all tags with exactly this list (mutually exclusive with --add/--remove)."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
-		id := strings.TrimSpace(in.Flags.GetString("id"))
+		id := strings.TrimSpace(in.Flags.GetString("product-id"))
 		gotSet := in.Flags.Changed("set")
 		gotAdd := in.Flags.Changed("add")
 		gotRemove := in.Flags.Changed("remove")

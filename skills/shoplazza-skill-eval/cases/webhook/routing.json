@@ -10,7 +10,7 @@
       "must_not_route_to": ["shoplazza-orders"],
       "semantic_rubric": ["If a command is named, it is webhook create with a fulfillment/shipping topic — subscribing to events, not performing an orders action"]
     },
-    "notes": "订单+通知 wording strongly smells like orders (+ship --notify notifies the BUYER); notifying an external system = webhook. Candidate for _routing/collisions.json."
+    "notes": "订单+通知 wording strongly smells like orders (+update-tracking --notify emails the BUYER); notifying an external system = webhook. Candidate for _routing/collisions.json."
   },
   {
     "case_id": "routing.webhook-02",

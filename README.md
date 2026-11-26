@@ -259,7 +259,7 @@ Prefixed with `+`, designed to be friendly for both humans and AI, with smart de
 
 ```bash
 shoplazza products +search --keyword "shirt"
-shoplazza discounts +percent-code --target order --percent 20 --code SAVE20
+shoplazza discounts +percent-code --target order --percent-off 20 --code SAVE20
 shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 
@@ -430,7 +430,7 @@ shoplazza doctor check      # diagnose CLI health
 | Variable | Description |
 |----------|-------------|
 | `SHOPLAZZA_UAT` | User Access Token for non-interactive login (equivalent to `--uat`) |
-| `SHOPLAZZA_ACCESS_TOKEN` | Use this store access token directly, skipping login (CI). Needs a store target: `SHOPLAZZA_CLI_API_BASE_URL` or a profile |
+| `SHOPLAZZA_ACCESS_TOKEN` | Use this store access token directly, skipping login (CI). Needs a store target: `SHOPLAZZA_CLI_API_BASE_URL` or a profile. Set but empty (or only spaces) is an error; unset it to use the saved login |
 | `SHOPLAZZA_CLI_API_BASE_URL` | Store base URL used with `SHOPLAZZA_ACCESS_TOKEN` (e.g. `https://my-store.myshoplazza.com`) |
 | `SHOPLAZZA_CLI_PROFILE` | Profile to use (overridden by `--profile`) |
 | `SHOPLAZZA_CLI_FORMAT` | Pin the default output format (`json`/`pretty`/`table`/`ndjson`/`csv`), overriding TTY auto-detection; `--format` still overrides it. Use `=json` to force machine output in a pty |

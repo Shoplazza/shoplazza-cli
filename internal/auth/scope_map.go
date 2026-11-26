@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
 )
 
 //go:embed scope_map.json
@@ -289,4 +291,17 @@ func allScopes() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// RequestScopes returns the read_/write_ scope pair of the resource a sent request acts on.
+func RequestScopes(method, path string) []string {
+	mod, cmd, ok := registry.LoadSpec().CommandForRequest(method, path)
+	if !ok {
+		return nil
+	}
+	key := mod.Name
+	if len(cmd.Path) > 1 {
+		key += "." + strings.Join(cmd.Path[:len(cmd.Path)-1], ".")
+	}
+	return ModuleScopes(key)
 }

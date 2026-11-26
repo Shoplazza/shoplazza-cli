@@ -33,23 +33,47 @@ func TestParseLineItemsArg_NonNumericQty(t *testing.T) {
 	}
 }
 
-func TestBuildShipBody_AllFulfillableByDefault(t *testing.T) {
-	order := map[string]any{
+func shippedOrder() map[string]any {
+	return map[string]any{
 		"line_items": []any{
-			map[string]any{"id": "li-1", "fulfillable_quantity": float64(2)},
-			map[string]any{"id": "li-2", "fulfillable_quantity": float64(1)},
+			map[string]any{"id": "li-1", "quantity": float64(7)},
+			map[string]any{"id": "li-2", "quantity": float64(1)},
+			map[string]any{"id": "li-3", "quantity": float64(7)},
+		},
+		"fulfillments": []any{
+			map[string]any{"status": "shipped", "line_items": []any{
+				map[string]any{"id": "li-1", "ship_quantity": float64(5)},
+				map[string]any{"id": "li-3", "ship_quantity": float64(7)},
+			}},
+			map[string]any{"status": "cancelled", "line_items": []any{
+				map[string]any{"id": "li-2", "ship_quantity": float64(1)},
+			}},
 		},
 	}
-	body, err := buildShipBody(order, "", "T1", "DHL", "", false)
+}
+
+func shipRefunds() []any {
+	return []any{
+		map[string]any{"refund_status": "finished", "refund_line_items": []any{
+			map[string]any{"line_item_id": "li-1", "refund_quantity": float64(1), "delete_quantity": float64(1)},
+			map[string]any{"line_item_id": "li-2", "refund_quantity": float64(1)},
+		}},
+		map[string]any{"refund_status": "pending", "refund_line_items": []any{
+			map[string]any{"line_item_id": "li-1", "refund_quantity": float64(1), "delete_quantity": float64(1)},
+		}},
+		map[string]any{"refund_status": "failed", "refund_line_items": []any{
+			map[string]any{"line_item_id": "li-2", "refund_quantity": float64(1), "delete_quantity": float64(1)},
+		}},
+	}
+}
+
+func TestShipLineItems_AllFulfillableByDefault(t *testing.T) {
+	items, err := shipLineItems(shippedOrder(), nil, "")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	items, ok := body["line_items"].([]map[string]any)
-	if !ok {
-		t.Fatalf("line_items not []map[string]any; got %T", body["line_items"])
-	}
 	if len(items) != 2 {
-		t.Fatalf("line_items len: got %d want 2", len(items))
+		t.Fatalf("fully shipped li-3 must be left out; got %v", items)
 	}
 	// Map iteration is non-deterministic — verify by id rather than index.
 	byID := map[string]int{}
@@ -59,22 +83,42 @@ func TestBuildShipBody_AllFulfillableByDefault(t *testing.T) {
 		byID[id] = qty
 	}
 	if byID["li-1"] != 2 || byID["li-2"] != 1 {
-		t.Errorf("expected li-1=2 li-2=1; got %v", byID)
+		t.Errorf("want ordered minus shipped, ignoring cancelled fulfillments: li-1=2 li-2=1; got %v", byID)
+	}
+
+	items, err = shipLineItems(shippedOrder(), shipRefunds(), "")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if len(items) != 1 || items[0]["id"] != "li-2" || items[0]["ship_quantity"] != 1 {
+		t.Errorf("li-1 is fully refunded (finished + pending); li-2's refund removed nothing and its failed one does not count; want only li-2:1, got %v", items)
+	}
+
+	order := shippedOrder()
+	order["line_items"] = order["line_items"].([]any)[2:]
+	if _, err := shipLineItems(order, nil, ""); err == nil || !strings.Contains(err.Error(), "already been shipped or refunded") {
+		t.Errorf("an order with nothing left to ship must be refused, got %v", err)
+	}
+	refunds := append(shipRefunds(), map[string]any{"refund_status": "pending", "refund_line_items": []any{
+		map[string]any{"line_item_id": "li-2", "refund_quantity": float64(1), "delete_quantity": float64(1)},
+	}})
+	if _, err := shipLineItems(shippedOrder(), refunds, ""); err == nil || !strings.Contains(err.Error(), "already been shipped or refunded") {
+		t.Errorf("an order whose rest is refunded must be refused, got %v", err)
 	}
 }
 
-func TestBuildShipBody_QtyExceedsFulfillable(t *testing.T) {
-	order := map[string]any{
-		"line_items": []any{
-			map[string]any{"id": "li-1", "fulfillable_quantity": float64(2)},
-		},
+func TestShipLineItems_QtyExceedsFulfillable(t *testing.T) {
+	if _, err := shipLineItems(shippedOrder(), shipRefunds(), "li-1:1"); err == nil || !strings.Contains(err.Error(), "only 0 left") {
+		t.Errorf("li-1 is fully refunded; want only 0 left, got %v", err)
 	}
-	_, err := buildShipBody(order, "li-1:5", "T1", "", "", false)
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
-	if !strings.Contains(err.Error(), "li-1") {
-		t.Errorf("error should mention the offending line item; got: %v", err)
+	for _, arg := range []string{"li-1:3", "li-3:1"} {
+		_, err := shipLineItems(shippedOrder(), nil, arg)
+		if err == nil {
+			t.Fatalf("%s: expected validation error", arg)
+		}
+		if !strings.Contains(err.Error(), arg[:4]) || !strings.Contains(err.Error(), "left to ship") {
+			t.Errorf("%s: error should name the line item and what is left to ship; got: %v", arg, err)
+		}
 	}
 }
 
@@ -90,6 +134,11 @@ func TestShipShortcut_DeclarativeFields(t *testing.T) {
 	}
 	if err := common.ValidateShortcut(shipShortcut); err != nil {
 		t.Errorf("ValidateShortcut: %v", err)
+	}
+	for _, f := range shipShortcut.Flags {
+		if f.Name == "notify" {
+			t.Error("+ship must not offer --notify: creating a fulfillment has no field to email the buyer")
+		}
 	}
 }
 
@@ -146,7 +195,7 @@ func TestAsInt(t *testing.T) {
 // ── extractFulfillableQuantities edge cases ───────────────────────────────────
 
 func TestExtractFulfillableQuantities_MissingLineItems(t *testing.T) {
-	_, err := extractFulfillableQuantities(map[string]any{"other": "val"})
+	_, err := extractFulfillableQuantities(map[string]any{"other": "val"}, nil)
 	if err == nil {
 		t.Error("expected error for missing line_items")
 	}
@@ -155,9 +204,9 @@ func TestExtractFulfillableQuantities_MissingLineItems(t *testing.T) {
 func TestExtractFulfillableQuantities_NonMapItem(t *testing.T) {
 	order := map[string]any{"line_items": []any{
 		"not-a-map",
-		map[string]any{"id": "li-1", "fulfillable_quantity": float64(3)},
+		map[string]any{"id": "li-1", "quantity": float64(3)},
 	}}
-	out, err := extractFulfillableQuantities(order)
+	out, err := extractFulfillableQuantities(order, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -168,9 +217,9 @@ func TestExtractFulfillableQuantities_NonMapItem(t *testing.T) {
 
 func TestExtractFulfillableQuantities_EmptyID(t *testing.T) {
 	order := map[string]any{"line_items": []any{
-		map[string]any{"id": "", "fulfillable_quantity": float64(1)},
+		map[string]any{"id": "", "quantity": float64(1)},
 	}}
-	out, err := extractFulfillableQuantities(order)
+	out, err := extractFulfillableQuantities(order, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -179,54 +228,31 @@ func TestExtractFulfillableQuantities_EmptyID(t *testing.T) {
 	}
 }
 
-func TestExtractFulfillableQuantities_QuantityFallback(t *testing.T) {
-	order := map[string]any{"line_items": []any{
-		map[string]any{"id": "li-1", "quantity": float64(5)},
-	}}
-	out, err := extractFulfillableQuantities(order)
+func TestExtractFulfillableQuantities_OrderedMinusShipped(t *testing.T) {
+	out, err := extractFulfillableQuantities(shippedOrder(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if out["li-1"] != 5 {
-		t.Errorf("quantity fallback: got %d want 5", out["li-1"])
+	want := map[string]int{"li-1": 2, "li-2": 1, "li-3": 0}
+	if len(out) != len(want) || out["li-1"] != 2 || out["li-2"] != 1 || out["li-3"] != 0 {
+		t.Errorf("got %v want %v", out, want)
 	}
-}
 
-func TestExtractFulfillableQuantities_BothZero(t *testing.T) {
-	order := map[string]any{"line_items": []any{
-		map[string]any{"id": "li-1", "fulfillable_quantity": float64(0), "quantity": float64(0)},
-	}}
-	out, err := extractFulfillableQuantities(order)
+	out, err = extractFulfillableQuantities(shippedOrder(), shipRefunds())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if _, ok := out["li-1"]; ok {
-		t.Error("zero-quantity item should be skipped")
+	if out["li-1"] != 0 || out["li-2"] != 1 || out["li-3"] != 0 {
+		t.Errorf("want delete_quantity of non-failed refunds subtracted: li-1=0 li-2=1 li-3=0; got %v", out)
 	}
 }
 
-// ── buildShipBody edge cases ──────────────────────────────────────────────────
+// ── shipLineItems edge cases ──────────────────────────────────────────────────
 
-func TestBuildShipBody_LineItemNotFound(t *testing.T) {
-	order := map[string]any{"line_items": []any{
-		map[string]any{"id": "li-1", "fulfillable_quantity": float64(2)},
-	}}
-	_, err := buildShipBody(order, "unknown-id:1", "T1", "", "", false)
+func TestShipLineItems_LineItemNotFound(t *testing.T) {
+	_, err := shipLineItems(shippedOrder(), nil, "unknown-id:1")
 	if err == nil {
 		t.Error("expected error for non-existent line item ID")
-	}
-}
-
-func TestBuildShipBody_NotifySetsEmailFlag(t *testing.T) {
-	order := map[string]any{"line_items": []any{
-		map[string]any{"id": "li-1", "fulfillable_quantity": float64(2)},
-	}}
-	body, err := buildShipBody(order, "", "T1", "", "", true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if body["send_email"] != true {
-		t.Errorf("send_email should be true when notify=true, got %v", body["send_email"])
 	}
 }
 
@@ -237,12 +263,9 @@ func TestParseLineItemsArg_ZeroQty(t *testing.T) {
 	}
 }
 
-var shipExecFlags = map[string]string{
-	"order-id": "string", "tracking": "string", "company": "string",
-	"company-code": "string", "line-items": "string", "notify": "bool",
-}
+var shipExecFlags = declaredFlags(shipShortcut)
 
-func TestShipExecute_DryRunReturnsTwoPlans(t *testing.T) {
+func TestShipExecute_DryRunPlans(t *testing.T) {
 	in := newOrderExecInput(t, shipExecFlags, map[string]string{
 		"order-id": "ord-1", "tracking": "TRK123",
 	}, true)
@@ -250,20 +273,32 @@ func TestShipExecute_DryRunReturnsTwoPlans(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if len(result.Plans) != 2 {
-		t.Errorf("expected 2 plans (GET + POST), got %d", len(result.Plans))
+	if len(result.Plans) != 3 {
+		t.Fatalf("expected 3 plans (GET order + GET refunds + POST), got %d", len(result.Plans))
+	}
+	if p := result.Plans[1]; p.Method != "GET" || !strings.HasSuffix(p.Path, "/orders/ord-1/refund") {
+		t.Errorf("second plan must read the order's refund records, got %s %s", p.Method, p.Path)
+	}
+	body := result.Plans[2].Body.(map[string]any)["fulfillment"].(map[string]any)
+	if body["line_items"] != resolvedFromOrder {
+		t.Errorf("without --line-items the preview must mark line_items as read from the order, got %v", body["line_items"])
 	}
 }
 
-func TestShipExecute_DryRunWithNotify(t *testing.T) {
+func TestShipExecute_DryRunBody(t *testing.T) {
 	in := newOrderExecInput(t, shipExecFlags, map[string]string{
-		"order-id": "ord-1", "tracking": "TRK123", "notify": "true",
+		"order-id": "ord-1", "tracking": "TRK123", "line-items": "li-1:1",
+		"company-code": "sf", "tracking-url": "https://t.example/TRK123",
 	}, true)
 	result, err := shipShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if len(result.Plans) != 2 {
-		t.Errorf("expected 2 plans, got %d", len(result.Plans))
+	body := result.Plans[2].Body.(map[string]any)["fulfillment"].(map[string]any)
+	if _, ok := body["send_email"]; ok {
+		t.Errorf("the create body must not carry send_email (the API has no such field): %v", body)
+	}
+	if body["tracking_company_code"] != "sf" || body["tracking_url"] != "https://t.example/TRK123" {
+		t.Errorf("--company-code / --tracking-url must reach the body: %v", body)
 	}
 }

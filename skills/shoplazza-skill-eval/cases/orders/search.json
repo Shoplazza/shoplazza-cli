@@ -15,7 +15,7 @@
       "must_ask": false,
       "semantic_rubric": [
         "还没发货 mapped to a valid fulfillment_status enum value — waiting (waiting to ship) per the orders.list schema; 'unfulfilled' is NOT a valid value",
-        "--since set to about 7 days before today (ISO date or unix ts); --until left open",
+        "--since set to about 7 days before today (a date, -7d, RFC3339 or unix seconds); --until left open",
         "uses orders +search, not the list leaf, when the shortcut expresses it"
       ]
     },
@@ -78,7 +78,7 @@
       "must_ask": false,
       "semantic_rubric": [
         "an order NUMBER (#...) goes to get-by-number; orders get expects the internal order ID — the two are not interchangeable",
-        "strips the leading # if the API expects the bare number",
+        "either strips the leading # or leaves it (the CLI drops it)",
         "any jq extraction starts at .data, without -r"
       ]
     },

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
+	"strings"
 	"syscall"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/api"
@@ -22,6 +24,7 @@ import (
 	themecmd "github.com/Shoplazza/shoplazza-cli/v2/cmd/theme"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/themeext"
 	"github.com/Shoplazza/shoplazza-cli/v2/cmd/update"
+	internalauth "github.com/Shoplazza/shoplazza-cli/v2/internal/auth"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/build"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/fsx"
@@ -32,6 +35,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // NewRootCmd assembles and returns the full root command tree without
@@ -84,7 +88,105 @@ add --dry-run to preview any request without sending it.`, spec.Version),
 
 	applyRootGroups(rootCmd)
 
+	// The root takes positional args so an unknown one reaches unknownSubcommand like any group's.
+	rootCmd.Args = cobra.ArbitraryArgs
+	// A group given an unknown subcommand prints nothing here; Execute reports it.
+	showHelp := rootCmd.HelpFunc()
+	rootCmd.SetHelpFunc(func(c *cobra.Command, args []string) {
+		if unknownSubcommand(c) == nil {
+			showHelp(c, args)
+		}
+	})
+	rootCmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
+		if e := unknownSubcommand(c); e != nil {
+			return e
+		}
+		return suggestFlag(c, err)
+	})
+
 	return rootCmd
+}
+
+// maxElsewhere caps the same-named commands suggested from other groups.
+const maxElsewhere = 3
+
+// unknownSubcommand reports the first positional arg left on a non-runnable command group.
+func unknownSubcommand(c *cobra.Command) *output.ExitError {
+	args := c.Flags().Args()
+	if c.Runnable() || !c.HasSubCommands() || len(args) == 0 {
+		return nil
+	}
+	return output.ErrValidation("unknown command %q for %q%s", args[0], c.CommandPath(), didYouMean(subcommandSuggestions(c, args))).
+		WithSubtype(output.SubtypeUnknownCommand).
+		WithHint("run '" + c.CommandPath() + " --help' to list available commands")
+}
+
+// subcommandSuggestions returns c's near-named subcommands, else the full paths of
+// commands elsewhere in the tree named args[0], followed down args[1:].
+func subcommandSuggestions(c *cobra.Command, args []string) []string {
+	if c.DisableSuggestions {
+		return nil
+	}
+	if c.SuggestionsMinimumDistance <= 0 {
+		c.SuggestionsMinimumDistance = 2
+	}
+	if s := c.SuggestionsFor(args[0]); len(s) > 0 {
+		return s
+	}
+	var paths []string
+	var walk func(*cobra.Command)
+	walk = func(parent *cobra.Command) {
+		for _, sub := range parent.Commands() {
+			if !sub.IsAvailableCommand() {
+				continue
+			}
+			if strings.EqualFold(sub.Name(), args[0]) {
+				if found, _, err := sub.Find(args[1:]); err == nil {
+					sub = found
+				}
+				paths = append(paths, sub.CommandPath())
+				continue
+			}
+			walk(sub)
+		}
+	}
+	walk(c.Root())
+	if len(paths) > maxElsewhere {
+		return nil
+	}
+	return paths
+}
+
+// suggestFlag appends c's near-named flags to an unknown --flag error, ranked by
+// cobra's subcommand rules through a throwaway command with one child per flag.
+func suggestFlag(c *cobra.Command, err error) error {
+	var notExist *pflag.NotExistError
+	if !errors.As(err, &notExist) || notExist.GetSpecifiedShortnames() != "" {
+		return err
+	}
+	probe := &cobra.Command{SuggestionsMinimumDistance: 2}
+	c.Flags().VisitAll(func(f *pflag.Flag) {
+		if !f.Hidden {
+			probe.AddCommand(&cobra.Command{Use: f.Name, Run: func(*cobra.Command, []string) {}})
+		}
+	})
+	var names []string
+	for _, name := range probe.SuggestionsFor(notExist.GetSpecifiedName()) {
+		if canonical := c.Flags().Lookup(name).Annotations[cmdutil.AnnotationCanonicalFlag]; len(canonical) > 0 {
+			name = canonical[0]
+		}
+		if !slices.Contains(names, "--"+name) {
+			names = append(names, "--"+name)
+		}
+	}
+	return fmt.Errorf("%w%s", err, didYouMean(names))
+}
+
+func didYouMean(suggestions []string) string {
+	if len(suggestions) == 0 {
+		return ""
+	}
+	return "\n\nDid you mean this?\n\t" + strings.Join(suggestions, "\n\t")
 }
 
 // defaultOutputFormat resolves the --format flag's default. Precedence:
@@ -185,7 +287,12 @@ func Execute() (exitCode int) {
 			build.DisplayVersion(), build.DisplayDate(), skillLine()))
 	}
 
-	execErr := rootCmd.ExecuteContext(ctx)
+	ran, execErr := rootCmd.ExecuteContextC(ctx)
+	if execErr == nil {
+		if err := unknownSubcommand(ran); err != nil {
+			execErr = err
+		}
+	}
 
 	var exitErr *output.ExitError
 	isExitErr := errors.As(execErr, &exitErr)
@@ -205,6 +312,7 @@ func Execute() (exitCode int) {
 		// agents still parse stderr as JSON. WriteError enforces both conditions.
 		format := cmdutil.GetFormat(rootCmd)
 		if isExitErr {
+			nameMissingScope(exitErr)
 			output.WriteError(os.Stderr, exitErr, format)
 			return exitErr.Code
 		}
@@ -218,4 +326,25 @@ func Execute() (exitCode int) {
 	}
 
 	return output.ExitOK
+}
+
+func nameMissingScope(e *output.ExitError) {
+	d := e.Detail
+	if d == nil || d.Subtype != output.SubtypeMissingScope || d.Detail == nil {
+		return
+	}
+	_, injected := os.LookupEnv(cmdutil.EnvAccessToken)
+	scopes := internalauth.RequestScopes(d.Detail.Method, d.Detail.Path)
+	if len(scopes) != 2 {
+		if injected {
+			d.Hint = "the token in " + cmdutil.EnvAccessToken + " lacks it: use a token granted the scope this endpoint needs"
+		}
+		return
+	}
+	d.Message = fmt.Sprintf("the access token lacks %s or %s", scopes[0], scopes[1])
+	d.Hint = fmt.Sprintf("run 'shoplazza auth login --scope %s --merge-scopes' to add them", strings.Join(scopes, ","))
+	if injected {
+		d.Hint = fmt.Sprintf("the token in %s lacks them: use a token granted %s and %s", cmdutil.EnvAccessToken, scopes[0], scopes[1])
+	}
+	e.WithField("required_scopes", scopes)
 }

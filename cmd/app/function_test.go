@@ -111,7 +111,7 @@ func TestFunctionListNoCurrentApp(t *testing.T) {
 	// Isolate keychain to a temp dir and seed UAT + partner token so requireLogin
 	// passes — the test checks the no-current-app branch, not the auth gate.
 	dir := testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("alice@co.com"), "uat_1"); err != nil {
 		t.Fatalf("keychain Set uat: %v", err)
 	}

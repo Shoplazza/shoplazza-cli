@@ -11,7 +11,7 @@
       "access_tier": "shortcut",
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
-        "--id 13579",
+        "--product-id 13579",
         "--add",
         "--new-price 19.99"
       ],
@@ -60,7 +60,7 @@
       "access_tier": "shortcut",
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
-        "--id 13579",
+        "--product-id 13579",
         "--remove",
         "--dry-run"
       ],
@@ -100,7 +100,7 @@
       ],
       "must_ask": false,
       "semantic_rubric": [
-        "two steps: products +create --price 29.99 (draft) first, then ONE products +set-variants --id <new-id> call with BOTH dimensions (--add \"Color:Black,White,Pink\" --add \"Size:S,M\")",
+        "two steps: products +create --price 29.99 (draft) first, then ONE products +set-variants --product-id <new-id> call with BOTH dimensions (--add \"Color:Black,White,Pink\" --add \"Size:S,M\")",
         "no --existing: a freshly created product has no dimension, its one variant takes the first values",
         "no price needed on +set-variants: every combination copies the price +create set",
         "does NOT hand-write a variants array on the products create leaf",
@@ -121,7 +121,7 @@
       "access_tier": "shortcut",
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
-        "--id 13579",
+        "--product-id 13579",
         "--set",
         "--dry-run"
       ],
@@ -154,7 +154,7 @@
       "access_tier": "shortcut",
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
-        "--id 13579",
+        "--product-id 13579",
         "--rename"
       ],
       "flags_must_not_contain": [
@@ -183,7 +183,7 @@
       "access_tier": "shortcut",
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
-        "--id 13579",
+        "--product-id 13579",
         "--drop",
         "--set",
         "--rename",
@@ -237,7 +237,7 @@
       "access_tier": "shortcut",
       "command_prefix": "products +set-variants",
       "flags_must_contain": [
-        "--id 24680",
+        "--product-id 24680",
         "--add",
         "--existing",
         "--set-price"

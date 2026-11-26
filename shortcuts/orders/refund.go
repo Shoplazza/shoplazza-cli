@@ -2,6 +2,8 @@ package orders
 
 import (
 	"context"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
@@ -18,7 +20,9 @@ var refundShortcut = common.Shortcut{
 	Destructive:       true,
 	ConfirmPrompt:     "Refund this order? Money is returned to the buyer and cannot be undone.",
 	ConfirmPhraseFlag: "order-id",
-	Long:    "Refund an amount against an order's payment line; run --dry-run first to preview the request.",
+	Long: "Refund an amount against an order's payment line; run --dry-run first to preview the request.\n\n" +
+		"An order paid through a custom payment channel (customize_payment) or the test channel (bogus) stays in progress after the refund; " +
+		"complete it with 'orders refunds finish', passing the post_sale_id and refund_record_id from the response.",
 	Example: `  # Preview a partial refund
   shoplazza orders +refund --order-id 12345 --amount 29.99 --dry-run
 
@@ -38,11 +42,20 @@ var refundShortcut = common.Shortcut{
 		note := in.Flags.GetString("note")
 		returnItems := in.Flags.GetBool("return-items")
 
+		if v, _ := strconv.ParseFloat(amount, 64); !refundAmountPattern.MatchString(amount) || v <= 0 {
+			return common.ExecResult{}, output.ErrValidation("--amount must be a number greater than 0").WithParam("--amount")
+		}
+
 		getPlan := PlanGet(orderID)
 
 		if in.DryRun {
-			// Without the order we can't disambiguate; use whatever payment-line-id was provided.
-			refund := buildRefundBody(paymentLineID, amount, note, returnItems, nil)
+			if paymentLineID == "" {
+				paymentLineID = resolvedFromOrder
+			}
+			refund := buildRefundBody(paymentLineID, amount, note, false, nil)
+			if returnItems {
+				refund["refund_line_items"] = resolvedFromOrder
+			}
 			postPlan := PlanRefund(orderID, map[string]any{"refund": refund})
 			return common.ExecResult{Plans: []common.PlannedRequest{getPlan, postPlan}}, nil
 		}
@@ -74,6 +87,10 @@ var refundShortcut = common.Shortcut{
 		return common.ExecResult{Body: resp}, nil
 	},
 }
+
+const resolvedFromOrder = "<resolved-from-step-0>"
+
+var refundAmountPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
 
 // choosePaymentLine picks the payment line to refund, disambiguating when an order has multiple.
 func choosePaymentLine(order map[string]any, userProvided string) (string, error) {

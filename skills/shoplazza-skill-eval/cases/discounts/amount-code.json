@@ -15,11 +15,11 @@
       "must_ask": false,
       "semantic_rubric": [
         "整单/全店订单 wording inferred as --target order without asking",
-        "--off 30 verbatim from 立减30元 (not --percent)",
+        "--off 30 verbatim from 立减30元 (not --percent-off)",
         "--limit-order-once left to its default (true)",
         "no cap/threshold flags set or asked (user gave none)"
       ]
     },
-    "notes": "Verified: +amount-code uses --off (float, required) + --target; --percent belongs to +percent-code."
+    "notes": "Verified: +amount-code uses --off (float, required) + --target; --percent-off belongs to +percent-code."
   }
 ]

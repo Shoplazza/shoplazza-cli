@@ -68,19 +68,23 @@ func LayersToMaps(layers []Layer) []any {
 	return out
 }
 
-// ParseProducts splits a comma-separated product ID list. "all" or "" returns nil.
-func ParseProducts(s string) []string {
-	s = strings.TrimSpace(s)
-	if s == "" || s == "all" {
-		return nil
-	}
-	parts := strings.Split(s, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
+// CleanList trims every item and drops the empty ones.
+func CleanList(items []string) []string {
+	out := make([]string, 0, len(items))
+	for _, it := range items {
+		if it = strings.TrimSpace(it); it != "" {
+			out = append(out, it)
 		}
 	}
 	return out
+}
+
+// IDList reads a list flag (comma-separated and/or repeated) as trimmed,
+// non-empty items; a lone "all" means no filter and yields nil.
+func IDList(fs FlagSet, name string) []string {
+	ids := CleanList(fs.GetStringSlice(name))
+	if len(ids) == 1 && ids[0] == "all" {
+		return nil
+	}
+	return ids
 }

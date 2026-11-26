@@ -7,16 +7,14 @@ given order + address. This is the home of "运费区域 / 邮费 / shipping zon
 **Boundary:** registering an external carrier that quotes *real-time* rates is
 `shop carrier-services` (`shoplazza-shop`), not here.
 
-Registry typo warning: schema summaries say "shopping zone" — they mean shipping zone.
-
 ## Commands
 
 | Intent | Command |
 |---|---|
 | Read the general schema | `orders shipping-schemas get-general` → `.data.shipping_schemas` |
-| Create/modify the general schema | `orders shipping-schemas save-general --data '{"shipping_schemas":{…}}'` (`name` required; include `id` to modify) |
+| Replace the whole general schema (zones left out are deleted, and so are plans left out of a zone; to add or change one zone use `create-zone` / `update-zone`) | `orders shipping-schemas save-general --data '{"shipping_schemas":{…}}'` (`name` required; read `get-general` first and send every zone back with its `id`) |
 | Create a zone | `orders shipping-schemas create-zone --data '{"shipping":{…}}'` |
-| Update a zone | `orders shipping-schemas update-zone --params '{"id":"<zone-id>"}' --data '{"shipping":{…}}'` |
+| Update a zone (replaces `plans` and `areas`: left-out ones are deleted, so send the full lists from `get-general`) | `orders shipping-schemas update-zone --params '{"id":"<zone-id>"}' --data '{"shipping":{…}}'` |
 | Delete a zone (destructive → `--dry-run` first) | `orders shipping-schemas delete-zone --params '{"id":"<zone-id>"}'` |
 | Which shipping options fit an order + address? | `orders shipping-schemas get-available-lines --data '{…}'` → `.data.shipping_lines[]` (+ `invalid_products`, `state`, `message`) |
 
@@ -32,7 +30,8 @@ Registry typo warning: schema summaries say "shopping zone" — they mean shippi
 }}
 ```
 
-Required: `schema_id`, `name`; per plan `name`; per area `country_name` + `country_code`.
+Required: `schema_id`, `name`, `plans` and `areas` (at least one each); per plan `name`; per area
+`country_name` + `country_code`.
 Rate/rule fields are numerous — run `schema orders.shipping-schemas.create-zone --view request`
 and mirror an existing zone from `get-general` rather than guessing.
 

@@ -10,7 +10,7 @@ var searchShortcut = common.Shortcut{
 	Command: "+search",
 	Use:     "+search",
 	Short:   "Quickly search customers",
-	Long:    "Find customers by email, phone, or signup window. Returns one page — set --page-limit and follow has_more/cursor for the rest.",
+	Long:    "Find customers by email, phone, or signup window. " + common.OnePage,
 	Example: `  # Find a customer by email
   shoplazza customers +search --email a@b.com
 
@@ -19,9 +19,10 @@ var searchShortcut = common.Shortcut{
 	Flags: []common.Flag{
 		{Name: "email", Type: common.FlagString, Description: "Filter by email."},
 		{Name: "phone", Type: common.FlagString, Description: "Filter by phone (matches the customer's primary contact)."},
-		common.SinceFlag(),
-		common.UntilFlag(),
+		common.SinceFlag("when the customer was created", "created_at"),
+		common.UntilFlag("when the customer was created", "created_at"),
 		common.PageLimitFlag(),
+		common.CursorFlag(),
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
 		pl, err := common.GetValidatedPageLimit(in)
@@ -31,11 +32,13 @@ var searchShortcut = common.Shortcut{
 		q := map[string]any{}
 		cmdutil.AddString(q, "email", in.Flags.GetString("email"))
 		cmdutil.AddString(q, "contact", in.Flags.GetString("phone"))
-		cmdutil.AddString(q, "created_at_min", in.Flags.GetString("since"))
-		cmdutil.AddString(q, "created_at_max", in.Flags.GetString("until"))
+		if err := common.AddTimeRange(q, in, "created_at"); err != nil {
+			return common.PlannedRequest{}, err
+		}
 		if pl > 0 {
 			q["page_size"] = pl
 		}
+		cmdutil.AddString(q, "cursor", in.Flags.GetString("cursor"))
 		return PlanList(q), nil
 	},
 }

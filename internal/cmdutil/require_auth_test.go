@@ -44,7 +44,7 @@ func exitType(t *testing.T, err error) string {
 // GATE-01: no profile configured at all is a loud (validation) error — it
 // must not be mistaken for "not logged in".
 func TestRequireAuth_NoProfileConfigured(t *testing.T) {
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	f := tempFactory(t, "http://unused", core.CliConfig{ConfigVersion: 2})
 	err := RequireAuth(context.Background(), f, newCmdWithProfileFlag())
 	if err == nil || exitType(t, err) != output.TypeValidation {
@@ -55,7 +55,7 @@ func TestRequireAuth_NoProfileConfigured(t *testing.T) {
 // GATE-02: a resolvable profile with no UAT in the keychain fails at mint
 // time with an auth-class error ("not logged in", in v2 terms).
 func TestRequireAuth_NotLoggedIn(t *testing.T) {
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	cfg := core.CliConfig{ConfigVersion: 2, CurrentProfile: "us",
 		Profiles: []core.ProfileConfig{{Name: "us", Account: "a@co.com", StoreDomain: "shop.com"}}}
 	f := tempFactory(t, "http://unused", cfg) // fresh keychain -> no UAT for a@co.com
@@ -68,7 +68,6 @@ func TestRequireAuth_NotLoggedIn(t *testing.T) {
 // GATE-04: a resolvable, logged-in profile mints its store token and injects
 // it (plus the store base URL) onto f.Client.
 func TestRequireAuth_Success_SetsBearer(t *testing.T) {
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/api/saiga/cli/auth/exchange/store-at" {
@@ -86,6 +85,17 @@ func TestRequireAuth_Success_SetsBearer(t *testing.T) {
 	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("a@co.com"), "uat_seed"); err != nil {
 		t.Fatal(err)
 	}
+	for _, blank := range []string{"", " \t"} {
+		t.Setenv("SHOPLAZZA_ACCESS_TOKEN", blank)
+		err := RequireAuth(context.Background(), f, newCmdWithProfileFlag())
+		if err == nil || exitType(t, err) != output.TypeValidation || !strings.Contains(err.Error(), "SHOPLAZZA_ACCESS_TOKEN") {
+			t.Fatalf("SHOPLAZZA_ACCESS_TOKEN=%q must be a validation error naming it, not a fall back to the saved login; got %v", blank, err)
+		}
+		if f.Client.Headers["Access-Token"] != "" {
+			t.Fatalf("no token may be set when SHOPLAZZA_ACCESS_TOKEN is %q: %v", blank, f.Client.Headers)
+		}
+	}
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	if err := RequireAuth(context.Background(), f, newCmdWithProfileFlag()); err != nil {
 		t.Fatalf("RequireAuth: %v", err)
 	}
@@ -179,7 +189,7 @@ func loggedInFactory(t *testing.T, meta string) *Factory {
 
 // GATE-09: the audit header carries the login user id captured at login.
 func TestRequireAuth_InjectsCliUserID(t *testing.T) {
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	t.Setenv(EnvCliUserID, "")
 	f := loggedInFactory(t, `{"account":"a@co.com","user_id":"u_42"}`)
 	if err := RequireAuth(context.Background(), f, newCmdWithProfileFlag()); err != nil {
@@ -192,7 +202,7 @@ func TestRequireAuth_InjectsCliUserID(t *testing.T) {
 
 // GATE-10: the env override beats the persisted id.
 func TestRequireAuth_CliUserIDEnvWins(t *testing.T) {
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	t.Setenv(EnvCliUserID, "u_env")
 	f := loggedInFactory(t, `{"account":"a@co.com","user_id":"u_42"}`)
 	if err := RequireAuth(context.Background(), f, newCmdWithProfileFlag()); err != nil {
@@ -205,7 +215,7 @@ func TestRequireAuth_CliUserIDEnvWins(t *testing.T) {
 
 // GATE-11: an id-less session omits the header rather than failing the command.
 func TestRequireAuth_CliUserIDAbsentIsNotFatal(t *testing.T) {
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	t.Setenv(EnvCliUserID, "")
 	f := loggedInFactory(t, `{"account":"a@co.com"}`)
 	if err := RequireAuth(context.Background(), f, newCmdWithProfileFlag()); err != nil {

@@ -11,12 +11,12 @@
       "access_tier": "shortcut",
       "command_prefix": "products +publish",
       "flags_must_contain": [
-        "--id 654321"
+        "--product-id 654321"
       ],
       "must_ask": false,
       "semantic_rubric": [
-        "uses +publish --id, not the update leaf with a published:true body",
-        "no extra flags invented (+publish takes only --id)"
+        "uses +publish --product-id, not the update leaf with a published:true body",
+        "no extra flags invented (+publish takes only --product-id)"
       ]
     }
   },
@@ -32,7 +32,7 @@
       "access_tier": "shortcut",
       "command_prefix": "products +tag",
       "flags_must_contain": [
-        "--id 445566",
+        "--product-id 445566",
         "--add",
         "summer",
         "sale"

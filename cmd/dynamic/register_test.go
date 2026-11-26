@@ -279,7 +279,8 @@ func TestIntegration_DynamicOrdersList(t *testing.T) {
 		Name: "orders",
 		Commands: []registry.Command{{
 			ID: "order-list", Path: []string{"list"},
-			HTTP: registry.HTTP{Method: "GET", Path: "/openapi/2026-01/orders"},
+			HTTP:       registry.HTTP{Method: "GET", Path: "/openapi/2026-01/orders"},
+			Parameters: []registry.Parameter{{Name: "page_size", In: "query"}},
 		}},
 	}}}
 	root := rootWithSpec(t, spec, f)
@@ -462,6 +463,7 @@ func TestIntegration_DryRunNoBackendHit(t *testing.T) {
 		Name: "orders",
 		Commands: []registry.Command{{
 			Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/openapi/2026-01/orders"},
+			Parameters: []registry.Parameter{{Name: "page_size", In: "query"}},
 		}},
 	}}}
 	root := rootWithSpec(t, spec, f)
@@ -503,7 +505,7 @@ func findChild(t *testing.T, parent *cobra.Command, name string) *cobra.Command 
 func notLoggedInFactory(t *testing.T) *cmdutil.Factory {
 	t.Helper()
 	dir := testenv.IsolateConfigDir(t)
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
+	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	out := &strings.Builder{}
 	cfg := core.CliConfig{ConfigVersion: 2, CurrentProfile: "us",
 		Profiles: []core.ProfileConfig{{Name: "us", Account: "a@co.com", StoreDomain: "us.myshoplazza.com"}}}

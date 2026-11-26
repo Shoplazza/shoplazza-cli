@@ -1436,7 +1436,7 @@ func TestValidateOps_PbTemplateHint(t *testing.T) {
 func TestEdit_DryRunZeroCall(t *testing.T) {
 	res, err := editExecute(context.Background(), common.ExecInput{
 		Flags: editFlags(t, map[string]any{"template": "index", "promote": true,
-			"ops": `[{"op":"replace_props","target":"111","props":{"a":"b"}},
+			"ops": `[{"op":"replace_props","target":"111","props":{"a":"b","n":638982951773671231}},
 			         {"op":"update_pb","target":"222","ops":[{"action":"update","targetId":"0"}]}]`}),
 		DryRun: true, // nil Client proves zero network
 	})
@@ -1447,7 +1447,7 @@ func TestEdit_DryRunZeroCall(t *testing.T) {
 	for _, p := range res.Plans {
 		joined += fmt.Sprintf("%s %s %v\n", p.Method, p.Path, p.Body) // %v keeps <placeholders> unescaped
 	}
-	for _, want := range []string{phThemeID, phDocID, phOseid, phCustomID, "/promote"} {
+	for _, want := range []string{phThemeID, phDocID, phOseid, phCustomID, "/promote", "n:638982951773671231"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("plans missing %q:\n%s", want, joined)
 		}

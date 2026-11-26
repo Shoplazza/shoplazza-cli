@@ -16,7 +16,7 @@ Verify shapes with `shoplazza schema products.gift-cards.<cmd>`.
 | Command | HTTP | Params / body |
 |---|---|---|
 | `gift-cards create` | `POST /gift_cards` | `--data '{"gift_card":{…}}'` — `code` and `initial_value` **required** |
-| `gift-cards batch-create` | `POST /gift_cards/batch` | `--data '{"gift_cards":[{…},…]}'` |
+| `gift-cards batch-create` | `POST /gift_cards/batch` | `--data '{"gift_cards":[{…},…]}'` — each card needs `code`, `initial_value` **and `currency`** |
 | `gift-cards get` | `GET /gift_cards/{id}` | `--params '{"id":"<id>"}'` |
 | `gift-cards list` | `GET /gift_cards` | filters: `keyword`, `status`, `balance_status`, `initial_value_min/max`, date ranges, cursor paging |
 | `gift-cards update` | `PUT /gift_cards/{id}` | body accepts **only** `expires_on`, `note`, `template_suffix` |
@@ -26,7 +26,7 @@ Verify shapes with `shoplazza schema products.gift-cards.<cmd>`.
 
 Required body fields (both under the `gift_card` object, both **askable — never invented**):
 
-- `code` — the card code the customer will redeem.
+- `code` — the card code the customer will redeem (8–20 characters).
 - `initial_value` — the stored value, **a string** in the schema (e.g. `"100"`).
 
 Optional: `expires_on` (date), `note`, `customer_id` (bind to a customer), `send_email`

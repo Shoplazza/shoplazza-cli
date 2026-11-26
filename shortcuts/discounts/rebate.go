@@ -1,6 +1,9 @@
 package discounts
 
 import (
+	"slices"
+	"strings"
+
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
@@ -16,35 +19,36 @@ var rebateShortcut = common.Shortcut{
 	Example: `  # Preview: spend 100 save 10, spend 200 save 25 (order-wide)
   shoplazza discounts +rebate --target order --tiers 100:10,200:25 --dry-run
 
-  # Product-scoped percent rebate
+  # Product-scoped percent rebate: spend 100, get 10% off (customers pay 90%)
   shoplazza discounts +rebate --target product --type amount-percent --tiers 100:10 --products p-1,p-2`,
 	Flags: []common.Flag{
 		{Name: "target", Type: common.FlagString, Required: true,
 			Description: "Rebate scope: order or product (required).",
 			Completions: []string{"order", "product"}},
-		{Name: "tiers", Type: common.FlagString, Required: true, Description: `Comma-separated "<threshold>:<discount>" pairs, e.g. "100:10,200:25" (spend 100 → save 10; spend 200 → save 25). Threshold = order amount or quantity, discount = reduction amount or percent; units are decided by --type. Discount range: amount-off > 0, amount-percent 1-99, qty-off >= 0, qty-percent 0-99. Required.`},
+		{Name: "tiers", Type: common.FlagStringSlice, Required: true, Description: `Comma-separated "<threshold>:<discount>" pairs, e.g. "100:10,200:25" (spend 100 → save 10; spend 200 → save 25). Threshold = order amount or quantity, discount = reduction amount or percent; units are decided by --type. Discount range: amount-off > 0 and less than its threshold, amount-percent 1-99, qty-off >= 0, qty-percent 0-99; for the percent types the discount is the % taken off ("200:20" = spend 200, pay 80%). Required.`},
 		{Name: "type", Type: common.FlagString, Default: "amount-off",
-			Description: "Rebate type: amount-off | amount-percent | qty-off | qty-percent.",
+			Description: "Rebate type: amount-off (API: rebate_cta_otr) | amount-percent (API: rebate_cta_otp) | qty-off (API: rebate_ctq_otr) | qty-percent (API: rebate_ctq_otp). API field: discount_info.discount_type.",
 			Completions: []string{"amount-off", "amount-percent", "qty-off", "qty-percent"}},
 
 		// Scope qualifiers — at most one (mutually exclusive). For --target=order
 		// omitting all three means the rebate applies to the whole order
 		// (entitled_product.selection=all). For --target=product the API
 		// rejects selection=all, so one of these flags is required.
-		{Name: "products", Type: common.FlagString, Description: "Product IDs comma-separated (mutex with --collections / --variants; required when --target=product)."},
-		{Name: "collections", Type: common.FlagString, Description: "Collection IDs comma-separated (mutex with --products / --variants; required when --target=product)."},
-		{Name: "variants", Type: common.FlagString, Description: "Variant IDs comma-separated (mutex with --products / --collections; required when --target=product)."},
+		{Name: "products", Type: common.FlagStringSlice, Description: "Product IDs comma-separated (mutex with --collections / --variants; required when --target=product)."},
+		{Name: "collections", Type: common.FlagStringSlice, Description: "Collection IDs comma-separated (mutex with --products / --variants; required when --target=product)."},
+		{Name: "variants", Type: common.FlagStringSlice, Description: "Variant IDs comma-separated (mutex with --products / --collections; required when --target=product)."},
 		excludeFlag("exclude", ""),
 
 		{Name: "limit-max", Type: common.FlagInt, Description: "Max total discount uses across all customers (>0; omit for no limit)."},
 		{Name: "limit-user", Type: common.FlagInt, Description: "Max discount uses per customer (>0; omit for no limit)."},
-		{Name: "limit-order-once", Type: common.FlagBool, Default: true, Description: "Apply the discount at most once per order (default true): items beyond the qualifying threshold are charged at regular price. Set false to let the discount repeat across thresholds — e.g. 3 items get $50 off, 6 items get $100 off. Only valid with --type=amount-off|qty-off."},
+		{Name: "limit-order-once", Type: common.FlagBool, Default: true, Description: "Apply the discount at most once per order (default true): items beyond the qualifying threshold are charged at regular price. Set false to repeat a single tier for every multiple of its threshold — e.g. --tiers 100:10 takes $10 off at 100 and $30 off at 300; false takes exactly one tier. Only valid with --type=amount-off|qty-off."},
 
 		{Name: "combines", Type: common.FlagStringSlice, Description: "Allowed combinations (comma-separated subset of order/product/shipping; default: [] = no stacking).",
 			Completions: []string{"order", "product", "shipping"}},
 		customerSegmentsFlag(),
 
-		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
+		nameFlag(false),
+		displayNameFlag(false),
 		common.StartTimeFlag(),
 		common.EndTimeFlag(),
 	},
@@ -53,7 +57,7 @@ var rebateShortcut = common.Shortcut{
 		if target != "order" && target != "product" {
 			return common.PlannedRequest{}, output.ErrValidation("--target must be 'order' or 'product' (got %q)", target)
 		}
-		layers, err := common.ParseTiers(in.Flags.GetString("tiers"))
+		layers, err := common.ParseTiers(strings.Join(in.Flags.GetStringSlice("tiers"), ","))
 		if err != nil {
 			return common.PlannedRequest{}, output.Errorf(output.ExitValidation, "validation", "--tiers: %s", err)
 		}
@@ -64,16 +68,26 @@ var rebateShortcut = common.Shortcut{
 		if err := validateLayerObtainValues(layers, rt.ObtainType == "percent", rt.ConditionType == "purchase_quantity"); err != nil {
 			return common.PlannedRequest{}, err
 		}
+		if rt.ConditionType == "purchase_amount" && rt.ObtainType == "fixed_price_reduction" &&
+			slices.ContainsFunc(layers, func(l common.Layer) bool { return l.ObtainValue >= l.ConditionValue }) {
+			return common.PlannedRequest{}, output.ErrValidation("--tiers: each discount must be less than its threshold").WithParam("--tiers")
+		}
 
 		// --limit-order-once only applies to off-types (obtain_type=fixed_price_reduction);
 		// rejecting up-front avoids the API rejecting silently or applying inconsistently.
 		if in.Flags.Changed("limit-order-once") && rt.ObtainType == "percent" {
 			return common.PlannedRequest{}, output.ErrValidation("--limit-order-once is only valid for --type=amount-off or qty-off (got --type=%s)", in.Flags.GetString("type"))
 		}
+		if in.Flags.Changed("limit-order-once") && !in.Flags.GetBool("limit-order-once") && len(layers) > 1 {
+			return common.PlannedRequest{}, output.ErrValidation("--limit-order-once=false repeats a single tier for every multiple of its threshold; --tiers has %d tiers", len(layers)).
+				WithParam("--limit-order-once").
+				WithSubtype(output.SubtypeInvalidFlagValue).
+				WithHint("keep one tier (e.g. --tiers 100:10) to repeat it, or drop --limit-order-once=false to apply the highest tier reached once per order")
+		}
 
-		productIDs := common.ParseProducts(in.Flags.GetString("products"))
-		collectionIDs := common.ParseProducts(in.Flags.GetString("collections"))
-		variantIDs := common.ParseProducts(in.Flags.GetString("variants"))
+		productIDs := common.IDList(in.Flags, "products")
+		collectionIDs := common.IDList(in.Flags, "collections")
+		variantIDs := common.IDList(in.Flags, "variants")
 		// --exclude is product-level only; order-level rebate has no exclude option.
 		exclude := in.Flags.GetBool("exclude")
 		if exclude && target == "order" {
@@ -104,7 +118,7 @@ var rebateShortcut = common.Shortcut{
 
 		info, err := buildAutoInfoFromFlags(in)
 		if err != nil {
-			return common.PlannedRequest{}, output.Errorf(output.ExitValidation, "validation", "%s", err)
+			return common.PlannedRequest{}, err
 		}
 		info["discount_type"] = rt.DiscountType
 		info["discount_target"] = target

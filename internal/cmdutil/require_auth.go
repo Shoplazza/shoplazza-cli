@@ -47,7 +47,11 @@ func translateAuthErr(err error) error {
 // It also injects the cli-user-id header (audit attribution) when one is
 // resolvable — see CliUserID.
 func RequireAuth(ctx context.Context, f *Factory, cmd *cobra.Command) error {
-	if token := os.Getenv("SHOPLAZZA_ACCESS_TOKEN"); token != "" {
+	token, err := AccessTokenEnv()
+	if err != nil {
+		return err
+	}
+	if token != "" {
 		// An injected token skips login state, so the audit id must be injected
 		// too: a stale local login would attribute the call to the wrong user.
 		if u := os.Getenv("SHOPLAZZA_CLI_API_BASE_URL"); u != "" {
@@ -81,6 +85,20 @@ func RequireAuth(ctx context.Context, f *Factory, cmd *cobra.Command) error {
 	f.Client.SetBearerToken(tok)
 	f.Client.SetCliUserID(cliUserIDFrom(mgr))
 	return nil
+}
+
+// EnvAccessToken injects a store access token in place of the saved login.
+const EnvAccessToken = "SHOPLAZZA_ACCESS_TOKEN"
+
+// AccessTokenEnv returns the injected token, "" when the variable is unset, and an error when it is set but blank.
+func AccessTokenEnv() (string, error) {
+	token, set := os.LookupEnv(EnvAccessToken)
+	if set && strings.TrimSpace(token) == "" {
+		return "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,
+			EnvAccessToken+" is set but empty",
+			"set it to a store access token, or unset it to use the login saved by 'shoplazza auth login'")
+	}
+	return token, nil
 }
 
 // EnvCliUserID overrides the cli-user-id header value.

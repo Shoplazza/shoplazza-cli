@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-11-16T10:04:30Z",
+  "generated_at": "2026-11-25T05:49:10Z",
   "modules": [
     {
       "name": "billing",
@@ -1609,7 +1609,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order status. - opened: pending payment. - cancelled: cancelled. - placed: in progress. - finished: completed. Example: ?status=opened\u0026status=finished"
+              "description": "Filter by order status. - `opened`: pending payment. - `cancelled`: cancelled. - `placed`: in progress. - `finished`: completed. Example: ?status=opened\u0026status=finished"
             },
             {
               "name": "fulfillment_status",
@@ -1618,7 +1618,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order fulfillment status. - initialled: initial. - waiting: waiting to ship. - partially_shipped: partially shipped. - shipped: fully shipped. - partially_finished: partially received. - finished: fully received. - cancelled: cancelled. - returning: return in progress. - partially_returned: partially returned. - returned: fully returned. Example: ?fulfillment_status=waiting\u0026fulfillment_status=shipped"
+              "description": "Filter by order fulfillment status. - `initialled`: initial. - `waiting`: waiting to ship. - `partially_shipped`: partially shipped. - `shipped`: fully shipped. - `partially_finished`: partially received. - `finished`: fully received. - `cancelled`: cancelled. - `returning`: return in progress. - `partially_returned`: partially returned. - `returned`: fully returned. Example: ?fulfillment_status=waiting\u0026fulfillment_status=shipped"
             },
             {
               "name": "financial_status",
@@ -1627,7 +1627,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by payment status. - waiting: pending payment. - paying: payment under review. - authorized: authorized. - partially_paid: partially paid. - paid: paid. - cancelled: cancelled. - failed: payment failed. - refunding: refund in progress. - refund_failed: refund failed. - refunded: fully refunded. - partially_refunded: partially refunded. Example: ?financial_status=waiting\u0026financial_status=paid"
+              "description": "Filter by payment status. - `waiting`: pending payment. - `paying`: payment under review. - `authorized`: authorized. - `partially_paid`: partially paid. - `paid`: paid. - `cancelled`: cancelled. - `failed`: payment failed. - `refunding`: refund in progress. - `refund_failed`: refund failed. - `refunded`: fully refunded. - `partially_refunded`: partially refunded. Example: ?financial_status=waiting\u0026financial_status=paid"
             },
             {
               "name": "recovery_status",
@@ -1657,7 +1657,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Fields to apply keyword search on. Supported values: order_no, email, phone, name, etc. Example: ?keyword_scope_fields=order_no\u0026keyword_scope_fields=email"
+              "description": "Fields to apply keyword search on. Supported values: `order_no`, `email`, `phone`, `name`, etc. Example: ?keyword_scope_fields=order_no\u0026keyword_scope_fields=email"
             },
             {
               "name": "customer_id",
@@ -2193,7 +2193,7 @@
             "update"
           ],
           "summary": "Update fulfillment",
-          "description": "Updates the details of an existing fulfillment, including tracking information and notification preferences.",
+          "description": "Updates the details of an existing fulfillment, such as its tracking information.",
           "hidden": false,
           "http": {
             "method": "PUT",
@@ -2361,7 +2361,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order status. - opened: pending payment. - cancelled: cancelled. - placed: in progress. - finished: completed. Example: ?status=opened\u0026status=finished"
+              "description": "Filter by order status. - `opened`: pending payment. - `cancelled`: cancelled. - `placed`: in progress. - `finished`: completed. Example: ?status=opened\u0026status=finished"
             },
             {
               "name": "fulfillment_status",
@@ -2370,7 +2370,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by order fulfillment status. - initialled: initial. - waiting: waiting to ship. - partially_shipped: partially shipped. - shipped: fully shipped. - partially_finished: partially received. - finished: fully received. - cancelled: cancelled. - returning: return in progress. - partially_returned: partially returned. - returned: fully returned. Example: ?fulfillment_status=waiting\u0026fulfillment_status=shipped"
+              "description": "Filter by order fulfillment status. - `initialled`: initial. - `waiting`: waiting to ship. - `partially_shipped`: partially shipped. - `shipped`: fully shipped. - `partially_finished`: partially received. - `finished`: fully received. - `cancelled`: cancelled. - `returning`: return in progress. - `partially_returned`: partially returned. - `returned`: fully returned. Example: ?fulfillment_status=waiting\u0026fulfillment_status=shipped"
             },
             {
               "name": "financial_status",
@@ -2379,7 +2379,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Filter by payment status. - waiting: pending payment. - paying: payment under review. - authorized: authorized. - partially_paid: partially paid. - paid: paid. - cancelled: cancelled. - failed: payment failed. - refunding: refund in progress. - refund_failed: refund failed. - refunded: fully refunded. - partially_refunded: partially refunded. Example: ?financial_status=waiting\u0026financial_status=paid"
+              "description": "Filter by payment status. - `waiting`: pending payment. - `paying`: payment under review. - `authorized`: authorized. - `partially_paid`: partially paid. - `paid`: paid. - `cancelled`: cancelled. - `failed`: payment failed. - `refunding`: refund in progress. - `refund_failed`: refund failed. - `refunded`: fully refunded. - `partially_refunded`: partially refunded. Example: ?financial_status=waiting\u0026financial_status=paid"
             },
             {
               "name": "recovery_status",
@@ -3221,7 +3221,7 @@
             "shipping-schemas",
             "create-zone"
           ],
-          "summary": "Create shopping zone",
+          "summary": "Create shipping zone",
           "description": "Create a new shipping zone.",
           "hidden": false,
           "http": {
@@ -3230,11 +3230,13 @@
             "body": "*"
           },
           "body": {
+            "required": true,
             "fields": [
               {
                 "name": "shipping",
                 "type": "object",
                 "schema": "v202506.CreateShippingParam",
+                "required": true,
                 "description": "Shipping information"
               }
             ]
@@ -3247,7 +3249,7 @@
             "shipping-schemas",
             "delete-zone"
           ],
-          "summary": "Delete shopping zone",
+          "summary": "Delete shipping zone",
           "description": "Remove an existing shipping zone.",
           "hidden": false,
           "http": {
@@ -3317,8 +3319,8 @@
             "shipping-schemas",
             "get-general"
           ],
-          "summary": "Get general shopping schema",
-          "description": "Retrieve general shopping schemas.",
+          "summary": "Get general shipping schema",
+          "description": "Retrieve general shipping schemas.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -3332,8 +3334,8 @@
             "shipping-schemas",
             "save-general"
           ],
-          "summary": "Save general shopping schema",
-          "description": "Create or Modify a general shipping schema.",
+          "summary": "Save general shipping schema",
+          "description": "Replace the store's general shipping schema with the one in the request. `shippings` is a full replacement, not a merge: zones left out of the request are deleted, and so are plans left out of a zone; an empty `shippings` is rejected. To add or change a single zone, use Create shipping zone or Update shipping zone instead. Otherwise read the schema with Get general shipping schema first and send every zone back with its `id`.\nA zone or plan with an `id` is updated; one without is created.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -3358,8 +3360,8 @@
             "shipping-schemas",
             "update-zone"
           ],
-          "summary": "Update shopping zone",
-          "description": "Modify an existing shipping zone.",
+          "summary": "Update shipping zone",
+          "description": "Replace the settings of an existing shipping zone. `plans` and `areas` are full replacements, not merges: plans and areas left out of the request are deleted, so read the zone with Get general shipping schema first and send the complete lists.\nA plan with an `id` is updated; a plan without one is created.",
           "hidden": false,
           "http": {
             "method": "PUT",
@@ -3377,11 +3379,13 @@
             }
           ],
           "body": {
+            "required": true,
             "fields": [
               {
                 "name": "shipping",
                 "type": "object",
                 "schema": "v202506.UpdateShippingParam",
+                "required": true,
                 "description": "Updated shipping zone parameters"
               }
             ]
@@ -3678,7 +3682,7 @@
             "async-create"
           ],
           "summary": "Asynchronously create a smart collection",
-          "description": "Initiates an asynchronous creation of a smart collection. Only smart collections are supported by this endpoint.\nReturns an async task ID immediately; use GetCollectionAsyncTask to poll the result.",
+          "description": "Creates a smart collection (`smart` set to `true`) and matches its products in the background. The response carries the collection and `async_task_id`; to follow the matching, call Get collection async task. A manual collection is created right away with `async_task_id` `0`; create it with Create collection instead.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -3706,7 +3710,7 @@
             "async-update-smart-rule"
           ],
           "summary": "Asynchronously update smart collection rules",
-          "description": "Initiates an asynchronous update of a smart collection's match rules. Returns an async task ID immediately;\nuse GetCollectionAsyncTask to poll the result.",
+          "description": "Replaces the match rules of a smart collection and re-matches its products in the background. The response carries the collection and `async_task_id`; to follow the matching, call Get collection async task. Smart collections only.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -3770,7 +3774,7 @@
             "create"
           ],
           "summary": "Create collection",
-          "description": "Allows users to create a new collection in the store, including details like the title, description, associated products, SEO attributes, and merchandise sorting rules.",
+          "description": "Creates a manual or smart collection, with its title, description, SEO attributes and merchandise sorting rules. A manual collection takes its products from `product_ids`; a smart collection sets `smart` to `true` and matches products by `match_rules`. A smart collection can also be created with Asynchronously create a smart collection, which matches its products in the background.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -3846,7 +3850,7 @@
             "get-async-task"
           ],
           "summary": "Get collection async task",
-          "description": "Retrieves the status and result of an asynchronous collection task initiated by AsyncCreateCollection or AsyncUpdateSmartCollectionRule.",
+          "description": "Retrieves the state of a task started by Asynchronously create a smart collection or Asynchronously update smart collection rules. Pass the task's `async_task_id` as `id` and the collection ID as `source_id`; both are required.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -3858,20 +3862,21 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Async task ID returned by AsyncCreateCollection or AsyncUpdateSmartCollectionRule",
+              "description": "Async task ID returned by Asynchronously create a smart collection or Asynchronously update smart collection rules",
               "min_length": 1
             },
             {
               "name": "source_id",
               "in": "query",
               "type": "string",
-              "description": "Source resource ID this task operates on (e.g. collection UUID). Used as an alternative lookup key together with task_type when async task ID is unknown"
+              "description": "ID of the collection the task works on. A mismatched ID answers `Record not found`",
+              "required": true
             },
             {
               "name": "task_type",
               "in": "query",
               "type": "string",
-              "description": "Task type. Allowed values: - `create_collection`: async smart collection creation - `update_smart_collection_rule`: async smart collection rule update"
+              "description": "Task type. Allowed values: - `update_collection`: async collection update - `copy_collection`: collection copy"
             }
           ],
           "response_schema": "v202601.GetCollectionAsyncTaskResponse"
@@ -3999,7 +4004,7 @@
             "update-smart-rule"
           ],
           "summary": "Update smart collection rules",
-          "description": "Allows users to update smart collection rules by providing the collection ID and the desired updates in the request body.",
+          "description": "Replaces the match rules of a smart collection and re-matches its products. Smart collections only. Asynchronously update smart collection rules does the same in the background.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -4975,8 +4980,8 @@
             "inventory",
             "create-level"
           ],
-          "summary": "Create inventory",
-          "description": "Sets the inventory level for a specific location and inventory item.",
+          "summary": "Connect an inventory item to a location",
+          "description": "Creates the inventory level of an inventory item at a location, with stock 0, so the item can be stocked there. If the level already exists, it is returned unchanged.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -5010,8 +5015,8 @@
             "inventory",
             "delete-level"
           ],
-          "summary": "Delete inventory",
-          "description": "Deletes an inventory level for a specific location and inventory item.",
+          "summary": "Disconnect an inventory item from a location",
+          "description": "Deletes the inventory level of an inventory item at a location, so the item is no longer stocked there, and discards the stock held at that location. An item must stay stocked at one location at least.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -5240,8 +5245,8 @@
             "inventory",
             "set-stock"
           ],
-          "summary": "Set inventory quantity",
-          "description": "Sets the inventory level for a specific location and inventory item.",
+          "summary": "Change inventory quantity",
+          "description": "Adds `stock` to the inventory level of an inventory item at a location: a negative value subtracts, 0 leaves it unchanged, and the result may go below 0. If the item is not stocked at the location yet, the level is created. Despite the endpoint name, it does not set an absolute quantity.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -5269,7 +5274,7 @@
                 "name": "stock",
                 "type": "integer",
                 "format": "int32",
-                "description": "Stock quantity"
+                "description": "Amount added to the stock; a negative value subtracts"
               }
             ]
           },
@@ -5319,8 +5324,8 @@
             "inventory",
             "update-level"
           ],
-          "summary": "Update inventory",
-          "description": "Updates the inventory level for a specific location and inventory item.",
+          "summary": "Increase inventory quantity",
+          "description": "Adds `stock_adjustment`, which must be greater than 0, to the inventory level of an inventory item at a location; returns 404 if the item is not stocked there. To subtract, use `POST /inventory_levels/set` with a negative `stock`.",
           "hidden": false,
           "http": {
             "method": "PUT",
@@ -5349,7 +5354,7 @@
                 "type": "integer",
                 "format": "int32",
                 "required": true,
-                "description": "Stock adjustment"
+                "description": "Amount added to the stock, greater than 0"
               }
             ]
           },
@@ -5438,7 +5443,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Product's SPUs, separated by comma, for example: `spu1,spu2`"
+              "description": "Product's SPUs. Example: `?spus=spu1\u0026spus=spu2`"
             },
             {
               "name": "pre_cursor",
@@ -5483,7 +5488,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Exclude_ids is used to exclude products by their IDs, for example: `product_id1,product_id2`"
+              "description": "IDs of products to exclude. Example: `?exclude_ids=1001\u0026exclude_ids=1002`"
             },
             {
               "name": "product_type",
@@ -5730,13 +5735,9 @@
             {
               "name": "status",
               "in": "query",
-              "type": "string",
-              "description": "Default to 0; 0: All, 1: Search the warehouse that is enabled, 2: Search the warehouse that is not enabled",
-              "enum": [
-                "Unknown",
-                "Activate",
-                "Deactivate"
-              ]
+              "type": "integer",
+              "format": "int32",
+              "description": "Filter by status, as a number: 0 or omitted lists all locations, 1 the active ones, 2 the inactive ones"
             },
             {
               "name": "sort_by",
@@ -6584,7 +6585,7 @@
                 "name": "refuse_multi_result",
                 "type": "boolean",
                 "required": true,
-                "description": "the variant details to update \"false\": If SKU matches multiple sub-items, update the matched sub-items normally. \"true\": Rejects the update if the SKU matches more than one subitem"
+                "description": "`false`: If SKU matches multiple sub-items, update the matched sub-items normally. `true`: Rejects the update if the SKU matches more than one subitem"
               },
               {
                 "name": "variant",
@@ -15278,6 +15279,7 @@
             "type": "object",
             "schema": "v202506.CreateShippingPlanParam"
           },
+          "required": true,
           "min_length": 1
         },
         {
@@ -15287,6 +15289,7 @@
             "type": "object",
             "schema": "v202506.CreateShippingAreaParam"
           },
+          "required": true,
           "min_length": 1
         }
       ]
@@ -20470,8 +20473,7 @@
         },
         {
           "name": "has_only_default_variant",
-          "type": "boolean",
-          "required": true
+          "type": "boolean"
         },
         {
           "name": "inventory_tracking",
@@ -22768,6 +22770,7 @@
             "type": "object",
             "schema": "v202506.UpdateShippingPlanParam"
           },
+          "required": true,
           "min_length": 1
         },
         {
@@ -22777,6 +22780,7 @@
             "type": "object",
             "schema": "v202506.UpdateShippingAreaParam"
           },
+          "required": true,
           "min_length": 1
         }
       ]
@@ -23143,7 +23147,6 @@
           "name": "price",
           "type": "number",
           "format": "double",
-          "required": true,
           "minimum": 0
         },
         {
@@ -23221,7 +23224,6 @@
           "name": "price",
           "type": "number",
           "format": "double",
-          "required": true,
           "minimum": 0
         },
         {
@@ -27944,6 +27946,10 @@
           "items": {
             "type": "string"
           }
+        },
+        {
+          "name": "redirect",
+          "type": "boolean"
         }
       ]
     },

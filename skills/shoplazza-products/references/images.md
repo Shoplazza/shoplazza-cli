@@ -14,10 +14,10 @@ Verify shapes with `shoplazza schema products.images.<cmd>`.
 | `images count` | `GET /products/{product_id}/images/count` | same |
 | `images get` | `GET /products/{product_id}/images/{image_id}` | `--params '{"product_id":"…","image_id":"…"}'` |
 | `images create` | `POST /products/{product_id}/images` | `--data '{"image":{"src":"<url>"}}'` — `src` is the only required body field |
-| `images update` | `PUT /products/{product_id}/images/{image_id}` | body `image.{src,alt,position,…}` |
+| `images update` | `PUT /products/{product_id}/images/{image_id}` | body `image.src` / `image.position` only |
 | `images delete` | `DELETE /products/{product_id}/images/{image_id}` | destructive → `--dry-run` first |
 
-Optional body fields on create/update: `alt`, `position` (gallery order), `width`, `height`.
+Optional on create: `alt`, `position` (gallery order), `width`, `height`; update takes only `src` and `position`.
 Set them only when the user asks — never fabricate.
 
 ```bash

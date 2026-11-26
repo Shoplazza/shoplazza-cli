@@ -36,6 +36,13 @@ func TestDryRun_EnvelopeShape(t *testing.T) {
 	if m["method"] != "GET" || m["path"] != "/openapi/2026-01/products" {
 		t.Errorf("request method/path mismatch: %v", m)
 	}
+	if _, ok := got["hint"]; ok {
+		t.Errorf("hint should be omitted when empty: %v", got)
+	}
+	p.DryRunHint = "pass --code X"
+	if got := common.DryRun(c, p); got["hint"] != "pass --code X" {
+		t.Errorf("hint = %v, want %q", got["hint"], "pass --code X")
+	}
 }
 
 func TestSend_DispatchesByMethod(t *testing.T) {

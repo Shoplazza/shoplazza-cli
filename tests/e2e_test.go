@@ -5,6 +5,7 @@ package tests_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -133,6 +134,353 @@ func TestProductsList_WithFilters(t *testing.T) {
 	}
 }
 
+// Shortcut time flags go through one parser: --since/--until reach the
+// server as RFC3339 UTC, --start/--end as unix seconds, and a bad value exits
+// 2 with the flag named, before any request is sent.
+func TestSpecLeafInput_MockServer(t *testing.T) {
+	var (
+		hits  int
+		path  string
+		query map[string][]string
+		raw   []byte
+		body  map[string]any
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		path = r.URL.EscapedPath()
+		query = r.URL.Query()
+		raw, _ = io.ReadAll(r.Body)
+		body = nil
+		_ = json.Unmarshal(raw, &body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"warehouse_id":638982951773671231}`))
+	}))
+	defer srv.Close()
+	bin := buildBinary(t)
+	env := apiEnv(srv.URL)
+
+	_, stderr, code := runCLI(t, bin, env, "themes", "block", "add",
+		"--params", `{"oseid":"os1","section_id":"s1"}`, "--data", `{"doc_id":"d1","theme_id":"T1","block":{"type":"text"}}`)
+	if code != 0 || hits != 1 {
+		t.Fatalf("theme_id in --data: exit %d, hits %d, stderr=%s", code, hits, stderr)
+	}
+	if body["theme_id"] != "T1" || len(query) != 0 {
+		t.Errorf("theme_id in --data: body.theme_id=%v query=%v, want T1 and no query", body["theme_id"], query)
+	}
+
+	for _, c := range []struct {
+		args     []string
+		wantPath string
+	}{
+		{[]string{"orders", "get-by-number", "--params", `{"number":"#1001"}`}, "/openapi/2026-01/orders/number/1001"},
+		{[]string{"discounts", "get-by-code", "--params", `{"discount_code":"#A?B%"}`}, "/openapi/2026-01/discounts/by-code/%23A%3FB%25"},
+		{[]string{"shop", "files", "get", "--params", `{"file_uri":"https://cdn.x/a/b.jpg"}`}, "/openapi/2026-01/file/detail/https:%2F%2Fcdn.x%2Fa%2Fb.jpg"},
+		{[]string{"products", "variants", "list-by-sku", "--params", `{"sku":"A/B 1"}`}, "/openapi/2026-01/products/sku/A%2FB%201/variants"},
+		{[]string{"products", "variants", "update-by-sku", "--params", `{"sku":"../../products/123"}`,
+			"--data", `{"refuse_multi_result":true,"variant":{"price":1}}`}, "/openapi/2026-01/variants/sku/..%2F..%2Fproducts%2F123"},
+	} {
+		if _, stderr, code := runCLI(t, bin, env, c.args...); code != 0 || path != c.wantPath {
+			t.Errorf("%v: exit %d, path %q, want %q; stderr=%s", c.args, code, path, c.wantPath, stderr)
+		}
+	}
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"products", "update", "--params", `{"product_id":"p1"}`, "--data", `{"product":{}}`, "-q", ".data.["}, "invalid --jq expression"},
+		{[]string{"products", "update", "--params", `{"product_id":"p1"}`, "--data", `{"product":{}}`, "--format", "table", "-q", ".data"}, "--jq requires --format json"},
+		{[]string{"api", "rest", "PUT", "/openapi/2026-01/products/p1", "--data", `{"product":{}}`, "-q", ".data.["}, "invalid --jq expression"},
+		{[]string{"products", "+search", "--keyword", "x", "-q", ".data.["}, "invalid --jq expression"},
+	} {
+		before := hits
+		_, stderr, code := runCLI(t, bin, env, c.args...)
+		if code != 2 || hits != before || !strings.Contains(stderr, c.want) {
+			t.Errorf("%v: exit %d, sent %v, stderr %s; want exit 2, nothing sent, %q", c.args, code, hits != before, stderr, c.want)
+		}
+	}
+	for _, c := range []struct {
+		args         []string
+		method, path string
+		status       int
+	}{
+		{[]string{"products", "update", "--params", `{"product_id":"p1"}`, "--data", `{"product":{}}`}, "PUT", "/openapi/2026-01/products/p1", 200},
+		{[]string{"api", "rest", "GET", "/openapi/2026-01/products/p1"}, "GET", "/openapi/2026-01/products/p1", 200},
+		{[]string{"products", "+search", "--keyword", "x"}, "GET", "/openapi/2026-01/products", 0},
+	} {
+		before := hits
+		stdout, stderr, code := runCLI(t, bin, env, append(c.args, "-q", ".data.warehouse_id.x")...)
+		var e struct {
+			Error struct {
+				Type, Subtype, Message string
+				Detail                 struct {
+					StatusCode   int `json:"status_code"`
+					Method, Path string
+				}
+			} `json:"error"`
+		}
+		_ = json.Unmarshal([]byte(stderr), &e)
+		if code != 2 || hits != before+1 || !strings.Contains(stdout, `"warehouse_id": 638982951773671231`) ||
+			e.Error.Subtype != "jq_failed_after_request" || e.Error.Message != "jq: .data.warehouse_id is a number, it has no .x" ||
+			e.Error.Detail.Method != c.method || e.Error.Detail.Path != c.path || e.Error.Detail.StatusCode != c.status {
+			t.Errorf("%v -q failing after the call: exit %d, sent %d, stdout=%s stderr=%s", c.args, code, hits-before, stdout, stderr)
+		}
+	}
+
+	const big = "638982951773671231"
+	stdout, stderr, code := runCLI(t, bin, env, "products", "update", "--params", `{"product_id":`+big+`}`,
+		"--data", `{"product":{"vendor_id":`+big+`}}`, "-q", ".data.warehouse_id")
+	if code != 0 || path != "/openapi/2026-01/products/"+big || string(raw) != `{"product":{"vendor_id":`+big+`}}` ||
+		stdout != big+"\n" {
+		t.Errorf("64-bit ids: exit %d, path %q, body %s, -q %q; stderr=%s", code, path, raw, stdout, stderr)
+	}
+	if _, stderr, code := runCLI(t, bin, env, "api", "rest", "GET", "/openapi/2026-01/products",
+		"--params", `{"since_id":`+big+`}`); code != 0 || query["since_id"][0] != big {
+		t.Errorf("api rest 64-bit query: exit %d, query %v; stderr=%s", code, query, stderr)
+	}
+
+	stdout, _, code = runCLI(t, bin, env, "orders", "get-by-number", "--params", `{"number":"#1001"}`, "--dry-run")
+	if code != 0 || !strings.Contains(stdout, `"path": "/openapi/2026-01/orders/number/1001"`) ||
+		!strings.Contains(stdout, `dropped the leading # from number`) {
+		t.Errorf("get-by-number dry-run: exit %d, stdout=%s", code, stdout)
+	}
+
+	bad := []struct {
+		args           []string
+		subtype, param string
+	}{
+		{[]string{"themes", "block", "add", "--params", `{"oseid":"os1","section_id":"s1","theme_id":"T1"}`,
+			"--data", `{"doc_id":"d1","block":{"type":"text"}}`}, "misplaced_param", "theme_id"},
+		{[]string{"themes", "app", "enable", "--params", `{"oseid":"os1","theme_id":"T1"}`,
+			"--data", `{"block_id":"b1"}`, "--dry-run"}, "misplaced_param", "theme_id"},
+		{[]string{"themes", "block", "add", "--params", `{"oseid":"os1","section_id":"s1"}`, "--data", `{}`, "--dry-run"},
+			"missing_required_field", "doc_id"},
+		{[]string{"themes", "section", "set-props", "--params", `{"oseid":"os1","section_id":"s1"}`,
+			"--data", `{"doc_id":"d1","props":{}}`}, "missing_required_field", "theme_id"},
+		{[]string{"discounts", "list", "--params", `{"per_page":5}`}, "unknown_param", "per_page"},
+		{[]string{"orders", "get", "--params", `{"id":"o1"}`, "--dry-run"}, "unknown_param", "id"},
+		{[]string{"customers", "addresses", "get", "--params", `{}`}, "missing_required_param", "customer_id"},
+		{[]string{"products", "batch-delete", "--params", `{}`}, "missing_required_param", "product_ids"},
+		{[]string{"products", "get", "--params", `{"product_id":"<id>"}`}, "missing_required_param", "product_id"},
+	}
+	for _, c := range bad {
+		before := hits
+		stdout, stderr, code := runCLI(t, bin, env, c.args...)
+		if code != 2 {
+			t.Errorf("%v: exit %d, want 2; stdout=%s stderr=%s", c.args, code, stdout, stderr)
+			continue
+		}
+		if hits != before {
+			t.Errorf("%v: a request was sent", c.args)
+		}
+		var e struct {
+			Error struct{ Type, Subtype, Param string } `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(stderr), &e); err != nil {
+			t.Errorf("%v: stderr is not a JSON envelope: %s", c.args, stderr)
+			continue
+		}
+		if e.Error.Type != "validation" || e.Error.Subtype != c.subtype || e.Error.Param != c.param {
+			t.Errorf("%v: error = %+v, want validation/%s on %s", c.args, e.Error, c.subtype, c.param)
+		}
+	}
+
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"products", "update", "--params", `{"product_id":"p1"}`, "--data", `{"product":{"title":"a"}}}`},
+			`--data is not valid JSON object: unexpected '}' after the end of the object (line 1, column 26)`},
+		{[]string{"customers", "update", "--params", `{"customer_id":"c1"}`, "--data", `{"customer":{"first_name":"a"} "x":1}`},
+			`--data is not valid JSON object: invalid character '"' after object key:value pair (line 1, column 32)`},
+		{[]string{"products", "get", "--params", `{"product_id":"p1",}`},
+			`--params is not valid JSON object: invalid character '}' looking for beginning of object key string (line 1, column 20)`},
+		{[]string{"api", "rest", "PUT", "/openapi/2026-01/products/p1", "--data", `[{"product":{}}] ]`},
+			`--data is not valid JSON: unexpected ']' after the end of the array (line 1, column 18)`},
+	} {
+		before := hits
+		_, stderr, code := runCLI(t, bin, env, c.args...)
+		var e struct {
+			Error struct{ Type, Message string } `json:"error"`
+		}
+		_ = json.Unmarshal([]byte(stderr), &e)
+		if code != 2 || hits != before || e.Error.Type != "validation" || e.Error.Message != c.want {
+			t.Errorf("%v: exit %d, sent %v, error %+v; want %s", c.args, code, hits != before, e.Error, c.want)
+		}
+	}
+}
+
+func TestShortcutListAndEnumFlags_MockServer(t *testing.T) {
+	var (
+		hits  int
+		query map[string][]string
+		body  map[string]any
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		query = r.URL.Query()
+		body = nil
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	bin := buildBinary(t)
+	env := apiEnv(srv.URL)
+
+	for _, c := range []struct {
+		args  []string
+		query map[string][]string
+	}{
+		{[]string{"orders", "+search", "--financial-status", "paid,refunded"}, map[string][]string{"financial_status": {"paid", "refunded"}}},
+		{[]string{"orders", "+count", "--status", "placed", "--status", "finished", "--fulfillment-status", "returning"},
+			map[string][]string{"status": {"placed", "finished"}, "fulfillment_status": {"returning"}}},
+		{[]string{"discounts", "+search", "--progress", "ongoing, paused"}, map[string][]string{"progress": {"ongoing", "paused"}}},
+	} {
+		if _, stderr, code := runCLI(t, bin, env, c.args...); code != 0 {
+			t.Errorf("%v: exit %d, stderr=%s", c.args, code, stderr)
+			continue
+		}
+		for k, want := range c.query {
+			if got := query[k]; strings.Join(got, "|") != strings.Join(want, "|") {
+				t.Errorf("%v: %s = %q, want %q", c.args, k, got, want)
+			}
+		}
+	}
+	_, stderr, code := runCLI(t, bin, env, "discounts", "+percent-code", "--target", "product", "--percent-off", "10",
+		"--code", "T", "--variants", "a", "--variants", "b,c")
+	discount, _ := body["discount"].(map[string]any)
+	scope, _ := discount["entitled_product"].(map[string]any)
+	if ids, _ := json.Marshal(scope["variant_ids"]); code != 0 || string(ids) != `["a","b","c"]` {
+		t.Errorf("--variants a --variants b,c: exit %d, variant_ids=%s, stderr=%s", code, ids, stderr)
+	}
+	_, stderr, code = runCLI(t, bin, env, "shop", "+upload-file", "--source-url", "https://example.com/a.jpg")
+	if b, _ := json.Marshal(body); code != 0 || string(b) != `{"original_source_list":["https://example.com/a.jpg"]}` {
+		t.Errorf("shop +upload-file: exit %d, body=%s, stderr=%s", code, b, stderr)
+	}
+
+	bad := []struct {
+		args  []string
+		param string
+	}{
+		{[]string{"orders", "+search", "--status", "bogus"}, "--status"},
+		{[]string{"orders", "+count", "--financial-status", "paid,bogus"}, "--financial-status"},
+		{[]string{"discounts", "+search", "--discount-type", "nope"}, "--discount-type"},
+		{[]string{"discounts", "+percent-code", "--target", "order", "--target", "product", "--percent-off", "10"}, "--target"},
+		{[]string{"discounts", "+percent-code", "--target", "order", "--percent-off", "10", "--percent-off", "20"}, "--percent-off"},
+		{[]string{"shop", "+upload-file", "--source-url", "/tmp/a.jpg"}, "--source-url"},
+	}
+	for _, c := range bad {
+		before := hits
+		_, stderr, code := runCLI(t, bin, env, c.args...)
+		if code != 2 || hits != before {
+			t.Errorf("%v: exit %d (want 2), request sent=%v; stderr=%s", c.args, code, hits != before, stderr)
+			continue
+		}
+		var e struct {
+			Error struct{ Type, Subtype, Param string } `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(stderr), &e); err != nil || e.Error.Subtype != "invalid_flag_value" || e.Error.Param != c.param {
+			t.Errorf("%v: error = %+v (%v), want invalid_flag_value on %s", c.args, e.Error, err, c.param)
+		}
+	}
+}
+
+func TestShortcutTimeFlags_MockServer(t *testing.T) {
+	var (
+		hits  int
+		query map[string][]string
+		body  map[string]any
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		query = r.URL.Query()
+		body = nil
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	bin := buildBinary(t)
+	env := apiEnv(srv.URL)
+
+	yesterday := time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -1).Format(time.RFC3339)
+	ok := []struct {
+		args  []string
+		query map[string]string
+		info  map[string]float64
+	}{
+		{[]string{"orders", "+search", "--since", "yesterday", "--until", "now"},
+			map[string]string{"placed_at_min": yesterday}, nil},
+		{[]string{"orders", "+count", "--since", "2026-11-01T00:00:00+08:00", "--until", "1800000000"},
+			map[string]string{"placed_at_min": "2026-10-31T16:00:00Z", "placed_at_max": "2027-01-15T08:00:00Z"}, nil},
+		{[]string{"customers", "+search", "--since", "2026-09-01", "--until", "2026-09-30 23:59"},
+			map[string]string{"created_at_min": "2026-09-01T00:00:00Z", "created_at_max": "2026-09-30T23:59:00Z"}, nil},
+		{[]string{"discounts", "+percent-code", "--target", "order", "--percent-off", "10", "--code", "T",
+			"--start", "2027-06-30T16:00:00Z", "--end", "2027-07-01 00:00"},
+			nil, map[string]float64{"starts_at": 1814371200, "ends_at": 1814400000}},
+		{[]string{"discounts", "+rebate", "--target", "order", "--tiers", "100:10",
+			"--start", "2027-06-30T16:00:00+08:00", "--end", "forever"},
+			nil, map[string]float64{"starts_at": 1814342400, "ends_at": -1}},
+	}
+	for _, c := range ok {
+		_, stderr, code := runCLI(t, bin, env, c.args...)
+		if code != 0 {
+			t.Errorf("%v: exit %d, stderr=%s", c.args, code, stderr)
+			continue
+		}
+		for k, want := range c.query {
+			if got := strings.Join(query[k], ","); got != want {
+				t.Errorf("%v: %s = %q, want %q", c.args, k, got, want)
+			}
+		}
+		if c.args[0] == "orders" && c.args[3] == "yesterday" {
+			if _, err := time.Parse(time.RFC3339, strings.Join(query["placed_at_max"], "")); err != nil {
+				t.Errorf("%v: placed_at_max %q is not RFC3339", c.args, query["placed_at_max"])
+			}
+		}
+		discount, _ := body["discount"].(map[string]any)
+		info, _ := discount["discount_info"].(map[string]any)
+		for k, want := range c.info {
+			if info[k] != want {
+				t.Errorf("%v: discount_info.%s = %v, want %v", c.args, k, info[k], want)
+			}
+		}
+	}
+
+	bad := []struct {
+		args  []string
+		param string
+	}{
+		{[]string{"orders", "+search", "--since", "yesterdy"}, "--since"},
+		{[]string{"orders", "+search", "--until", "1700000000000"}, "--until"},
+		{[]string{"orders", "+count", "--since", "-1"}, "--since"},
+		{[]string{"customers", "+search", "--since", "2026-11-02", "--until", "2026-11-01"}, "--since"},
+		{[]string{"discounts", "+flashsale", "--value", "20", "--start", "2027-06-31"}, "--start"},
+		{[]string{"discounts", "+mn-discount", "--tiers", "2:30", "--start", "2027-07-01", "--end", "2027-06-30"}, "--end"},
+	}
+	for _, c := range bad {
+		before := hits
+		_, stderr, code := runCLI(t, bin, env, c.args...)
+		if code != 2 {
+			t.Errorf("%v: exit %d, want 2; stderr=%s", c.args, code, stderr)
+			continue
+		}
+		if hits != before {
+			t.Errorf("%v: a request was sent despite the bad value", c.args)
+		}
+		var env struct {
+			Error struct{ Type, Subtype, Param string } `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(stderr), &env); err != nil {
+			t.Errorf("%v: stderr is not a JSON envelope: %s", c.args, stderr)
+			continue
+		}
+		if env.Error.Type != "validation" || env.Error.Subtype != "invalid_flag_value" || env.Error.Param != c.param {
+			t.Errorf("%v: error = %+v, want validation/invalid_flag_value on %s", c.args, env.Error, c.param)
+		}
+	}
+}
+
 func TestProductsCount_MockServer(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/openapi/2026-01/products/count" {
@@ -232,6 +580,63 @@ func TestErrorOutput_IsJSONEnvelope(t *testing.T) {
 	}
 	if env2["error"] == nil {
 		t.Error("error field should be present")
+	}
+}
+
+func TestUnknownSubcommand_IsUsageError(t *testing.T) {
+	bin := buildBinary(t)
+	env := apiEnv("http://127.0.0.1:1")
+	const mean = "\n\nDid you mean this?\n\t"
+	const unknownCmd, unknownFlag = "unknown_command", "unknown_flag"
+
+	tests := []struct {
+		name    string
+		args    []string
+		subtype string
+		message string
+		hint    string
+	}{
+		{"root", []string{"prodd"}, unknownCmd, `unknown command "prodd" for "shoplazza"`, "'shoplazza --help'"},
+		{"root near name", []string{"prodcts"}, unknownCmd, `unknown command "prodcts" for "shoplazza"` + mean + "products", "'shoplazza --help'"},
+		{"module", []string{"products", "aa"}, unknownCmd, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
+		{"near name", []string{"products", "variant"}, unknownCmd, `unknown command "variant" for "shoplazza products"` + mean + "variants", "'shoplazza products --help'"},
+		{"nested group", []string{"products", "variants", "aa"}, unknownCmd, `unknown command "aa" for "shoplazza products variants"`, "'shoplazza products variants --help'"},
+		{"after a flag", []string{"products", "--format", "json", "aa"}, unknownCmd, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
+		{"with --help", []string{"products", "aa", "--help"}, unknownCmd, `unknown command "aa" for "shoplazza products"`, "'shoplazza products --help'"},
+		{"static group", []string{"auth", "aa"}, unknownCmd, `unknown command "aa" for "shoplazza auth"`, "'shoplazza auth --help'"},
+		{"other group, followed down", []string{"variants", "list"}, unknownCmd, `unknown command "variants" for "shoplazza"` + mean + "shoplazza products variants list", "'shoplazza --help'"},
+		{"other group, leaf flag after it", []string{"variants", "list", "--params", "{}"}, unknownCmd, `unknown command "variants" for "shoplazza"` + mean + "shoplazza products variants list", "'shoplazza --help'"},
+		{"other group from a group", []string{"products", "addresses"}, unknownCmd, `unknown command "addresses" for "shoplazza products"` + mean + "shoplazza customers addresses", "'shoplazza products --help'"},
+		{"name shared by many", []string{"list"}, unknownCmd, `unknown command "list" for "shoplazza"`, "'shoplazza --help'"},
+		{"flag near name", []string{"customers", "+search", "--emial", "a@b.c"}, unknownFlag, "unknown flag: --emial" + mean + "--email", "--help"},
+		{"spec leaf flag near name", []string{"orders", "list", "--param", "{}"}, unknownFlag, "unknown flag: --param" + mean + "--params", "--help"},
+		{"deprecated alias points at its canonical flag", []string{"discounts", "+percent-code", "--percnt", "10"}, unknownFlag, "unknown flag: --percnt" + mean + "--percent-off", "--help"},
+		{"flag with no near name", []string{"customers", "+search", "--xyz"}, unknownFlag, "unknown flag: --xyz", "--help"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout, stderr, code := runCLI(t, bin, env, tt.args...)
+			if code != 2 || stdout != "" {
+				t.Fatalf("exit %d, stdout %q; want exit 2 and empty stdout", code, stdout)
+			}
+			var got struct {
+				Error struct{ Subtype, Message, Hint string }
+			}
+			if err := json.Unmarshal([]byte(stderr), &got); err != nil {
+				t.Fatalf("stderr not JSON: %v\n%s", err, stderr)
+			}
+			e := got.Error
+			if e.Subtype != tt.subtype || e.Message != tt.message || !strings.Contains(e.Hint, tt.hint) {
+				t.Errorf("error = %+v; want %s, message %q, hint containing %q", e, tt.subtype, tt.message, tt.hint)
+			}
+		})
+	}
+
+	for _, args := range [][]string{{"products"}, {"products", "--help"}} {
+		stdout, _, code := runCLI(t, bin, env, args...)
+		if code != 0 || !strings.Contains(stdout, "shoplazza products [command]") {
+			t.Errorf("%v: exit %d, stdout %q; want exit 0 and the group's help", args, code, stdout)
+		}
 	}
 }
 

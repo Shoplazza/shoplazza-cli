@@ -44,13 +44,13 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | User intent | Command |
 |-------------|---------|
 | Search / filter orders | `orders +search [--email <addr>] [--keyword <no/name/email>] [--status …] [--financial-status …] [--fulfillment-status …] [--customer-id <id>] [--since <t>] [--until <t>]` |
-| Count orders | `orders +count` — same filters as `+search`, minus `--page-limit` |
-| Ship an order (发货) | `orders +ship --order-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--line-items id:qty,…] [--notify]` |
+| Count orders | `orders +count` — same filters as `+search`, minus `--page-limit` / `--cursor` |
+| Ship an order (发货) | `orders +ship --order-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--tracking-url <url>] [--line-items id:qty,…]` |
 | Refund a buyer (退款; money → `--dry-run` first) | `orders +refund --order-id <id> --amount <n> [--note <txt>] [--return-items] [--payment-line-id <id>]` |
-| Fix / update tracking info | `orders +update-tracking --order-id <id> --fulfillment-id <id> --tracking <no> [--company <name>] [--tracking-url <url>] [--notify]` |
+| Fix / update tracking info | `orders +update-tracking --order-id <id> --fulfillment-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--tracking-url <url>] [--notify]` |
 | Get one order by internal ID | `orders get --params '{"order_id":"<id>"}'` |
 | Get order by order NUMBER (#…) | `orders get-by-number --params '{"number":"<number>"}'` |
-| List with filters `+search` lacks (multi-status arrays, ids, skus, tags, fuzzy search…) | `orders list --params '{…}'` (see `schema orders.list`) |
+| List with filters `+search` lacks (ids, skus, tags, fuzzy search…) | `orders list --params '{…}'` (see `schema orders.list`) |
 | Create an order on a customer's behalf (手工建单 / 代客下单) | `orders create --data '{"order":{…}}'` — heavy nested body → [references/orders-create.md](references/orders-create.md) |
 | Update order note / tags / shipping address | `orders update --params '{"order_id":"<id>"}' --data '{"order":{…}}'` |
 | Cancel an order (destructive → `--dry-run` first) | `orders cancel --params '{"order_id":"<id>"}' [--data '{"reason":"…"}']` |
@@ -78,9 +78,11 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 4. **All required present** → execute, with safety per shoplazza-common:
    - **`+refund` moves money — ALWAYS `--dry-run` first**, restate in plain language (which
      order, how much, note, inventory returned or not), wait for the user's go-ahead, then
-     run for real.
+     run for real. An order paid through `customize_payment` or `bogus` stays in progress
+     until `orders refunds finish` → [references/refunds.md](references/refunds.md).
    - **Destructive leaves** (`orders cancel` / `orders delete` / `fulfillments cancel` /
-     `risks delete` / `post-sales delete` / `shipping-schemas delete-zone`) — `--dry-run`
+     `risks delete` / `post-sales delete` / `shipping-schemas delete-zone` /
+     `shipping-schemas save-general`) — `--dry-run`
      first + restate, wait for the user's go-ahead, then run.
    - **`orders pay` writes a payment record — same treatment as `+refund`**: `--dry-run`
      first, restate (which order, channel, transaction no), wait for the user's go-ahead.
@@ -100,11 +102,11 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 还没发货的订单 / unshipped orders | `+search --fulfillment-status waiting` | 未发货 = `waiting` — there is **no** `unfulfilled` value |
 | 某客户 / 某邮箱的订单 / orders from customer X | `+search` | customer id → `--customer-id`; a full email address → `--email` (exact match, the precise path); never stuff an id or an address into `--keyword` when a dedicated flag exists |
 | 有多少订单 / 订单总数 / how many orders | `+count` | "总共" = no filters, do not ask for a time range; count from `.data.count` |
-| 发货 / 标记发货 / ship order X | `+ship` | tracking no → `--tracking` verbatim; carrier name → `--company`; "通知买家" → `--notify`; whole order = omit `--line-items` |
+| 发货 / 标记发货 / ship order X | `+ship` | tracking no → `--tracking` verbatim; carrier name → `--company`; "通知买家" → then `+update-tracking --fulfillment-id <.data.fulfillment.id> --tracking <same no> --notify` (the create request has no email option); whole order = omit `--line-items` |
 | 部分发货 / ship only some items | `+ship --line-items id:qty,…` | per-line quantities as `line-id:qty` pairs |
 | 退款 / 给买家退 X 元 / refund the buyer | `+refund` | amount → `--amount` verbatim; stated reason → `--note`; "库存退回去/restock" → `--return-items` |
 | 改运单号 / 运单号填错了 / fix the tracking number | `+update-tracking` | needs all three: `--order-id`, `--fulfillment-id`, `--tracking` |
-| 订单号 #… 的详情 / look up order by number | `get-by-number` (leaf) | strip the leading `#` → `--params '{"number":"…"}'`; internal IDs go to `get` instead |
+| 订单号 #… 的详情 / look up order by number | `get-by-number` (leaf) | `--params '{"number":"…"}'`; a leading `#` is dropped by the CLI; internal IDs go to `get` instead |
 | 手工建单 / 代客下单 / create an order for a customer | `create` (leaf) | heavy nested body under `order` → [references/orders-create.md](references/orders-create.md); resolve `variant_id` via `products +search`; never fabricate buyer identity, address, or price |
 | 取消订单 / cancel order X | `cancel` (leaf) | id → `--params`; a stated reason → `--data '{"reason":"…"}'` (optional); **not** `fulfillments cancel` |
 | 取消发货记录 / cancel a fulfillment | `fulfillments cancel` (leaf) | both `order_id` and `fulfillment_id` in `--params`; **not** `orders cancel` |
@@ -122,16 +124,16 @@ Only **no-default** flags are askable.
 | Shortcut | Must ASK if user did not specify | Infer if possible | Default silently |
 |---|---|---|---|
 | `+refund` | `--amount` (**money — never fabricate**; you may offer to look up the order total via `orders get` for a full refund, but still confirm the number); `--order-id` if absent | `--note` from the stated reason; `--return-items` from 库存退回/restock wording | `--payment-line-id` (only needed when the order has multiple payment lines — the CLI errors with candidates; pick or ask then) |
-| `+ship` | `--tracking` (**never invent a tracking number**); `--order-id` if absent | `--company` from a named carrier (keep the user's naming); `--notify` from 通知买家 wording | `--line-items` (omit = all fulfillable items), `--company-code` |
-| `+update-tracking` | whichever of `--order-id` / `--fulfillment-id` / `--tracking` is missing | `--company`, `--tracking-url` only if the user gave them | `--notify` (set only on explicit re-notify wording) |
+| `+ship` | `--tracking` (**never invent a tracking number**); `--order-id` if absent | `--company` from a named carrier (keep the user's naming); `--tracking-url` only if the user gave one; a follow-up `+update-tracking … --notify` from 通知买家 wording | `--line-items` (omit = every line's remaining quantity), `--company-code` |
+| `+update-tracking` | whichever of `--order-id` / `--fulfillment-id` / `--tracking` is missing | `--company`, `--tracking-url` only if the user gave them | `--company-code`, `--notify` (set only on explicit re-notify wording) |
 | `+search` / `+count` | *(nothing — all filters optional; never ask)* | filters from wording via the enum table | `--page-limit`; time bounds only from the user's own time words |
 | `cancel` (leaf) | order id if absent | `reason` body only if the user stated one | `reason` (optional — omit if not given) |
-| `create` (leaf) | any missing required buyer/address sub-field (`last_name`, `email`, `country_code`, `province_code`, `city`, `address`, `zip`) and the line item(s) — **never fabricate identity, address, or price**; ask or look up `variant_id` via `products +search` | `currency_code` from the store (`shop info get --jq '.data.currency'`); a neutral `shipping_name` label ("Standard Shipping"); an omitted catalog `price` (the variant prices it) | notify flags, `tags`, `note`, `discount_application`, `payment_line` (record payment via `orders pay`) |
+| `create` (leaf) | any missing required buyer/address sub-field (`last_name`, `email`, `country_code`, `province`, `province_code`, `city`, `address`, `zip`) and the line item(s) — **never fabricate identity, address, or price**; ask or look up `variant_id` via `products +search` | `currency_code` from the store (`shop info get --jq '.data.currency'`); a neutral `shipping_name` label ("Standard Shipping"); an omitted catalog `price` (the variant prices it) | notify flags, `tags`, `note`, `discount_application`, `payment_line` (record payment via `orders pay`) |
 
 ### Never-ask list
 
 Flags with a CLI default or omit-to-disable — they never appear in a question:
-`--notify` (omit unless the user asks to notify) · `--line-items` (default: all fulfillable) ·
+`--notify` (omit unless the user asks to notify) · `--line-items` (default: every line's remaining quantity) ·
 `--company` / `--company-code` (optional carrier info) · `--payment-line-id` (only after a
 multi-payment-line error) · `--note` (only if a reason was given) · `--return-items` (explicit
 wording only) · `--tracking-url` · `--page-limit` · `--since` / `--until` (only from the
@@ -143,7 +145,7 @@ user's own time words — never invent a time range).
 |---|---|
 | "订单 111222 退 15.50 给买家，备注 wrong size，库存退回" | REFUND — `+refund --order-id 111222 --amount 15.50 --note "wrong size" --return-items`; `--dry-run` first, restate, wait for go-ahead, then run |
 | "给订单 333444 退个款" | ASK — the amount (money; never invent). Do NOT ask which order — it's in the utterance. May offer a full-refund lookup, still confirm |
-| "订单 555 可以发货了，运单号 YT123，中通，通知买家" | SHIP — `+ship --order-id 555 --tracking YT123 --company 中通 --notify`; safe to run directly |
+| "订单 555 可以发货了，运单号 YT123，中通，通知买家" | SHIP — `+ship --order-id 555 --tracking YT123 --company 中通`, then `+update-tracking --order-id 555 --fulfillment-id <.data.fulfillment.id> --tracking YT123 --notify` to email the buyer; safe to run directly |
 | "把订单 666 标记发货" | ASK — the tracking number (required, never fabricate); carrier is optional, offer alongside but don't block on it |
 | "找最近 7 天还没发货的订单" | SEARCH — `+search --fulfillment-status waiting --since <today-7d>`; no `--until` |
 | "取消订单 777，原因是买家申请" | CANCEL — `orders cancel --params '{"order_id":"777"}' --data '{"reason":"买家申请"}'`; `--dry-run` first + restate |
@@ -162,11 +164,14 @@ From `schema orders.list` — used by `+search` / `+count` / `list`:
 | `--fulfillment-status` | `initialled` · `waiting` (**未发货 / waiting to ship**) · `partially_shipped` · `shipped` · `partially_finished` · `finished` · `cancelled` · `returning` · `partially_returned` · `returned` |
 
 **`unfulfilled` / `fulfilled` are NOT valid values** — "还没发货" maps to `waiting`.
-Each shortcut flag takes ONE value; to filter on several at once use the `list` leaf, whose
-`status` / `financial_status` / `fulfillment_status` params are JSON arrays.
+Each flag takes one or more values (`--financial-status paid,refunded`, or repeat the flag) and
+matches orders in any of them; a value not in this table is exit 2.
 **Time window — which field.** `+search --since/--until` bound the **placed** time
-(`placed_at_min`/`placed_at_max`), ISO date or unix ts — that is the sales clock and the right
-default. To filter on a *different* moment, drop to the `list` leaf, which exposes one
+(`placed_at_min`/`placed_at_max`, both inclusive) — that is the sales clock and the right default. Values:
+`now`, `today`, `yesterday`, `-7d` / `+12h` (relative to now), `2026-09-01`, `2026-09-01 08:00`,
+RFC3339 (`2026-09-01T00:00:00+08:00`) or unix seconds; anything else is exit 2. A value without an
+offset is **UTC** (so are `today` / `yesterday`): for a store-local day pass the offset, e.g.
+`--since 2026-09-01T00:00:00+08:00` — the offset is the first five characters of the shop's `timezone` (`shop info get`): `+0800`, or `+0100` from Berlin's `+010014` (`+0200` in summer time). The CLI sends RFC3339 UTC; `--dry-run` shows it. To filter on a *different* moment, drop to the `list` leaf, which exposes one
 `_min`/`_max` pair per time field; pick it from the user's verb:
 
 | User's words | Param |
@@ -241,13 +246,12 @@ shoplazza-common).
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Filtered on `unfulfilled` / `fulfilled` | Not in the enum | 未发货 = `waiting`; see the enum table above |
-| `orders get` finds nothing for a `#…` number | `get` takes the internal `order_id`; order numbers are a different key | `get-by-number --params '{"number":"…"}'` (strip the `#`) |
+| `orders get` finds nothing for a `#…` number | `get` takes the internal `order_id`; order numbers are a different key | `get-by-number --params '{"number":"…"}'` (a leading `#` is fine) |
 | `+refund` errors "order has N payment_lines" | Multi-payment-line order needs an explicit choice | Re-run with `--payment-line-id` from the listed candidates |
-| `+refund` / `+ship` dry-run prints TWO requests | These shortcuts GET the order first (resolve payment lines / fulfillable items), then POST | Expected. The dry-run POST body omits looked-up data (e.g. `refund_line_items`, empty `payment_line_id`) — the live run fills them in |
+| `+refund` / `+ship` dry-run prints TWO requests | These shortcuts GET the order first (resolve payment lines / fulfillable items), then POST | Expected. A value the live run reads from the order shows as `"<resolved-from-step-0>"` in the dry-run POST body (`+refund`: `payment_line_id` unless `--payment-line-id` is given, `refund_line_items` with `--return-items`; `+ship`: `line_items` unless `--line-items` is given) |
 | Cancelled the order when only a shipment should die (or vice versa) | 取消订单 ≠ 取消发货记录 | Order → `orders cancel`; fulfillment → `orders fulfillments cancel` (both path ids) |
 | Hand-built `refunds create` body for a simple refund | The leaf needs the full body incl. `refund_payments` | Prefer `+refund`; leaf only for split/itemized refunds → [references/refunds.md](references/refunds.md) |
 | Store-wide `refunds list` for one order's records | Two different endpoints | One order → `refunds list-by-order --params '{"order_id":"…"}'` |
-| `--status` with a comma list on `+search` | Shortcut flags are single-valued | Multi-status → `orders list --params '{"status":["opened","placed"]}'` |
 | A search "for one buyer" returns the whole store | The filter was dropped, or the page just looks small | Cross-check with `orders +count` filtered vs unfiltered before answering — see shoplazza-common → "Reading a filtered list" |
 | `keyword_scope_fields=["email"]` or `["order_no"]` returns 0 hits | Those are the schema **description's** example strings, not the accepted vocabulary | Use the `fuzzy_fields` field names (`shipping_email`, `number`, `name`, …) — see "Searching orders precisely" |
 | `unknown flag: --fields` | No orders command has `--fields` | Project with `--jq` |
@@ -255,7 +259,6 @@ shoplazza-common).
 | `orders create` order fails despite `country`/`province` set | `country_code` / `province_code` (ISO: `US`, `CA`) are the required keys — the display-name `country` / `province` are optional | Send both codes; see [references/orders-create.md](references/orders-create.md) |
 | Copied the `orders pay` `payment_line` object into `orders create` | In `orders create` the schema types `payment_line` as a **string** (registry flattening), unlike `orders pay` where it is an object | Omit `payment_line` on create; record payment afterward with `orders pay` |
 | `orders pay` with no body "succeeded" unexpectedly | Empty body = bogus **test** payment | Pass `payment_line` (payment_channel, payment_method, transaction_no) for a real channel, or `gateway` for a custom method |
-| Schema summaries say "shopping zone" | Registry typo — they mean *shipping* zone | Ignore; commands are `shipping-schemas {create,update,delete}-zone` |
 
 ## Recipes
 
@@ -277,8 +280,9 @@ orders +count --jq '.data.count'
 # 5. Order detail by order number
 orders get-by-number --params '{"number":"2026071500123"}' --jq '.data.order'
 
-# 6. Ship the whole order and notify the buyer
-orders +ship --order-id 4300123 --tracking SF0011223344 --company "顺丰" --notify
+# 6. Ship the whole order, then email the buyer (the create request has no email option)
+FID=$(orders +ship --order-id 4300123 --tracking SF0011223344 --company "顺丰" --jq '.data.fulfillment.id')
+orders +update-tracking --order-id 4300123 --fulfillment-id "$FID" --tracking SF0011223344 --notify
 
 # 7. Fix a mistyped tracking number (no re-notify)
 orders +update-tracking --order-id 991100 --fulfillment-id 77001 --tracking YT5544332211

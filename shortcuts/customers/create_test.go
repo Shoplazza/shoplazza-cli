@@ -59,10 +59,20 @@ func TestBuildCreateCustomerBody_NeitherRejected(t *testing.T) {
 }
 
 func TestBuildCreateCustomerBody_NoMarketingFlipsDefault(t *testing.T) {
-	body, _ := buildCreateCustomerBody("a@b.com", "", "", "", nil, true)
-	c, _ := body["customer"].(map[string]any)
-	if c["accepts_marketing"] != false {
-		t.Errorf("accepts_marketing: got %v want false (--no-marketing)", c["accepts_marketing"])
+	for _, c := range []struct {
+		noMarketing bool
+		want        map[string]any
+	}{
+		{false, map[string]any{"accepts_marketing": true, "accepts_sms_marketing": nil}},
+		{true, map[string]any{"accepts_marketing": false, "accepts_sms_marketing": false}},
+	} {
+		body, _ := buildCreateCustomerBody("a@b.com", "", "", "", nil, c.noMarketing)
+		customer, _ := body["customer"].(map[string]any)
+		for field, want := range c.want {
+			if got, sent := customer[field]; got != want || sent != (want != nil) {
+				t.Errorf("--no-marketing=%v: %s = %v (sent %v), want %v", c.noMarketing, field, got, sent, want)
+			}
+		}
 	}
 }
 
@@ -120,9 +130,12 @@ func TestSearchShortcutPlan_DefaultsSuccess(t *testing.T) {
 }
 
 func TestSearchShortcutPlan_WithEmailSuccess(t *testing.T) {
-	in := shortcuttest.PlanInput(t, "search", searchShortcutFlags, map[string]string{"email": "a@b.com", "page-limit": "10"})
-	_, err := searchShortcut.Plan(in)
+	in := shortcuttest.PlanInput(t, "search", searchShortcutFlags, map[string]string{"email": "a@b.com", "page-limit": "10", "since": "2026-09-01", "until": "2026-09-30 23:59:59"})
+	p, err := searchShortcut.Plan(in)
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.Query["created_at_min"] != "2026-09-01T00:00:00Z" || p.Query["created_at_max"] != "2026-09-30T23:59:59Z" {
+		t.Errorf("--since/--until must reach created_at_* as RFC3339 UTC, got %v / %v", p.Query["created_at_min"], p.Query["created_at_max"])
 	}
 }

@@ -1,15 +1,19 @@
 package common_test
 
 import (
+	"errors"
+	"slices"
+	"strings"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 func TestIDFlag_Defaults(t *testing.T) {
-	f := common.IDFlag("Resource ID to fetch.")
-	if f.Name != "id" {
-		t.Errorf("Name: got %q want %q", f.Name, "id")
+	f := common.IDFlag("product", "Product ID to fetch.")
+	if f.Name != "product-id" || !slices.Equal(f.Aliases, []string{"id"}) {
+		t.Errorf("Name/Aliases: got %q/%v want product-id/[id]", f.Name, f.Aliases)
 	}
 	if f.Type != common.FlagString {
 		t.Errorf("Type: got %v want FlagString", f.Type)
@@ -36,10 +40,13 @@ func TestPageLimitFlag_Defaults(t *testing.T) {
 }
 
 func TestSinceUntilFlags(t *testing.T) {
-	since := common.SinceFlag()
-	until := common.UntilFlag()
+	since := common.SinceFlag("when the order was placed", "placed_at")
+	until := common.UntilFlag("when the order was placed", "placed_at")
 	if since.Name != "since" || until.Name != "until" {
 		t.Errorf("names: got %q/%q want since/until", since.Name, until.Name)
+	}
+	if !strings.Contains(since.Description, "(placed_at_min)") || !strings.Contains(until.Description, "(placed_at_max)") {
+		t.Errorf("descriptions must name the API field:\n%s\n%s", since.Description, until.Description)
 	}
 }
 
@@ -69,6 +76,10 @@ func TestValidatePageLimit(t *testing.T) {
 		err := common.ValidatePageLimit(c.pl)
 		if (err != nil) != c.wantErr {
 			t.Errorf("ValidatePageLimit(%d) error=%v, wantErr=%v", c.pl, err, c.wantErr)
+		}
+		var ee *output.ExitError
+		if c.wantErr && (!errors.As(err, &ee) || ee.Detail.Param != "--page-limit" || ee.Detail.Subtype != output.SubtypeInvalidFlagValue) {
+			t.Errorf("ValidatePageLimit(%d) = %#v, want an invalid_flag_value error on --page-limit", c.pl, err)
 		}
 	}
 }

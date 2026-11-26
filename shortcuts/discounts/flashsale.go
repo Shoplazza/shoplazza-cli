@@ -17,23 +17,23 @@ var flashsaleShortcut = common.Shortcut{
 		"[--limit-user-variant N | --limit-user-product N | --limit-user-all N] " +
 		"[--stock N] [--combines order,product,shipping] [--customer-segments <ids>]",
 	Short: "Create a product flash sale",
-	Long:  "Create a product flash sale (percent, fixed price, or amount off) scoped to variants or collections; run --dry-run first to preview.",
-	Example: `  # Preview a 30%-off flash sale on specific variants
+	Long:  "Create a product flash sale (percent, fixed price, or amount off) on the given variants or collections, or on every product in the store when neither is given; run --dry-run first to preview.",
+	Example: `  # Preview a 30%-off flash sale (customers pay 70%) on specific variants
   shoplazza discounts +flashsale --value 30 --type percent --variants v-1,v-2 --dry-run
 
   # Fixed sale price on a collection with a stock cap
   shoplazza discounts +flashsale --value 9.99 --type fixed-price --collections c-1 --stock 100`,
 	Flags: []common.Flag{
 		{Name: "value", Type: common.FlagFloat, Required: true,
-			Description: "Discount value; meaning depends on --type: percent → 1-99 (% off); fixed-price → the new selling price; off → amount to subtract. Required."},
+			Description: "Discount value; meaning depends on --type: percent → 1-99, the % taken off (20 = customers pay 80%); fixed-price → the new selling price; off → amount to subtract. Required."},
 		{Name: "type", Type: common.FlagString, Default: "percent",
-			Description: "Discount type: percent | fixed-price | off.",
+			Description: "Discount type: percent | fixed-price (API: fixed_price) | off (API: fixed_price_reduction). API field: discount_layer.obtain_type.",
 			Completions: []string{"percent", "fixed-price", "off"}},
 
 		// Scope qualifiers — at most one (mutually exclusive). Flashsale operates
 		// on SKUs, not parent products, so there is no --products flag.
-		{Name: "variants", Type: common.FlagString, Description: "Variant IDs comma-separated (mutex with --collections)."},
-		{Name: "collections", Type: common.FlagString, Description: "Collection IDs comma-separated (mutex with --variants)."},
+		{Name: "variants", Type: common.FlagStringSlice, Description: "Variant IDs comma-separated (mutex with --collections; omit both for every product in the store)."},
+		{Name: "collections", Type: common.FlagStringSlice, Description: "Collection IDs comma-separated (mutex with --variants; omit both for every product in the store)."},
 
 		{Name: "price-rule", Type: common.FlagString, Default: "price",
 			Description: "Which price the discount applies to: price (selling price) or compare_at_price (list price).",
@@ -46,7 +46,8 @@ var flashsaleShortcut = common.Shortcut{
 			Description: "Allowed combinations (subset of order/product/shipping; default: [] = no stacking).",
 			Completions: []string{"order", "product", "shipping"}},
 
-		{Name: "name", Type: common.FlagString, Description: "Activity name (auto-generated if omitted)."},
+		nameFlag(false),
+		displayNameFlag(false),
 		common.StartTimeFlag(),
 		common.EndTimeFlag(),
 		customerSegmentsFlag(),
@@ -66,8 +67,8 @@ var flashsaleShortcut = common.Shortcut{
 			return common.PlannedRequest{}, output.ErrValidation("--value must be > 0 (got %v)", value)
 		}
 
-		variantIDs := common.ParseProducts(in.Flags.GetString("variants"))
-		collectionIDs := common.ParseProducts(in.Flags.GetString("collections"))
+		variantIDs := common.IDList(in.Flags, "variants")
+		collectionIDs := common.IDList(in.Flags, "collections")
 		if len(variantIDs) > 0 && len(collectionIDs) > 0 {
 			return common.PlannedRequest{}, output.ErrValidation("--variants and --collections are mutually exclusive; set at most one")
 		}
@@ -125,15 +126,15 @@ var flashsaleShortcut = common.Shortcut{
 
 		info, err := buildAutoInfoFromFlags(in)
 		if err != nil {
-			return common.PlannedRequest{}, output.Errorf(output.ExitValidation, "validation", "%s", err)
+			return common.PlannedRequest{}, err
 		}
 		info["discount_type"] = "flashsale"
 		info["discount_target"] = "product"
 
 		// Flashsale uses variant_ids (SKUs), never product_ids, so pass nil for
 		// that slot. Scope is optional (empty = all) and there is no exclude option.
-		entitledProduct, err := resolveScope(nil, collectionIDs, variantIDs, false, false,
-			scopeNames{collections: "collections", variants: "variants"})
+		names := scopeNames{collections: "collections", variants: "variants"}
+		entitledProduct, err := resolveScope(nil, collectionIDs, variantIDs, false, false, names)
 		if err != nil {
 			return common.PlannedRequest{}, err
 		}
@@ -167,6 +168,8 @@ var flashsaleShortcut = common.Shortcut{
 				"entitled_product":  entitledProduct,
 			},
 		}
-		return PlanCreateAutomatic(payload), nil
+		p := PlanCreateAutomatic(payload)
+		p.DryRunHint = allProductsHint(entitledProduct, names)
+		return p, nil
 	},
 }

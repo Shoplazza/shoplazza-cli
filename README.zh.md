@@ -258,7 +258,7 @@ CLI 提供三种粒度的调用方式，覆盖从快速操作到完全自定义�
 
 ```bash
 shoplazza products +search --keyword "衬衫"
-shoplazza discounts +percent-code --target order --percent 20 --code SAVE20
+shoplazza discounts +percent-code --target order --percent-off 20 --code SAVE20
 shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 ```
 
@@ -422,7 +422,7 @@ shoplazza doctor check      # 诊断 CLI 健康状况
 | 变量 | 说明 |
 |------|------|
 | `SHOPLAZZA_UAT` | 用于非交互式登录的 User Access Token（等同 `--uat`） |
-| `SHOPLAZZA_ACCESS_TOKEN` | 直接使用该店铺 Access Token，跳过登录（CI）。需要店铺目标：`SHOPLAZZA_CLI_API_BASE_URL` 或一个 profile |
+| `SHOPLAZZA_ACCESS_TOKEN` | 直接使用该店铺 Access Token，跳过登录（CI）。需要店铺目标：`SHOPLAZZA_CLI_API_BASE_URL` 或一个 profile。设了但为空（或只有空格）会报错；要用已保存的登录请 unset 它 |
 | `SHOPLAZZA_CLI_API_BASE_URL` | 配合 `SHOPLAZZA_ACCESS_TOKEN` 使用的店铺基础 URL（如 `https://my-store.myshoplazza.com`） |
 | `SHOPLAZZA_CLI_PROFILE` | 指定使用的 profile（`--profile` 优先） |
 | `SHOPLAZZA_CLI_FORMAT` | 固定默认输出格式（`json`/`pretty`/`table`/`ndjson`/`csv`），覆盖 TTY 自动判定；`--format` 仍优先。伪终端里可用 `=json` 强制机器输出 |
