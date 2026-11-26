@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-11-23T08:07:01Z",
+  "generated_at": "2026-11-26T03:25:32Z",
   "modules": [
     {
       "name": "billing",
@@ -25126,6 +25126,11 @@
           "name": "order_number",
           "type": "object",
           "schema": "v202601.ShopOrderNumber"
+        },
+        {
+          "name": "customer_privacy",
+          "type": "object",
+          "schema": "v202601.ShopCustomerPrivacy"
         }
       ]
     },
@@ -27646,6 +27651,30 @@
         }
       ]
     },
+    "v202601.ShopCustomerPrivacy": {
+      "fields": [
+        {
+          "name": "gdpr_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "ccpa_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "privacy_app_status",
+          "type": "string"
+        },
+        {
+          "name": "app_gdpr_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "app_ccpa_enabled",
+          "type": "boolean"
+        }
+      ]
+    },
     "v202601.ShopNotifications": {
       "fields": [
         {
@@ -28251,6 +28280,18 @@
         }
       ]
     },
+    "v202601.UpdateShopCustomerPrivacyParam": {
+      "fields": [
+        {
+          "name": "gdpr_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "ccpa_enabled",
+          "type": "boolean"
+        }
+      ]
+    },
     "v202601.UpdateShopIconParam": {
       "fields": [
         {
@@ -28390,6 +28431,10 @@
           "max_length": 8
         },
         {
+          "name": "timezone",
+          "type": "string"
+        },
+        {
           "name": "icon",
           "type": "object",
           "schema": "v202601.UpdateShopIconParam"
@@ -28413,6 +28458,11 @@
           "name": "order_number",
           "type": "object",
           "schema": "v202601.UpdateShopOrderNumberParam"
+        },
+        {
+          "name": "customer_privacy",
+          "type": "object",
+          "schema": "v202601.UpdateShopCustomerPrivacyParam"
         }
       ]
     },
@@ -28595,6 +28645,11 @@
           "name": "order_number",
           "type": "object",
           "schema": "v202601.ShopOrderNumber"
+        },
+        {
+          "name": "customer_privacy",
+          "type": "object",
+          "schema": "v202601.ShopCustomerPrivacy"
         }
       ]
     },
