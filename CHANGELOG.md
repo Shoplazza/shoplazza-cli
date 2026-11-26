@@ -20,7 +20,7 @@
 - Integers past 2^53 stay exact in `--data`, `--params` and `--jq`.
 - Spec leaves percent-encode path parameters (`#1001` works), split comma-joined values for array query parameters, and reject unknown, misplaced or missing `--params` keys, missing body fields and fields left outside their wrapper before sending.
 - `-q` is checked before the request is sent. A rejected token is an `auth` / `invalid_token` error, and a bare 403 names the read/write scope pair of the resource. Invalid `--data` / `--params` JSON says where it breaks.
-- Time and list flags parse the same way across shortcuts, and bad values exit 2. An unknown subcommand under a group exits 2 instead of printing help.
+- Time and list flags parse the same way across shortcuts, and bad values exit 2. Unix seconds are 9-10 digits or 0, so a bare `2026` or `20261101` is refused rather than read as 1970. An unknown subcommand under a group exits 2 instead of printing help.
 - Discount shortcuts reject flags that do not match `--target`, fixed discounts not below their threshold, and several `+rebate` tiers with `--limit-order-once=false`. `orders +refund --amount` must be a number above 0.
 - `products +set-variants` names the dimension when a per-value flag leaves out `Dim:`.
 - `customers +create --no-marketing` also opts out of SMS marketing.

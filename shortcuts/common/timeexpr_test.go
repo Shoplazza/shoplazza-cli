@@ -66,6 +66,9 @@ func TestParseTimeAt(t *testing.T) {
 		{"2027-06-30 16:00 +08:00", "2027-06-30T08:00:00Z"},
 		{"2027-06-30 16:00:00 +0800", "2027-06-30T08:00:00Z"},
 		{" 1700000000 ", "2023-11-14T22:13:20Z"},
+		{"999999999", "2001-09-09T01:46:39Z"},
+		{"100000000", "1973-03-03T09:46:40Z"},
+		{"0", "1970-01-01T00:00:00Z"},
 	}
 	for _, c := range cases {
 		got, err := common.ParseTimeAt(c.in, now)
@@ -84,7 +87,10 @@ func TestParseTimeAt_Invalid(t *testing.T) {
 		{"yesterdy", "unrecognised time"},
 		{"", "unrecognised time"},
 		{"2027-06-30T25:00:00", "unrecognised time"},
-		{"2026", "10 digits"},
+		{"2026", "9-10 digits"},
+		{"20261101", "2026-11-01"},
+		{"00", "9-10 digits"},
+		{"17000000000", "9-10 digits"},
 		{"1700000000000", "milliseconds"},
 		{"-1", "only accepted by --end"},
 		{"forever", "only accepted by --end"},

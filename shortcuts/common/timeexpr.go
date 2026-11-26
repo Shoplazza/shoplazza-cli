@@ -74,14 +74,14 @@ func parseTime(s string, now time.Time) (time.Time, error) {
 		return parseRelative(s, now)
 	}
 	if isDigits(s) {
-		switch len(s) {
-		case 10:
+		switch {
+		case s == "0" || len(s) == 9 || len(s) == 10:
 			n, _ := strconv.ParseInt(s, 10, 64)
 			return time.Unix(n, 0).UTC(), nil
-		case 13:
+		case len(s) == 13:
 			return time.Time{}, fmt.Errorf("%q looks like unix milliseconds; pass unix seconds (10 digits)", s)
 		default:
-			return time.Time{}, fmt.Errorf("unrecognised time %q; unix seconds have 10 digits", s)
+			return time.Time{}, fmt.Errorf("unrecognised time %q; write a date as 2026-11-01, and unix seconds as 9-10 digits (or 0)", s)
 		}
 	}
 	upper := strings.ToUpper(s)
