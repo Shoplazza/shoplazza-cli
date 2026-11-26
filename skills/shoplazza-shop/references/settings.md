@@ -12,7 +12,7 @@ shop info get                                              # every field incl. t
 shop info get --params '{"fields":["wholesale","order_number"]}'   # group names work in fields
 shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"anti_spider":{"enabled":true}}}'
 shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"customer_privacy":{"ccpa_enabled":true}}}'
-shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"timezone":"+0900"}}'
+shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"timezone":"Asia/Tokyo"}}'
 shop notifications get
 shop notifications update --data '{"notifications":{"order_enabled":true}}'
 ```
@@ -43,9 +43,13 @@ what changes; omitted fields (and omitted groups) keep their current value.
 `prefix` + `suffix` together ≤ 20 chars. Send `""` to clear a prefix or suffix — omitting it
 keeps the current value.
 
-`timezone` (a plain field on `shop`) takes the same code form `info get` returns in
-`.data.timezone` — e.g. `+0800`, `+0900`, `-050010` — not an IANA name. An invalid code returns
-422; `""` leaves the timezone unchanged.
+`timezone` (a plain field on `shop`) takes either a supported IANA name (`Asia/Tokyo`,
+case-sensitive) or the internal code `info get` returns in `.data.timezone` (`+0800`, `+0900`,
+`-050010` — cities sharing an offset get a numeric suffix). Either way it is stored, and read
+back, as the internal code. Three IANA names are shared by several cities and map to a default:
+`Etc/GMT+8` → `-0800`, `America/Halifax` → `-04008`, `Etc/GMT-2` → `+02003`; send the internal
+code to pick another city in those groups (e.g. `-04009`, which has no IANA name of its own).
+Offsets like `+08:00`, display names and padded values return 422; `""` leaves it unchanged.
 
 | Notifications (`notifications.<field>`) | Meaning |
 |---|---|
@@ -76,7 +80,7 @@ wholesale: <reason>; order_number: Invalid suffix (updated: name, anti_spider)
 | 422 on `wholesale` | The plan doesn't support wholesale, or a conflicting feature is in use (the message names it) | Relay the message; no CLI workaround |
 | 406 on `order_number` (e.g. `Invalid suffix`, `Invalid prefix`) | Suffix with `order_id_type: sequential`, a prefix that doesn't fit `order_id_type`, or a plan without custom prefixes | Adjust per the Fields table, or relay the message |
 | 422 on `email` / `customer_email` / `financial_email` | Invalid email format | Ask for a valid address |
-| 422 `Request parameter error` | `timezone` is not a valid code (e.g. an IANA name) | Send the code form, e.g. `+0900` |
+| 422 `Invalid parameter timezone…` (or Chinese `参数 timezone 无效…`) | `timezone` is neither a supported IANA name nor an internal code; for an IANA name the shop doesn't support, the message lists same-offset codes | Send a supported IANA name or one of the listed codes |
 | 400 `… value length must be at most …` | Over a max length above | Shorten the value |
 
 `currency` cannot change once the store has orders.

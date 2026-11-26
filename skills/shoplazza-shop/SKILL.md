@@ -43,7 +43,7 @@ Intent → command, highest-fit tier first. Authoritative flags/params live in
 | User intent | Command |
 |-------------|---------|
 | **Store info** — 查店铺信息 / domain / currency / plan / 店铺设置 | `shop info get` (all fields incl. the 5 settings groups; narrow with `--params '{"fields":["id","domain"]}'` — group names work too, e.g. `["wholesale"]`) |
-| 改店铺资料 / 客服邮箱 / 店铺名称 / 地址 / 图标 / 时区 — edit the shop profile | `shop info get --jq '.data.id'` → `shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"customer_email":"…"}}'` (send only the fields to change; `timezone` takes a code like `+0900` — see Gotchas) |
+| 改店铺资料 / 客服邮箱 / 店铺名称 / 地址 / 图标 / 时区 — edit the shop profile | `shop info get --jq '.data.id'` → `shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"customer_email":"…"}}'` (send only the fields to change; `timezone` takes an IANA name like `Asia/Tokyo` or an internal code like `+0900` — see Gotchas) |
 | **Store settings** — 密码保护 / 防爬虫 / 梯度批发 / 混批 / 订单编号前缀 / 客户隐私 GDPR / CCPA | `shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"password_protection":{"enabled":true,"password":"…"}}}'` → [references/settings.md](references/settings.md) |
 | **Merchant notifications** — 新订单提醒 / 收货通知 / 评论通知 开关 | `shop notifications get` / `shop notifications update --data '{"notifications":{"review_enabled":false}}'` |
 | **Analytics** — 销售额/订单数报表 for a date range | `shop analytics overview --data '{"begin_time":"<unix-str>","end_time":"<unix-str>","indicator":["sales","orders"]}'` → [references/analytics.md](references/analytics.md) |
@@ -86,7 +86,7 @@ about defaulted/optional fields.
 | `markets create` | `name`, `countries` | `confirm` — **never silently pass `true`** (it deletes occupied markets) |
 | `carrier-services create` | `name`, `callback_url` (the user's own endpoint — never invent), `carrier_code` | `active`, `logo`, `short_desc` |
 | `languages add` | the language(s); resolve IETF codes via `languages supported` | — |
-| `info update` | the new value of each field the user wants changed; `password_protection.password` when turning protection on (never invent a password); `order_number.number_type` / `order_id_type` if the wording doesn't map to an enum; `timezone` if the place doesn't map to one code with certainty | `shop_id` — resolve it yourself via `info get`, don't ask; every field the user didn't mention — omit it (only sent fields are written) |
+| `info update` | the new value of each field the user wants changed; `password_protection.password` when turning protection on (never invent a password); `order_number.number_type` / `order_id_type` if the wording doesn't map to an enum; `timezone` if the place doesn't map to one IANA name or code with certainty | `shop_id` — resolve it yourself via `info get`, don't ask; every field the user didn't mention — omit it (only sent fields are written) |
 | `notifications update` | which switch(es) and on/off | the other switches — omit them (kept as is) |
 | `menu create` | `title`; each item's title + link target (resolve ids yourself) | `category` (always custom `3`), `target`, `disabled` |
 | `menu update` | which menu (resolve the id via `menu list`), the change | `title` / `category` — omit to keep them |
@@ -152,7 +152,7 @@ shoplazza-common).
 | `info get` fails on a settings group the user didn't ask about | With no `fields`, it reads every settings group; one failing group fails the call | Pass `fields` with just what's needed (`["id","domain"]` or a group name) |
 | 422 `Please bind a payment card before changing this setting` | Password protection's switch / tips can't change until the store binds a payment card | Not fixable from the CLI — the merchant binds a card in the admin first |
 | `order_number` 406 `Invalid suffix` | A suffix is not allowed when `order_id_type` is `sequential`; prefix + suffix ≤ 20 chars | Switch `order_id_type` to `alphanumeric_random` or drop the suffix; send `""` to clear a prefix / suffix (omitting keeps it) |
-| `timezone` 422 `Request parameter error` | `timezone` takes the same code form `info get` returns in `.data.timezone` (e.g. `+0800`, `-050010`), NOT an IANA name like `Asia/Tokyo`; `""` leaves it unchanged | Send the code (Tokyo → `+0900`); check the current form with `shop info get --jq '.data.timezone'`; ask if the place doesn't map to one code with certainty |
+| `timezone` 422 `Invalid parameter timezone…` (may come back in Chinese: `参数 timezone 无效…`) | `timezone` takes a supported IANA name (`Asia/Tokyo`, case-sensitive) or the internal code `info get` returns in `.data.timezone` (`+0900`, `-050010`) — not an offset like `+08:00` or a display name; `""` leaves it unchanged. For an IANA name the shop doesn't support, the message lists same-offset codes | Send the IANA name; `Etc/GMT+8` / `America/Halifax` / `Etc/GMT-2` are shared and default to `-0800` / `-04008` / `+02003`, so send the internal code for another city in those groups; on 422 pick from the listed codes or ask |
 | Tried to change `privacy_app_status` / `app_gdpr_enabled` / `app_ccpa_enabled` | Read-only — they mirror the privacy app's own switches | Only `customer_privacy.gdpr_enabled` / `ccpa_enabled` are writable; the app's switches are managed in the app |
 | 400 `… value is required` on `notifications update` | The switches must sit under the `notifications` wrapper | `--data '{"notifications":{"order_enabled":true}}'` |
 | Asked to upload a **local** file | `+upload-file` takes **public URLs, NOT local files** (verbatim in its help); the API fetches the URL | Degrade: no write; ask for a public link or suggest hosting it first |
@@ -179,8 +179,8 @@ shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"custome
 shop info get --params '{"fields":["id","wholesale","order_number"]}'
 shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"wholesale":{"enabled":true,"mixed_enabled":true,"mixed_min_quantity":10}}}'
 
-# 2c. Turn on GDPR (CCPA untouched) and move the shop to Tokyo time
-shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"timezone":"+0900","customer_privacy":{"gdpr_enabled":true}}}'
+# 2c. Turn on GDPR (CCPA untouched) and move the shop to Tokyo time (IANA name or code +0900)
+shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"timezone":"Asia/Tokyo","customer_privacy":{"gdpr_enabled":true}}}'
 
 # 2d. Turn off review notifications, keep the other switches
 shop notifications update --data '{"notifications":{"review_enabled":false}}'
