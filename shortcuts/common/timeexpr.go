@@ -114,6 +114,11 @@ func TimeFlag(in PlanInput, name string) (t time.Time, set bool, err error) {
 // AddTimeRange writes --since / --until into q as RFC3339 UTC under
 // <field>_min / <field>_max, rejecting a window whose start is after its end.
 func AddTimeRange(q map[string]any, in PlanInput, field string) error {
+	return AddTimeRangeAs(q, in, field+"_min", field+"_max")
+}
+
+// AddTimeRangeAs is AddTimeRange for APIs whose bound keys do not follow <field>_min / <field>_max.
+func AddTimeRangeAs(q map[string]any, in PlanInput, minKey, maxKey string) error {
 	since, hasSince, err := TimeFlag(in, "since")
 	if err != nil {
 		return err
@@ -128,10 +133,10 @@ func AddTimeRange(q map[string]any, in PlanInput, field string) error {
 			WithSubtype(output.SubtypeInvalidFlagValue)
 	}
 	if hasSince {
-		q[field+"_min"] = rfc3339(since)
+		q[minKey] = rfc3339(since)
 	}
 	if hasUntil {
-		q[field+"_max"] = rfc3339(until)
+		q[maxKey] = rfc3339(until)
 	}
 	return nil
 }

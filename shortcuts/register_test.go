@@ -110,6 +110,7 @@ func TestFlagEnumsMatchSpec(t *testing.T) {
 		"discounts +search --discount-type":   {"discounts list", "discount_type"},
 		"discounts +search --discount-target": {"discounts list", "discount_targets"},
 		"discounts +search --discount-method": {"discounts list", "discount_methods"},
+		"discounts +search --combines":        {"discounts list", "discount_combines"},
 	}
 	checked := 0
 	for _, s := range allShortcuts {

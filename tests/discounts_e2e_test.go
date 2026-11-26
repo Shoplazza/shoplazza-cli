@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -247,10 +248,10 @@ func TestDiscountsCombine_MockServer(t *testing.T) {
 // ── shortcuts: +search ────────────────────────────────────────────────────────
 
 func TestShortcut_Search(t *testing.T) {
-	var capturedQuery string
+	var capturedQuery url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
+		capturedQuery = r.URL.Query()
 		json.NewEncoder(w).Encode(map[string]any{"discounts": []any{}})
 	}))
 	defer srv.Close()
@@ -258,15 +259,25 @@ func TestShortcut_Search(t *testing.T) {
 	bin := buildBinary(t)
 	env := apiEnv(srv.URL)
 
-	_, _, code := runCLI(t, bin, env, "discounts", "+search", "--query", "flash", "--progress", "ongoing")
+	_, stderr, code := runCLI(t, bin, env, "discounts", "+search", "--query", "flash", "--progress", "ongoing",
+		"--since", "2026-12-01T05:00:00Z", "--source", "manual,other", "--combines", "order")
 	if code != 0 {
-		t.Fatalf("unexpected exit code %d", code)
+		t.Fatalf("unexpected exit code %d, stderr=%s", code, stderr)
 	}
-	if !strings.Contains(capturedQuery, "discount_name=flash") {
-		t.Errorf("query %q missing discount_name=flash", capturedQuery)
+	want := map[string]string{
+		"discount_name": "flash", "progress": "ongoing",
+		"starts_date": "2026-12-01T05:00:00Z", "ends_date": "-1",
+		"source_ids": "1|999", "discount_combines": "order",
 	}
-	if !strings.Contains(capturedQuery, "progress=ongoing") {
-		t.Errorf("query %q missing progress=ongoing", capturedQuery)
+	for k, v := range want {
+		if got := strings.Join(capturedQuery[k], "|"); got != v {
+			t.Errorf("%s = %q, want %q", k, got, v)
+		}
+	}
+
+	stdout, stderr, code := runCLI(t, bin, env, "discounts", "+search", "--until", "2026-12-01T05:00:00Z", "--dry-run")
+	if code != 0 || !strings.Contains(stdout, `"starts_date": "-1"`) || !strings.Contains(stdout, `"ends_date": "2026-12-01T05:00:00Z"`) {
+		t.Errorf("--until --dry-run: exit %d, want the window in RFC3339 UTC; stdout=%s stderr=%s", code, stdout, stderr)
 	}
 }
 

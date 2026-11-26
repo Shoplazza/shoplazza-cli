@@ -204,8 +204,13 @@ discounts +search --progress ongoing --discount-type flashsale --page-limit 250
 discounts +search --query "spring" --discount-method discount_code
 ```
 
-Multi-value filters (`--progress`, `--discount-type`, `--discount-method`, `--discount-target`)
-take comma-separated lists or a repeated flag; a value outside the `--help` list is exit 2.
+Multi-value filters (`--progress`, `--discount-type`, `--discount-method`, `--discount-target`,
+`--combines`, `--source`, `--ids`) take comma-separated lists or a repeated flag; a value outside
+the `--help` list is exit 2.
+
+`--since` / `--until` bound when a discount **starts**, not when it runs: a discount that started
+last month and is still running is outside `--since <this month>`. For "running now" use
+`--progress ongoing`.
 
 The discount object is nested at `.data.discount.{discount_info,discount_layer,discount_rule,entitled_product,...}`
 (the general "jq starts at `.data`" rule is in shoplazza-common):

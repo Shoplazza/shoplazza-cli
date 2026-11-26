@@ -1,23 +1,35 @@
 package discounts
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
 // ── +search ───────────────────────────────────────────────────────────────────
+
+var discountSources = []struct{ name, id string }{
+	{"manual", "1"}, {"goaffpro", "2"}, {"fintouch", "3"}, {"mambasms", "4"},
+	{"stamped", "5"}, {"recommendation", "6"}, {"athena", "10"}, {"other", "999"},
+}
 
 var searchShortcut = common.Shortcut{
 	Service: "discounts",
 	Command: "+search",
 	Use:     "+search",
 	Short:   "Search discounts by keyword or code",
-	Long:    "Search discounts by name, code, type, target, or progress. " + common.OnePage,
+	Long:    "Search discounts by name, code, type, target, progress, start time, stacking, source, or ID. " + common.OnePage,
 	Example: `  # Find a discount by code
   shoplazza discounts +search --discount-code SAVE20
 
   # Ongoing percent-off code discounts, 50 per page
-  shoplazza discounts +search --progress ongoing --discount-type code_percent --page-limit 50`,
+  shoplazza discounts +search --progress ongoing --discount-type code_percent --page-limit 50
+
+  # Discounts made by hand that start in December 2026 (UTC+8)
+  shoplazza discounts +search --source manual --since 2026-12-01T00:00:00+08:00 --until 2026-12-31T23:59:59+08:00`,
 	Flags: []common.Flag{
 		{Name: "query", Type: common.FlagString, Description: "Filter by discount name: matches names that contain the whole value as one case-insensitive substring (no word splitting or fuzzy matching), so \"Spring Sale 2026\" does not find \"Spring Sale\"."},
 		{Name: "discount-code", Type: common.FlagString, Description: "Filter by discount code."},
@@ -34,21 +46,85 @@ var searchShortcut = common.Shortcut{
 			Enum: []string{"order", "product", "shipping"}},
 		{Name: "discount-method", Type: common.FlagStringSlice, Description: "Filter by method: automatic|discount_code.",
 			Enum: []string{"automatic", "discount_code"}},
+		{Name: "since", Type: common.FlagString, Description: "Only discounts that start at or after this time (starts_date); one that started earlier is left out even if it is still running. Accepts " + common.TimeFormats + "."},
+		{Name: "until", Type: common.FlagString, Description: "Only discounts that start at or before this time (ends_date). Accepts " + common.TimeFormats + "."},
+		{Name: "combines", Type: common.FlagStringSlice, Description: "Only discounts that stack with any of: order|product|shipping.",
+			Enum: []string{"order", "product", "shipping"}},
+		{Name: "source", Type: common.FlagStringSlice, Description: "Who created the discount: manual|goaffpro|fintouch|mambasms|stamped|recommendation|athena|other, or a numeric source ID. Discounts made through the API, this CLI included, are other."},
+		{Name: "ids", Type: common.FlagStringSlice, Description: "Discount IDs, comma-separated."},
 		common.PageLimitFlag(),
 		common.CursorFlag(),
 	},
 	Plan: func(in common.PlanInput) (common.PlannedRequest, error) {
-		q := map[string]any{}
-		cmdutil.AddString(q, "discount_name", in.Flags.GetString("query"))
-		cmdutil.AddString(q, "discount_code", in.Flags.GetString("discount-code"))
-		cmdutil.AddSlice(q, "progress", in.Flags.GetStringSlice("progress"))
-		cmdutil.AddSlice(q, "discount_type", in.Flags.GetStringSlice("discount-type"))
-		cmdutil.AddSlice(q, "discount_targets", in.Flags.GetStringSlice("discount-target"))
-		cmdutil.AddSlice(q, "discount_methods", in.Flags.GetStringSlice("discount-method"))
-		if ps := in.Flags.GetInt("page-limit"); ps > 0 {
-			q["page_size"] = ps
+		q, err := searchQuery(in.Flags)
+		if err != nil {
+			return common.PlannedRequest{}, err
 		}
-		cmdutil.AddString(q, "cursor", in.Flags.GetString("cursor"))
+		if err := common.AddTimeRangeAs(q, in, "starts_date", "ends_date"); err != nil {
+			return common.PlannedRequest{}, err
+		}
+		openSearchWindow(q)
 		return PlanList(q), nil
 	},
+}
+
+func searchQuery(f common.FlagSet) (map[string]any, error) {
+	q := map[string]any{}
+	cmdutil.AddString(q, "discount_name", f.GetString("query"))
+	cmdutil.AddString(q, "discount_code", f.GetString("discount-code"))
+	cmdutil.AddSlice(q, "progress", f.GetStringSlice("progress"))
+	cmdutil.AddSlice(q, "discount_type", f.GetStringSlice("discount-type"))
+	cmdutil.AddSlice(q, "discount_targets", f.GetStringSlice("discount-target"))
+	cmdutil.AddSlice(q, "discount_methods", f.GetStringSlice("discount-method"))
+	cmdutil.AddSlice(q, "discount_combines", f.GetStringSlice("combines"))
+	cmdutil.AddSlice(q, "ids", f.GetStringSlice("ids"))
+	if f.Changed("source") {
+		ids, err := sourceIDs(f.GetStringSlice("source"))
+		if err != nil {
+			return nil, err
+		}
+		q["source_ids"] = ids
+	}
+	if ps := f.GetInt("page-limit"); ps > 0 {
+		q["page_size"] = ps
+	}
+	cmdutil.AddString(q, "cursor", f.GetString("cursor"))
+	return q, nil
+}
+
+func sourceIDs(values []string) ([]string, error) {
+	ids := make([]string, 0, len(values))
+next:
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if _, err := strconv.ParseUint(v, 10, 64); err == nil {
+			ids = append(ids, v)
+			continue
+		}
+		names := make([]string, 0, len(discountSources))
+		for _, s := range discountSources {
+			if strings.EqualFold(v, s.name) {
+				ids = append(ids, s.id)
+				continue next
+			}
+			names = append(names, s.name)
+		}
+		return nil, output.ErrValidation("--source %q is neither a source name nor a numeric source ID", v).
+			WithParam("--source").
+			WithSubtype(output.SubtypeInvalidFlagValue).
+			WithHint("source names: " + strings.Join(names, ", "))
+	}
+	return ids, nil
+}
+
+// openSearchWindow sends -1 (no bound) for the missing side: the server reads a lone starts_date or ends_date as a lower bound.
+func openSearchWindow(q map[string]any) {
+	_, hasStart := q["starts_date"]
+	_, hasEnd := q["ends_date"]
+	switch {
+	case hasStart && !hasEnd:
+		q["ends_date"] = "-1"
+	case hasEnd && !hasStart:
+		q["starts_date"] = "-1"
+	}
 }
