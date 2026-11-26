@@ -109,6 +109,9 @@ func TestUploadFileShortcutExecute_DryRun(t *testing.T) {
 			want: []string{"https://example.com/a.jpg", "http://example.com/b.jpg", "HTTPS://example.com/c.jpg"}},
 		{name: "joined URLs keep the commas inside each", urls: []string{"https://res.cloudinary.com/demo/image/upload/w_300,h_200/a.jpg,https://example.com/b.jpg", "https://example.com/c.jpg"},
 			want: []string{"https://res.cloudinary.com/demo/image/upload/w_300,h_200/a.jpg", "https://example.com/b.jpg", "https://example.com/c.jpg"}},
+		{name: "spaces around values and an empty value", urls: []string{" https://example.com/a.jpg ", " ", "https://example.com/b.jpg , https://example.com/c.jpg\t"},
+			want: []string{"https://example.com/a.jpg", "https://example.com/b.jpg", "https://example.com/c.jpg"}},
+		{name: "only blanks", urls: []string{" ", ""}, wantErr: "at least one"},
 		{name: "data uri", urls: []string{"data:image/png;base64,iVBORw0KGgo="}, wantErr: `got "data:image/png;base64,iVBORw0KGgo="`, wantHint: "shop files upload --data"},
 	}
 	for _, c := range cases {

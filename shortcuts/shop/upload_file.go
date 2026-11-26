@@ -65,15 +65,20 @@ var uploadFileShortcut = common.Shortcut{
 
 var nextSourceURL = regexp.MustCompile(`(?i),\s*https?://`)
 
-// splitSourceURLs splits a value only where a comma starts another http(s) URL.
+// splitSourceURLs splits a value only where a comma starts another http(s) URL, trims each piece and drops empty ones.
 func splitSourceURLs(values []string) []string {
 	var urls []string
+	add := func(s string) {
+		if s = strings.TrimSpace(s); s != "" {
+			urls = append(urls, s)
+		}
+	}
 	for _, v := range values {
 		for loc := nextSourceURL.FindStringIndex(v); loc != nil; loc = nextSourceURL.FindStringIndex(v) {
-			urls = append(urls, v[:loc[0]])
-			v = strings.TrimLeft(v[loc[0]+1:], " \t")
+			add(v[:loc[0]])
+			v = v[loc[0]+1:]
 		}
-		urls = append(urls, v)
+		add(v)
 	}
 	return urls
 }
@@ -89,10 +94,16 @@ func checkSourceURLs(urls []string) error {
 			}
 		}
 	}
-	if len(bad) == 0 {
+	var msg string
+	switch {
+	case len(urls) == 0:
+		msg = "--source-url needs at least one http(s) URL"
+	case len(bad) > 0:
+		msg = "--source-url takes http(s) URLs, got " + strings.Join(bad, ", ")
+	default:
 		return nil
 	}
-	return output.ErrValidation("--source-url takes http(s) URLs, got %s", strings.Join(bad, ", ")).
+	return output.ErrValidation("%s", msg).
 		WithParam("--source-url").
 		WithSubtype(output.SubtypeInvalidFlagValue).
 		WithHint(hint)
