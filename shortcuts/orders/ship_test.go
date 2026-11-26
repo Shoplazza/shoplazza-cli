@@ -234,7 +234,11 @@ func TestShipExecute_DryRunReturnsTwoPlans(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	if len(result.Plans) != 2 {
-		t.Errorf("expected 2 plans (GET + POST), got %d", len(result.Plans))
+		t.Fatalf("expected 2 plans (GET + POST), got %d", len(result.Plans))
+	}
+	body := result.Plans[1].Body.(map[string]any)["fulfillment"].(map[string]any)
+	if body["line_items"] != resolvedFromOrder {
+		t.Errorf("without --line-items the preview must mark line_items as read from the order, got %v", body["line_items"])
 	}
 }
 

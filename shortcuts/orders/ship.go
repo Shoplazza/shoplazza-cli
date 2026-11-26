@@ -44,6 +44,7 @@ var shipShortcut = common.Shortcut{
 
 		if in.DryRun {
 			// Without fetching the order, build the body from --line-items only (no fulfillable check).
+			fulfillment["line_items"] = resolvedFromOrder
 			if lineItemsArg != "" {
 				items, err := dryRunLineItemsFromArg(lineItemsArg)
 				if err != nil {
