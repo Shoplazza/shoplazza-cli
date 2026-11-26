@@ -1088,6 +1088,7 @@ func TestSetVariants_CombinedRefusals(t *testing.T) {
 		{"new variant without an image", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9"}, "--new-image"},
 		{"image not on the product", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=//x.webp"}, "not one of the product's images"},
 		{"image URL with a query not on the product", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=//x.webp?w=200"}, "not one of the product's images"},
+		{"schemeless image URL with a query", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=img.example.com/x.webp?w=200"}, "not one of the product's images"},
 		{"per-value image without its dimension name", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=Red=img-Black"}, `has the wrong per-value format: write "Color:Red=img-Black"`},
 		{"per-value image URL without its dimension name", lensProduct("6lenses"), []string{"--add=Color:Red", "--new-price=9", "--new-image=Red=https://b.webp"}, `has the wrong per-value format: write "Color:Red=https://b.webp"`},
 		{"per-value price without its dimension name", colorSizeProduct(), []string{"--add=Color:Green", "--new-price=Green=5"}, `has the wrong per-value format: write "Color:Green=5"`},

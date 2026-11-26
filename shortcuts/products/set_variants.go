@@ -1151,7 +1151,7 @@ func parsePerValue(flag string, raws []string, isPrice bool) (perValue, error) {
 		if raw == "" {
 			continue
 		}
-		if before, _, ok := strings.Cut(raw, "="); ok && !strings.Contains(before, ":") && !strings.HasPrefix(raw, "//") {
+		if before, _, ok := strings.Cut(raw, "="); ok && !strings.ContainsAny(before, ":/?") {
 			if p.bare == "" {
 				p.bare = raw
 			}
