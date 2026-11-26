@@ -66,7 +66,7 @@ question:
 | User says | Command | How to extract values |
 |---|---|---|
 | 新建客户 / 建个客户档案 / add a new customer | `+create` | exactly ONE of `--email` / `--phone`; a full name like "Jane Doe" splits into `--first-name Jane --last-name Doe` |
-| 不要订阅营销 / 不订阅邮件 / don't subscribe to marketing | `+create … --no-marketing` | default subscribes to both email and SMS; the flag turns off both — it MUST be set on explicit opt-out wording |
+| 不要订阅营销 / 不订阅邮件 / don't subscribe to marketing | `+create … --no-marketing` | default subscribes to email and leaves SMS to the store default; the flag turns off both — it MUST be set on explicit opt-out wording |
 | 按邮箱查客户 / find the customer by email | `+search --email <e>` | the ask is the customer record, not their orders |
 | 按手机号查客户 / look up by phone | `+search --phone <p>` | do not invent `--since`/`--until` time bounds |
 | 一共多少客户 / 注册客户数 / how many customers | `+count` | no flags; extract with `--jq '.data.count'` |
