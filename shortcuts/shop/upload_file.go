@@ -22,10 +22,10 @@ var uploadFileShortcut = common.Shortcut{
   # Upload several URLs
   shoplazza shop +upload-file --source-url https://cdn.example.com/a.jpg --source-url https://cdn.example.com/b.jpg`,
 	Flags: []common.Flag{
-		{Name: "source-url", Type: common.FlagStringSlice, Required: true, Description: "Public http(s) URL(s) for the API to fetch. Can repeat."},
+		{Name: "source-url", Type: common.FlagStringArray, Required: true, Description: "Public http(s) URL for the API to fetch. Repeat the flag for several; a comma stays part of the URL."},
 	},
 	Execute: func(ctx context.Context, in common.ExecInput) (common.ExecResult, error) {
-		urls := in.Flags.GetStringSlice("source-url")
+		urls := in.Flags.GetStringArray("source-url")
 		if err := checkSourceURLs(urls); err != nil {
 			return common.ExecResult{}, err
 		}

@@ -15,22 +15,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newShopExecInputWithClient(t *testing.T, values map[string]string, c *client.Client) common.ExecInput {
+func newShopExecInputWithClient(t *testing.T, urls []string, c *client.Client) common.ExecInput {
 	t.Helper()
-	in := newShopExecInput(t, values, false)
+	in := newShopExecInput(t, urls, false)
 	in.Client = c
 	return in
 }
 
-func newShopExecInput(t *testing.T, values map[string]string, dryRun bool) common.ExecInput {
+func newShopExecInput(t *testing.T, urls []string, dryRun bool) common.ExecInput {
 	t.Helper()
 	cmd := &cobra.Command{Use: "test", RunE: func(*cobra.Command, []string) error { return nil }}
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true
-	cmd.Flags().StringSlice("source-url", nil, "")
+	cmd.Flags().StringArray("source-url", nil, "")
 	var args []string
-	for name, val := range values {
-		args = append(args, "--"+name+"="+val)
+	for _, u := range urls {
+		args = append(args, "--source-url="+u)
 	}
 	cmd.SetArgs(args)
 	if err := cmd.Execute(); err != nil {
@@ -75,8 +75,8 @@ func TestUploadFileShortcut_HasSourceURLFlag(t *testing.T) {
 			if !f.Required {
 				t.Error("--source-url must be Required")
 			}
-			if f.Type != common.FlagStringSlice {
-				t.Error("--source-url must be FlagStringSlice (can repeat)")
+			if f.Type != common.FlagStringArray {
+				t.Error("--source-url must be FlagStringArray: repeatable, and a comma stays inside its URL")
 			}
 		}
 		if f.Name == "file" || f.Name == "folder" {
@@ -91,23 +91,24 @@ func TestUploadFileShortcut_HasSourceURLFlag(t *testing.T) {
 func TestUploadFileShortcutExecute_DryRun(t *testing.T) {
 	cases := []struct {
 		name     string
-		urls     string
+		urls     []string
 		wantErr  string
 		wantHint string
 	}{
-		{name: "https", urls: "https://example.com/img.jpg"},
-		{name: "http and https", urls: "http://example.com/a.jpg,HTTPS://example.com/b.jpg"},
-		{name: "local path", urls: "/tmp/a.jpg", wantErr: `"/tmp/a.jpg"`, wantHint: "public link"},
-		{name: "file scheme", urls: "file:///tmp/a.jpg", wantErr: `"file:///tmp/a.jpg"`},
-		{name: "no scheme", urls: "example.com/a.jpg", wantErr: `"example.com/a.jpg"`},
-		{name: "ftp", urls: "ftp://example.com/a.jpg", wantErr: `"ftp://example.com/a.jpg"`},
-		{name: "no host", urls: "https:///a.jpg", wantErr: `"https:///a.jpg"`},
-		{name: "one bad among good", urls: "https://example.com/a.jpg,./b.jpg", wantErr: `"./b.jpg"`},
-		{name: "data uri", urls: "data:image/png;base64,iVBORw0KGgo=", wantErr: `"data:image/png;base64"`, wantHint: "shop files upload --data"},
+		{name: "https", urls: []string{"https://example.com/img.jpg"}},
+		{name: "http and https", urls: []string{"http://example.com/a.jpg", "HTTPS://example.com/b.jpg"}},
+		{name: "a comma inside a URL", urls: []string{"https://res.cloudinary.com/demo/image/upload/w_300,h_200,c_crop/a.jpg"}},
+		{name: "local path", urls: []string{"/tmp/a.jpg"}, wantErr: `"/tmp/a.jpg"`, wantHint: "public link"},
+		{name: "file scheme", urls: []string{"file:///tmp/a.jpg"}, wantErr: `"file:///tmp/a.jpg"`},
+		{name: "no scheme", urls: []string{"example.com/a.jpg"}, wantErr: `"example.com/a.jpg"`},
+		{name: "ftp", urls: []string{"ftp://example.com/a.jpg"}, wantErr: `"ftp://example.com/a.jpg"`},
+		{name: "no host", urls: []string{"https:///a.jpg"}, wantErr: `"https:///a.jpg"`},
+		{name: "one bad among good", urls: []string{"https://example.com/a.jpg", "./b.jpg"}, wantErr: `got "./b.jpg"`},
+		{name: "data uri", urls: []string{"data:image/png;base64,iVBORw0KGgo="}, wantErr: `got "data:image/png;base64,iVBORw0KGgo="`, wantHint: "shop files upload --data"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			in := newShopExecInput(t, map[string]string{"source-url": c.urls}, true)
+			in := newShopExecInput(t, c.urls, true)
 			result, err := uploadFileShortcut.Execute(context.Background(), in)
 			if c.wantErr != "" {
 				var exitErr *output.ExitError
@@ -130,8 +131,9 @@ func TestUploadFileShortcutExecute_DryRun(t *testing.T) {
 				t.Fatalf("dry-run should return 2 plans (POST + GET), got %d", len(result.Plans))
 			}
 			body, _ := result.Plans[0].Body.(map[string]any)
-			if len(body) != 1 || body["original_source_list"] == nil {
-				t.Errorf("POST body: got %v want only original_source_list", body)
+			got, _ := body["original_source_list"].([]string)
+			if len(body) != 1 || strings.Join(got, " ") != strings.Join(c.urls, " ") {
+				t.Errorf("POST body: got %v want only original_source_list %q", body, c.urls)
 			}
 		})
 	}
@@ -151,7 +153,7 @@ func TestUploadFileShortcutExecute_LivePostThenGet(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	in := newShopExecInputWithClient(t, map[string]string{"source-url": "https://example.com/a.jpg"}, client.New(srv.URL))
+	in := newShopExecInputWithClient(t, []string{"https://example.com/a.jpg"}, client.New(srv.URL))
 	result, err := uploadFileShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -170,7 +172,7 @@ func TestUploadFileShortcutExecute_LiveNoTaskID(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	in := newShopExecInputWithClient(t, map[string]string{"source-url": "https://example.com/a.jpg"}, client.New(srv.URL))
+	in := newShopExecInputWithClient(t, []string{"https://example.com/a.jpg"}, client.New(srv.URL))
 	result, err := uploadFileShortcut.Execute(context.Background(), in)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
