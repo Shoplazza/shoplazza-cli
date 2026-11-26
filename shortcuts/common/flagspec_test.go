@@ -1,10 +1,12 @@
 package common_test
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 )
 
@@ -74,6 +76,10 @@ func TestValidatePageLimit(t *testing.T) {
 		err := common.ValidatePageLimit(c.pl)
 		if (err != nil) != c.wantErr {
 			t.Errorf("ValidatePageLimit(%d) error=%v, wantErr=%v", c.pl, err, c.wantErr)
+		}
+		var ee *output.ExitError
+		if c.wantErr && (!errors.As(err, &ee) || ee.Detail.Param != "--page-limit" || ee.Detail.Subtype != output.SubtypeInvalidFlagValue) {
+			t.Errorf("ValidatePageLimit(%d) = %#v, want an invalid_flag_value error on --page-limit", c.pl, err)
 		}
 	}
 }

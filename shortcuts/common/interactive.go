@@ -52,7 +52,8 @@ func fillRequiredWith(c *cobra.Command, flags []Flag, interactive bool, prompt f
 	if len(missing) > 0 {
 		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
 			"required flag(s) not set: "+strings.Join(missing, ", "),
-			"pass "+strings.Join(missing, " ")+", or run '"+c.CommandPath()+" --help' to see them")
+			"pass "+strings.Join(missing, " ")+", or run '"+c.CommandPath()+" --help' to see them").
+			WithSubtype(output.SubtypeMissingRequiredFlag).WithParam(missing[0])
 	}
 	return nil
 }

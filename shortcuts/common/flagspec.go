@@ -45,7 +45,8 @@ func ValidatePageLimit(pl int) error {
 		return nil
 	}
 	if pl < 1 || pl > 250 {
-		return output.ErrValidation("--page-limit must be between 1 and 250, got %d", pl)
+		return output.ErrValidation("--page-limit must be between 1 and 250, got %d", pl).
+			WithParam("--page-limit").WithSubtype(output.SubtypeInvalidFlagValue)
 	}
 	return nil
 }

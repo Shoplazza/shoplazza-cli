@@ -73,7 +73,11 @@ var searchShortcut = common.Shortcut{
 			}
 			q["source_ids"] = ids
 		}
-		if ps := in.Flags.GetInt("page-limit"); ps > 0 {
+		ps, err := common.GetValidatedPageLimit(in)
+		if err != nil {
+			return common.PlannedRequest{}, err
+		}
+		if ps > 0 {
 			q["page_size"] = ps
 		}
 		cmdutil.AddString(q, "cursor", in.Flags.GetString("cursor"))

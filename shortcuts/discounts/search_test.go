@@ -25,6 +25,7 @@ func TestSearchPlan(t *testing.T) {
 	}{
 		{"defaults", nil, map[string]any{}, ""},
 		{"paging", map[string]string{"page-limit": "5", "cursor": "c-2"}, map[string]any{"page_size": 5, "cursor": "c-2"}, ""},
+		{"page-limit above 250", map[string]string{"page-limit": "500"}, nil, "--page-limit"},
 		{"combines", map[string]string{"combines": "order,product"}, map[string]any{"discount_combines": []string{"order", "product"}}, ""},
 		{"source names and ids", map[string]string{"source": "Manual,athena,other,42"}, map[string]any{"source_ids": []string{"1", "10", "999", "42"}}, ""},
 		{"unknown source name", map[string]string{"source": "bogus"}, nil, "--source"},

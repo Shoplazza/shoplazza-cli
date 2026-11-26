@@ -77,7 +77,8 @@ func resolveFlagsWith(cmd *cobra.Command, fields []PromptField, interactive bool
 	if len(missing) > 0 {
 		return output.ErrWithHint(output.ExitValidation, output.TypeValidation,
 			"required flag(s) not set: "+strings.Join(missing, ", "),
-			"pass "+strings.Join(missing, " ")+", or run '"+cmd.CommandPath()+" --help' to see them")
+			"pass "+strings.Join(missing, " ")+", or run '"+cmd.CommandPath()+" --help' to see them").
+			WithSubtype(output.SubtypeMissingRequiredFlag).WithParam(missing[0])
 	}
 	return nil
 }

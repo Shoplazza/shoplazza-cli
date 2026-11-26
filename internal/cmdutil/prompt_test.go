@@ -43,6 +43,9 @@ func TestResolveFlags_NonInteractive_NamesMissingRequired(t *testing.T) {
 	if strings.Contains(ee.Detail.Message, "--note") {
 		t.Errorf("Optional field must not be reported missing: %q", ee.Detail.Message)
 	}
+	if ee.Detail.Subtype != output.SubtypeMissingRequiredFlag || ee.Detail.Param != "--extension-id" {
+		t.Errorf("subtype/param = %q/%q, want %s/--extension-id", ee.Detail.Subtype, ee.Detail.Param, output.SubtypeMissingRequiredFlag)
+	}
 }
 
 func TestResolveFlags_NonInteractive_AllSet_OK(t *testing.T) {
