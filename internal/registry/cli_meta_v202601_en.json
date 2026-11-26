@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-11-16T10:04:30Z",
+  "generated_at": "2026-11-26T03:25:32Z",
   "modules": [
     {
       "name": "billing",
@@ -6623,8 +6623,7 @@
           "description": "Files are media and document assets uploaded to the merchant's store for use across\nproducts, pages, and content. Merchants and apps use the file library to manage shared\nstatic resources.\nProvides endpoints to create and query upload tasks, list files, and retrieve or delete a\nfile by URI."
         },
         "info": {
-          "summary": "Query and update core store settings and shop profile",
-          "description": "A shop represents a merchant's store and holds the account, contact, locale, currency,\ndomain, and subscription settings that other resources reference.\nProvides endpoints to retrieve shop details and update shop attributes."
+          "summary": "Read and update the shop profile and store settings."
         },
         "languages": {
           "summary": "Manage a store's languages: add, enable, disable, publish to markets, and delete",
@@ -6647,6 +6646,9 @@
         },
         "metafields-shop": {
           "summary": "Read and write metafields attached to the shop itself."
+        },
+        "notifications": {
+          "summary": "Read and update the shop's merchant notification switches."
         },
         "pages": {
           "summary": "Manage custom storefront pages such as About and Policy pages",
@@ -8083,10 +8085,10 @@
               "items": {
                 "type": "string"
               },
-              "description": "Specifies which fields to include in the response. Example: ?fields=id\u0026fields=name"
+              "description": "Fields to return, e.g. `?fields=id\u0026fields=wholesale`. Returns all fields when omitted"
             }
           ],
-          "response_schema": "v202506.GetShopResponse"
+          "response_schema": "v202601.GetShopResponse"
         },
         {
           "id": "shop-update",
@@ -8095,7 +8097,7 @@
             "update"
           ],
           "summary": "Update shop details",
-          "description": "Update editable shop attributes.",
+          "description": "Update editable shop attributes and settings. Only the fields sent are updated.\nOn error, the message lists each failure. If some parts were already written, a trailing\n`(updated: …)` lists them, e.g. `order_number: Invalid prefix (updated: name, anti_spider)`.\nThe response contains the full shop details after the update, the same as Get shop.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -8117,13 +8119,13 @@
               {
                 "name": "shop",
                 "type": "object",
-                "schema": "v202506.UpdateShopParam",
+                "schema": "v202601.UpdateShopParam",
                 "required": true,
-                "description": "Shop"
+                "description": "Shop fields to update"
               }
             ]
           },
-          "response_schema": "v202506.UpdateShopResponse"
+          "response_schema": "v202601.UpdateShopResponse"
         },
         {
           "id": "language-add",
@@ -9968,6 +9970,49 @@
             ]
           },
           "response_schema": "v202506.UpdateShopMetafieldResponse"
+        },
+        {
+          "id": "shop-notifications-get",
+          "command_path": [
+            "notifications",
+            "get"
+          ],
+          "summary": "Get merchant notifications",
+          "description": "Get the notification settings of the current shop.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/shop/notifications"
+          },
+          "response_schema": "v202601.GetShopNotificationsResponse"
+        },
+        {
+          "id": "shop-notifications-update",
+          "command_path": [
+            "notifications",
+            "update"
+          ],
+          "summary": "Update merchant notifications",
+          "description": "Update the merchant notification switches of the current shop.",
+          "hidden": false,
+          "http": {
+            "method": "PUT",
+            "path": "/openapi/2026-01/shop/notifications",
+            "body": "*"
+          },
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "notifications",
+                "type": "object",
+                "schema": "v202601.UpdateShopNotificationsParam",
+                "required": true,
+                "description": "Merchant notification settings to update"
+              }
+            ]
+          },
+          "response_schema": "v202601.UpdateShopNotificationsResponse"
         },
         {
           "id": "custom-page-batch-delete",
@@ -17622,126 +17667,6 @@
         }
       ]
     },
-    "v202506.GetShopResponse": {
-      "fields": [
-        {
-          "name": "account",
-          "type": "string"
-        },
-        {
-          "name": "address1",
-          "type": "string"
-        },
-        {
-          "name": "address2",
-          "type": "string"
-        },
-        {
-          "name": "city",
-          "type": "string"
-        },
-        {
-          "name": "country_code",
-          "type": "string"
-        },
-        {
-          "name": "created_at",
-          "type": "string"
-        },
-        {
-          "name": "currency",
-          "type": "string"
-        },
-        {
-          "name": "customer_email",
-          "type": "string"
-        },
-        {
-          "name": "domain",
-          "type": "string"
-        },
-        {
-          "name": "email",
-          "type": "string"
-        },
-        {
-          "name": "icon",
-          "type": "object",
-          "schema": "v202506.Icon"
-        },
-        {
-          "name": "subscription",
-          "type": "object",
-          "schema": "v202506.SubscriptionStatus"
-        },
-        {
-          "name": "id",
-          "type": "integer",
-          "format": "int32"
-        },
-        {
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "name": "phone",
-          "type": "string"
-        },
-        {
-          "name": "primary_locale",
-          "type": "string"
-        },
-        {
-          "name": "province_code",
-          "type": "string"
-        },
-        {
-          "name": "root_url",
-          "type": "string"
-        },
-        {
-          "name": "shop_owner",
-          "type": "string"
-        },
-        {
-          "name": "state",
-          "type": "string"
-        },
-        {
-          "name": "system_domain",
-          "type": "string"
-        },
-        {
-          "name": "timezone",
-          "type": "string"
-        },
-        {
-          "name": "updated_at",
-          "type": "string"
-        },
-        {
-          "name": "zip",
-          "type": "string"
-        },
-        {
-          "name": "iana_timezone",
-          "type": "string"
-        },
-        {
-          "name": "timezone_offset",
-          "type": "string"
-        },
-        {
-          "name": "timezone_abbreviation",
-          "type": "string"
-        },
-        {
-          "name": "timezone_offset_minutes",
-          "type": "integer",
-          "format": "int32"
-        }
-      ]
-    },
     "v202506.GetSupplierResponse": {
       "fields": [
         {
@@ -22880,134 +22805,6 @@
         }
       ]
     },
-    "v202506.UpdateShopParam": {
-      "fields": [
-        {
-          "name": "customer_email",
-          "type": "string"
-        }
-      ]
-    },
-    "v202506.UpdateShopResponse": {
-      "fields": [
-        {
-          "name": "account",
-          "type": "string"
-        },
-        {
-          "name": "address1",
-          "type": "string"
-        },
-        {
-          "name": "address2",
-          "type": "string"
-        },
-        {
-          "name": "city",
-          "type": "string"
-        },
-        {
-          "name": "country_code",
-          "type": "string"
-        },
-        {
-          "name": "created_at",
-          "type": "string"
-        },
-        {
-          "name": "currency",
-          "type": "string"
-        },
-        {
-          "name": "customer_email",
-          "type": "string"
-        },
-        {
-          "name": "domain",
-          "type": "string"
-        },
-        {
-          "name": "email",
-          "type": "string"
-        },
-        {
-          "name": "icon",
-          "type": "object",
-          "schema": "v202506.Icon"
-        },
-        {
-          "name": "subscription",
-          "type": "object",
-          "schema": "v202506.SubscriptionStatus"
-        },
-        {
-          "name": "id",
-          "type": "integer",
-          "format": "int32"
-        },
-        {
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "name": "phone",
-          "type": "string"
-        },
-        {
-          "name": "primary_locale",
-          "type": "string"
-        },
-        {
-          "name": "province_code",
-          "type": "string"
-        },
-        {
-          "name": "root_url",
-          "type": "string"
-        },
-        {
-          "name": "shop_owner",
-          "type": "string"
-        },
-        {
-          "name": "state",
-          "type": "string"
-        },
-        {
-          "name": "system_domain",
-          "type": "string"
-        },
-        {
-          "name": "timezone",
-          "type": "string"
-        },
-        {
-          "name": "updated_at",
-          "type": "string"
-        },
-        {
-          "name": "zip",
-          "type": "string"
-        },
-        {
-          "name": "iana_timezone",
-          "type": "string"
-        },
-        {
-          "name": "timezone_offset",
-          "type": "string"
-        },
-        {
-          "name": "timezone_abbreviation",
-          "type": "string"
-        },
-        {
-          "name": "timezone_offset_minutes",
-          "type": "integer",
-          "format": "int32"
-        }
-      ]
-    },
     "v202506.UpdateSupplierParam": {
       "fields": [
         {
@@ -25156,6 +24953,184 @@
           "name": "data",
           "type": "object",
           "schema": "google.protobuf.Struct"
+        }
+      ]
+    },
+    "v202601.GetShopNotificationsResponse": {
+      "fields": [
+        {
+          "name": "notifications",
+          "type": "object",
+          "schema": "v202601.ShopNotifications"
+        }
+      ]
+    },
+    "v202601.GetShopResponse": {
+      "fields": [
+        {
+          "name": "account",
+          "type": "string"
+        },
+        {
+          "name": "address1",
+          "type": "string"
+        },
+        {
+          "name": "address2",
+          "type": "string"
+        },
+        {
+          "name": "city",
+          "type": "string"
+        },
+        {
+          "name": "country_code",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "currency",
+          "type": "string"
+        },
+        {
+          "name": "customer_email",
+          "type": "string"
+        },
+        {
+          "name": "domain",
+          "type": "string"
+        },
+        {
+          "name": "email",
+          "type": "string"
+        },
+        {
+          "name": "icon",
+          "type": "object",
+          "schema": "v202506.Icon"
+        },
+        {
+          "name": "subscription",
+          "type": "object",
+          "schema": "v202506.SubscriptionStatus"
+        },
+        {
+          "name": "id",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "phone",
+          "type": "string"
+        },
+        {
+          "name": "primary_locale",
+          "type": "string"
+        },
+        {
+          "name": "province_code",
+          "type": "string"
+        },
+        {
+          "name": "root_url",
+          "type": "string"
+        },
+        {
+          "name": "shop_owner",
+          "type": "string"
+        },
+        {
+          "name": "state",
+          "type": "string"
+        },
+        {
+          "name": "system_domain",
+          "type": "string"
+        },
+        {
+          "name": "timezone",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        },
+        {
+          "name": "zip",
+          "type": "string"
+        },
+        {
+          "name": "iana_timezone",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset",
+          "type": "string"
+        },
+        {
+          "name": "timezone_abbreviation",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset_minutes",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "financial_email",
+          "type": "string"
+        },
+        {
+          "name": "company_name",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "money_format",
+          "type": "string"
+        },
+        {
+          "name": "phone_area_code",
+          "type": "string"
+        },
+        {
+          "name": "phone_region_code",
+          "type": "string"
+        },
+        {
+          "name": "password_protection",
+          "type": "object",
+          "schema": "v202601.ShopPasswordProtection"
+        },
+        {
+          "name": "anti_spider",
+          "type": "object",
+          "schema": "v202601.ShopAntiSpider"
+        },
+        {
+          "name": "wholesale",
+          "type": "object",
+          "schema": "v202601.ShopWholesale"
+        },
+        {
+          "name": "order_number",
+          "type": "object",
+          "schema": "v202601.ShopOrderNumber"
+        },
+        {
+          "name": "customer_privacy",
+          "type": "object",
+          "schema": "v202601.ShopCustomerPrivacy"
         }
       ]
     },
@@ -27668,6 +27643,107 @@
         }
       ]
     },
+    "v202601.ShopAntiSpider": {
+      "fields": [
+        {
+          "name": "enabled",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.ShopCustomerPrivacy": {
+      "fields": [
+        {
+          "name": "gdpr_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "ccpa_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "privacy_app_status",
+          "type": "string"
+        },
+        {
+          "name": "app_gdpr_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "app_ccpa_enabled",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.ShopNotifications": {
+      "fields": [
+        {
+          "name": "order_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "delivered_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "review_enabled",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.ShopOrderNumber": {
+      "fields": [
+        {
+          "name": "prefix",
+          "type": "string"
+        },
+        {
+          "name": "suffix",
+          "type": "string"
+        },
+        {
+          "name": "number_type",
+          "type": "string"
+        },
+        {
+          "name": "order_id_type",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.ShopPasswordProtection": {
+      "fields": [
+        {
+          "name": "enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "password",
+          "type": "string"
+        },
+        {
+          "name": "access_tips",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.ShopWholesale": {
+      "fields": [
+        {
+          "name": "enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "mixed_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "mixed_min_quantity",
+          "type": "integer",
+          "format": "int32"
+        }
+      ]
+    },
     "v202601.SupportedLanguage": {
       "fields": [
         {
@@ -28193,6 +28269,404 @@
         {
           "name": "extra_info",
           "type": "string"
+        }
+      ]
+    },
+    "v202601.UpdateShopAntiSpiderParam": {
+      "fields": [
+        {
+          "name": "enabled",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.UpdateShopCustomerPrivacyParam": {
+      "fields": [
+        {
+          "name": "gdpr_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "ccpa_enabled",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.UpdateShopIconParam": {
+      "fields": [
+        {
+          "name": "path",
+          "type": "string",
+          "max_length": 128
+        }
+      ]
+    },
+    "v202601.UpdateShopNotificationsParam": {
+      "fields": [
+        {
+          "name": "order_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "delivered_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "review_enabled",
+          "type": "boolean"
+        }
+      ]
+    },
+    "v202601.UpdateShopNotificationsResponse": {
+      "fields": [
+        {
+          "name": "notifications",
+          "type": "object",
+          "schema": "v202601.ShopNotifications"
+        }
+      ]
+    },
+    "v202601.UpdateShopOrderNumberParam": {
+      "fields": [
+        {
+          "name": "prefix",
+          "type": "string",
+          "max_length": 20
+        },
+        {
+          "name": "suffix",
+          "type": "string",
+          "max_length": 20
+        },
+        {
+          "name": "number_type",
+          "type": "string"
+        },
+        {
+          "name": "order_id_type",
+          "type": "string"
+        }
+      ]
+    },
+    "v202601.UpdateShopParam": {
+      "fields": [
+        {
+          "name": "customer_email",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "max_length": 64
+        },
+        {
+          "name": "email",
+          "type": "string"
+        },
+        {
+          "name": "financial_email",
+          "type": "string"
+        },
+        {
+          "name": "company_name",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "max_length": 255
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "max_length": 3
+        },
+        {
+          "name": "money_format",
+          "type": "string"
+        },
+        {
+          "name": "country_code",
+          "type": "string",
+          "max_length": 3
+        },
+        {
+          "name": "province_code",
+          "type": "string",
+          "max_length": 64
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "max_length": 128
+        },
+        {
+          "name": "address1",
+          "type": "string",
+          "max_length": 255
+        },
+        {
+          "name": "zip",
+          "type": "string",
+          "max_length": 32
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "max_length": 32
+        },
+        {
+          "name": "phone_area_code",
+          "type": "string",
+          "max_length": 8
+        },
+        {
+          "name": "phone_region_code",
+          "type": "string",
+          "max_length": 8
+        },
+        {
+          "name": "primary_locale",
+          "type": "string",
+          "max_length": 8
+        },
+        {
+          "name": "timezone",
+          "type": "string"
+        },
+        {
+          "name": "icon",
+          "type": "object",
+          "schema": "v202601.UpdateShopIconParam"
+        },
+        {
+          "name": "password_protection",
+          "type": "object",
+          "schema": "v202601.UpdateShopPasswordProtectionParam"
+        },
+        {
+          "name": "anti_spider",
+          "type": "object",
+          "schema": "v202601.UpdateShopAntiSpiderParam"
+        },
+        {
+          "name": "wholesale",
+          "type": "object",
+          "schema": "v202601.UpdateShopWholesaleParam"
+        },
+        {
+          "name": "order_number",
+          "type": "object",
+          "schema": "v202601.UpdateShopOrderNumberParam"
+        },
+        {
+          "name": "customer_privacy",
+          "type": "object",
+          "schema": "v202601.UpdateShopCustomerPrivacyParam"
+        }
+      ]
+    },
+    "v202601.UpdateShopPasswordProtectionParam": {
+      "fields": [
+        {
+          "name": "enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "max_length": 100
+        },
+        {
+          "name": "access_tips",
+          "type": "string",
+          "max_length": 500
+        }
+      ]
+    },
+    "v202601.UpdateShopResponse": {
+      "fields": [
+        {
+          "name": "account",
+          "type": "string"
+        },
+        {
+          "name": "address1",
+          "type": "string"
+        },
+        {
+          "name": "address2",
+          "type": "string"
+        },
+        {
+          "name": "city",
+          "type": "string"
+        },
+        {
+          "name": "country_code",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "type": "string"
+        },
+        {
+          "name": "currency",
+          "type": "string"
+        },
+        {
+          "name": "customer_email",
+          "type": "string"
+        },
+        {
+          "name": "domain",
+          "type": "string"
+        },
+        {
+          "name": "email",
+          "type": "string"
+        },
+        {
+          "name": "icon",
+          "type": "object",
+          "schema": "v202506.Icon"
+        },
+        {
+          "name": "subscription",
+          "type": "object",
+          "schema": "v202506.SubscriptionStatus"
+        },
+        {
+          "name": "id",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "phone",
+          "type": "string"
+        },
+        {
+          "name": "primary_locale",
+          "type": "string"
+        },
+        {
+          "name": "province_code",
+          "type": "string"
+        },
+        {
+          "name": "root_url",
+          "type": "string"
+        },
+        {
+          "name": "shop_owner",
+          "type": "string"
+        },
+        {
+          "name": "state",
+          "type": "string"
+        },
+        {
+          "name": "system_domain",
+          "type": "string"
+        },
+        {
+          "name": "timezone",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "string"
+        },
+        {
+          "name": "zip",
+          "type": "string"
+        },
+        {
+          "name": "iana_timezone",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset",
+          "type": "string"
+        },
+        {
+          "name": "timezone_abbreviation",
+          "type": "string"
+        },
+        {
+          "name": "timezone_offset_minutes",
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "name": "financial_email",
+          "type": "string"
+        },
+        {
+          "name": "company_name",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "money_format",
+          "type": "string"
+        },
+        {
+          "name": "phone_area_code",
+          "type": "string"
+        },
+        {
+          "name": "phone_region_code",
+          "type": "string"
+        },
+        {
+          "name": "password_protection",
+          "type": "object",
+          "schema": "v202601.ShopPasswordProtection"
+        },
+        {
+          "name": "anti_spider",
+          "type": "object",
+          "schema": "v202601.ShopAntiSpider"
+        },
+        {
+          "name": "wholesale",
+          "type": "object",
+          "schema": "v202601.ShopWholesale"
+        },
+        {
+          "name": "order_number",
+          "type": "object",
+          "schema": "v202601.ShopOrderNumber"
+        },
+        {
+          "name": "customer_privacy",
+          "type": "object",
+          "schema": "v202601.ShopCustomerPrivacy"
+        }
+      ]
+    },
+    "v202601.UpdateShopWholesaleParam": {
+      "fields": [
+        {
+          "name": "enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "mixed_enabled",
+          "type": "boolean"
+        },
+        {
+          "name": "mixed_min_quantity",
+          "type": "integer",
+          "format": "int32"
         }
       ]
     },

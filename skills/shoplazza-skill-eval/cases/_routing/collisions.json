@@ -335,5 +335,41 @@
       "semantic_rubric": ["If a command is named, it is shoplazza auth login with --domain orders,products (or the matching scopes), not docs search"]
     },
     "notes": "Mirror of routing.docs-01 (an app's own OAuth flow → docs)."
+  },
+  {
+    "case_id": "collision.order-number-format",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 订单编号格式是店铺设置, 归 shop 不归 orders",
+    "input": "订单号想加个后缀，改成字母加数字随机的那种",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": ["shoplazza-orders"],
+      "semantic_rubric": ["If a command is named, it is shop info update with shop.order_number, not an orders command"]
+    }
+  },
+  {
+    "case_id": "collision.merchant-notifications",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 商家通知开关归 shop, 不归 webhook 事件订阅",
+    "input": "有新订单的时候别再给我发通知了",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": ["shoplazza-webhook"],
+      "semantic_rubric": ["If a command is named, it is shop notifications update with order_enabled false, not webhook"]
+    }
+  },
+  {
+    "case_id": "collision.customer-privacy-switch",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 店铺的 GDPR/CCPA 开关是店铺设置, 归 shop 不归 customers",
+    "input": "我们要做欧洲市场，帮我把客户隐私里的 GDPR 打开",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": ["shoplazza-customers"],
+      "semantic_rubric": ["If a command is named, it is shop info update with shop.customer_privacy.gdpr_enabled, not a customers command"]
+    }
   }
 ]

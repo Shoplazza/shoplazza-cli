@@ -10,7 +10,8 @@ description: >-
   or phone / customer count / tag a customer / unsubscribe marketing / shipping address /
   default address. Finding the customer RECORD by email (按邮箱找客户资料) belongs HERE
   (customers +search); that customer's ORDER HISTORY (该客户下过的订单 / orders placed by
-  this email) belongs to shoplazza-orders.
+  this email) belongs to shoplazza-orders. NOT the store's GDPR / CCPA switches (客户隐私设置 →
+  shoplazza-shop).
 ---
 
 # shoplazza CLI — customers module
@@ -103,6 +104,7 @@ Reads like customers, actually belongs elsewhere (and vice versa):
 |---|---|---|
 | 该客户下过的订单 / order history for jane@example.com | `shoplazza-orders` | an orders search filtered by that customer |
 | 按邮箱找到这个客户 / customer profile for an email | **this module** (not orders) | `customers +search --email <e>` |
+| 客户隐私设置 / 打开 GDPR / CCPA — store-wide privacy switches | `shoplazza-shop` (a store setting, not a customer record) | `shop info update` with `shop.customer_privacy` |
 
 Direction decides: **资料 (profile/record) → customers; 订单 (orders placed) → orders.**
 Resolving a customer ID here as an intermediate step for an orders query is fine — the final
