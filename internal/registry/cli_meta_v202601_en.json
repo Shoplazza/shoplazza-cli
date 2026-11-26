@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-11-26T03:25:32Z",
+  "generated_at": "2026-11-26T09:00:41Z",
   "modules": [
     {
       "name": "billing",
@@ -6631,7 +6631,7 @@
         },
         "markets": {
           "summary": "Manage a store's markets: their lifecycle, domain, pricing, tax, status, default language, and product assignment",
-          "description": "A market represents a set of countries a merchant sells to, with its own currency, pricing,\ndomain and language configuration. Each country belongs to exactly one market, and the primary\nmarket is protected: it cannot be deleted and, except for its tax-inclusive setting, cannot be\nmodified.\nProvides endpoints to list and retrieve markets, create and update them, change domain, price,\ntax and status settings, set the default language, delete a market, and manage which products\na market sells along with market-specific fixed prices."
+          "description": "A market represents a set of countries a merchant sells to, with its own currency, pricing,\ndomain and language configuration. Each country belongs to exactly one market, and the primary\nmarket is protected: it cannot be deleted and, except for its tax-inclusive setting and its\ncountry, cannot be modified.\nProvides endpoints to list and retrieve markets, create and update them, change domain, price,\ntax and status settings, set the default language, switch the primary market's country, delete\na market, and manage which products a market sells along with market-specific fixed prices."
         },
         "menu": {
           "summary": "Manage the store's menus (navigation)",
@@ -8549,6 +8549,21 @@
           "response_schema": "v202601.ListMarketLanguagesResponse"
         },
         {
+          "id": "market-primary-country",
+          "command_path": [
+            "markets",
+            "list-primary-country"
+          ],
+          "summary": "List primary market countries",
+          "description": "List the countries the primary market can switch to, which are the countries that use the primary market's currency. Each country comes with the market it currently belongs to, and the current primary market country is listed first.",
+          "hidden": false,
+          "http": {
+            "method": "GET",
+            "path": "/openapi/2026-01/markets/primary-country"
+          },
+          "response_schema": "v202601.ListPrimaryCountriesResponse"
+        },
+        {
           "id": "market-products",
           "command_path": [
             "markets",
@@ -8836,6 +8851,39 @@
           "response_schema": "v202601.UpdateMarketPriceResponse"
         },
         {
+          "id": "market-primary-country-update",
+          "command_path": [
+            "markets",
+            "update-primary-country"
+          ],
+          "summary": "Update primary market country",
+          "description": "Switch the primary market to another country. Only the country changes and the primary market currency stays the same, so the new country must be one returned by List primary market countries. If the new country belongs to another market, it is moved out of that market; that market is deleted when no country is left, and its local-currency display is turned off when only one country is left. The previous primary market country is not added to any market.",
+          "hidden": false,
+          "http": {
+            "method": "PUT",
+            "path": "/openapi/2026-01/markets/primary-country",
+            "body": "*"
+          },
+          "body": {
+            "required": true,
+            "fields": [
+              {
+                "name": "country_code",
+                "type": "string",
+                "required": true,
+                "description": "New primary market country, ISO 3166-1 alpha-2 code in upper case (e.g., `CA`). Must be one of the countries returned by List primary market countries",
+                "min_length": 1
+              },
+              {
+                "name": "confirm",
+                "type": "boolean",
+                "description": "Confirmation flag. When `false` (default) and the country is the only country of another market, the request is rejected because that market would be deleted. Resubmit with `true` to proceed; that market will be automatically deleted"
+              }
+            ]
+          },
+          "response_schema": "v202601.UpdatePrimaryCountryResponse"
+        },
+        {
           "id": "market-products-price-update",
           "command_path": [
             "markets",
@@ -8921,7 +8969,7 @@
             "update-tax"
           ],
           "summary": "Update market tax",
-          "description": "Change whether product prices include tax. This is the only update allowed on the primary market.",
+          "description": "Change whether product prices include tax. Apart from switching its country, this is the only update allowed on the primary market.",
           "hidden": false,
           "http": {
             "method": "PUT",
@@ -25476,6 +25524,23 @@
         }
       ]
     },
+    "v202601.ListPrimaryCountriesResponse": {
+      "fields": [
+        {
+          "name": "count",
+          "type": "integer",
+          "format": "int64"
+        },
+        {
+          "name": "countries",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "schema": "v202601.PrimaryCountryOption"
+          }
+        }
+      ]
+    },
     "v202601.ListPublicBlockResponse": {
       "fields": [
         {
@@ -27176,6 +27241,30 @@
         }
       ]
     },
+    "v202601.PrimaryCountryOption": {
+      "fields": [
+        {
+          "name": "country_code",
+          "type": "string"
+        },
+        {
+          "name": "market_id",
+          "type": "string"
+        },
+        {
+          "name": "market_name",
+          "type": "string"
+        },
+        {
+          "name": "is_primary",
+          "type": "boolean"
+        },
+        {
+          "name": "market_status",
+          "type": "string"
+        }
+      ]
+    },
     "v202601.PromoteEditSessionResponse": {
       "fields": [
         {
@@ -28272,6 +28361,7 @@
         }
       ]
     },
+    "v202601.UpdatePrimaryCountryResponse": {},
     "v202601.UpdateShopAntiSpiderParam": {
       "fields": [
         {
