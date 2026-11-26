@@ -21,6 +21,7 @@ var updateTrackingShortcut = common.Shortcut{
 		{Name: "fulfillment-id", Type: common.FlagString, Required: true, Description: "Fulfillment ID."},
 		{Name: "tracking", Type: common.FlagString, Required: true, Description: "New tracking number."},
 		{Name: "company", Type: common.FlagString, Description: "Carrier company name."},
+		{Name: "company-code", Type: common.FlagString, Description: "Carrier company code."},
 		{Name: "tracking-url", Type: common.FlagString, Description: "Custom tracking URL."},
 		{Name: "notify", Type: common.FlagBool, Description: "Notify customer."},
 	},
@@ -29,6 +30,7 @@ var updateTrackingShortcut = common.Shortcut{
 			"tracking_number": in.Flags.GetString("tracking"),
 		}
 		cmdutil.AddString(fulfillment, "tracking_company", in.Flags.GetString("company"))
+		cmdutil.AddString(fulfillment, "tracking_company_code", in.Flags.GetString("company-code"))
 		cmdutil.AddString(fulfillment, "tracking_url", in.Flags.GetString("tracking-url"))
 		if in.Flags.GetBool("notify") {
 			fulfillment["send_email"] = true

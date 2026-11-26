@@ -45,9 +45,9 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 |-------------|---------|
 | Search / filter orders | `orders +search [--email <addr>] [--keyword <no/name/email>] [--status …] [--financial-status …] [--fulfillment-status …] [--customer-id <id>] [--since <t>] [--until <t>]` |
 | Count orders | `orders +count` — same filters as `+search`, minus `--page-limit` |
-| Ship an order (发货) | `orders +ship --order-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--line-items id:qty,…]` |
+| Ship an order (发货) | `orders +ship --order-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--tracking-url <url>] [--line-items id:qty,…]` |
 | Refund a buyer (退款; money → `--dry-run` first) | `orders +refund --order-id <id> --amount <n> [--note <txt>] [--return-items] [--payment-line-id <id>]` |
-| Fix / update tracking info | `orders +update-tracking --order-id <id> --fulfillment-id <id> --tracking <no> [--company <name>] [--tracking-url <url>] [--notify]` |
+| Fix / update tracking info | `orders +update-tracking --order-id <id> --fulfillment-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--tracking-url <url>] [--notify]` |
 | Get one order by internal ID | `orders get --params '{"order_id":"<id>"}'` |
 | Get order by order NUMBER (#…) | `orders get-by-number --params '{"number":"<number>"}'` |
 | List with filters `+search` lacks (ids, skus, tags, fuzzy search…) | `orders list --params '{…}'` (see `schema orders.list`) |
@@ -124,8 +124,8 @@ Only **no-default** flags are askable.
 | Shortcut | Must ASK if user did not specify | Infer if possible | Default silently |
 |---|---|---|---|
 | `+refund` | `--amount` (**money — never fabricate**; you may offer to look up the order total via `orders get` for a full refund, but still confirm the number); `--order-id` if absent | `--note` from the stated reason; `--return-items` from 库存退回/restock wording | `--payment-line-id` (only needed when the order has multiple payment lines — the CLI errors with candidates; pick or ask then) |
-| `+ship` | `--tracking` (**never invent a tracking number**); `--order-id` if absent | `--company` from a named carrier (keep the user's naming); a follow-up `+update-tracking … --notify` from 通知买家 wording | `--line-items` (omit = every line's remaining quantity), `--company-code` |
-| `+update-tracking` | whichever of `--order-id` / `--fulfillment-id` / `--tracking` is missing | `--company`, `--tracking-url` only if the user gave them | `--notify` (set only on explicit re-notify wording) |
+| `+ship` | `--tracking` (**never invent a tracking number**); `--order-id` if absent | `--company` from a named carrier (keep the user's naming); `--tracking-url` only if the user gave one; a follow-up `+update-tracking … --notify` from 通知买家 wording | `--line-items` (omit = every line's remaining quantity), `--company-code` |
+| `+update-tracking` | whichever of `--order-id` / `--fulfillment-id` / `--tracking` is missing | `--company`, `--tracking-url` only if the user gave them | `--company-code`, `--notify` (set only on explicit re-notify wording) |
 | `+search` / `+count` | *(nothing — all filters optional; never ask)* | filters from wording via the enum table | `--page-limit`; time bounds only from the user's own time words |
 | `cancel` (leaf) | order id if absent | `reason` body only if the user stated one | `reason` (optional — omit if not given) |
 | `create` (leaf) | any missing required buyer/address sub-field (`last_name`, `email`, `country_code`, `province_code`, `city`, `address`, `zip`) and the line item(s) — **never fabricate identity, address, or price**; ask or look up `variant_id` via `products +search` | `currency_code` from the store (`shop info get --jq '.data.currency'`); a neutral `shipping_name` label ("Standard Shipping"); an omitted catalog `price` (the variant prices it) | notify flags, `tags`, `note`, `discount_application`, `payment_line` (record payment via `orders pay`) |

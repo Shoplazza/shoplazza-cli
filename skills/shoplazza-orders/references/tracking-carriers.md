@@ -16,4 +16,4 @@ which carrier owns a tracking number.
 - `detect` takes exactly one required query param, `tracking_number`. Use it directly — do
   not `list` and match by hand.
 - Both are reads: answer from `.data`, nothing fabricated, no `--dry-run` theater.
-- Carrier names/codes from `list` are also what `+ship --company` / `--company-code` accept.
+- Carrier names/codes from `list` are also what `+ship` / `+update-tracking` `--company` / `--company-code` accept.

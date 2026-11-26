@@ -31,3 +31,12 @@ func newOrderExecInput(t *testing.T, flags map[string]string, values map[string]
 	}
 	return common.ExecInput{Flags: common.NewCobraFlagSet(cmd), DryRun: dryRun}
 }
+
+func declaredFlags(s common.Shortcut) map[string]string {
+	types := map[common.FlagType]string{common.FlagString: "string", common.FlagBool: "bool"}
+	out := map[string]string{}
+	for _, f := range s.Flags {
+		out[f.Name] = types[f.Type]
+	}
+	return out
+}
