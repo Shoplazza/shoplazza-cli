@@ -59,10 +59,14 @@ func TestBuildCreateCustomerBody_NeitherRejected(t *testing.T) {
 }
 
 func TestBuildCreateCustomerBody_NoMarketingFlipsDefault(t *testing.T) {
-	body, _ := buildCreateCustomerBody("a@b.com", "", "", "", nil, true)
-	c, _ := body["customer"].(map[string]any)
-	if c["accepts_marketing"] != false {
-		t.Errorf("accepts_marketing: got %v want false (--no-marketing)", c["accepts_marketing"])
+	for _, noMarketing := range []bool{false, true} {
+		body, _ := buildCreateCustomerBody("a@b.com", "", "", "", nil, noMarketing)
+		c, _ := body["customer"].(map[string]any)
+		for _, field := range []string{"accepts_marketing", "accepts_sms_marketing"} {
+			if c[field] != !noMarketing {
+				t.Errorf("--no-marketing=%v: %s got %v want %v", noMarketing, field, c[field], !noMarketing)
+			}
+		}
 	}
 }
 
