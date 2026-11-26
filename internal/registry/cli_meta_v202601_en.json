@@ -4981,7 +4981,7 @@
             "create-level"
           ],
           "summary": "Connect an inventory item to a location",
-          "description": "Creates the inventory level of an inventory item at a location so the item can be stocked there. It does not change stock; if the level already exists, it is returned unchanged.",
+          "description": "Creates the inventory level of an inventory item at a location, with stock 0, so the item can be stocked there. If the level already exists, it is returned unchanged.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -5016,7 +5016,7 @@
             "delete-level"
           ],
           "summary": "Disconnect an inventory item from a location",
-          "description": "Deletes the inventory level of an inventory item at a location, so the item is no longer stocked there. This does not subtract stock, and an item must stay stocked at one location at least.",
+          "description": "Deletes the inventory level of an inventory item at a location, so the item is no longer stocked there, and discards the stock held at that location. An item must stay stocked at one location at least.",
           "hidden": false,
           "http": {
             "method": "DELETE",
@@ -5246,7 +5246,7 @@
             "set-stock"
           ],
           "summary": "Change inventory quantity",
-          "description": "Adds `stock` to the inventory level of an inventory item at a location: a negative value subtracts, 0 leaves it unchanged, and the result may go below 0. Despite the endpoint name, it does not set an absolute quantity.",
+          "description": "Adds `stock` to the inventory level of an inventory item at a location: a negative value subtracts, 0 leaves it unchanged, and the result may go below 0. If the item is not stocked at the location yet, the level is created. Despite the endpoint name, it does not set an absolute quantity.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -5325,7 +5325,7 @@
             "update-level"
           ],
           "summary": "Increase inventory quantity",
-          "description": "Adds `stock_adjustment`, which must be greater than 0, to the inventory level of an inventory item at a location. To subtract, use `POST /inventory_levels/set` with a negative `stock`.",
+          "description": "Adds `stock_adjustment`, which must be greater than 0, to the inventory level of an inventory item at a location; returns 404 if the item is not stocked there. To subtract, use `POST /inventory_levels/set` with a negative `stock`.",
           "hidden": false,
           "http": {
             "method": "PUT",
@@ -5735,13 +5735,9 @@
             {
               "name": "status",
               "in": "query",
-              "type": "string",
-              "description": "Default to 0; 0: All, 1: Search the warehouse that is enabled, 2: Search the warehouse that is not enabled",
-              "enum": [
-                "Unknown",
-                "Activate",
-                "Deactivate"
-              ]
+              "type": "integer",
+              "format": "int32",
+              "description": "Filter by status, as a number: 0 or omitted lists all locations, 1 the active ones, 2 the inactive ones"
             },
             {
               "name": "sort_by",
