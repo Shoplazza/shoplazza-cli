@@ -295,7 +295,7 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 		{[]string{"products", "get", "--params", `{"product_id":"p1",}`},
 			`--params is not valid JSON object: invalid character '}' looking for beginning of object key string (line 1, column 20)`},
 		{[]string{"api", "rest", "PUT", "/openapi/2026-01/products/p1", "--data", `[{"product":{}}] ]`},
-			`--data is not valid JSON object: unexpected ']' after the end of the array (line 1, column 18)`},
+			`--data is not valid JSON: unexpected ']' after the end of the array (line 1, column 18)`},
 	} {
 		before := hits
 		_, stderr, code := runCLI(t, bin, env, c.args...)

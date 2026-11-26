@@ -81,22 +81,23 @@ type trailingDataError struct{ offset int64 }
 
 func (e *trailingDataError) Error() string { return "invalid character after top-level value" }
 
-// JSONInputError describes a DecodeJSON error on raw; want is "object" or "array".
+// JSONInputError describes a DecodeJSON error on raw; want is "object", "array", or "" for any JSON value.
 func JSONInputError(flag string, raw []byte, err error, want string) error {
 	var syn *json.SyntaxError
 	var typ *json.UnmarshalTypeError
 	var trail *trailingDataError
+	kind := strings.TrimSpace("JSON " + want)
 	switch {
 	case errors.Is(err, io.EOF):
 		return fmt.Errorf("%s is empty", flag)
 	case errors.Is(err, io.ErrUnexpectedEOF):
-		return fmt.Errorf("%s is not valid JSON %s: a closing } or ] is missing", flag, want)
+		return fmt.Errorf("%s is not valid %s: a closing } or ] is missing", flag, kind)
 	case errors.As(err, &trail):
 		next, _ := utf8.DecodeRune(raw[trail.offset:])
-		return fmt.Errorf("%s is not valid JSON %s: unexpected %q after the end of the %s (%s)",
-			flag, want, next, topLevelKind(raw), jsonPosition(raw, trail.offset))
+		return fmt.Errorf("%s is not valid %s: unexpected %q after the end of the %s (%s)",
+			flag, kind, next, topLevelKind(raw), jsonPosition(raw, trail.offset))
 	case errors.As(err, &syn):
-		return fmt.Errorf("%s is not valid JSON %s: %s (%s)", flag, want, syn.Error(), jsonPosition(raw, syn.Offset-1))
+		return fmt.Errorf("%s is not valid %s: %s (%s)", flag, kind, syn.Error(), jsonPosition(raw, syn.Offset-1))
 	case errors.As(err, &typ) && typ.Field == "":
 		return fmt.Errorf("%s must be a JSON %s, got %s", flag, want, withArticle(typ.Value))
 	}
@@ -163,7 +164,7 @@ func ParseOptionalBody(httpMethod, data string, stdin io.Reader) (any, error) {
 	}
 	var body any
 	if err := DecodeJSON([]byte(resolved), &body); err != nil {
-		return nil, JSONInputError("--data", []byte(resolved), err, "object")
+		return nil, JSONInputError("--data", []byte(resolved), err, "")
 	}
 	return body, nil
 }

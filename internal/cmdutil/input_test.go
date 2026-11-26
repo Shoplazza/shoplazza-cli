@@ -108,10 +108,10 @@ func TestParseOptionalBody_ValidJSON(t *testing.T) {
 
 func TestParseOptionalBody_InvalidJSON(t *testing.T) {
 	for _, c := range []struct{ in, want string }{
-		{`not-json`, `--data is not valid JSON object: invalid character 'o' in literal null (expecting 'u') (line 1, column 2)`},
-		{`{"a":1} x`, `--data is not valid JSON object: unexpected 'x' after the end of the object (line 1, column 9)`},
-		{`{"a":1}{"b":2}`, `--data is not valid JSON object: unexpected '{' after the end of the object (line 1, column 8)`},
-		{`[1,2] ]`, `--data is not valid JSON object: unexpected ']' after the end of the array (line 1, column 7)`},
+		{`not-json`, `--data is not valid JSON: invalid character 'o' in literal null (expecting 'u') (line 1, column 2)`},
+		{`{"a":1} x`, `--data is not valid JSON: unexpected 'x' after the end of the object (line 1, column 9)`},
+		{`{"a":1}{"b":2}`, `--data is not valid JSON: unexpected '{' after the end of the object (line 1, column 8)`},
+		{`[1,2] ]`, `--data is not valid JSON: unexpected ']' after the end of the array (line 1, column 7)`},
 	} {
 		if _, err := ParseOptionalBody("POST", c.in, nil); err == nil || err.Error() != c.want {
 			t.Errorf("%s: error = %v, want %s", c.in, err, c.want)
