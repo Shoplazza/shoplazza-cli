@@ -3682,7 +3682,7 @@
             "async-create"
           ],
           "summary": "Asynchronously create a smart collection",
-          "description": "Initiates an asynchronous creation of a smart collection. Only smart collections are supported by this endpoint.\nReturns an async task ID immediately; use GetCollectionAsyncTask to poll the result.",
+          "description": "Creates a smart collection (`smart` set to `true`) and matches its products in the background. The response carries the collection and `async_task_id`; to follow the matching, call Get collection async task. A manual collection is created right away with `async_task_id` `0`; create it with Create collection instead.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -3710,7 +3710,7 @@
             "async-update-smart-rule"
           ],
           "summary": "Asynchronously update smart collection rules",
-          "description": "Initiates an asynchronous update of a smart collection's match rules. Returns an async task ID immediately;\nuse GetCollectionAsyncTask to poll the result.",
+          "description": "Replaces the match rules of a smart collection and re-matches its products in the background. The response carries the collection and `async_task_id`; to follow the matching, call Get collection async task. Smart collections only.",
           "hidden": false,
           "http": {
             "method": "PATCH",
@@ -3774,7 +3774,7 @@
             "create"
           ],
           "summary": "Create collection",
-          "description": "Allows users to create a new collection in the store, including details like the title, description, associated products, SEO attributes, and merchandise sorting rules.",
+          "description": "Creates a manual or smart collection, with its title, description, SEO attributes and merchandise sorting rules. A manual collection takes its products from `product_ids`; a smart collection sets `smart` to `true` and matches products by `match_rules`. A smart collection can also be created with Asynchronously create a smart collection, which matches its products in the background.",
           "hidden": false,
           "http": {
             "method": "POST",
@@ -3850,7 +3850,7 @@
             "get-async-task"
           ],
           "summary": "Get collection async task",
-          "description": "Retrieves the status and result of an asynchronous collection task initiated by AsyncCreateCollection or AsyncUpdateSmartCollectionRule.",
+          "description": "Retrieves the state of a task started by Asynchronously create a smart collection or Asynchronously update smart collection rules. Pass the task's `async_task_id` as `id` and the collection ID as `source_id`; both are required.",
           "hidden": false,
           "http": {
             "method": "GET",
@@ -3862,20 +3862,21 @@
               "in": "path",
               "type": "string",
               "required": true,
-              "description": "Async task ID returned by AsyncCreateCollection or AsyncUpdateSmartCollectionRule",
+              "description": "Async task ID returned by Asynchronously create a smart collection or Asynchronously update smart collection rules",
               "min_length": 1
             },
             {
               "name": "source_id",
               "in": "query",
               "type": "string",
-              "description": "Source resource ID this task operates on (e.g. collection UUID). Used as an alternative lookup key together with task_type when async task ID is unknown"
+              "description": "ID of the collection the task works on. A mismatched ID answers `Record not found`",
+              "required": true
             },
             {
               "name": "task_type",
               "in": "query",
               "type": "string",
-              "description": "Task type. Allowed values: - `create_collection`: async smart collection creation - `update_smart_collection_rule`: async smart collection rule update"
+              "description": "Task type. Allowed values: - `update_collection`: async collection update - `copy_collection`: collection copy"
             }
           ],
           "response_schema": "v202601.GetCollectionAsyncTaskResponse"
@@ -4003,7 +4004,7 @@
             "update-smart-rule"
           ],
           "summary": "Update smart collection rules",
-          "description": "Allows users to update smart collection rules by providing the collection ID and the desired updates in the request body.",
+          "description": "Replaces the match rules of a smart collection and re-matches its products. Smart collections only. Asynchronously update smart collection rules does the same in the background.",
           "hidden": false,
           "http": {
             "method": "PATCH",
