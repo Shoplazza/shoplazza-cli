@@ -359,5 +359,17 @@
       "must_not_route_to": ["shoplazza-webhook"],
       "semantic_rubric": ["If a command is named, it is shop notifications update with order_enabled false, not webhook"]
     }
+  },
+  {
+    "case_id": "collision.customer-privacy-switch",
+    "type": "routing",
+    "skill": "shoplazza-shop",
+    "scenario": "跨域相似词: 店铺的 GDPR/CCPA 开关是店铺设置, 归 shop 不归 customers",
+    "input": "我们要做欧洲市场，帮我把客户隐私里的 GDPR 打开",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_not_route_to": ["shoplazza-customers"],
+      "semantic_rubric": ["If a command is named, it is shop info update with shop.customer_privacy.gdpr_enabled, not a customers command"]
+    }
   }
 ]

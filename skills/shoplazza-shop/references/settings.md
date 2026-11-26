@@ -1,8 +1,9 @@
-# shop settings — password protection, anti-spider, wholesale, order number, notifications (店铺设置 / 商家通知)
+# shop settings — password protection, anti-spider, wholesale, order number, customer privacy, timezone, notifications (店铺设置 / 商家通知)
 
-The four store settings are nested objects on the shop itself: `shop info get` returns them,
-`shop info update` writes them inside the `shop` wrapper. Merchant notification switches are a
-separate pair of commands under `shop notifications`.
+The five store settings are nested objects on the shop itself: `shop info get` returns them,
+`shop info update` writes them inside the `shop` wrapper. `timezone` is a plain shop field, not
+a group. Merchant notification switches are a separate pair of commands under
+`shop notifications`.
 
 ## Commands
 
@@ -10,6 +11,8 @@ separate pair of commands under `shop notifications`.
 shop info get                                              # every field incl. the 4 groups
 shop info get --params '{"fields":["wholesale","order_number"]}'   # group names work in fields
 shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"anti_spider":{"enabled":true}}}'
+shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"customer_privacy":{"ccpa_enabled":true}}}'
+shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"timezone":"+0900"}}'
 shop notifications get
 shop notifications update --data '{"notifications":{"order_enabled":true}}'
 ```
@@ -32,9 +35,17 @@ what changes; omitted fields (and omitted groups) keep their current value.
 | | `suffix` | Not allowed when `order_id_type` is `sequential` |
 | | `number_type` | `sequential` (8-digit increasing) / `shop_id_random` (shop ID + random digits) |
 | | `order_id_type` | `sequential` (8-digit increasing) / `alphanumeric_random` (3 letters + 5 digits) |
+| `customer_privacy` | `gdpr_enabled` | GDPR switch |
+| | `ccpa_enabled` | CCPA switch |
+| | `privacy_app_status` | Read-only: `not_install` / `installed` / `uninstalled` / `created`; `not_install` when the shop has no privacy app |
+| | `app_gdpr_enabled` / `app_ccpa_enabled` | Read-only: the privacy app's own switches; `false` without the app. Not writable here |
 
 `prefix` + `suffix` together ≤ 20 chars. Send `""` to clear a prefix or suffix — omitting it
 keeps the current value.
+
+`timezone` (a plain field on `shop`) takes the same code form `info get` returns in
+`.data.timezone` — e.g. `+0800`, `+0900`, `-050010` — not an IANA name. An invalid code returns
+422; `""` leaves the timezone unchanged.
 
 | Notifications (`notifications.<field>`) | Meaning |
 |---|---|
@@ -65,12 +76,13 @@ wholesale: <reason>; order_number: Invalid suffix (updated: name, anti_spider)
 | 422 on `wholesale` | The plan doesn't support wholesale, or a conflicting feature is in use (the message names it) | Relay the message; no CLI workaround |
 | 406 on `order_number` (e.g. `Invalid suffix`, `Invalid prefix`) | Suffix with `order_id_type: sequential`, a prefix that doesn't fit `order_id_type`, or a plan without custom prefixes | Adjust per the Fields table, or relay the message |
 | 422 on `email` / `customer_email` / `financial_email` | Invalid email format | Ask for a valid address |
+| 422 `Request parameter error` | `timezone` is not a valid code (e.g. an IANA name) | Send the code form, e.g. `+0900` |
 | 400 `… value length must be at most …` | Over a max length above | Shorten the value |
 
 `currency` cannot change once the store has orders.
 
 ## Errors from `info get`
 
-With no `fields`, `info get` reads the basic info and all four groups; any failing part
+With no `fields`, `info get` reads the basic info and all five groups; any failing part
 fails the call, with the same `group: reason` message. Narrow `fields` to what the task
 needs. Unknown names in `fields` are rejected with 400.

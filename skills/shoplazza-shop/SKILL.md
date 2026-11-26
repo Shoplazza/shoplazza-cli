@@ -2,15 +2,15 @@
 name: shoplazza-shop
 description: >-
   Store config & content — use for: shop info & settings (店铺信息 / 店铺设置 / 主域名 / 币种 /
-  客服邮箱 / customer email / 密码保护 / password protection / 防爬虫 / 梯度批发 / wholesale /
-  订单编号 / order number); merchant notifications (商家通知 / 新订单提醒 / 评论通知); sales &
-  traffic analytics (销量 / 销售额 / 流量 / 流量渠道 / 搜索词 / 报表 / 数据分析 / analytics /
-  PV UV / conversion / SKU 排行 / best-selling SKU); media library & file uploads (素材库 /
+  客服邮箱 / customer email / 时区 / timezone / 密码保护 / password protection / 防爬虫 / 梯度批发 /
+  wholesale / 订单编号 / order number / 客户隐私 / GDPR / CCPA); merchant notifications (商家通知 /
+  新订单提醒 / 评论通知); sales & traffic analytics (销量 / 销售额 / 流量 / 流量渠道 / 搜索词 / 报表 /
+  数据分析 / analytics / PV UV / conversion / SKU 排行 / best-selling SKU); media library (素材库 /
   媒体库 / 上传文件 / upload file); metafields / 元字段 / 自定义字段 — ALL metafields live HERE,
-  incl. ones ON products / orders / customers (给商品加字段); blogs & articles (博客 / 文章 /
+  even ON products / orders / customers (给商品加字段); blogs & articles (博客 / 文章 /
   blog post); custom pages (自定义页面 / 关于我们 / About Us / policy page); navigation menus
   (导航菜单 / 菜单项 / menu items); URL redirects (重定向 / 301 / URL 跳转); markets (市场 /
-  多市场 / 发布到日本市场); languages (语言 / 多语言 / 翻译 / 开通日语); real-time rate carriers
+  多市场 / 发布到日本市场); languages (语言 / 多语言 / 翻译 / 开通日语); rate carriers
   (实时运费报价 / 承运商 / carrier service). NOT product catalog / 商品图片 (→ shoplazza-products);
   NOT 优惠码 (→ shoplazza-discounts); NOT order search / 订单统计 / 物流查询 (→ orders domain);
   NOT theme editing / 装修 / page templates (→ shoplazza-themes).
@@ -26,7 +26,7 @@ profiles, and the safety protocol. This file covers only the shop domain and nev
 ## Overview
 
 The `shop` module is the store-level **config & content** domain: shop info and store
-settings (password protection, anti-spider, wholesale, order number), merchant notification
+settings (password protection, anti-spider, wholesale, order number, customer privacy), merchant notification
 switches, sales & traffic analytics, the media library (files), metafields (all three families),
 blogs & articles, custom pages, navigation menus, URL redirects, markets, store languages,
 and real-time shipping-rate carrier services. Broad and shallow — this file is the router; per-sub-area
@@ -42,9 +42,9 @@ Intent → command, highest-fit tier first. Authoritative flags/params live in
 
 | User intent | Command |
 |-------------|---------|
-| **Store info** — 查店铺信息 / domain / currency / plan / 店铺设置 | `shop info get` (all fields incl. the 4 settings groups; narrow with `--params '{"fields":["id","domain"]}'` — group names work too, e.g. `["wholesale"]`) |
-| 改店铺资料 / 客服邮箱 / 店铺名称 / 地址 / 图标 — edit the shop profile | `shop info get --jq '.data.id'` → `shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"customer_email":"…"}}'` (send only the fields to change) |
-| **Store settings** — 密码保护 / 防爬虫 / 梯度批发 / 混批 / 订单编号前缀 | `shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"password_protection":{"enabled":true,"password":"…"}}}'` → [references/settings.md](references/settings.md) |
+| **Store info** — 查店铺信息 / domain / currency / plan / 店铺设置 | `shop info get` (all fields incl. the 5 settings groups; narrow with `--params '{"fields":["id","domain"]}'` — group names work too, e.g. `["wholesale"]`) |
+| 改店铺资料 / 客服邮箱 / 店铺名称 / 地址 / 图标 / 时区 — edit the shop profile | `shop info get --jq '.data.id'` → `shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"customer_email":"…"}}'` (send only the fields to change; `timezone` takes a code like `+0900` — see Gotchas) |
+| **Store settings** — 密码保护 / 防爬虫 / 梯度批发 / 混批 / 订单编号前缀 / 客户隐私 GDPR / CCPA | `shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"password_protection":{"enabled":true,"password":"…"}}}'` → [references/settings.md](references/settings.md) |
 | **Merchant notifications** — 新订单提醒 / 收货通知 / 评论通知 开关 | `shop notifications get` / `shop notifications update --data '{"notifications":{"review_enabled":false}}'` |
 | **Analytics** — 销售额/订单数报表 for a date range | `shop analytics overview --data '{"begin_time":"<unix-str>","end_time":"<unix-str>","indicator":["sales","orders"]}'` → [references/analytics.md](references/analytics.md) |
 | SKU 销量排行 / best-selling SKU | `shop analytics by-sku --data '{…,"sort_by":"sales_total","sort_direction":"desc"}'` |
@@ -86,7 +86,7 @@ about defaulted/optional fields.
 | `markets create` | `name`, `countries` | `confirm` — **never silently pass `true`** (it deletes occupied markets) |
 | `carrier-services create` | `name`, `callback_url` (the user's own endpoint — never invent), `carrier_code` | `active`, `logo`, `short_desc` |
 | `languages add` | the language(s); resolve IETF codes via `languages supported` | — |
-| `info update` | the new value of each field the user wants changed; `password_protection.password` when turning protection on (never invent a password); `order_number.number_type` / `order_id_type` if the wording doesn't map to an enum | `shop_id` — resolve it yourself via `info get`, don't ask; every field the user didn't mention — omit it (only sent fields are written) |
+| `info update` | the new value of each field the user wants changed; `password_protection.password` when turning protection on (never invent a password); `order_number.number_type` / `order_id_type` if the wording doesn't map to an enum; `timezone` if the place doesn't map to one code with certainty | `shop_id` — resolve it yourself via `info get`, don't ask; every field the user didn't mention — omit it (only sent fields are written) |
 | `notifications update` | which switch(es) and on/off | the other switches — omit them (kept as is) |
 | `menu create` | `title`; each item's title + link target (resolve ids yourself) | `category` (always custom `3`), `target`, `disabled` |
 | `menu update` | which menu (resolve the id via `menu list`), the change | `title` / `category` — omit to keep them |
@@ -110,6 +110,8 @@ Reads like another domain (or another domain reads like shop):
 | 订单编号格式 / 订单号前缀后缀 / order number format | **HERE** — a store setting, not an order | `shop info update` with `shop.order_number` |
 | 按订单号查订单 / look up an order by its number | orders domain | `orders get-by-number` |
 | 商家通知开关 / 新订单提醒 / merchant notification switches | **HERE** | `shop notifications update` |
+| GDPR / CCPA 开关 / 客户隐私设置 / customer privacy switches | **HERE** — a store setting | `shop info update` with `shop.customer_privacy` |
+| 隐私政策页面 / privacy policy page content | **HERE** (a custom page, not the GDPR / CCPA switches) | `shop pages create` / `shop pages update` |
 | 事件推送到我的系统 / webhook event subscription | `shoplazza-webhook` | `webhook create` |
 | 实时运费报价承运商 / rate-quoting carrier at checkout | **HERE** | `shop carrier-services …` |
 | 物流商查询 / 运单追踪 / fulfillment tracking carriers, shipping zones | orders domain | `orders tracking-carriers` / `orders shipping-schemas` |
@@ -150,6 +152,8 @@ shoplazza-common).
 | `info get` fails on a settings group the user didn't ask about | With no `fields`, it reads every settings group; one failing group fails the call | Pass `fields` with just what's needed (`["id","domain"]` or a group name) |
 | 422 `Please bind a payment card before changing this setting` | Password protection's switch / tips can't change until the store binds a payment card | Not fixable from the CLI — the merchant binds a card in the admin first |
 | `order_number` 406 `Invalid suffix` | A suffix is not allowed when `order_id_type` is `sequential`; prefix + suffix ≤ 20 chars | Switch `order_id_type` to `alphanumeric_random` or drop the suffix; send `""` to clear a prefix / suffix (omitting keeps it) |
+| `timezone` 422 `Request parameter error` | `timezone` takes the same code form `info get` returns in `.data.timezone` (e.g. `+0800`, `-050010`), NOT an IANA name like `Asia/Tokyo`; `""` leaves it unchanged | Send the code (Tokyo → `+0900`); check the current form with `shop info get --jq '.data.timezone'`; ask if the place doesn't map to one code with certainty |
+| Tried to change `privacy_app_status` / `app_gdpr_enabled` / `app_ccpa_enabled` | Read-only — they mirror the privacy app's own switches | Only `customer_privacy.gdpr_enabled` / `ccpa_enabled` are writable; the app's switches are managed in the app |
 | 400 `… value is required` on `notifications update` | The switches must sit under the `notifications` wrapper | `--data '{"notifications":{"order_enabled":true}}'` |
 | Asked to upload a **local** file | `+upload-file` takes **public URLs, NOT local files** (verbatim in its help); the API fetches the URL | Degrade: no write; ask for a public link or suggest hosting it first |
 | Upload "done" but file missing | Upload is an **async task** — POST returns a `task_id`; the shortcut auto-fetches the task once | Re-check with `shop files task --params '{"task_id":"…"}'` until `status`/`success_list` settle |
@@ -175,7 +179,10 @@ shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"custome
 shop info get --params '{"fields":["id","wholesale","order_number"]}'
 shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"wholesale":{"enabled":true,"mixed_enabled":true,"mixed_min_quantity":10}}}'
 
-# 2c. Turn off review notifications, keep the other switches
+# 2c. Turn on GDPR (CCPA untouched) and move the shop to Tokyo time
+shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"timezone":"+0900","customer_privacy":{"gdpr_enabled":true}}}'
+
+# 2d. Turn off review notifications, keep the other switches
 shop notifications update --data '{"notifications":{"review_enabled":false}}'
 
 # 3. Sales + order count, 2026-07-01 .. 2026-07-15 (unix seconds as STRINGS)
@@ -215,7 +222,7 @@ shop menu update --params '{"id":"<menu-id>"}' --data '{"title":"Footer links"}'
 
 ## References
 
-- [references/settings.md](references/settings.md) — password protection / anti-spider / wholesale / order number / merchant notifications: fields, enums, partial-write errors
+- [references/settings.md](references/settings.md) — password protection / anti-spider / wholesale / order number / customer privacy / timezone / merchant notifications: fields, enums, partial-write errors
 - [references/analytics.md](references/analytics.md) — 7 POST reports + the channel-options lookup, indicators/dimensions, sort enums, timestamp rules
 - [references/metafields.md](references/metafields.md) — definitions vs resource vs shop metafields, owner_resource enum, type enums
 - [references/blogs-articles.md](references/blogs-articles.md) — blogs (containers) vs articles (posts); blog title key is capital `Title`

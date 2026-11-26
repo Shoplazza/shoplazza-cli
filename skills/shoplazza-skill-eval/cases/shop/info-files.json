@@ -167,5 +167,49 @@
       ]
     },
     "notes": "PUT /shop/notifications; body wrapper notifications is required."
+  },
+  {
+    "case_id": "shop.settings-03",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.info",
+    "scenario": "开启 GDPR — 客户隐私设置, 只发 customer_privacy.gdpr_enabled",
+    "input": "给店铺打开 GDPR，CCPA 先别动",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop info update",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["\"customer_privacy\":{\"gdpr_enabled\":true}"],
+      "flags_must_not_contain": ["ccpa_enabled"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "resolves shop_id via shop info get; sends only customer_privacy.gdpr_enabled",
+        "does not try to write the read-only privacy app fields"
+      ]
+    },
+    "notes": "PATCH /shop/{shop_id}; omitted switches keep their current value."
+  },
+  {
+    "case_id": "shop.settings-04",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.info",
+    "scenario": "改店铺时区为东京 — 传时区码 +0900, 不传 IANA 名",
+    "input": "把店铺时区改成东京时间",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop info update",
+      "flags_must_contain": ["--params", "--data"],
+      "params_must_contain": ["\"timezone\":\"+0900\""],
+      "flags_must_not_contain": ["Asia/Tokyo"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "uses the code form that shop info get returns (+0900), not an IANA name",
+        "sends only timezone; resolves shop_id via shop info get"
+      ]
+    },
+    "notes": "PATCH /shop/{shop_id}; totoro rejects IANA names with 422."
   }
 ]
