@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.2.8 - 2026-11-26
 
 ### Added
 - `+search` in orders, customers, products and discounts takes `--cursor` to read past the first page.
