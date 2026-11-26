@@ -28,7 +28,7 @@ var freeShippingCodeShortcut = common.Shortcut{
 		{Name: "min-amount", Type: common.FlagFloat, Description: "Minimum order amount (mutex with --min-quantity)."},
 		{Name: "min-quantity", Type: common.FlagInt, Description: "Minimum item count (mutex with --min-amount)."},
 		{Name: "countries", Type: common.FlagStringSlice, Description: "ISO country codes (comma-separated) or 'all'."},
-		{Name: "code", Type: common.FlagString, Description: "Discount code (auto-generated if omitted)."},
+		codeFlag(),
 		nameFlag(true),
 		displayNameFlag(true),
 		common.StartTimeFlag(),

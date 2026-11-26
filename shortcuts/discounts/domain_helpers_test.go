@@ -182,6 +182,8 @@ func TestDiscountInfoNames(t *testing.T) {
 		{"code: --name names the activity, buyers still see the code", true, map[string]string{"code": "SAVE20", "name": "Spring"}, "Spring", "SAVE20", ""},
 		{"code: a long --name needs no --display-name", true, map[string]string{"code": "SAVE20", "name": long}, long, "SAVE20", ""},
 		{"code: long --code needs --display-name", true, map[string]string{"code": code30}, "", "", "--display-name"},
+		{"code: --code over 50", true, map[string]string{"code": strings.Repeat("C", 51)}, "", "", "--code"},
+		{"code: --code over 50 with both names", true, map[string]string{"code": strings.Repeat("C", 51), "name": "Spring", "display-name": "Spring"}, "", "", "--code"},
 		{"code: --display-name for a long --code", true, map[string]string{"code": code30, "display-name": "Spring 20% off"}, code30, "Spring 20% off", ""},
 	}
 	for _, c := range cases {

@@ -1063,6 +1063,12 @@ func TestShortcut_PercentCode_OrderTarget_AutoCode(t *testing.T) {
 			t.Errorf("%s: layers[0].obtain_value = %v, want \"10\"", flag, first["obtain_value"])
 		}
 	}
+
+	receivedBody = nil
+	_, stderr, code := runCLI(t, bin, env, "discounts", "+percent-code", "--target", "order", "--percent-off", "10", "--code", strings.Repeat("C", 51))
+	if code != 2 || !strings.Contains(stderr, `"param": "--code"`) || receivedBody != nil {
+		t.Errorf("--code over 50: exit %d, want 2 naming --code and no request sent; stderr=%s", code, stderr)
+	}
 }
 
 // ── shortcuts: +free-shipping-code no required flags ────────────────────────

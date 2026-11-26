@@ -271,6 +271,11 @@ func buildCodeInfoFromFlags(in common.PlanInput) (map[string]any, error) {
 	code := GenerateCode()
 	if in.Flags.Changed("code") {
 		code = in.Flags.GetString("code")
+		if n := utf8.RuneCountInString(code); n > maxCodeLen {
+			return nil, output.ErrValidation("--code is %d characters; the limit is %d", n, maxCodeLen).
+				WithParam("--code").
+				WithSubtype(output.SubtypeInvalidFlagValue)
+		}
 	}
 	name, err := activityName(in, code)
 	if err != nil {
@@ -298,7 +303,13 @@ func buildCodeInfoFromFlags(in common.PlanInput) (map[string]any, error) {
 const (
 	maxDiscountNameLen = 50
 	maxDisplayNameLen  = 20
+	maxCodeLen         = 50
 )
+
+func codeFlag() common.Flag {
+	return common.Flag{Name: "code", Type: common.FlagString,
+		Description: fmt.Sprintf("Discount code, at most %d characters (auto-generated if omitted).", maxCodeLen)}
+}
 
 func nameFlag(code bool) common.Flag {
 	def := "auto-generated if omitted"
@@ -399,7 +410,7 @@ func codeOffFlags() []common.Flag {
 		excludeFlag("exclude", ""),
 		{Name: "min-amount", Type: common.FlagFloat, Description: "Minimum order amount (--target=order only; rejected with --target=product)."},
 		{Name: "min-quantity", Type: common.FlagInt, Default: 1, Description: "Minimum item count (--target=product only; rejected with --target=order; default 1)."},
-		{Name: "code", Type: common.FlagString, Description: "Discount code (auto-generated if omitted)."},
+		codeFlag(),
 		nameFlag(true),
 		displayNameFlag(true),
 		common.StartTimeFlag(),
