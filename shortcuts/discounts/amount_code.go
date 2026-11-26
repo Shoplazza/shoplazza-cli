@@ -14,8 +14,8 @@ var amountCodeShortcut = common.Shortcut{
 	Example: `  # Preview a $10-off order code
   shoplazza discounts +amount-code --target order --off 10 --code TENOFF --dry-run
 
-  # $5 off specific products with a minimum order amount
-  shoplazza discounts +amount-code --target product --off 5 --products p-1,p-2 --min-amount 50`,
+  # $5 off specific products when at least 2 of them are bought
+  shoplazza discounts +amount-code --target product --off 5 --products p-1,p-2 --min-quantity 2`,
 	Flags: append(codeOffFlags(),
 		common.Flag{
 			Name:        "off",

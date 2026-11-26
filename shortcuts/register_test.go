@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/client"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/shortcuts/common"
 	"github.com/spf13/cobra"
@@ -92,6 +94,79 @@ func TestAllShortcutsAreComplete(t *testing.T) {
 			t.Errorf("invalid shortcut declaration: %v", err)
 		}
 	}
+}
+
+// TestHelpExamplesPassDryRun runs each help example of every shortcut with --dry-run.
+func TestHelpExamplesPassDryRun(t *testing.T) {
+	ran := 0
+	for _, s := range allShortcuts {
+		if s.DryRunReads {
+			continue
+		}
+		prefix := strings.Fields("shoplazza " + s.Service + " " + s.Command)
+		for _, line := range strings.Split(strings.ReplaceAll(s.Example, "\\\n", " "), "\n") {
+			args := exampleArgs(strings.TrimSpace(line))
+			if strings.Contains(line, "<") || len(args) < len(prefix) || !slices.Equal(args[:len(prefix)], prefix) {
+				continue
+			}
+			args = args[len(prefix)-1:]
+			if !slices.Contains(args, "--dry-run") {
+				args = append(args, "--dry-run")
+			}
+			parent := &cobra.Command{Use: "svc"}
+			parent.PersistentFlags().Bool("dry-run", false, "")
+			parent.PersistentFlags().String("format", "json", "")
+			common.Mount(s, parent, &cmdutil.Factory{Client: &client.Client{}})
+			parent.SetOut(io.Discard)
+			parent.SetErr(io.Discard)
+			parent.SetArgs(args)
+			if err := parent.Execute(); err != nil {
+				t.Errorf("%s: %v", strings.TrimSpace(line), err)
+			}
+			ran++
+		}
+	}
+	if ran == 0 {
+		t.Fatal("no help example ran; the test would silently pass")
+	}
+}
+
+func exampleArgs(line string) []string {
+	var words []string
+	var cur strings.Builder
+	var quote rune
+	inWord := false
+	for _, r := range line {
+		switch {
+		case quote != 0 && r == quote:
+			quote = 0
+		case quote != 0:
+			cur.WriteRune(r)
+		case r == '\'' || r == '"':
+			quote, inWord = r, true
+		case r == ' ' || r == '\t':
+			if inWord {
+				words = append(words, cur.String())
+				cur.Reset()
+				inWord = false
+			}
+		default:
+			cur.WriteRune(r)
+			inWord = true
+		}
+	}
+	if inWord {
+		words = append(words, cur.String())
+	}
+	var args []string
+	for i := 0; i < len(words); i++ {
+		if words[i] == "--jq" || words[i] == "-q" {
+			i++
+			continue
+		}
+		args = append(args, words[i])
+	}
+	return args
 }
 
 // TestFlagEnumsMatchSpec checks every shortcut flag's Enum against the values
