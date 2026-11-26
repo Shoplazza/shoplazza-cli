@@ -197,7 +197,7 @@ func TestMergeCheckoutExtJSON_CreatePathBlanksIDAndOmitsEmpties(t *testing.T) {
 	if ef["extensionId"] != "" {
 		t.Errorf("create path must blank extensionId, got %v", ef["extensionId"])
 	}
-	for _, k := range []string{"template_name", "theme_name", "description"} {
+	for _, k := range []string{"template_name", "theme_name", "server_point", "description"} {
 		if _, ok := inner[k]; ok {
 			t.Errorf("empty %s must be omitted, got %v", k, inner[k])
 		}
