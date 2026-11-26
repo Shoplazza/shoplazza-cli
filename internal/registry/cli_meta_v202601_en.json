@@ -2193,7 +2193,7 @@
             "update"
           ],
           "summary": "Update fulfillment",
-          "description": "Updates the details of an existing fulfillment, including tracking information and notification preferences.",
+          "description": "Updates the details of an existing fulfillment, such as its tracking information.",
           "hidden": false,
           "http": {
             "method": "PUT",
