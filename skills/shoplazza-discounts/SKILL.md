@@ -339,7 +339,7 @@ discounts +bxgy-code --products P1 --buy-quantity 2 --get-products P2 --get-quan
 
 # 4. Find all ongoing flash sales
 discounts +search --progress ongoing --discount-type flashsale --page-limit 250 \
-  --jq '.data[] | {id: .discount_info.id, name: .discount_info.discount_name}'
+  --jq '.data.discounts[] | {id, name: .discount_name}'
 
 # 5. Cancel a code-bearing discount by its code
 ID=$(discounts get-by-code --params '{"discount_code":"SPRING15"}' --jq '.data.discount.discount_info.id')
