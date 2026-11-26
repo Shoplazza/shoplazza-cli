@@ -415,21 +415,15 @@ func (m *matrix) findValue(d int, v string) (int, error) {
 	return i, nil
 }
 
-func (m *matrix) bareDim(bare string) string {
-	v, _, _ := strings.Cut(bare, "=")
-	name := ""
+// dimsHolding names the dimensions that have value v.
+func (m *matrix) dimsHolding(v string) []string {
+	var names []string
 	for _, d := range m.dims {
 		if i, _ := lookup(d.Values, strings.TrimSpace(v)); i >= 0 {
-			if name != "" {
-				return "<Dim>"
-			}
-			name = d.Name
+			names = append(names, d.Name)
 		}
 	}
-	if name == "" {
-		return "<Dim>"
-	}
-	return name
+	return names
 }
 
 func (m *matrix) missingDim(name string) error {
@@ -1151,7 +1145,7 @@ func parsePerValue(flag string, raws []string, isPrice bool) (perValue, error) {
 		if raw == "" {
 			continue
 		}
-		if before, _, ok := strings.Cut(raw, "="); ok && !strings.ContainsAny(before, ":/?") {
+		if before, _, ok := strings.Cut(raw, "="); ok && !strings.Contains(before, ":") {
 			if p.bare == "" {
 				p.bare = raw
 			}
@@ -1211,7 +1205,20 @@ func (p perValue) any() bool { return p.scalar != "" || p.dim != "" || p.bare !=
 // bind resolves the per-value form against the edited matrix.
 func (p *perValue) bind(m *matrix) error {
 	if p.bare != "" {
-		return output.ErrValidation(`%s has the wrong per-value format: write %q`, p.flag, m.bareDim(p.bare)+":"+p.bare).
+		v, _, _ := strings.Cut(p.bare, "=")
+		names := m.dimsHolding(v)
+		if !p.isPrice && len(names) == 0 {
+			if p.scalar != "" {
+				return output.ErrValidation("%s is given two plain values (%q, %q)", p.flag, p.scalar, p.bare)
+			}
+			p.scalar, p.bare = p.bare, ""
+			return nil
+		}
+		dim := "<Dim>"
+		if len(names) == 1 {
+			dim = names[0]
+		}
+		return output.ErrValidation(`%s has the wrong per-value format: write %q`, p.flag, dim+":"+p.bare).
 			WithHint("dimensions: " + m.describe())
 	}
 	if p.dim == "" {
