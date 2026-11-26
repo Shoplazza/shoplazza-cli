@@ -90,10 +90,10 @@ func RequireAuth(ctx context.Context, f *Factory, cmd *cobra.Command) error {
 // EnvAccessToken injects a store access token in place of the saved login.
 const EnvAccessToken = "SHOPLAZZA_ACCESS_TOKEN"
 
-// AccessTokenEnv returns the injected token, "" when the variable is unset, and an error when it is set but empty.
+// AccessTokenEnv returns the injected token, "" when the variable is unset, and an error when it is set but blank.
 func AccessTokenEnv() (string, error) {
 	token, set := os.LookupEnv(EnvAccessToken)
-	if set && token == "" {
+	if set && strings.TrimSpace(token) == "" {
 		return "", output.ErrWithHint(output.ExitValidation, output.TypeValidation,
 			EnvAccessToken+" is set but empty",
 			"set it to a store access token, or unset it to use the login saved by 'shoplazza auth login'")

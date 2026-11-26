@@ -14,7 +14,7 @@
 - `orders +ship` without `--line-items` ships only what is left after earlier shipments and refunds. Its `--notify` is removed; use `+update-tracking --notify`.
 - `shop +upload-file` drops `--folder` and requires http(s) `--source-url` values; a comma splits a value only before `http(s)://`.
 - Auto-generated discount codes no longer start with `CLI-`. Code discounts default both names to the code; `--code`, `--name` and `--display-name` are checked against 50 / 50 / 20 characters.
-- `SHOPLAZZA_ACCESS_TOKEN` set to an empty string is a validation error instead of falling back to the saved login.
+- `SHOPLAZZA_ACCESS_TOKEN` set to an empty or all-space string is a validation error instead of falling back to the saved login.
 
 ### Fixed
 - Integers past 2^53 stay exact in `--data`, `--params` and `--jq`.

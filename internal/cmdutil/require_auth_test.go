@@ -85,13 +85,15 @@ func TestRequireAuth_Success_SetsBearer(t *testing.T) {
 	if err := keychain.Set(keychain.ShoplazzaCliService, internalauth.AccountUATKey("a@co.com"), "uat_seed"); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "")
-	err := RequireAuth(context.Background(), f, newCmdWithProfileFlag())
-	if err == nil || exitType(t, err) != output.TypeValidation || !strings.Contains(err.Error(), "SHOPLAZZA_ACCESS_TOKEN") {
-		t.Fatalf("SHOPLAZZA_ACCESS_TOKEN set but empty must be a validation error naming it, not a fall back to the saved login; got %v", err)
-	}
-	if f.Client.Headers["Access-Token"] != "" {
-		t.Fatalf("no token may be set when SHOPLAZZA_ACCESS_TOKEN is empty: %v", f.Client.Headers)
+	for _, blank := range []string{"", " \t"} {
+		t.Setenv("SHOPLAZZA_ACCESS_TOKEN", blank)
+		err := RequireAuth(context.Background(), f, newCmdWithProfileFlag())
+		if err == nil || exitType(t, err) != output.TypeValidation || !strings.Contains(err.Error(), "SHOPLAZZA_ACCESS_TOKEN") {
+			t.Fatalf("SHOPLAZZA_ACCESS_TOKEN=%q must be a validation error naming it, not a fall back to the saved login; got %v", blank, err)
+		}
+		if f.Client.Headers["Access-Token"] != "" {
+			t.Fatalf("no token may be set when SHOPLAZZA_ACCESS_TOKEN is %q: %v", blank, f.Client.Headers)
+		}
 	}
 	testenv.Unsetenv(t, "SHOPLAZZA_ACCESS_TOKEN")
 	if err := RequireAuth(context.Background(), f, newCmdWithProfileFlag()); err != nil {
