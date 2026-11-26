@@ -141,6 +141,7 @@ func TestParseJSONMap_InvalidJSON(t *testing.T) {
 		{`"text"`, `--data must be a JSON object, got a string`},
 		{`{"k":"v"} x`, `--data is not valid JSON object: unexpected 'x' after the end of the object (line 1, column 11)`},
 		{`{"product":{"title":"a"}}}`, `--data is not valid JSON object: unexpected '}' after the end of the object (line 1, column 26)`},
+		{`{"a":1}，`, `--data is not valid JSON object: unexpected '，' after the end of the object (line 1, column 8)`},
 		{`{"customer":{"first_name":"a"} "x":1}`, `--data is not valid JSON object: invalid character '"' after object key:value pair (line 1, column 32)`},
 		{"{\n  \"a\": 1\n  \"b\": 2\n}", `--data is not valid JSON object: invalid character '"' after object key:value pair (line 3, column 3)`},
 		{`{'product':{}}`, `--data is not valid JSON object: invalid character '\'' looking for beginning of object key string (line 1, column 2)`},

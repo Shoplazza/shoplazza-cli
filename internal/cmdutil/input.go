@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"unicode/utf8"
 )
 
 // ResolveInput resolves special input conventions for raw JSON flags.
@@ -91,8 +92,9 @@ func JSONInputError(flag string, raw []byte, err error, want string) error {
 	case errors.Is(err, io.ErrUnexpectedEOF):
 		return fmt.Errorf("%s is not valid JSON %s: a closing } or ] is missing", flag, want)
 	case errors.As(err, &trail):
+		next, _ := utf8.DecodeRune(raw[trail.offset:])
 		return fmt.Errorf("%s is not valid JSON %s: unexpected %q after the end of the %s (%s)",
-			flag, want, raw[trail.offset], topLevelKind(raw), jsonPosition(raw, trail.offset))
+			flag, want, next, topLevelKind(raw), jsonPosition(raw, trail.offset))
 	case errors.As(err, &syn):
 		return fmt.Errorf("%s is not valid JSON %s: %s (%s)", flag, want, syn.Error(), jsonPosition(raw, syn.Offset-1))
 	case errors.As(err, &typ) && typ.Field == "":
