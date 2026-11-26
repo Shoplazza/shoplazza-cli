@@ -67,6 +67,7 @@ Intent → command, highest-fit tier first. Authoritative flags/params live in
 | 删菜单 / delete a custom menu | `shop menu delete --params '{"id":"<menu-id>"}'` (built-in `header` / `footer` can't be deleted) |
 | **URL redirect** — 301 / 跳转 | `shop redirects create --data '{"redirect":{"from_url":"…","redirect_url":"…","status":"…"}}'` (`status` required — see Gotchas) |
 | **Markets** — 建市场 / 发布到某国 | `shop markets create --data '{"name":"…","countries":["JP"]}'` → [references/markets.md](references/markets.md) |
+| 主市场国家 / 换主要市场的国家 — switch the primary market's country | `shop markets list-primary-country` (the only switchable countries) → `shop markets update-primary-country --data '{"country_code":"CA"}'` — not `info update` `country_code` (that's the store address) |
 | **Languages** — 开通语言 / 多语言 | `shop languages supported` → `add` → `enable` → `publish` → [references/languages.md](references/languages.md) |
 | **Carrier services** — 注册实时运费报价承运商 | `shop carrier-services create --data '{"carrier_service":{"name":"…","callback_url":"…","carrier_code":"…"}}'` → [references/carrier-services.md](references/carrier-services.md) |
 
@@ -84,6 +85,7 @@ about defaulted/optional fields.
 | `metafields-shop create` | `namespace`, `key`, `type`, `value` | `description`, `definition_id` (optional here) |
 | `metafields-resource create` | `owner_resource`+`owner_id`, `definition_id`, `namespace`, `key`, `value` | `description`; `type` — resolve from the definition (`metafields-definition get`) before asking |
 | `markets create` | `name`, `countries` | `confirm` — **never silently pass `true`** (it deletes occupied markets) |
+| `markets update-primary-country` | the new country, only if the wording doesn't map to one ISO code in `list-primary-country` | `confirm` — **never silently pass `true`** (it deletes the market that only had that country) |
 | `carrier-services create` | `name`, `callback_url` (the user's own endpoint — never invent), `carrier_code` | `active`, `logo`, `short_desc` |
 | `languages add` | the language(s); resolve IETF codes via `languages supported` | — |
 | `info update` | the new value of each field the user wants changed; `password_protection.password` when turning protection on (never invent a password); `order_number.number_type` / `order_id_type` if the wording doesn't map to an enum; `timezone` if the place doesn't map to one IANA name or code with certainty | `shop_id` — resolve it yourself via `info get`, don't ask; every field the user didn't mention — omit it (only sent fields are written) |
@@ -93,7 +95,8 @@ about defaulted/optional fields.
 
 Destructive leaves (`pages batch-delete`, `markets delete` — irreversible, `files delete`,
 `redirects delete`, `metafields-* delete`, `menu delete`, `menu update` with `children`) and
-`info update` with `password_protection.enabled: true` (locks the storefront behind a password) →
+`info update` with `password_protection.enabled: true` (locks the storefront behind a password),
+`markets update-primary-country` (the old primary country is left in no market) →
 `--dry-run` first + restate, per shoplazza-common → Safety protocol.
 
 ## Boundaries
@@ -163,6 +166,10 @@ shoplazza-common).
 | Language published but market relations vanished | `languages publish` is a **full replacement** — `market_ids: []` removes ALL relations | Always send the complete target list |
 | Added a language, storefront unchanged | Newly added languages are **disabled by default**; unsupported codes are **silently dropped** | `languages enable` after `add`; verify codes via `languages supported` |
 | `markets create/update` with `confirm: true` deleted other markets | A country may belong to only ONE market; `confirm: true` auto-deletes the occupied markets | Preview with `markets preview`, `--dry-run`, restate what gets deleted, get explicit consent |
+| Need to change the primary market's country | `markets update` can't edit the primary market | `markets update-primary-country`; candidates come from `markets list-primary-country` |
+| `update-primary-country` 400 `Invalid parameter` | The country isn't in `list-primary-country` — only countries using the primary market's currency can be switched to | Pick from the list; a country with another currency is out of scope here — tell the user, don't change the shop currency on your own |
+| `update-primary-country` 406 `… would be automatically deleted …` | The new country is the only country of another market; switching deletes that market | Restate which market gets deleted, get explicit consent, then resend with `"confirm":true` |
+| After switching, the old primary country sells nowhere | The previous primary country is not moved into any market | Say so before writing; if the user still sells there, add it to a market with `markets create` / `update` |
 | `metafields-definition get` 404s with id in path | Its `id` is a **query** param, not a path segment | `shop metafields-definition get --params '{"id":123456}'` |
 
 ## Recipes
@@ -218,6 +225,11 @@ shop languages publish --params '{"language_code":"ja-JP"}' --data "{\"market_id
 # 11. Rename a custom menu without touching its items (no children = items kept)
 shop menu list --jq '[.data.menus[] | {id, title, category}]'   # category 3 = custom
 shop menu update --params '{"id":"<menu-id>"}' --data '{"title":"Footer links"}'
+
+# 12. Switch the primary market to France (same currency only; 406 = another market would be deleted)
+shop markets list-primary-country --jq '.data.countries[] | {country_code, market_name, is_primary}'
+shop markets update-primary-country --data '{"country_code":"FR"}' --dry-run
+shop markets update-primary-country --data '{"country_code":"FR"}'
 ```
 
 ## References
@@ -227,7 +239,7 @@ shop menu update --params '{"id":"<menu-id>"}' --data '{"title":"Footer links"}'
 - [references/metafields.md](references/metafields.md) — definitions vs resource vs shop metafields, owner_resource enum, type enums
 - [references/blogs-articles.md](references/blogs-articles.md) — blogs (containers) vs articles (posts); blog title key is capital `Title`
 - [references/pages-redirects.md](references/pages-redirects.md) — custom pages CRUD/batch, redirects & the undocumented status enum
-- [references/markets.md](references/markets.md) — market lifecycle, country occupation/confirm, price/tax/domain/language
+- [references/markets.md](references/markets.md) — market lifecycle, country occupation/confirm, primary market country, price/tax/domain/language
 - [references/languages.md](references/languages.md) — add → enable → publish flow, full-replacement semantics
 - [references/carrier-services.md](references/carrier-services.md) — rate-quoting carrier registration
 - Per-command flags: `shoplazza shop <cmd> --help`

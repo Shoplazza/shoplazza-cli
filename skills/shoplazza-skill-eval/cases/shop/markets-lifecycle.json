@@ -138,5 +138,51 @@
       ]
     },
     "notes": "Grounded: shop markets create --help + schema shop.markets.create (POST /openapi/2026-01/markets; body name required ≤50 unique, countries required ISO2 upper, confirm default false → occupied countries rejected with markets-to-delete list). Distinct from seed shop.markets-create-01 (single country 日本→JP): this covers multi-country IT+ES conversion + confirm conflict flag."
+  },
+  {
+    "case_id": "shop.markets-primary-country-list-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.markets.list-primary-country",
+    "scenario": "查主市场能换成哪些国家 — 纯读,不问不预演",
+    "input": "我的主要市场现在能换成哪些国家?",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop markets list-primary-country",
+      "flags_must_not_contain": ["--dry-run", "--data"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "a plain read: emits shop markets list-primary-country, not shop markets list (that lists markets, not the switchable countries)",
+        "does NOT use --dry-run or --data (GET with no params)",
+        "explains the list is limited to countries using the primary market's currency, and reads each country's current market from market_id / market_name, not inventing ones",
+        "does not ask a clarifying question; the request is fully specified"
+      ]
+    },
+    "notes": "Grounded: schema shop.markets.list-primary-country (GET /openapi/2026-01/markets/primary-country; no params; response count + countries[] with country_code, market_id, market_name, is_primary, market_status, current primary first). Read → must_ask false, no dry-run."
+  },
+  {
+    "case_id": "shop.markets-primary-country-update-01",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.markets.update-primary-country",
+    "scenario": "把主市场换成法国 — 国家名转 ISO2,先 --dry-run 复述副作用,不默认 confirm=true,不走 info update",
+    "input": "把主要市场的国家换成法国",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "access_tier": "leaf",
+      "command_prefix": "shop markets update-primary-country",
+      "flags_must_contain": ["--data", "--dry-run"],
+      "params_must_contain": ["\"country_code\"", "FR"],
+      "must_ask": false,
+      "semantic_rubric": [
+        "country 法国 is sent as its ISO 3166-1 alpha-2 code FR (upper case) in country_code, not the Chinese or English name",
+        "uses shop markets update-primary-country, NOT shop info update country_code (that is the store address country) and NOT shop markets update on the primary market",
+        "runs --dry-run first and restates the side effects: the old primary country is left in no market, and if FR is the only country of another market that market gets deleted",
+        "does NOT send confirm=true up front; only after a 406 names the market to be deleted and the user agrees",
+        "may check shop markets list-primary-country first to confirm FR is switchable, without inventing the result"
+      ]
+    },
+    "notes": "Grounded: schema shop.markets.update-primary-country (PUT /openapi/2026-01/markets/primary-country; country_code required, ISO alpha-2 upper; confirm bool, false → 406 when another market would be deleted). Trap: shop info update also has a country_code field (store address)."
   }
 ]
