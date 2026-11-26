@@ -17,7 +17,7 @@ var flashsaleShortcut = common.Shortcut{
 		"[--limit-user-variant N | --limit-user-product N | --limit-user-all N] " +
 		"[--stock N] [--combines order,product,shipping] [--customer-segments <ids>]",
 	Short: "Create a product flash sale",
-	Long:  "Create a product flash sale (percent, fixed price, or amount off) scoped to variants or collections; run --dry-run first to preview.",
+	Long:  "Create a product flash sale (percent, fixed price, or amount off) on the given variants or collections, or on every product in the store when neither is given; run --dry-run first to preview.",
 	Example: `  # Preview a 30%-off flash sale (customers pay 70%) on specific variants
   shoplazza discounts +flashsale --value 30 --type percent --variants v-1,v-2 --dry-run
 
@@ -32,8 +32,8 @@ var flashsaleShortcut = common.Shortcut{
 
 		// Scope qualifiers — at most one (mutually exclusive). Flashsale operates
 		// on SKUs, not parent products, so there is no --products flag.
-		{Name: "variants", Type: common.FlagStringSlice, Description: "Variant IDs comma-separated (mutex with --collections)."},
-		{Name: "collections", Type: common.FlagStringSlice, Description: "Collection IDs comma-separated (mutex with --variants)."},
+		{Name: "variants", Type: common.FlagStringSlice, Description: "Variant IDs comma-separated (mutex with --collections; omit both for every product in the store)."},
+		{Name: "collections", Type: common.FlagStringSlice, Description: "Collection IDs comma-separated (mutex with --variants; omit both for every product in the store)."},
 
 		{Name: "price-rule", Type: common.FlagString, Default: "price",
 			Description: "Which price the discount applies to: price (selling price) or compare_at_price (list price).",
@@ -132,8 +132,8 @@ var flashsaleShortcut = common.Shortcut{
 
 		// Flashsale uses variant_ids (SKUs), never product_ids, so pass nil for
 		// that slot. Scope is optional (empty = all) and there is no exclude option.
-		entitledProduct, err := resolveScope(nil, collectionIDs, variantIDs, false, false,
-			scopeNames{collections: "collections", variants: "variants"})
+		names := scopeNames{collections: "collections", variants: "variants"}
+		entitledProduct, err := resolveScope(nil, collectionIDs, variantIDs, false, false, names)
 		if err != nil {
 			return common.PlannedRequest{}, err
 		}
@@ -167,6 +167,8 @@ var flashsaleShortcut = common.Shortcut{
 				"entitled_product":  entitledProduct,
 			},
 		}
-		return PlanCreateAutomatic(payload), nil
+		p := PlanCreateAutomatic(payload)
+		p.DryRunHint = allProductsHint(entitledProduct, names)
+		return p, nil
 	},
 }

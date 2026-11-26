@@ -105,6 +105,13 @@ func resolveScope(productIDs, collectionIDs, variantIDs []string, exclude, requi
 	}
 }
 
+func allProductsHint(scope map[string]any, n scopeNames) string {
+	if scope["selection"] != "all" {
+		return ""
+	}
+	return fmt.Sprintf("applies to every product in the store because no %s was given; pass one to limit it", n.scopeList())
+}
+
 // excludeFlag is the standardized --exclude / --get-exclude toggle. name is
 // "exclude" (default scope) or "get-exclude" (bxgy get-side). side labels the
 // scope in the help text ("" for the primary scope, "get-side " for bxgy get).
@@ -113,7 +120,7 @@ func excludeFlag(name, side string) common.Flag {
 		Name: name,
 		Type: common.FlagBool,
 		Description: fmt.Sprintf("Treat the %sscope IDs as a blocklist: the discount applies to all products EXCEPT "+
-			"those listed (selection=exclude). Requires one of the scope flags; without them it has no effect.", side),
+			"those listed (selection=exclude). Requires one of the scope flags.", side),
 	}
 }
 

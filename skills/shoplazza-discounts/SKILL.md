@@ -113,7 +113,7 @@ Only the **no-default** flags are askable. Caps are NOT here — they default to
 | `+free-shipping-code` | — (nothing strictly required) | `--off` only if user said "立减Y元运费" | `--off`, `--min-amount`, `--min-quantity`, `--countries`, caps, `--combines`, `--code`, `--name`, time |
 | `+bxgy-code` | buy-side scope, `--buy-quantity` **or** `--buy-amount`, get-side scope, `--get-quantity`, one of `--get-free`/`--get-percent-off`/`--get-off` | buy/get qty from "买N件送M件"; `--get-percent-off`/`--get-off` from "打折"/"立减" wording (neither = `--get-free`) | `--limit-order` (default 1), caps, `--combines`, `--code`, `--name`, time, `--exclude` |
 | `+flashsale` | `--value` **only** (never ask `--type` — it defaults to `percent`) | `--type` from wording (`percent` for "X折/X%off", `fixed-price` for "一口价Y元", `off` for "立减Y元"); scope from named products | `--type` (default percent), scope (omit = all products), `--price-rule`, `--stock`, per-user caps, `--combines`, `--name`, time |
-| `+mn-discount` | `--tiers` | `--scope` ("最高档"=`highest`, "全部档"=`all`; also `highest-all`) | `--scope`, `--price-sort`, scope flags, caps, `--combines`, `--name`, time, `--exclude` |
+| `+mn-discount` | `--tiers` | `--scope` ("最高档"=`highest`, "全部档"=`all`; also `highest-all`) | `--scope`, `--price-sort`, scope flags (omit = all products), caps, `--combines`, `--name`, time, `--exclude` |
 | `+rebate` | `--target`, `--tiers` | `--type` from wording — see trigger table above | scope if `--target=order`, `--limit-order-once`, caps, `--combines`, `--type` if user didn't disambiguate, `--name`, time |
 
 ### Decision examples
@@ -125,7 +125,7 @@ Only the **no-default** flags are askable. Caps are NOT here — they default to
 | "创建一个满200减20的订单级满减活动，永不过期" | CREATE — all required present (`+rebate --target order --tiers "200:20" --end forever`); caps omitted = unlimited |
 | "Create a 15% off coupon code" | ASK — target unclear (order or product?) |
 | "Create a 15% off site-wide coupon code, max 100 uses, 1 per customer" | CREATE (`+percent-code --target order --percent-off 15 --limit-max 100 --limit-user 1`) |
-| "创建闪购活动 50% off" | CREATE — `--value 50` is enough (`+flashsale --value 50`); scope optional. Optionally mention it applies store-wide unless products are specified. |
+| "创建闪购活动 50% off" | CREATE — `--value 50` is enough (`+flashsale --value 50`); scope optional. Say in the reply that it covers every product in the store, since no products were named. |
 
 ### How to ask
 

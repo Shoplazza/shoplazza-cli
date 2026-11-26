@@ -15,7 +15,7 @@ var mnDiscountShortcut = common.Shortcut{
 		`[--products <ids> | --collections <ids> | --variants <ids>] [--exclude] ` +
 		`[--price-sort desc|asc] [--combines order,product,shipping] [--customer-segments <ids>]`,
 	Short: `Create a quantity-tiered "buy N, Nth-item percent off" discount (e.g. buy 3, 3rd item 50% off)`,
-	Long:  "Create an automatic quantity-tiered Nth-item-off discount from tier pairs; run --dry-run first to preview the request.",
+	Long:  "Create an automatic quantity-tiered Nth-item-off discount from tier pairs, on the given products, collections or variants, or on every product in the store when none is given; run --dry-run first to preview the request.",
 	Example: `  # Preview: buy 2 → 2nd item 30% off, buy 3 → 3rd item 50% off
   shoplazza discounts +mn-discount --tiers 2:30,3:50 --dry-run
 
@@ -28,9 +28,9 @@ var mnDiscountShortcut = common.Shortcut{
 			Completions: []string{"highest", "all", "highest-all"}},
 
 		// Scope qualifiers — at most one. Empty = all-products selection.
-		{Name: "products", Type: common.FlagStringSlice, Description: "Product IDs comma-separated (mutex with --collections / --variants)."},
-		{Name: "collections", Type: common.FlagStringSlice, Description: "Collection IDs comma-separated (mutex with --products / --variants)."},
-		{Name: "variants", Type: common.FlagStringSlice, Description: "Variant IDs comma-separated (mutex with --products / --collections)."},
+		{Name: "products", Type: common.FlagStringSlice, Description: "Product IDs comma-separated (mutex with --collections / --variants; omit all three for every product in the store)."},
+		{Name: "collections", Type: common.FlagStringSlice, Description: "Collection IDs comma-separated (mutex with --products / --variants; omit all three for every product in the store)."},
+		{Name: "variants", Type: common.FlagStringSlice, Description: "Variant IDs comma-separated (mutex with --products / --collections; omit all three for every product in the store)."},
 		excludeFlag("exclude", ""),
 
 		// discount_rule.* fields (previously hardcoded).
@@ -123,6 +123,8 @@ var mnDiscountShortcut = common.Shortcut{
 				"entitled_product":  entitledProduct,
 			},
 		}
-		return PlanCreateAutomatic(payload), nil
+		p := PlanCreateAutomatic(payload)
+		p.DryRunHint = allProductsHint(entitledProduct, defaultScopeNames())
+		return p, nil
 	},
 }
