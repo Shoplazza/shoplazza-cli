@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd/dynamic"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/output"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
@@ -61,6 +62,7 @@ For the developer docs on shoplazza.dev, use 'shoplazza docs search'.`, strings.
 			if !ok {
 				return output.ErrValidation("unknown schema: %s", path)
 			}
+			nameParamFlags(cmd.Root(), path, payload)
 			format := cmdutil.GetFormat(cmd)
 			// --jq filters the schema JSON like every other command (it enforces
 			// --format json itself); e.g. `schema orders.get --jq '.parameters'`.
@@ -79,6 +81,27 @@ For the developer docs on shoplazza.dev, use 'shoplazza docs search'.`, strings.
 	cmd.Flags().StringVar(&view, "view", registry.ViewAll, "Schema view selector (all|request|response). Filters parameters/body/response on leaf commands; ignored on module list and overview.")
 	cmd.Flags().StringP("jq", "q", "", "jq expression to filter JSON output (e.g. '.parameters')")
 	return cmd
+}
+
+// nameParamFlags fills the flag of each parameter of a leaf command's schema
+// from the flags that leaf registered.
+func nameParamFlags(root *cobra.Command, path string, payload any) {
+	detail, _ := payload.(map[string]any)
+	params, ok := detail["parameters"].([]registry.Parameter)
+	if !ok {
+		return
+	}
+	leaf, rest, err := root.Find(strings.Split(path, "."))
+	if err != nil || len(rest) > 0 {
+		return
+	}
+	flags := dynamic.ParamFlags(leaf)
+	named := make([]registry.Parameter, len(params))
+	for i, p := range params {
+		p.Flag = flags[p.Name]
+		named[i] = p
+	}
+	detail["parameters"] = named
 }
 
 func validateView(view string) error {

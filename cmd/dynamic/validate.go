@@ -188,15 +188,16 @@ func checkRequiredBody(c registry.Command, body any, schemaHint string) error {
 }
 
 // checkRequiredParams reports, in one error, every path {var} and required query
-// parameter that --params leaves absent, empty, or as an unfilled placeholder.
-func checkRequiredParams(c registry.Command, params map[string]any, schemaHint string) error {
+// parameter left absent, empty, or as an unfilled placeholder.
+func checkRequiredParams(c registry.Command, params map[string]any, binder *paramBinder, schemaHint string) error {
 	required := pathParamNames(c.HTTP.Path)
 	for _, p := range c.Parameters {
 		if p.In == "query" && p.Required {
 			required = append(required, p.Name)
 		}
 	}
-	var names, listed []string
+	var names, listed, set []string
+	flagged := true
 	for _, name := range required {
 		v, ok := params[name]
 		list, isList := v.([]any)
@@ -210,14 +211,24 @@ func checkRequiredParams(c registry.Command, params map[string]any, schemaHint s
 			continue
 		}
 		names = append(names, name)
+		if flag := binder.flagFor(name); flag != "" {
+			set = append(set, flag)
+		} else {
+			flagged = false
+			set = append(set, fmt.Sprintf("--params '{%q: \"<value>\"}'", name))
+		}
 	}
 	if len(names) == 0 {
 		return nil
 	}
-	return output.ErrValidation("--params is missing required %s: %s", plural(names, "key", "keys"), strings.Join(listed, ", ")).
+	hint := "set " + strings.Join(set, ", ")
+	if flagged {
+		hint += " (or the same " + plural(names, "key", "keys") + " in --params)"
+	}
+	return output.ErrValidation("missing required %s: %s", plural(names, "parameter", "parameters"), strings.Join(listed, ", ")).
 		WithParam(names[0]).
 		WithSubtype(output.SubtypeMissingRequiredParam).
-		WithHint(schemaHint + " to see required parameters")
+		WithHint(hint + "; " + schemaHint + " to see required parameters")
 }
 
 func plural(items []string, one, many string) string {

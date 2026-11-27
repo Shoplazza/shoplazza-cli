@@ -31,7 +31,7 @@ func RegisterCommands(rootCmd *cobra.Command, spec *registry.Spec, factory *cmdu
 		if existing[mod.Name] {
 			continue // collides with built-in / +xxx command
 		}
-		modCmd := buildModuleCommand(mod, spec, factory)
+		modCmd := buildModuleCommand(mod, spec, factory, rootCmd.PersistentFlags())
 		if modCmd == nil {
 			continue // no valid commands → skip whole module
 		}

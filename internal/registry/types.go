@@ -56,6 +56,7 @@ type Parameter struct {
 	Type        string `json:"type"`
 	Format      string `json:"format,omitempty"`
 	Required    bool   `json:"required,omitempty"`
+	Flag        string `json:"flag,omitempty"` // set by `shoplazza schema`, not by the spec
 	Description string `json:"description,omitempty"`
 	Default     any    `json:"default,omitempty"`
 	Minimum     any    `json:"minimum,omitempty"`

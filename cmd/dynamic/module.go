@@ -7,6 +7,7 @@ import (
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // moduleShorts gives known top-level modules a custom one-line Short; unlisted
@@ -70,7 +71,7 @@ Run 'shoplazza schema <module>' to list all commands, or 'shoplazza schema <modu
 
 // buildModuleCommand walks mod.Commands and registers each via path[].
 // Returns nil if zero commands survive the validity filter.
-func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdutil.Factory) *cobra.Command {
+func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdutil.Factory, reserved *pflag.FlagSet) *cobra.Command {
 	moduleCmd := &cobra.Command{
 		Use:   mod.Name,
 		Short: moduleShort(mod.Name),
@@ -132,7 +133,7 @@ func buildModuleCommand(mod registry.Module, spec *registry.Spec, factory *cmdut
 			nodes[key] = grp
 			parent = grp
 		}
-		leaf := buildLeafCommand(c, spec, factory, mod.Name)
+		leaf := buildLeafCommand(c, spec, factory, mod.Name, reserved)
 		if grouped && parent == moduleCmd {
 			leaf.GroupID = cmdutil.GroupAPI
 		}
