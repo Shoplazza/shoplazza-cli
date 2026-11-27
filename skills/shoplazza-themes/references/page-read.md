@@ -54,7 +54,7 @@ carry `template_id` (and `obj_title` once bound). Funnel pages (`/funnel/landing
 `/funnel/detail-<id>`, `/funnel/checkout-<id>`) are `p.landing-<id>` / `p.detail-<id>` /
 `p.checkout-<id>` in the Funnel extension theme;
 `--list` shows them as `type:"funnel"` with their `url`. A plain `themes list` does not return that theme;
-try `themes list --params '{"contain_ext_theme":true,"page_size":250}'`, else take `-t` from the editor context.
+try `themes list --contain-ext-theme true --page-size 250`, else take `-t` from the editor context.
 
 - `customers/*` templates are customer-account pages (login, register, addresses, orders…). The
   preview opens the login page; changes show only after signing in as a customer — say so in

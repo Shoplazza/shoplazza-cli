@@ -34,35 +34,49 @@ func dropHashPrefix(c registry.Command, params map[string]any) string {
 
 // fillMissingPathParams prompts a human for any {param} in the path template that
 // --params left unset, injecting the answers into params so ResolveTemplatedPath
-// succeeds. It is the dynamic-leaf counterpart of the shortcut engine's fill:
-// the id lives inside the --params JSON (not a flag), so this fills it there.
+// succeeds. An answer is checked against the parameter's type like its flag.
 //
 // Non-interactive callers (agents, pipes, CI) are a no-op — a missing param
 // stays the structured missing_required_param error, so the fail-fast contract
 // is unchanged. --dry-run still prompts: it previews a
 // concrete request, which needs the id resolved.
-func fillMissingPathParams(_ *cobra.Command, f *cmdutil.Factory, pathTemplate string, params map[string]any) error {
+func fillMissingPathParams(_ *cobra.Command, f *cmdutil.Factory, c registry.Command, params map[string]any) error {
 	if !cmdutil.Interactive(f) {
 		return nil
 	}
-	for _, name := range pathParamNames(pathTemplate) {
+	declared := map[string]registry.Parameter{}
+	for _, p := range commandParams(c) {
+		declared[p.Name] = p
+	}
+	for _, name := range pathParamNames(c.HTTP.Path) {
 		if v, ok := params[name]; ok && fmt.Sprint(v) != "" {
 			continue
 		}
 		val, err := interact.Input(name, func(s string) error {
-			if strings.TrimSpace(s) == "" {
-				return fmt.Errorf("%s is required", name)
-			}
-			return nil
+			_, err := promptedValue(declared[name], s)
+			return err
 		})
 		if err != nil {
 			return err // ErrCanceled on esc/ctrl+c, else a render error
 		}
-		if val = strings.TrimSpace(val); val != "" {
-			params[name] = val
+		if v, err := promptedValue(declared[name], val); err == nil {
+			params[name] = v
 		}
 	}
 	return nil
+}
+
+func promptedValue(p registry.Parameter, input string) (any, error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return nil, fmt.Errorf("%s is required", p.Name)
+	}
+	value := newParamValue(p)
+	if err := value.Set(input); err != nil {
+		return nil, fmt.Errorf("%s %w", p.Name, err)
+	}
+	v, _ := value.get()
+	return v, nil
 }
 
 // pathParamNames returns the {name} segments of a path template, in order.

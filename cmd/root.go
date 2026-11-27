@@ -159,6 +159,7 @@ func subcommandSuggestions(c *cobra.Command, args []string) []string {
 
 // suggestFlag appends c's near-named flags to an unknown --flag error, ranked by
 // cobra's subcommand rules through a throwaway command with one child per flag.
+// The flag a snake_case name spells comes first.
 func suggestFlag(c *cobra.Command, err error) error {
 	var notExist *pflag.NotExistError
 	if !errors.As(err, &notExist) || notExist.GetSpecifiedShortnames() != "" {
@@ -170,8 +171,15 @@ func suggestFlag(c *cobra.Command, err error) error {
 			probe.AddCommand(&cobra.Command{Use: f.Name, Run: func(*cobra.Command, []string) {}})
 		}
 	})
+	given := notExist.GetSpecifiedName()
+	near := probe.SuggestionsFor(given)
+	if kebab := strings.ReplaceAll(given, "_", "-"); kebab != given {
+		if f := c.Flags().Lookup(kebab); f != nil && !f.Hidden {
+			near = append([]string{f.Name}, near...)
+		}
+	}
 	var names []string
-	for _, name := range probe.SuggestionsFor(notExist.GetSpecifiedName()) {
+	for _, name := range near {
 		if canonical := c.Flags().Lookup(name).Annotations[cmdutil.AnnotationCanonicalFlag]; len(canonical) > 0 {
 			name = canonical[0]
 		}

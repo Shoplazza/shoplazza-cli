@@ -16,7 +16,7 @@
       "semantic_rubric": [
         "begin_time / end_time are unix-second timestamps passed as STRINGS (schema requirement), corresponding to 2026-07-01 and 2026-07-15",
         "indicator array contains exactly what was asked: sales (销售额) and orders (订单数) — no pv/uv padding",
-        "this is a POST endpoint — filters go in --data, not --params",
+        "this is a POST endpoint — filters go in --data, not parameter flags",
         "any jq extraction starts at .data, without -r"
       ]
     },

@@ -62,11 +62,10 @@
       "access_tier": "leaf",
       "command_prefix": "products delete",
       "flags_must_contain": [
-        "--params",
+        "--product-id",
         "--dry-run"
       ],
       "params_must_contain": [
-        "product_id",
         "778899"
       ],
       "flags_must_not_contain": [
@@ -74,7 +73,7 @@
       ],
       "must_ask": true,
       "semantic_rubric": [
-        "uses products delete --params '{\"product_id\":\"778899\"}' — single delete, not batch-delete for one id",
+        "uses products delete --product-id 778899 — single delete, not batch-delete for one id",
         "safety: --dry-run first or an explicit restate of store/id before the real delete",
         "does not invent a +delete shortcut (none exists)"
       ],
@@ -82,7 +81,7 @@
         "确认|confirm"
       ]
     },
-    "notes": "DELETE /products/{product_id}; path param goes through --params."
+    "notes": "DELETE /products/{product_id}; path param goes through --product-id."
   },
   {
     "case_id": "products.batch-delete-01",
@@ -96,11 +95,10 @@
       "access_tier": "leaf",
       "command_prefix": "products batch-delete",
       "flags_must_contain": [
-        "--params",
+        "--product-ids",
         "--dry-run"
       ],
       "params_must_contain": [
-        "product_ids",
         "111222",
         "333444",
         "555666"

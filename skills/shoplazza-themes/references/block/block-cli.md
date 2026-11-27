@@ -193,7 +193,7 @@ placements again without `--section`.
 
 Deletes the card file and removes every instance of it from every page of the theme. It ignores
 `ref_count` and deletes however many places use the card. Needs consent first
-([delete-block.md](delete-block.md)). Parameters go in `--params`, not the `block +edit` / `block +get` flags:
+([delete-block.md](delete-block.md)). Parameters are this leaf's own flags, not the `block +edit` / `block +get` ones:
 
 | Param | Required | Notes |
 |---|---|---|
@@ -201,7 +201,7 @@ Deletes the card file and removes every instance of it from every page of the th
 | `type` | yes | The card type, with the `blocks/` prefix. |
 
 ```bash
-themes block delete-gen --params '{"oseid":"<oseid>","type":"blocks/gen_<id>"}' --dry-run
+themes block delete-gen --oseid <oseid> --type blocks/gen_<id> --dry-run
 ```
 
 Returns `revert_id`.
@@ -212,7 +212,7 @@ Restores the card to its state before the write identified by `revert_id` (from 
 update, delete or revert response). Its response gives `.data.data[].new_revert_id` (the `revert_id` there echoes the one sent), so undo and redo can repeat.
 
 ```bash
-themes block revert-gen --params '{"oseid":"<oseid>"}' --data '{"revert_id":"<revert_id>"}'
+themes block revert-gen --oseid <oseid> --data '{"revert_id":"<revert_id>"}'
 ```
 
 Use it when the user asks to undo, or to clean up after a place-stage failure. Undoing a

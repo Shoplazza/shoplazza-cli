@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Spec leaves take each path / query parameter as its own flag (`products get --product-id <id>`, `orders list --page-size 50`), and `--help` lists them by required and optional. A flag overrides the same `--params` key. A parameter named `id` takes its resource's name (`shop pages get --page-id <id>`; `--id` still works).
+- `--params` on a spec leaf reads `@file` and `-` (stdin).
+- `shoplazza schema <command>` names each parameter's `flag`.
+
+### Changed
+- Spec leaves refuse, before sending, a `--data` field the command does not declare at any depth (`unknown_field`, with the nearest declared name) and a top-level `--data` key that is a path / query parameter (`misplaced_param`).
+- A spec leaf's missing-parameter error names the flags to set.
+- A spec leaf's prompt for a missing path parameter checks the answer against the parameter's type.
+- An unknown flag written in snake_case suggests its kebab-case flag whatever its length.
+
 ## 2.2.8 - 2026-11-26
 
 ### Added

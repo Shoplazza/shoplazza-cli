@@ -21,20 +21,20 @@ A vague "set up app X" → explain this split first, then do step 2.
 
 ```bash
 # Catalog: what the installed apps offer (names, kinds). Shows no on/off state.
-themes app list --params '{"limit":50}'
+themes app list --limit 50
 
 # The template file id of the homepage (doc_id for section list)
-themes file tree --params '{"theme_id":"<theme_id>"}' --jq '.data.templates[] | select(.location=="index.liquid") | .id'
+themes file tree --theme-id <theme_id> --jq '.data.templates[] | select(.location=="index.liquid") | .id'
 
 # Current state in this session
-themes section list --params '{"oseid":"<oseid>","doc_id":"<index_doc_id>"}' --jq '.data.data.sections | {app_embeds, script_tags}'
+themes section list --oseid <oseid> --doc-id <index_doc_id> --jq '.data.data.sections | {app_embeds, script_tags}'
 
 # Turn on / off (draft write into the session)
-themes app enable  --params '{"oseid":"<oseid>"}' --data '{"theme_id":"<theme_id>","block_id":"<block_id>"}'
-themes app disable --params '{"oseid":"<oseid>"}' --data '{"theme_id":"<theme_id>","block_id":"<block_id>"}'
+themes app enable  --oseid <oseid> --data '{"theme_id":"<theme_id>","block_id":"<block_id>"}'
+themes app disable --oseid <oseid> --data '{"theme_id":"<theme_id>","block_id":"<block_id>"}'
 
 # Extension cards that can be added to a page
-themes app extensions --params '{"template":"<template>"}'
+themes app extensions --template <template>
 ```
 
 `section list` needs the template file's uuid from `file tree`; `"index"` does not work there.

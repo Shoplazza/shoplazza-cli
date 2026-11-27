@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -38,7 +39,7 @@ func TestRunE_InvalidParamsJSON(t *testing.T) {
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
 
 	cmd := registry.Command{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/x"}}
-	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule")
+	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule", nil)
 	leaf.SetArgs([]string{"--params", "not-json"})
 	err := leaf.Execute()
 	if err == nil {
@@ -59,7 +60,7 @@ func TestRunE_MissingPathParam(t *testing.T) {
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
 
 	cmd := registry.Command{Path: []string{"get"}, HTTP: registry.HTTP{Method: "GET", Path: "/x/{id}"}}
-	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule")
+	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule", nil)
 	leaf.SetArgs([]string{"--params", "{}"})
 	err := leaf.Execute()
 	if err == nil {
@@ -82,14 +83,15 @@ func TestRunE_DryRunDoesNotSendRequest(t *testing.T) {
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
 
 	cmd := registry.Command{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/orders"},
-		Parameters: []registry.Parameter{{Name: "page_size", In: "query"}}}
-	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule")
+		Parameters: []registry.Parameter{{Name: "page_size", In: "query"},
+			{Name: "ids", In: "query", Type: "array", Items: &registry.Field{Type: "integer"}}}}
+	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule", nil)
 	// --dry-run is inherited from the root's PersistentFlags in production;
 	// wrap the leaf in a stub parent that mirrors that setup.
 	parent := &cobra.Command{Use: "shoplazza", SilenceUsage: true, SilenceErrors: true}
 	parent.PersistentFlags().Bool("dry-run", false, "")
 	parent.AddCommand(leaf)
-	parent.SetArgs([]string{"list", "--params", `{"page_size":10}`, "--dry-run"})
+	parent.SetArgs([]string{"list", "--params", `{"page_size":10}`, "--ids", "11,22", "--dry-run"})
 	if err := parent.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -98,6 +100,9 @@ func TestRunE_DryRunDoesNotSendRequest(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "dry_run") {
 		t.Fatalf("expected dry_run marker in output, got: %s", out.String())
+	}
+	if !strings.Contains(strings.Join(strings.Fields(out.String()), ""), `"ids":[11,22]`) {
+		t.Errorf("integer array flag not previewed as numbers: %s", out.String())
 	}
 }
 
@@ -121,7 +126,7 @@ func TestRunE_HappyPathListGET(t *testing.T) {
 			{Name: "vendors", In: "query", Type: "array"},
 			{Name: "title", In: "query", Type: "string"},
 		}}
-	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule")
+	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule", nil)
 	leaf.SetArgs([]string{"--params", `{"page_size":10,"ids":"d1, d2,,","vendors":["Nike, Inc."],"title":"a,b"}`})
 	if err := leaf.Execute(); err != nil {
 		t.Fatalf("error: %v", err)
@@ -154,7 +159,7 @@ func TestRunE_PathParamSubstituted(t *testing.T) {
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
 
 	cmd := registry.Command{Path: []string{"get"}, HTTP: registry.HTTP{Method: "GET", Path: "/openapi/2026-01/discounts/{id}"}}
-	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule")
+	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule", nil)
 	leaf.SetArgs([]string{"--params", `{"id":"d001"}`})
 	if err := leaf.Execute(); err != nil {
 		t.Fatalf("error: %v", err)
@@ -175,7 +180,7 @@ func TestRunE_HTTPErrorBecomesAPIExitError(t *testing.T) {
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
 
 	cmd := registry.Command{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/x"}}
-	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule")
+	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule", nil)
 	err := leaf.Execute()
 	var ee *output.ExitError
 	if !errors.As(err, &ee) || ee.Detail.Type != "api" {
@@ -198,7 +203,7 @@ func TestRunE_BodyPOSTWithData(t *testing.T) {
 		Path: []string{"create"},
 		HTTP: registry.HTTP{Method: "POST", Path: "/openapi/2026-01/coupons", Body: "*"},
 	}
-	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule")
+	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule", nil)
 	leaf.SetArgs([]string{"--data", `{"coupon":{"code":"X"}}`})
 	if err := leaf.Execute(); err != nil {
 		t.Fatalf("error: %v", err)
@@ -244,11 +249,25 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 		Body: &registry.Body{Fields: []registry.Field{
 			{Name: "refuse_multi_result", Type: "boolean", Required: true}, {Name: "variant", Type: "object", Schema: "Variant", Required: true},
 		}}}
+	formatOnly := registry.Command{Path: []string{"export"}, HTTP: registry.HTTP{Method: "GET", Path: "/export"},
+		Parameters: []registry.Parameter{{Name: "format", In: "query", Required: true}}}
 	spec := &registry.Spec{Schemas: map[string]registry.ObjectSchema{
-		"Product": {Fields: []registry.Field{{Name: "title", Type: "string"}, {Name: "description", Type: "string"}}},
-		"Page":    {Fields: []registry.Field{{Name: "title", Type: "string"}}},
-		"Variant": {Fields: []registry.Field{{Name: "price", Type: "number"}}},
+		"Product": {Fields: []registry.Field{
+			{Name: "title", Type: "string"}, {Name: "description", Type: "string"},
+			{Name: "variants", Type: "array", Items: &registry.Field{Type: "object", Schema: "Variant"}},
+			{Name: "options", Type: "array", Items: &registry.Field{Type: "string"}},
+			{Name: "seo", Type: "object", Schema: "Seo"},
+			{Name: "custom", Type: "object"},
+			{Name: "value", Type: "object", Schema: "google.protobuf.Value"},
+			{Name: "parent", Type: "object", Schema: "Product"},
+		}},
+		"Page":                  {Fields: []registry.Field{{Name: "title", Type: "string"}}},
+		"Variant":               {Fields: []registry.Field{{Name: "price", Type: "number"}, {Name: "sku", Type: "string"}}},
+		"Seo":                   {Fields: []registry.Field{{Name: "title", Type: "string"}}},
+		"google.protobuf.Value": {Fields: []registry.Field{{Name: "string_value", Type: "string"}}},
 	}}
+	noBodyMeta := registry.Command{Path: []string{"enable"}, HTTP: registry.HTTP{Method: "POST", Path: "/languages/enable", Body: "*"}}
+	pid := `{"product_id":"p1"}`
 	long := strings.Repeat("x", 300)
 	path := `{"oseid":"os1","section_id":"s1"}`
 	full := `{"doc_id":"d1","theme_id":"T1","block":{}}`
@@ -301,26 +320,61 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 			output.SubtypeMissingRequiredField, "product", `{"product":{"description":…,"title":…}}`, ""},
 		{"wrapped fields pass", productUpdate,
 			[]string{"--params", `{"product_id":"p1"}`, "--data", `{"product":{"description":"x"}}`}, "", "", "", ""},
-		{"a key no wrapper has is left alone", productUpdate,
-			[]string{"--params", `{"product_id":"p1"}`, "--data", `{"bogus":1}`}, "", "", "", ""},
+		{"a key the body does not declare", productUpdate,
+			[]string{"--params", pid, "--data", `{"product":{"title":"t"},"bogus":1}`},
+			output.SubtypeUnknownField, "bogus", "unknown --data field: bogus", "schema"},
+		{"an undeclared field inside the wrapper", productUpdate,
+			[]string{"--params", pid, "--data", `{"product":{"titel":"x"}}`},
+			output.SubtypeUnknownField, "product.titel", "unknown --data field: product.titel", "did you mean title?; run 'shoplazza schema"},
+		{"an undeclared field in the second array element", productUpdate,
+			[]string{"--params", pid, "--data", `{"product":{"variants":[{"price":1},{"pricee":2}]}}`},
+			output.SubtypeUnknownField, "product.variants[1].pricee", "unknown --data field: product.variants[1].pricee", "did you mean price?"},
+		{"every undeclared field at once", productUpdate,
+			[]string{"--params", pid, "--data", `{"product":{"titel":"x","variants":[{"skuu":"a"}]},"bogus":1}`},
+			output.SubtypeUnknownField, "bogus", "unknown --data fields: bogus, product.titel, product.variants[0].skuu",
+			"did you mean: product.titel -> title, product.variants[0].skuu -> sku; run"},
+		{"field names are case-sensitive", productUpdate,
+			[]string{"--params", pid, "--data", `{"product":{"Title":"x"}}`},
+			output.SubtypeUnknownField, "product.Title", "unknown --data field: product.Title", "did you mean title?"},
+		{"an undeclared field two levels into a recursive schema", productUpdate,
+			[]string{"--params", pid, "--data", `{"product":{"parent":{"parent":{"titel":"x"}}}}`},
+			output.SubtypeUnknownField, "product.parent.parent.titel", "product.parent.parent.titel", ""},
+		{"a field named like a parameter inside the wrapper", productUpdate,
+			[]string{"--params", pid, "--data", `{"product":{"product_id":"x"}}`},
+			output.SubtypeUnknownField, "product.product_id", "unknown --data field: product.product_id", ""},
+		{"a parameter at the top of --data", productUpdate,
+			[]string{"--data", `{"product_id":"p1","product":{"title":"t"}}`},
+			output.SubtypeMisplacedParam, "product_id", "product_id is a path/query parameter of this command, not a request-body field",
+			"pass it as --product-id"},
+		{"a parameter in --data is reported before an undeclared field", productUpdate,
+			[]string{"--data", `{"product_id":"p1","bogus":1}`},
+			output.SubtypeMisplacedParam, "product_id", "product_id is a path/query parameter", ""},
+		{"an object with no declared fields takes any key", productUpdate,
+			[]string{"--params", pid, "--data", `{"product":{"custom":{"anything":{"deep":1}}}}`}, "", "", "", ""},
+		{"a protobuf value takes any key", productUpdate,
+			[]string{"--params", pid, "--data", `{"product":{"value":{"mediaContentType":"IMAGE","image":{"path":"x.jpg"}}}}`}, "", "", "", ""},
+		{"a value of another shape is not walked", productUpdate,
+			[]string{"--params", pid, "--data", `{"product":{"variants":"oops","seo":[{"x":1}],"options":["a"],"title":{"x":1}}}`}, "", "", "", ""},
+		{"a command with no body metadata takes any key", noBodyMeta,
+			[]string{"--data", `{"anything":1}`}, "", "", "", ""},
 		{"every missing path param at once", twoPath,
 			[]string{"--params", `{}`},
-			output.SubtypeMissingRequiredParam, "customer_id", "--params is missing required keys: customer_id, address_id", "to see required parameters"},
+			output.SubtypeMissingRequiredParam, "customer_id", "missing required parameters: customer_id, address_id", "set --customer-id, --address-id (or the same keys in --params); run 'shoplazza schema"},
 		{"one of two path params", twoPath,
 			[]string{"--params", `{"customer_id":"c1"}`},
-			output.SubtypeMissingRequiredParam, "address_id", "--params is missing required key: address_id", ""},
+			output.SubtypeMissingRequiredParam, "address_id", "missing required parameter: address_id", "set --address-id (or the same key in --params)"},
 		{"path then required query", pathAndQuery,
 			[]string{"--params", `{"page_size":5}`},
-			output.SubtypeMissingRequiredParam, "location_id", "missing required keys: location_id, variant_ids", ""},
+			output.SubtypeMissingRequiredParam, "location_id", "missing required parameters: location_id, variant_ids", ""},
 		{"empty string counts as missing", getOne,
 			[]string{"--params", `{"product_id":""}`},
-			output.SubtypeMissingRequiredParam, "product_id", "missing required key: product_id", ""},
+			output.SubtypeMissingRequiredParam, "product_id", "missing required parameter: product_id", ""},
 		{"empty array counts as missing", pathAndQuery,
 			[]string{"--params", `{"location_id":"l1","variant_ids":[]}`},
-			output.SubtypeMissingRequiredParam, "variant_ids", "missing required key: variant_ids", ""},
+			output.SubtypeMissingRequiredParam, "variant_ids", "missing required parameter: variant_ids", ""},
 		{"only commas count as missing", pathAndQuery,
 			[]string{"--params", `{"location_id":"l1","variant_ids":" , "}`},
-			output.SubtypeMissingRequiredParam, "variant_ids", "missing required key: variant_ids", ""},
+			output.SubtypeMissingRequiredParam, "variant_ids", "missing required parameter: variant_ids", ""},
 		{"brace placeholder", getOne,
 			[]string{"--params", `{"product_id":"{product_id}"}`},
 			output.SubtypeMissingRequiredParam, "product_id", `product_id (placeholder "{product_id}")`, ""},
@@ -339,14 +393,32 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 			[]string{"--params", `{"product_id":"p-{1}"}`}, "", "", "", ""},
 		{"required params all given", pathAndQuery,
 			[]string{"--params", `{"location_id":"l1","variant_ids":["v1"]}`}, "", "", "", ""},
+		{"required params given as flags", pathAndQuery,
+			[]string{"--location-id", "l1", "--variant-ids", "v1"}, "", "", "", ""},
+		{"no flags and no --params", twoPath, nil,
+			output.SubtypeMissingRequiredParam, "customer_id", "missing required parameters: customer_id, address_id", ""},
+		{"an empty flag counts as missing", getOne,
+			[]string{"--product-id", ""},
+			output.SubtypeMissingRequiredParam, "product_id", "missing required parameter: product_id", ""},
+		{"a flag of only commas counts as missing", pathAndQuery,
+			[]string{"--location-id", "l1", "--variant-ids", " , "},
+			output.SubtypeMissingRequiredParam, "variant_ids", "missing required parameter: variant_ids", ""},
+		{"placeholder in a flag", getOne,
+			[]string{"--product-id", "<id>"},
+			output.SubtypeMissingRequiredParam, "product_id", `product_id (placeholder "<id>")`, ""},
+		{"a parameter with no flag is named by its --params key", formatOnly, nil,
+			output.SubtypeMissingRequiredParam, "format", "missing required parameter: format", `set --params '{"format": "<value>"}'`},
+		{"--params and --data both from stdin", productUpdate,
+			[]string{"--params", "-", "--data", "-"},
+			"", "--params", "--params and --data cannot both read stdin", ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			f, _, _ := newRunFactory(t, srv)
-			leaf := buildLeafCommand(c.cmd, spec, f, "testmodule")
+			leaf := buildLeafCommand(c.cmd, spec, f, "testmodule", rootFlags())
 			leaf.SetArgs(append(c.args, "--dry-run"))
 			err := leaf.Execute()
-			if c.wantSubtype == "" {
+			if c.wantSubtype == "" && c.wantMsg == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
@@ -361,6 +433,141 @@ func TestRunE_ParamsAndBodyChecks(t *testing.T) {
 			}
 			if !strings.Contains(ee.Detail.Message, c.wantMsg) || !strings.Contains(ee.Detail.Hint, c.wantHint) {
 				t.Errorf("message/hint = %q / %q, want %q / %q", ee.Detail.Message, ee.Detail.Hint, c.wantMsg, c.wantHint)
+			}
+		})
+	}
+}
+
+func TestRunE_ParamFlags(t *testing.T) {
+	var gotPath string
+	var gotQuery map[string][]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotQuery = r.URL.Path, r.URL.Query()
+		w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
+
+	items := registry.Command{Path: []string{"items"}, HTTP: registry.HTTP{Method: "GET", Path: "/locations/{location_id}/items"},
+		Parameters: []registry.Parameter{
+			{Name: "location_id", In: "path", Type: "string", Required: true},
+			{Name: "variant_ids", In: "query", Type: "array"},
+			{Name: "since_ids", In: "query", Type: "array", Items: &registry.Field{Type: "integer"}},
+			{Name: "page_size", In: "query", Type: "integer"},
+			{Name: "total_min", In: "query", Type: "number"},
+			{Name: "published", In: "query", Type: "boolean"},
+			{Name: "keyword", In: "query", Type: "string"},
+			{Name: "metafields", In: "query", Type: "object"},
+		}}
+	page := registry.Command{Path: []string{"get"}, HTTP: registry.HTTP{Method: "GET", Path: "/pages/{id}"},
+		Parameters: []registry.Parameter{{Name: "id", In: "path", Type: "string", Required: true}}}
+	file := t.TempDir() + "/params.json"
+	if err := os.WriteFile(file, []byte(`{"location_id":"lf","page_size":3}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name      string
+		cmd       registry.Command
+		args      []string
+		stdin     string
+		wantPath  string
+		wantQuery map[string]string
+		wantErr   string
+	}{
+		{"flags only", items,
+			[]string{"--location-id", "l1", "--variant-ids", "v1, v2,,", "--page-size", "5"},
+			"", "/locations/l1/items", map[string]string{"variant_ids": "v1|v2", "page_size": "5"}, ""},
+		{"a repeated array flag", items,
+			[]string{"--location-id", "l1", "--variant-ids", "v1", "--variant-ids", "v2,v3"},
+			"", "/locations/l1/items", map[string]string{"variant_ids": "v1|v2|v3"}, ""},
+		{"a flag overrides the same --params key", items,
+			[]string{"--params", `{"location_id":"l0","variant_ids":["a","b","c"],"page_size":1,"keyword":"k"}`, "--page-size", "9", "--variant-ids", "x"},
+			"", "/locations/l0/items", map[string]string{"variant_ids": "x", "page_size": "9", "keyword": "k"}, ""},
+		{"an empty flag leaves --params alone", items,
+			[]string{"--params", `{"location_id":"l0","keyword":"k"}`, "--keyword", ""},
+			"", "/locations/l0/items", map[string]string{"keyword": "k"}, ""},
+		{"an empty flag is not sent", items,
+			[]string{"--location-id", "l1", "--keyword", ""},
+			"", "/locations/l1/items", map[string]string{}, ""},
+		{"boolean false after a space", items,
+			[]string{"--location-id", "l1", "--published", "false"},
+			"", "/locations/l1/items", map[string]string{"published": "false"}, ""},
+		{"boolean true after a space", items,
+			[]string{"--location-id", "l1", "--published", "true"},
+			"", "/locations/l1/items", map[string]string{"published": "true"}, ""},
+		{"boolean with =", items,
+			[]string{"--location-id", "l1", "--published=false"},
+			"", "/locations/l1/items", map[string]string{"published": "false"}, ""},
+		{"number and long integer sent as written", items,
+			[]string{"--location-id", "l1", "--total-min", "10.50", "--page-size", "123456789012345678901234567890", "--since-ids", "7,8"},
+			"", "/locations/l1/items", map[string]string{"total_min": "10.50", "page_size": "123456789012345678901234567890", "since_ids": "7|8"}, ""},
+		{"object as a JSON string", items,
+			[]string{"--location-id", "l1", "--metafields", `{"k":"v"}`},
+			"", "/locations/l1/items", map[string]string{"metafields": `{"k":"v"}`}, ""},
+		{"id by its resource name", page, []string{"--page-id", "7"}, "", "/pages/7", map[string]string{}, ""},
+		{"id by --id", page, []string{"--id", "7"}, "", "/pages/7", map[string]string{}, ""},
+		{"id in --params", page, []string{"--params", `{"id":"7"}`}, "", "/pages/7", map[string]string{}, ""},
+		{"the later of --id and its resource name wins", page, []string{"--id", "7", "--page-id", "8"}, "", "/pages/8", map[string]string{}, ""},
+		{"--params from a file", items, []string{"--params", "@" + file, "--page-size", "4"},
+			"", "/locations/lf/items", map[string]string{"page_size": "4"}, ""},
+		{"--params from stdin", items, []string{"--params", "-"},
+			`{"location_id":"ls"}`, "/locations/ls/items", map[string]string{}, ""},
+		{"boolean without a value", items, []string{"--location-id", "l1", "--published"},
+			"", "", nil, "flag needs an argument: --published"},
+		{"boolean followed by another flag", items, []string{"--published", "--location-id", "l1"},
+			"", "", nil, `invalid argument "--location-id" for "--published" flag: must be true or false`},
+		{"boolean that is neither", items, []string{"--location-id", "l1", "--published", "maybe"},
+			"", "", nil, `invalid argument "maybe" for "--published" flag`},
+		{"integer that is not one", items, []string{"--location-id", "l1", "--page-size", "abc"},
+			"", "", nil, `invalid argument "abc" for "--page-size" flag: must be an integer`},
+		{"number that is not one", items, []string{"--location-id", "l1", "--total-min", "1.2.3"},
+			"", "", nil, `invalid argument "1.2.3" for "--total-min" flag: must be a number`},
+		{"integer with a leading zero", items, []string{"--location-id", "l1", "--page-size", "007"},
+			"", "", nil, `invalid argument "007" for "--page-size" flag: must be an integer`},
+		{"integer with a plus sign", items, []string{"--location-id", "l1", "--page-size", "+5"},
+			"", "", nil, `invalid argument "+5" for "--page-size" flag: must be an integer`},
+		{"number without an integer part", items, []string{"--location-id", "l1", "--total-min", ".5"},
+			"", "", nil, `invalid argument ".5" for "--total-min" flag: must be a number`},
+		{"number ending in a point", items, []string{"--location-id", "l1", "--total-min", "5."},
+			"", "", nil, `invalid argument "5." for "--total-min" flag: must be a number`},
+		{"integer array with a leading zero", items, []string{"--location-id", "l1", "--since-ids", "7,08"},
+			"", "", nil, `for "--since-ids" flag: "08" must be an integer`},
+		{"integer array with a word", items, []string{"--location-id", "l1", "--since-ids", "7,x"},
+			"", "", nil, `for "--since-ids" flag: "x" must be an integer`},
+		{"snake_case flag", items, []string{"--location_id", "l1"},
+			"", "", nil, "unknown flag: --location_id"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotPath, gotQuery = "", nil
+			f, _, _ := newRunFactory(t, srv)
+			f.IOStreams.In = strings.NewReader(c.stdin)
+			leaf := buildLeafCommand(c.cmd, &registry.Spec{}, f, "testmodule", rootFlags())
+			leaf.SilenceUsage, leaf.SilenceErrors = true, true
+			leaf.SetArgs(c.args)
+			err := leaf.Execute()
+			if c.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+					t.Fatalf("error = %v, want %q", err, c.wantErr)
+				}
+				if gotPath != "" {
+					t.Fatalf("request sent to %s", gotPath)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if gotPath != c.wantPath {
+				t.Errorf("path = %q, want %q", gotPath, c.wantPath)
+			}
+			if len(gotQuery) != len(c.wantQuery) {
+				t.Errorf("query = %v, want %v", gotQuery, c.wantQuery)
+			}
+			for key, want := range c.wantQuery {
+				if got := strings.Join(gotQuery[key], "|"); got != want {
+					t.Errorf("query %s = %q, want %q", key, got, want)
+				}
 			}
 		})
 	}

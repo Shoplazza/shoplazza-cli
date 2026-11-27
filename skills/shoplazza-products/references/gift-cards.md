@@ -17,10 +17,10 @@ Verify shapes with `shoplazza schema products.gift-cards.<cmd>`.
 |---|---|---|
 | `gift-cards create` | `POST /gift_cards` | `--data '{"gift_card":{…}}'` — `code` and `initial_value` **required** |
 | `gift-cards batch-create` | `POST /gift_cards/batch` | `--data '{"gift_cards":[{…},…]}'` — each card needs `code`, `initial_value` **and `currency`** |
-| `gift-cards get` | `GET /gift_cards/{id}` | `--params '{"id":"<id>"}'` |
+| `gift-cards get` | `GET /gift_cards/{id}` | `--gift-card-id <id>` |
 | `gift-cards list` | `GET /gift_cards` | filters: `keyword`, `status`, `balance_status`, `initial_value_min/max`, date ranges, cursor paging |
 | `gift-cards update` | `PUT /gift_cards/{id}` | body accepts **only** `expires_on`, `note`, `template_suffix` |
-| `gift-cards disable` | `POST /gift_cards/{id}/disable` | `--params '{"id":"<id>"}'`, no body |
+| `gift-cards disable` | `POST /gift_cards/{id}/disable` | `--gift-card-id <id>`, no body |
 
 ## Creating
 
@@ -49,14 +49,13 @@ The card object (under `.data.gift_card`) carries `balance`, `initial_value`, `e
 
 ```bash
 # Remaining balance
-products gift-cards get --params '{"id":"<id>"}' --jq '.data.gift_card.balance'
+products gift-cards get --gift-card-id <id> --jq '.data.gift_card.balance'
 
 # Find a card when you only have (part of) the code
-products gift-cards list --params '{"keyword":"GC9988"}'
+products gift-cards list --keyword GC9988
 ```
 
-`get` needs the card **id**; when the user gives a code, resolve it via `list --params
-'{"keyword":…}'` first.
+`get` needs the card **id**; when the user gives a code, resolve it via `list --keyword …` first.
 
 ## Updating vs disabling
 

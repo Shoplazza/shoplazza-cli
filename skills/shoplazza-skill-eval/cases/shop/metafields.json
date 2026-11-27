@@ -32,11 +32,11 @@
       "route_to_skill": "shoplazza-shop",
       "access_tier": "leaf",
       "command_prefix": "shop metafields-resource create",
-      "flags_must_contain": ["--params", "--data"],
+      "flags_must_contain": ["--owner-resource", "--owner-id", "--data"],
       "params_must_contain": ["product", "66880", "D8899", "specs", "material", "cotton"],
       "must_ask": false,
       "semantic_rubric": [
-        "owner_resource=product and owner_id=66880 are PATH params via --params; definition_id D8899 / namespace / key / value go in --data",
+        "owner_resource=product and owner_id=66880 are PATH params via --owner-resource / --owner-id; definition_id D8899 / namespace / key / value go in --data",
         "routes through the shop skill (metafields live in the shop module) even though the owner is a product",
         "does not confuse with metafields-definition (schema management) — the definition already exists"
       ]

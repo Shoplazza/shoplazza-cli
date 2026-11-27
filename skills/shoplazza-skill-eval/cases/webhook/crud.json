@@ -71,11 +71,11 @@
       "route_to_skill": "shoplazza-webhook",
       "access_tier": "leaf",
       "command_prefix": "webhook update",
-      "flags_must_contain": ["--params", "--data"],
+      "flags_must_contain": ["--webhook-id", "--data"],
       "params_must_contain": ["246", "address", "https://new.example.com/hook"],
       "must_ask": false,
       "semantic_rubric": [
-        "id 246 via --params (path); new address in --data under the required webhook object",
+        "id 246 via --webhook-id (path); new address in --data under the required webhook object",
         "topic NOT touched — the user only asked to change the address",
         "restates the change before executing"
       ]
@@ -93,13 +93,13 @@
       "route_to_skill": "shoplazza-webhook",
       "access_tier": "leaf",
       "command_prefix": "webhook delete",
-      "flags_must_contain": ["--params", "--dry-run"],
+      "flags_must_contain": ["--webhook-id", "--dry-run"],
       "params_must_contain": ["135"],
       "flags_must_not_contain": ["--data"],
       "must_ask": true,
       "ask_must_cover": ["确认|confirm"],
       "semantic_rubric": [
-        "id 135 via --params (path param, no body)",
+        "id 135 via --webhook-id (path param, no body)",
         "destructive op: shows the delete with --dry-run and STOPS — the reply must NOT contain the same delete without --dry-run; it ends by asking the user to confirm",
         "restates WHICH subscription (topic + address, not just the id) — a webhook get lookup in the same reply is the golden path",
         "does not invent a disable/pause alternative (none exists; delete is correct here)"
@@ -118,8 +118,8 @@
       "route_to_skill": "shoplazza-webhook",
       "access_tier": "leaf",
       "command_prefix": "webhook count",
-      "flags_must_contain": ["--params"],
-      "params_must_contain": ["address", "https://api.myapp.com/hooks"],
+      "flags_must_contain": ["--address"],
+      "params_must_contain": ["https://api.myapp.com/hooks"],
       "must_ask": false,
       "semantic_rubric": [
         "uses count with the address query filter, not list + manual counting",

@@ -176,6 +176,11 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 		{[]string{"discounts", "get-by-code", "--params", `{"discount_code":"#A?B%"}`}, "/openapi/2026-01/discounts/by-code/%23A%3FB%25"},
 		{[]string{"shop", "files", "get", "--params", `{"file_uri":"https://cdn.x/a/b.jpg"}`}, "/openapi/2026-01/file/detail/https:%2F%2Fcdn.x%2Fa%2Fb.jpg"},
 		{[]string{"products", "variants", "list-by-sku", "--params", `{"sku":"A/B 1"}`}, "/openapi/2026-01/products/sku/A%2FB%201/variants"},
+		{[]string{"orders", "get-by-number", "--number", "#1001"}, "/openapi/2026-01/orders/number/1001"},
+		{[]string{"products", "variants", "list-by-sku", "--sku", "A/B 1"}, "/openapi/2026-01/products/sku/A%2FB%201/variants"},
+		{[]string{"shop", "pages", "get", "--page-id", "7"}, "/openapi/2026-01/pages/7"},
+		{[]string{"shop", "pages", "get", "--id", "7"}, "/openapi/2026-01/pages/7"},
+		{[]string{"products", "get", "--params", `{"product_id":"p0"}`, "--product-id", "p1"}, "/openapi/2026-01/products/p1"},
 		{[]string{"products", "variants", "update-by-sku", "--params", `{"sku":"../../products/123"}`,
 			"--data", `{"refuse_multi_result":true,"variant":{"price":1}}`}, "/openapi/2026-01/variants/sku/..%2F..%2Fproducts%2F123"},
 	} {
@@ -188,6 +193,11 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 		want string
 	}{
 		{[]string{"products", "update", "--params", `{"product_id":"p1"}`, "--data", `{"product":{}}`, "-q", ".data.["}, "invalid --jq expression"},
+		{[]string{"products", "update", "--product-id", "p1", "--data", `{"product":{"titel":"x"}}`}, `"subtype": "unknown_field"`},
+		{[]string{"products", "update", "--data", `{"product_id":"p1","product":{}}`}, "pass it as --product-id"},
+		{[]string{"products", "get", "--product_id", "p1"}, `Did you mean this?\n\t--product-id`},
+		{[]string{"products", "get"}, "set --product-id (or the same key in --params)"},
+		{[]string{"shop", "articles", "list", "--page-size", "abc"}, `"subtype": "invalid_flag_value"`},
 		{[]string{"products", "update", "--params", `{"product_id":"p1"}`, "--data", `{"product":{}}`, "--format", "table", "-q", ".data"}, "--jq requires --format json"},
 		{[]string{"api", "rest", "PUT", "/openapi/2026-01/products/p1", "--data", `{"product":{}}`, "-q", ".data.["}, "invalid --jq expression"},
 		{[]string{"products", "+search", "--keyword", "x", "-q", ".data.["}, "invalid --jq expression"},
@@ -228,8 +238,8 @@ func TestSpecLeafInput_MockServer(t *testing.T) {
 
 	const big = "638982951773671231"
 	stdout, stderr, code := runCLI(t, bin, env, "products", "update", "--params", `{"product_id":`+big+`}`,
-		"--data", `{"product":{"vendor_id":`+big+`}}`, "-q", ".data.warehouse_id")
-	if code != 0 || path != "/openapi/2026-01/products/"+big || string(raw) != `{"product":{"vendor_id":`+big+`}}` ||
+		"--data", `{"product":{"category_id":`+big+`}}`, "-q", ".data.warehouse_id")
+	if code != 0 || path != "/openapi/2026-01/products/"+big || string(raw) != `{"product":{"category_id":`+big+`}}` ||
 		stdout != big+"\n" {
 		t.Errorf("64-bit ids: exit %d, path %q, body %s, -q %q; stderr=%s", code, path, raw, stdout, stderr)
 	}
@@ -610,6 +620,7 @@ func TestUnknownSubcommand_IsUsageError(t *testing.T) {
 		{"name shared by many", []string{"list"}, unknownCmd, `unknown command "list" for "shoplazza"`, "'shoplazza --help'"},
 		{"flag near name", []string{"customers", "+search", "--emial", "a@b.c"}, unknownFlag, "unknown flag: --emial" + mean + "--email", "--help"},
 		{"spec leaf flag near name", []string{"orders", "list", "--param", "{}"}, unknownFlag, "unknown flag: --param" + mean + "--params", "--help"},
+		{"spec leaf flag in snake_case", []string{"orders", "list", "--source_name_created_at_min", "x"}, unknownFlag, "unknown flag: --source_name_created_at_min" + mean + "--source-name-created-at-min", "--help"},
 		{"deprecated alias points at its canonical flag", []string{"discounts", "+percent-code", "--percnt", "10"}, unknownFlag, "unknown flag: --percnt" + mean + "--percent-off", "--help"},
 		{"flag with no near name", []string{"customers", "+search", "--xyz"}, unknownFlag, "unknown flag: --xyz", "--help"},
 	}

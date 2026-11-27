@@ -14,14 +14,14 @@ shop languages supported --jq '.data.languages'
 shop languages add --data '{"codes":["ja-JP"]}'
 
 # 2. Enable (make it visible to storefront visitors)
-shop languages enable --params '{"language_code":"ja-JP"}'
+shop languages enable --language-code ja-JP
 
 # 3. Publish to markets — FULL REPLACEMENT of the market relations. The body you send
 #    becomes the language's ENTIRE relation set: anything you omit is UNPUBLISHED.
 #    So: merge the language's CURRENT market ids with the new one — never send only
 #    the new market. The runnable merge pattern:
 MIDS=$(shop languages list --jq '[.data.languages[] | select(.code=="ja-JP") | .markets[]?.id] + ["<new-mid>"]')
-shop languages publish --params '{"language_code":"ja-JP"}' --data "{\"market_ids\":$MIDS}" --dry-run
+shop languages publish --language-code ja-JP --data "{\"market_ids\":$MIDS}" --dry-run
 # then restate which markets the language ends up in, and wait for the user's go-ahead
 ```
 
@@ -36,10 +36,10 @@ shop languages list        # languages + enabled state + market relations
 shop languages supported   # system-supported codes → .data.languages[] {code,name}
 shop languages markets     # configurable markets for publishing
 shop languages add     --data '{"codes":["ja-JP","ko-KR"]}'
-shop languages enable  --params '{"language_code":"ja-JP"}'
-shop languages disable --params '{"language_code":"ja-JP"}'
-shop languages publish --params '{"language_code":"ja-JP"}' --data '{"market_ids":[…]}'
-shop languages delete  --params '{"language_code":"ja-JP"}'   # --dry-run first
+shop languages enable  --language-code ja-JP
+shop languages disable --language-code ja-JP
+shop languages publish --language-code ja-JP --data '{"market_ids":[…]}'
+shop languages delete  --language-code ja-JP   # --dry-run first
 ```
 
 ## Gotchas

@@ -8,14 +8,14 @@ session or writes anything.
 
 | Intent | Command |
 |---|---|
-| All installed themes | `themes list --params '{"page_size":250}'` → `.data.themes[]`, `.data.count`, `.data.has_more` / `.data.cursor` |
-| How many themes | `themes list --params '{"page_size":1}' --jq '.data.count'` |
-| Which theme is live | `themes list --params '{"published":"1"}'` → one row |
-| Unpublished themes only | `themes list --params '{"published":"0","page_size":250}'` |
-| Specific themes by id | `themes list --params '{"ids":["<id>","<id>"]}'` |
-| One theme's detail / status / version | `themes get --params '{"theme_id":"<id>"}'` → `.data.theme` |
+| All installed themes | `themes list --page-size 250` → `.data.themes[]`, `.data.count`, `.data.has_more` / `.data.cursor` |
+| How many themes | `themes list --page-size 1 --jq '.data.count'` |
+| Which theme is live | `themes list --published 1` → one row |
+| Unpublished themes only | `themes list --published 0 --page-size 250` |
+| Specific themes by id | `themes list --ids '<id>,<id>'` |
+| One theme's detail / status / version | `themes get --theme-id <id>` → `.data.theme` |
 | Storefront preview link | `themes +preview -t <id> [--oseid <oseid>] [--path <path>] [--locale <locale>]` → `.data.preview_url` |
-| A background task's status | `themes task --params '{"task_id":"<uuid>"}'` → `.data.task` |
+| A background task's status | `themes task --task-id <uuid>` → `.data.task` |
 
 Paging: `page_size` 1–250, default 10; `has_more:true` → pass the returned `cursor` (or `page`)
 for the next page. `count` is the total across all pages. `published` and `page_size` can be
@@ -42,7 +42,7 @@ preset's own covers sit in `merchant_theme_info` (a JSON string), and may be bar
 host:
 
 ```bash
-themes list --params '{"page_size":250}' --jq '[.data.themes[] | . as $t | {name, cover: ((try ($t.merchant_theme_info | fromjson | .merchant_theme.presets[$t.preset].pc_cover_url) catch null) // $t.pc_cover_url)}]'
+themes list --page-size 250 --jq '[.data.themes[] | . as $t | {name, cover: ((try ($t.merchant_theme_info | fromjson | .merchant_theme.presets[$t.preset].pc_cover_url) catch null) // $t.pc_cover_url)}]'
 ```
 
 ## Finding a theme by name
@@ -60,7 +60,7 @@ Do the matching yourself on the projected list — don't `select(.name == …)` 
 exact, case-sensitive filter misses renamed themes and skips the series-name fallback.
 
 ```bash
-themes list --params '{"page_size":250}' --jq '{has_more: .data.has_more, cursor: .data.cursor, themes: [.data.themes[] | {id, name, merchant_theme_name, published, c_version}]}'
+themes list --page-size 250 --jq '{has_more: .data.has_more, cursor: .data.cursor, themes: [.data.themes[] | {id, name, merchant_theme_name, published, c_version}]}'
 ```
 
 ## Preview links
@@ -70,7 +70,7 @@ wrong handle or session id just gives a broken link.
 
 - `-t` is required here, as on `+card-schema` (no published-theme default, unlike `+page` /
   `+edit`). Resolve it first;
-  for the live theme use `themes list --params '{"published":"1"}'`.
+  for the live theme use `themes list --published 1`.
 - `--oseid <oseid>`: pass the active edit session when the conversation has unsaved edits on
   that theme, so the preview shows them. Without it the preview shows no session's edits. Never
   invent an oseid.

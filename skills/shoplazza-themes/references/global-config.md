@@ -10,10 +10,10 @@ which page.
 
 | Intent | Command |
 |---|---|
-| List category names | `themes session get-config --params '{"oseid":"<oseid>","doc_id":"index"}' --jq '[.data.data.schemas[].name]'` |
-| One category: fields + current values | `themes session get-config --params '{"oseid":"<oseid>","doc_id":"index","name":"<category>"}'` |
-| One current value | `themes session get-config --params '{"oseid":"<oseid>","doc_id":"index"}' --jq '.data.data.settings.<id>'` |
-| Write (draft) | `themes session update-config --params '{"oseid":"<oseid>","doc_id":"index"}' --data '{"settings":{"<id>":<value>}}'` |
+| List category names | `themes session get-config --oseid <oseid> --doc-id index --jq '[.data.data.schemas[].name]'` |
+| One category: fields + current values | `themes session get-config --oseid <oseid> --doc-id index --name <category>` |
+| One current value | `themes session get-config --oseid <oseid> --doc-id index --jq '.data.data.settings.<id>'` |
+| Write (draft) | `themes session update-config --oseid <oseid> --doc-id index --data '{"settings":{"<id>":<value>}}'` |
 | Preview | `themes +preview -t <theme_id> --oseid <oseid>` |
 | Save / publish | `themes +edit -t <theme_id> --template index --session <oseid> --ops '[]' --promote [--publish]` |
 
@@ -92,7 +92,7 @@ Use whichever form `get-config` shows:
 - **Scheme group** (control `color_scheme_group`) — `settings.color_schemes` holds `scheme-1` …
   `scheme-N`, each `{deletable, settings:{<color keys>}}`, referenced by cards' `color_scheme` fields. Changing a scheme's definition changes every
   place that references it. List scheme ids:
-  `--params '{"oseid":"<oseid>","doc_id":"index","name":"Color"}' --jq '.data.data.settings.color_schemes | keys'`.
+  `--oseid <oseid> --doc-id index --name Color --jq '.data.data.settings.color_schemes | keys'`.
 - **Flat colors** — no scheme group; the Colors category is dozens of single `color_*` fields,
   changed one by one.
 

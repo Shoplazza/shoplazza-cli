@@ -1,6 +1,7 @@
 package dynamic
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -56,10 +57,39 @@ func TestDropHashPrefix(t *testing.T) {
 func TestFillMissingPathParams_NonInteractiveNoOp(t *testing.T) {
 	params := map[string]any{"theme_id": "123"}
 	// nil IOStreams → non-interactive; must return nil and not touch params.
-	if err := fillMissingPathParams(nil, &cmdutil.Factory{}, "/themes/{theme_id}/doc/{version_id}", params); err != nil {
+	c := registry.Command{HTTP: registry.HTTP{Path: "/themes/{theme_id}/doc/{version_id}"}}
+	if err := fillMissingPathParams(nil, &cmdutil.Factory{}, c, params); err != nil {
 		t.Fatalf("non-interactive fill must be a no-op, got %v", err)
 	}
 	if len(params) != 1 || params["theme_id"] != "123" {
 		t.Errorf("params mutated off a non-terminal: %v", params)
+	}
+}
+
+func TestPromptedValue(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		kind    string
+		input   string
+		want    any
+		wantErr string
+	}{
+		{"string", "string", " abc ", "abc", ""},
+		{"integer", "integer", " 12071832 ", json.Number("12071832"), ""},
+		{"empty", "string", "  ", nil, "id is required"},
+		{"integer given a word", "integer", "abc", nil, "id must be an integer"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := promptedValue(registry.Parameter{Name: "id", Type: c.kind}, c.input)
+			if c.wantErr != "" {
+				if err == nil || err.Error() != c.wantErr {
+					t.Fatalf("error = %v, want %q", err, c.wantErr)
+				}
+				return
+			}
+			if err != nil || got != c.want {
+				t.Errorf("got %#v, %v; want %#v", got, err, c.want)
+			}
+		})
 	}
 }

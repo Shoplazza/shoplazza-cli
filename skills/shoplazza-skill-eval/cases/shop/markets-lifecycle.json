@@ -26,18 +26,18 @@
     "type": "behavior",
     "skill": "shoplazza-shop",
     "operation": "shop.markets.get",
-    "scenario": "查某个市场的详情 — 用 --params 传 id,读操作",
+    "scenario": "查某个市场的详情 — 用 --market-id 传 id,读操作",
     "input": "看下市场 mkt_8842 的详细配置",
     "expected": {
       "route_to_skill": "shoplazza-shop",
       "access_tier": "leaf",
       "command_prefix": "shop markets get",
-      "flags_must_contain": ["--params"],
-      "params_must_contain": ["id", "mkt_8842"],
+      "flags_must_contain": ["--market-id"],
+      "params_must_contain": ["mkt_8842"],
       "flags_must_not_contain": ["--dry-run", "--data"],
       "must_ask": false,
       "semantic_rubric": [
-        "market id mkt_8842 is passed as the required path param id inside --params, taken verbatim from the utterance",
+        "market id mkt_8842 is passed as the required path param id via --market-id, taken verbatim from the utterance",
         "a GET detail read: no --data, no --dry-run",
         "does not ask for clarification since the market id is provided"
       ]
@@ -55,17 +55,17 @@
       "route_to_skill": "shoplazza-shop",
       "access_tier": "leaf",
       "command_prefix": "shop markets update-status",
-      "flags_must_contain": ["--params", "--data", "--dry-run"],
-      "params_must_contain": ["id", "mkt_8842", "\"status\"", "paused"],
+      "flags_must_contain": ["--market-id", "--data", "--dry-run"],
+      "params_must_contain": ["mkt_8842", "\"status\"", "paused"],
       "must_ask": false,
       "semantic_rubric": [
         "下线 / 别让顾客下单 maps to status=paused (the valid enum value that stops checkout), NOT active and not a fabricated value like 'offline' or 'disabled'",
-        "market id mkt_8842 goes into --params as the path param id",
+        "market id mkt_8842 goes into --market-id (the path param id)",
         "this is a write: runs with --dry-run first per the safety protocol and restates the effect (market paused, customers cannot check out) before the real call",
         "does not ask a question — the market id and the intended status are both given"
       ]
     },
-    "notes": "Grounded: shop markets update-status --help + schema shop.markets.update-status (PUT /openapi/2026-01/markets/{id}/status; path param id required; body.status required enum active|paused, paused stops checkout). Write → --dry-run first + restate. status:paused lives in the --data body; params_must_contain matches against both --params and --data payloads per case_schema."
+    "notes": "Grounded: shop markets update-status --help + schema shop.markets.update-status (PUT /openapi/2026-01/markets/{id}/status; path param id required; body.status required enum active|paused, paused stops checkout). Write → --dry-run first + restate. status:paused lives in the --data body; params_must_contain matches the command's values per case_schema."
   },
   {
     "case_id": "shop.markets-delete-01",
@@ -78,13 +78,13 @@
       "route_to_skill": "shoplazza-shop",
       "access_tier": "leaf",
       "command_prefix": "shop markets delete",
-      "flags_must_contain": ["--params", "--dry-run"],
+      "flags_must_contain": ["--market-id", "--dry-run"],
       "flags_must_not_contain": ["--data"],
       "must_ask": false,
       "semantic_rubric": [
         "resolves 'the market covering 意大利' to a concrete market id first (e.g. via shop markets list) rather than guessing an id",
         "before the destructive call, uses shop markets preview (POST /markets/preview with the countries) to show which markets would be removed, matching 'Preview markets to be deleted'",
-        "delete targets the market id via --params (path param id); no --data body",
+        "delete targets the market id via --market-id (path param id); no --data body",
         "delete is irreversible and the primary market cannot be deleted: runs --dry-run first and restates that deletion is permanent before executing",
         "does not fabricate a market id or an ISO code the user did not provide"
       ]
@@ -102,18 +102,18 @@
       "route_to_skill": "shoplazza-shop",
       "access_tier": "leaf",
       "command_prefix": "shop markets update-price",
-      "flags_must_contain": ["--params", "--data", "--dry-run"],
-      "params_must_contain": ["id", "mkt_jp01", "\"currency\"", "JPY", "\"price_adjust\"", "15"],
+      "flags_must_contain": ["--market-id", "--data", "--dry-run"],
+      "params_must_contain": ["mkt_jp01", "\"currency\"", "JPY", "\"price_adjust\"", "15"],
       "must_ask": false,
       "semantic_rubric": [
         "上调 15% maps to price_adjust=15 (positive raises price; range -99..999), the number taken from the user's own wording",
         "currency=JPY is supplied in the body — the schema requires currency on every price update, even when only adjusting the percentage; JPY comes from the user's '日元 JPY'",
-        "market id mkt_jp01 is the --params path param id",
+        "market id mkt_jp01 is the path param id, passed as --market-id",
         "a write: runs --dry-run first and restates the effect before the real call",
         "does not invent local_currency_enabled or other fields the user did not mention"
       ]
     },
-    "notes": "Grounded: shop markets update-price --help + schema shop.markets.update-price (PUT /openapi/2026-01/markets/{id}/price; path id required; body.currency required ISO4217, price_adjust int -99..999, local_currency_enabled optional). Write → --dry-run first + restate. currency JPY + price_adjust 15 asserted in the --data body via params_must_contain (matches --params/--data payloads per case_schema)."
+    "notes": "Grounded: shop markets update-price --help + schema shop.markets.update-price (PUT /openapi/2026-01/markets/{id}/price; path id required; body.currency required ISO4217, price_adjust int -99..999, local_currency_enabled optional). Write → --dry-run first + restate. currency JPY + price_adjust 15 asserted in the --data body via params_must_contain (matches the command's values per case_schema)."
   },
   {
     "case_id": "shop.markets-create-02",

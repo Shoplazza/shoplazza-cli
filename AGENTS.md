@@ -46,11 +46,15 @@ Errors are written to **stderr** as:
 - **`subtype`** — stable, machine-branchable id within a `type` (e.g.
   `unknown_command`, `unknown_flag`, `missing_required_flag`,
   `invalid_flag_value`, `invalid_argument`). Recover on this, not on `message`.
-  Spec leaves add four, with `param` set to the (first) key or field:
+  Spec leaves add five, with `param` set to the (first) key or field:
   `unknown_param` (a `--params` key the command does not declare),
   `misplaced_param` (a `--params` key that is a body field: move it into
-  `--data`), `missing_required_param` (required path / query keys absent,
-  empty or left as a placeholder such as `<id>`; all listed in one error) and
+  `--data`; or a top-level `--data` key that is a path / query parameter:
+  pass it as its flag), `missing_required_param` (required path / query
+  parameters absent, empty or left as a placeholder such as `<id>`; all listed
+  in one error), `unknown_field` (a `--data` field the command's body does not
+  declare, at any depth; `param` is its path, such as
+  `product.variants[0].pricee`, and all are listed in one error) and
   `missing_required_field` (a required top-level body field is absent from
   `--data`).
   `invalid_token` (type `auth`): the store rejected the access token; log in

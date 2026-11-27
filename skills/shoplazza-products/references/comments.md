@@ -32,5 +32,5 @@ products comments batch-create --data '{
   ]}' --dry-run          # batch write: user go-ahead first, then run without --dry-run
 
 # List a product's reviews
-products comments list --params '{"product_id":"555777"}'
+products comments list --product-id 555777
 ```

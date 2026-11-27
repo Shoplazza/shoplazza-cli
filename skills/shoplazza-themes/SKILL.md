@@ -41,7 +41,7 @@ Page edits go through three layers:
 | Publish (`--publish` / `themes publish`) | That theme becomes the store's live theme, replacing the old one | Buyers, immediately |
 
 Tiers: shortcuts `+page` (read) / `+edit` (write) / `+card-schema` / `+preview` and
-`block +edit` / `block +get` come first; spec leaves (`--params` / `--data`) cover the rest.
+`block +edit` / `block +get` come first; spec leaves (parameter flags / `--data`) cover the rest.
 
 ## Command map
 
@@ -49,16 +49,16 @@ Intent → command, highest-fit tier first. Authoritative flags live in `themes 
 `schema themes.<cmd>`, not this table. Shortcuts (`+…`) take the theme as `-t <theme_id>`: on
 `+page` / `+edit` / `block +edit` / `block +get` an omitted `-t` means the published theme;
 `+preview` and `+card-schema` require it. Spec leaves have no `-t`. Where the path has
-`{theme_id}` (`themes get`, `file *`, `template *`, …) it goes in `--params`; the edit-session
+`{theme_id}` (`themes get`, `file *`, `template *`, …) it is the `--theme-id` flag; the edit-session
 leaves (`app enable/disable`, `section set-props`, `block add/remove/set-props`, `pb save-block`)
 take it in the `--data` body. `schema themes.<cmd>` shows which.
 
 | User intent | Command | Details |
 |---|---|---|
-| Which themes / which one is live / theme detail & version | `themes list --params '{"published":"1"}'` · `themes get --params '{"theme_id":"<id>"}'` | [query.md](references/query.md) |
+| Which themes / which one is live / theme detail & version | `themes list --published 1` · `themes get --theme-id <id>` | [query.md](references/query.md) |
 | Storefront preview link (optionally with unsaved edits) | `themes +preview -t <id> [--oseid <oseid>] [--path /products/<handle>]` | [query.md](references/query.md) |
 | Rename / duplicate / upgrade / delete / publish a theme | `themes rename` · `duplicate` · `upgrade` · `delete` · `publish` | [lifecycle.md](references/lifecycle.md) |
-| Browse the theme market / install a theme | `themes market list` · `themes market install --params '{"remote_theme_id":"…"}'` | [market.md](references/market.md) |
+| Browse the theme market / install a theme | `themes market list` · `themes market install --remote-theme-id …` | [market.md](references/market.md) |
 | List a theme's page templates | `themes +page -t <id> --list` | [page-read.md](references/page-read.md) |
 | Read a page's cards; open an edit session | `themes +page -t <id> --template <name>` → `.data.oseid` | [page-read.md](references/page-read.md) |
 | Read one card: current values, field schema, block targets | `themes +page -t <id> --template <name> --session <oseid> --section <sid> --include schema` | [page-read.md](references/page-read.md) |
@@ -100,7 +100,7 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 
 1. **Which theme.** In order: the theme named in this turn → the theme established earlier in the
    conversation (opened, previewed, queried) → the published theme
-   (`themes list --params '{"published":"1"}'`). A theme named without an id: match it per
+   (`themes list --published 1`). A theme named without an id: match it per
    [query.md → Finding a theme by name](references/query.md#finding-a-theme-by-name) — every page,
    projected, matched yourself, never `select` by name inside `--jq` (market lookups follow
    [market.md](references/market.md)); several or no matches → ask.
@@ -156,7 +156,7 @@ Every page edit is one stateful flow. Keep `theme_id` and `oseid` for the whole 
 
 | User says | Command | How to extract values |
 |---|---|---|
-| 我有哪些主题 / 现在用的哪个主题 / which theme is live | `themes list` | live → `--params '{"published":"1"}'`; count → `.data.count` |
+| 我有哪些主题 / 现在用的哪个主题 / which theme is live | `themes list` | live → `--published 1`; count → `.data.count` |
 | 预览一下 / 给我预览链接 / preview | `themes +preview` | page → `--path` (`/`, `/products/<handle>`, …); unsaved edits → `--oseid` |
 | 首页有哪些模块 / what's on the homepage | `themes +page --template index` | page name → `--template` (`index`, `product`, `collection`, `cart`, …) |
 | 把轮播图标题改成… / 改文案 / 换图 / change the banner text | `+page` → `+edit` `replace_props` / `update_slot` | card from wording → `section_id`; field by `label`; value verbatim |
@@ -244,7 +244,7 @@ Rules → 8.
 
 ```bash
 # Which theme is live?
-themes list --params '{"published":"1"}' --jq '.data.themes[] | {id, name, merchant_theme_name}'
+themes list --published 1 --jq '.data.themes[] | {id, name, merchant_theme_name}'
 
 # Open a session on a theme's homepage and list its cards
 themes +page -t <theme_id> --template index --jq '{oseid: .data.oseid, areas: .data.areas, sections: [.data.sections[] | {section_id, type, area, name, visible} + ([.blocks[]? | select(.type | startswith("blocks/gen_")) | {type, cname, target}] | if length > 0 then {ai_cards: .} else {} end)]}'

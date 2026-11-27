@@ -39,13 +39,13 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Create a customer | `customers +create (--email <e> \| --phone <p>) [--first-name --last-name --tags --no-marketing]` |
 | Find customer by email / phone | `customers +search --email <e>` / `customers +search --phone <p>` |
 | Total customer count | `customers +count` (store total; takes no filters) |
-| Get one customer by ID | `customers get --params '{"customer_id":"<id>"}'` |
-| List / filter customers (cursor paging, ids, contact) | `customers list --params '{…}'` |
-| Update name / tags / marketing subscription | `customers update --params '{"customer_id":"<id>"}' --data '{"customer":{…}}'` |
-| List a customer's addresses | `customers addresses list --params '{"customer_id":"<id>"}'` |
-| Add an address | `customers addresses create --params '{"customer_id":"<id>"}' --data '{"address":{…}}'` |
-| Get / update / delete one address | `customers addresses {get,update,delete} --params '{"customer_id":"<cid>","address_id":"<aid>"}'` |
-| Set the default shipping address | `customers addresses set-default --params '{"customer_id":"<cid>","address_id":"<aid>"}'` (no `--data`) |
+| Get one customer by ID | `customers get --customer-id <id>` |
+| List / filter customers (cursor paging, ids, contact) | `customers list --<param> <value> …` |
+| Update name / tags / marketing subscription | `customers update --customer-id <id> --data '{"customer":{…}}'` |
+| List a customer's addresses | `customers addresses list --customer-id <id>` |
+| Add an address | `customers addresses create --customer-id <id> --data '{"address":{…}}'` |
+| Get / update / delete one address | `customers addresses {get,update,delete} --customer-id <cid> --address-id <aid>` |
+| Set the default shipping address | `customers addresses set-default --customer-id <cid> --address-id <aid>` (no `--data`) |
 
 ## Acting on a request
 
@@ -74,7 +74,7 @@ question:
 | 退订邮件营销 / unsubscribe email marketing | `update` with `{"customer":{"accepts_marketing":false}}` | email only — do NOT touch `accepts_sms_marketing` |
 | 退订短信营销 / unsubscribe SMS marketing | `update` with `{"customer":{"accepts_sms_marketing":false}}` | SMS only — do NOT touch `accepts_marketing` |
 | 加一个收货地址 / add a shipping address | `addresses create` | body requires `country` + `country_code` |
-| 把地址设为默认 / set the default address | `addresses set-default` | both IDs are path params via `--params`; no body |
+| 把地址设为默认 / set the default address | `addresses set-default` | both IDs are path params (`--customer-id`, `--address-id`); no body |
 
 ### Required-vs-ask matrix
 
@@ -136,7 +136,7 @@ shoplazza-common).
 | Leaf `list` rejects a `phone` param (exit 2, `unknown_param`) | `list` takes `email` and `contact` query params, not `phone` | Prefer `+search --phone` (it sends `contact`); on the leaf use `"contact"` (matches the customer's primary contact — email or phone) |
 | `unknown flag: --fields` on `customers +search` | The customers list endpoint documents no `fields` param, so the flag was removed rather than left as a silent no-op | Project with `--jq` |
 | Wanted to delete a customer | No customer-delete command exists in this module (only `addresses delete`) | Not expressible at tiers 1–2; confirm an endpoint exists before reaching for `api rest` |
-| Set default via `addresses update` with `"default":true` | A dedicated endpoint owns this | `addresses set-default --params '{"customer_id":…,"address_id":…}'` — path params only, no `--data` |
+| Set default via `addresses update` with `"default":true` | A dedicated endpoint owns this | `addresses set-default --customer-id … --address-id …` — path params only, no `--data` |
 | `+search --since/--until` returns "wrong" customers | They map to `created_at_min`/`created_at_max` — bounds on the customer's CREATION time | Only pass them when the user asks for a signup-time window |
 | `invalid --since` / `--until` (exit 2) | Accepted: `now`, `today`, `yesterday`, `-7d` / `+12h`, `2026-09-01`, `2026-09-01 08:00`, RFC3339, unix seconds; no offset = UTC | Rewrite the value in one of those forms; for a store-local day give a time and the store's offset (`2026-09-01T00:00:00+08:00`) — a bare date takes no offset |
 
@@ -153,18 +153,18 @@ customers +search --phone 13800138000 --jq '.data.customers[] | {id, name, email
 customers +count --jq '.data.count'
 
 # 4. Tag customer 424242 as VIP without clobbering existing tags (read-merge-write)
-customers get --params '{"customer_id":"424242"}' --jq '.data.customer.tags'
+customers get --customer-id 424242 --jq '.data.customer.tags'
 # → e.g. ["wholesale"]; append and write the MERGED array back:
-customers update --params '{"customer_id":"424242"}' --data '{"customer":{"tags":["wholesale","VIP"]}}'
+customers update --customer-id 424242 --data '{"customer":{"tags":["wholesale","VIP"]}}'
 
 # 5. Unsubscribe email marketing only (SMS untouched)
-customers update --params '{"customer_id":"887766"}' --data '{"customer":{"accepts_marketing":false}}'
+customers update --customer-id 887766 --data '{"customer":{"accepts_marketing":false}}'
 
 # 6. Set the default shipping address
-customers addresses set-default --params '{"customer_id":"335577","address_id":"ADDR99"}'
+customers addresses set-default --customer-id 335577 --address-id ADDR99
 
 # 7. List a customer's address book
-customers addresses list --params '{"customer_id":"335577"}' --jq '.data.addresses[] | {id, name, address1, default}'
+customers addresses list --customer-id 335577 --jq '.data.addresses[] | {id, name, address1, default}'
 ```
 
 ## References

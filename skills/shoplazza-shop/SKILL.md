@@ -32,7 +32,7 @@ and real-time shipping-rate carrier services. Broad and shallow — this file is
 depth lives in [`references/`](#references).
 
 The **only shortcut is `+upload-file`** — everything else is a spec leaf
-(`--params` / `--data`). All three access tiers apply (tier rule in shoplazza-common).
+(parameter flags / `--data`). All three access tiers apply (tier rule in shoplazza-common).
 
 ## Command map
 
@@ -41,27 +41,27 @@ Intent → command, highest-fit tier first. Authoritative flags/params live in
 
 | User intent | Command |
 |-------------|---------|
-| **Store info** — 查店铺信息 / domain / currency / plan | `shop info get` (optional `--params '{"fields":["id","domain"]}'`) |
-| 改客服邮箱 / change customer-service email (the ONLY editable field) | `shop info get --jq '.data.id'` → `shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"customer_email":"…"}}'` |
+| **Store info** — 查店铺信息 / domain / currency / plan | `shop info get` (optional `--fields 'id,domain'`) |
+| 改客服邮箱 / change customer-service email (the ONLY editable field) | `shop info get --jq '.data.id'` → `shop info update --shop-id <id> --data '{"shop":{"customer_email":"…"}}'` |
 | **Analytics** — 销售额/订单数报表 for a date range | `shop analytics overview --data '{"begin_time":"<unix-str>","end_time":"<unix-str>","indicator":["sales","orders"]}'` → [references/analytics.md](references/analytics.md) |
 | SKU 销量排行 / best-selling SKU | `shop analytics by-sku --data '{…,"sort_by":"sales_total","sort_direction":"desc"}'` |
 | SPU / landing-page / UTM breakdown | `shop analytics by-spu` (extra required `type`) / `by-land-page` (required `dimensions`) / `by-utm` |
 | 搜索词分析 / 搜了没结果的词 / on-site search keywords | `shop analytics search-keyword --data '{…,"sort_by":"count","sort_direction":"desc"}'` (`has_result` is a string `"0"`/`"1"`) |
 | 流量渠道 / 流量来源 / traffic by channel | `shop analytics traffic-channel` (required `dimensions` + `metrics`); valid channel names: `shop analytics traffic-channel-options` |
 | **Media library** — 上传文件到素材库 | `shop +upload-file --source-url <url> [--source-url <url> …]` (http(s) URLs); a local file → `shop files upload --data '{"original_source_list":["data:<mime>;base64,…"]}'` |
-| Check an upload task / 上传进度 | `shop files task --params '{"task_id":"<id>"}'` (the shortcut already fetches it once) |
+| Check an upload task / 上传进度 | `shop files task --task-id <id>` (the shortcut already fetches it once) |
 | Browse the media library / 看素材库 | `shop files list` (folder defaults to `all_upload`; `page_size` ≤ 300) |
-| File detail / delete a file | `shop files {get,delete} --params '{"file_uri":"<uri>"}'` |
+| File detail / delete a file | `shop files {get,delete} --file-uri <uri>` |
 | **Metafields** — 店铺级 metafield | `shop metafields-shop create --data '{"namespace":"…","key":"…","type":"string","value":"…"}'` → [references/metafields.md](references/metafields.md) |
-| Metafield ON a product/order/customer… (给商品加字段) | `shop metafields-resource create --params '{"owner_resource":"product","owner_id":"<id>"}' --data '{"definition_id":"…","namespace":"…","key":"…","type":"…","value":…}'` |
-| Define a metafield schema (元字段定义) | `shop metafields-definition create --params '{"owner_resource":"…"}' --data '{"name":"…","namespace":"…","key":"…","type":"…"}'` |
+| Metafield ON a product/order/customer… (给商品加字段) | `shop metafields-resource create --owner-resource product --owner-id <id> --data '{"definition_id":"…","namespace":"…","key":"…","type":"…","value":…}'` |
+| Define a metafield schema (元字段定义) | `shop metafields-definition create --owner-resource … --data '{"name":"…","namespace":"…","key":"…","type":"…"}'` |
 | **Blog content** — 发博客文章 / new blog post | `shop articles create --data '{"article":{"title":"…","content":"…","blog_ids":["…"]}}'` → [references/blogs-articles.md](references/blogs-articles.md) |
 | Manage blogs (containers of articles) | `shop blogs list` / `shop blogs create --data '{"blog":{"Title":"…"}}'` (title key is capital **`Title`**) |
 | **Custom pages** — 自定义页面 / 关于我们 / About Us | `shop pages create --data '{"page":{"title":"…","content":"…"}}'` → [references/pages-redirects.md](references/pages-redirects.md) |
-| **Navigation menus** — 看导航菜单 / list menus & items | `shop menu list` (built-ins have ids `header` / `footer`; one menu: `--params '{"ids":["header"]}'`) |
+| **Navigation menus** — 看导航菜单 / list menus & items | `shop menu list` (built-ins have ids `header` / `footer`; one menu: `--ids header`) |
 | 新建菜单 / create a custom menu | `shop menu create --data '{"title":"…","children":[…]}'` (custom menus only) |
-| 改菜单名 / 改菜单项 / edit a menu | `shop menu update --params '{"id":"<menu-id>"}' --data '{"title":"…"}'` — sending `children` **replaces the whole item tree** (see Gotchas) |
-| 删菜单 / delete a custom menu | `shop menu delete --params '{"id":"<menu-id>"}'` (built-in `header` / `footer` can't be deleted) |
+| 改菜单名 / 改菜单项 / edit a menu | `shop menu update --menu-id <menu-id> --data '{"title":"…"}'` — sending `children` **replaces the whole item tree** (see Gotchas) |
+| 删菜单 / delete a custom menu | `shop menu delete --menu-id <menu-id>` (built-in `header` / `footer` can't be deleted) |
 | **URL redirect** — 301 / 跳转 | `shop redirects create --data '{"redirect":{"from_url":"…","redirect_url":"…","status":"…"}}'` (`status` required — see Gotchas) |
 | **Markets** — 建市场 / 发布到某国 | `shop markets create --data '{"name":"…","countries":["JP"]}'` → [references/markets.md](references/markets.md) |
 | **Languages** — 开通语言 / 多语言 | `shop languages supported` → `add` → `enable` → `publish` → [references/languages.md](references/languages.md) |
@@ -97,7 +97,7 @@ Reads like another domain (or another domain reads like shop):
 
 | Sounds like | Actually belongs to | Command |
 |---|---|---|
-| 给商品/订单加元字段 / metafield on a product | **HERE** — all metafields live in shop, even product-owned ones | `shop metafields-resource create --params '{"owner_resource":"product",…}'` |
+| 给商品/订单加元字段 / metafield on a product | **HERE** — all metafields live in shop, even product-owned ones | `shop metafields-resource create --owner-resource product --owner-id <id> …` |
 | 商品图片 / 主图 / image attached to a product | `shoplazza-products` | `products images create` |
 | 上传文件 / 素材库 / media library asset | **HERE** | `shop +upload-file` / `shop files …` |
 | 销量/流量/转化 报表 / sales & traffic analytics | **HERE** | `shop analytics …` |
@@ -133,7 +133,7 @@ shoplazza-common).
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Analytics call rejected / empty | Every `analytics` report is **POST** (only `traffic-channel-options` is a GET): filters go in `--data`, not `--params`; `begin_time`/`end_time` are **unix-second timestamps passed as STRINGS** (`"1782864000"`) | Compute the timestamps, quote them as strings, send via `--data` |
+| Analytics call rejected / empty | Every `analytics` report is **POST** (only `traffic-channel-options` is a GET): filters go in `--data`, not in parameter flags; `begin_time`/`end_time` are **unix-second timestamps passed as STRINGS** (`"1782864000"`) | Compute the timestamps, quote them as strings, send via `--data` |
 | `traffic-channel` 400 `cannot unmarshal object … filters of type string` | Its `filters` is a JSON object **encoded as a string**; `search-keyword`'s `has_result` is also a string | `"filters":"{\"last_referrer_first_show\":{\"operator\":\"in\",\"value\":[\"Social\"]}}"`; `"has_result":"0"` — see [references/analytics.md](references/analytics.md) |
 | Menu items lost after `menu update` | `children` **replaces the whole item tree**: items left out are deleted, `[]` clears the menu | Read the menu first, edit the full tree, send all of it back (keep each existing item's `id`); omit `children` to change only the title |
 | Nested menu items came back flat / nesting lost | `menu list` returns items **flat** — a sub-item points at its parent via `pid`; writes take nesting only as nested `children` (no `pid` field) | Rebuild the tree from `pid` before sending `children` |
@@ -141,14 +141,14 @@ shoplazza-common).
 | Tried to update shop name/address | `info update` exposes **one** editable field: `shop.customer_email` | Anything else is not updatable via this endpoint; say so |
 | `info update` needs a `shop_id` the user can't know | `shop_id` is a required path param | Resolve first: `shop info get --jq '.data.id'` |
 | Asked to upload a **local** file | `+upload-file` takes only http(s) URLs; the API fetches each one | Base64 it into a `data:` URI and send `shop files upload --data @body.json` (`{"original_source_list":["data:image/png;base64,…"]}`), then check `shop files task` |
-| Upload "done" but file missing | Upload is an **async task** — POST returns a `task_id`; the shortcut auto-fetches the task once | Re-check with `shop files task --params '{"task_id":"…"}'` until `status`/`success_list` settle |
+| Upload "done" but file missing | Upload is an **async task** — POST returns a `task_id`; the shortcut auto-fetches the task once | Re-check with `shop files task --task-id …` until `status`/`success_list` settle |
 | `blogs create` title ignored / rejected | Blog title key is capital **`Title`** (required, 1–100), not lowercase `title` | `shop blogs create --data '{"blog":{"Title":"…"}}'` — confirm fields via `schema shop.blogs.create` |
 | What values can `redirects` `status` take? | `status` is **required** but the schema documents no enum — **do not invent one** | Check `schema shop.redirects.create`, inspect existing rules (`shop redirects list --jq '.data.redirects[].status'`) or the OpenAPI docs; ask the user if still ambiguous |
 | `metafields-resource create` rejected, `metafields-shop create` fine | Asymmetry: resource-level **requires `definition_id`**; shop-level doesn't (optional). Type enums differ too (shop: `JSON`/`string`; resource: `single_line_text_field`, `integer`, …) | See [references/metafields.md](references/metafields.md) |
 | Language published but market relations vanished | `languages publish` is a **full replacement** — `market_ids: []` removes ALL relations | Always send the complete target list |
 | Added a language, storefront unchanged | Newly added languages are **disabled by default**; unsupported codes are **silently dropped** | `languages enable` after `add`; verify codes via `languages supported` |
 | `markets create/update` with `confirm: true` deleted other markets | A country may belong to only ONE market; `confirm: true` auto-deletes the occupied markets | Preview with `markets preview`, `--dry-run`, restate what gets deleted, get explicit consent |
-| `metafields-definition get` 404s with id in path | Its `id` is a **query** param, not a path segment | `shop metafields-definition get --params '{"id":123456}'` |
+| `metafields-definition get` 404s with id in path | Its `id` is a **query** param, not a path segment | `shop metafields-definition get --metafield-definition-id 123456` |
 
 ## Recipes
 
@@ -158,7 +158,7 @@ shop info get --jq '{domain: .data.domain, currency: .data.currency}'
 
 # 2. Change the customer-service email (only editable field; two steps)
 SHOP_ID=$(shop info get --jq '.data.id')
-shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"customer_email":"support@brand.com"}}'
+shop info update --shop-id "$SHOP_ID" --data '{"shop":{"customer_email":"support@brand.com"}}'
 
 # 3. Sales + order count, 2026-07-01 .. 2026-07-15 (unix seconds as STRINGS)
 shop analytics overview --data '{"begin_time":"1782864000","end_time":"1784159999","indicator":["sales","orders"]}'
@@ -179,20 +179,20 @@ shop redirects create --data '{"redirect":{"from_url":"/old-sale","redirect_url"
 # 8. Shop-level metafield (no definition_id needed at shop level)
 shop metafields-shop create --data '{"namespace":"global","key":"support_phone","type":"string","value":"400-800-1234"}'
 
-# 9. Product-level metafield (owner in --params, definition_id REQUIRED in --data)
-shop metafields-resource create --params '{"owner_resource":"product","owner_id":"66880"}' \
+# 9. Product-level metafield (owner as flags, definition_id REQUIRED in --data)
+shop metafields-resource create --owner-resource product --owner-id 66880 \
   --data '{"definition_id":"D8899","namespace":"specs","key":"material","type":"single_line_text_field","value":"cotton"}'
 
 # 10. Launch Japanese and publish it to the Japan market
 shop languages supported --jq '.data.languages'   # find the exact IETF code
 shop languages add --data '{"codes":["ja-JP"]}'
-shop languages enable --params '{"language_code":"ja-JP"}'
+shop languages enable --language-code ja-JP
 MARKET_ID=$(shop markets list --jq '.data.markets[] | select(.name=="Japan") | .id')
-shop languages publish --params '{"language_code":"ja-JP"}' --data "{\"market_ids\":[\"$MARKET_ID\"]}"
+shop languages publish --language-code ja-JP --data "{\"market_ids\":[\"$MARKET_ID\"]}"
 
 # 11. Rename a custom menu without touching its items (no children = items kept)
 shop menu list --jq '[.data.menus[] | {id, title, category}]'   # category 3 = custom
-shop menu update --params '{"id":"<menu-id>"}' --data '{"title":"Footer links"}'
+shop menu update --menu-id <menu-id> --data '{"title":"Footer links"}'
 ```
 
 ## References

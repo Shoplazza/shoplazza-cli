@@ -9,7 +9,7 @@ Two steps: discover candidates with `themes section cards`, then write an `add_s
 
 ```bash
 # 1. Cards that can be added to a page (theme cards + app extension cards)
-themes section cards --params '{"theme_id":"<theme_id>","source":["theme","extension"],"template":"index","limit":100}' \
+themes section cards --theme-id <theme_id> --source 'theme,extension' --template index --limit 100 \
   --jq '{total: .data.total, items: [.data.items[] | {id, name, source, description, category}]}'
 
 # 2. Check that candidates really have a named feature (up to 10 ids)
@@ -33,7 +33,7 @@ themes +edit -t <theme_id> --template index --session <oseid> --ops '[{"op":"add
    ([page-read.md](page-read.md) → Choosing the page). Open or reuse the session with `+page`.
 2. Discover with the same `theme_id` and the `template`. AI cards: add `"gen"` to `source` only
    if the backend accepts it — `InvalidParameter` `invalid source: gen` → drop it. AI cards of
-   the session are also listed by `themes session card-list --params '{"oseid":"<oseid>"}'`
+   the session are also listed by `themes session card-list --oseid <oseid>`
    (`gen_list`, when the backend returns it).
 3. Pick the card (below).
 4. Build `add_section` by source, with `position` and — when field names are known — content.

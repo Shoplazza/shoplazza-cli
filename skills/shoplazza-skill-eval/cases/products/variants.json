@@ -10,12 +10,12 @@
       "route_to_skill": "shoplazza-products",
       "access_tier": "leaf",
       "command_prefix": "products variants list",
-      "flags_must_contain": ["--params"],
-      "params_must_contain": ["product_id", "13579"],
+      "flags_must_contain": ["--product-id"],
+      "params_must_contain": ["13579"],
       "flags_must_not_contain": ["--data"],
       "must_ask": false,
       "semantic_rubric": [
-        "uses products variants list with product_id as the path param via --params",
+        "uses products variants list with product_id as the path param via --product-id",
         "any jq extraction starts at .data, without -r"
       ]
     },
@@ -32,11 +32,11 @@
       "route_to_skill": "shoplazza-products",
       "access_tier": "leaf",
       "command_prefix": "products variants update",
-      "flags_must_contain": ["--params", "--data"],
-      "params_must_contain": ["variant_id", "24680", "option1", "XL"],
+      "flags_must_contain": ["--variant-id", "--data"],
+      "params_must_contain": ["24680", "option1", "XL"],
       "must_ask": false,
       "semantic_rubric": [
-        "variant_id 24680 goes in --params (path), option1 XL goes in --data nested under the required variant object",
+        "variant_id 24680 goes in --variant-id (path), option1 XL goes in --data nested under the required variant object",
         "only option1 is touched — no other variant fields fabricated",
         "restates the change (or --dry-run) before the real update"
       ]

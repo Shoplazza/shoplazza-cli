@@ -13,9 +13,9 @@ content through canvas operations (`update_pb`), not through the row's `settings
 |---|---|
 | Canvas of every pb card on a page | `themes +page -t <id> --template <t> --session <oseid> --include pb` → each `kind:"pb"` row gains `canvas` (text snapshot) or `canvas_error` |
 | Canvas of one placed card | `… --section <sid>` — a pb card expands its canvas without `--include pb` |
-| Addable pb cards | `themes section cards --params '{"theme_id":"<id>","source":"pb,custom","limit":100}'` → `.data.items[]` = `{id, name, category, second_category, source}` |
+| Addable pb cards | `themes section cards --theme-id <id> --source 'pb,custom' --limit 100` → `.data.items[]` = `{id, name, category, second_category, source}` |
 | Canvas of a template not on a page | `themes pb summary --data '{"id":"<n>","type":"global"}'` → `.data.text` |
-| Name, full `type` and default fields of templates | `themes pb list-blocks --params '{"event_type":"page-builder","source_ids":"global-<n>,custom-<n>"}'` → `.data.blocks.<prefixed id>.{name, type, settings[], source}` |
+| Name, full `type` and default fields of templates | `themes pb list-blocks --event-type page-builder --source-ids 'global-<n>,custom-<n>'` → `.data.blocks.<prefixed id>.{name, type, settings[], source}` |
 
 `pb summary` options: `detail_level` (`minimal` default · `tiered` · `verbose`) and
 `detailed_node_ids` (paths to expand, e.g. `["0.1.2"]`).
@@ -71,7 +71,7 @@ Add a pb card to a page: `+edit` op `{"op":"add_section","pb":true,"template_id"
 | `pb update --data '{"schema":{…},"ops":[…]}'` | Applies ops to full canvas data you already hold and returns `{schema, text, html, translation, failures}`. **Saves nothing.** None of the reads above return canvas data, so for placed cards use `update_pb` |
 | `pb save-block` | Applies `ops` (≥1; an empty list is rejected with 400) to a template, saves the result as a new card and, with `event_type:"theme"`, places it at `section_id` in the session (response adds `type` + `block`); other `event_type`s only save. Required: `event_type`, `origin_template_id`, `action` (`save`/`save_as`/`update`), `oseid`, `doc_id`, `section_id`, `theme_id`; `origin` `custom`/`global` (empty = custom first). `update_pb` fills all of this — prefer it. `doc_id` → [raw-leaves.md](raw-leaves.md) |
 | `pb save-template --data '{"action":"save_as","template_id":"<id>"}'` | Saves a custom card template from an existing one → `.data.id` (always a **new** id). `save_as` = new listed copy · `update` = new listed version, and the source template is **taken down** · `save` = saved but not listed. `title` / `category` / `second_category` / `image` / `origin` default to the source's |
-| `pb delete-template --params '{"template_id":"<id>"}'` | Deletes a custom card template. **Needs consent**: `--dry-run` → restate → wait |
+| `pb delete-template --template-id <id>` | Deletes a custom card template. **Needs consent**: `--dry-run` → restate → wait |
 
 Before `save-template` with `action:"update"`, tell the user the original template leaves the list.
 

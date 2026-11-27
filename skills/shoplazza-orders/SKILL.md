@@ -48,21 +48,21 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Ship an order (发货) | `orders +ship --order-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--tracking-url <url>] [--line-items id:qty,…]` |
 | Refund a buyer (退款; money → `--dry-run` first) | `orders +refund --order-id <id> --amount <n> [--note <txt>] [--return-items] [--payment-line-id <id>]` |
 | Fix / update tracking info | `orders +update-tracking --order-id <id> --fulfillment-id <id> --tracking <no> [--company <name>] [--company-code <code>] [--tracking-url <url>] [--notify]` |
-| Get one order by internal ID | `orders get --params '{"order_id":"<id>"}'` |
-| Get order by order NUMBER (#…) | `orders get-by-number --params '{"number":"<number>"}'` |
-| List with filters `+search` lacks (ids, skus, tags, fuzzy search…) | `orders list --params '{…}'` (see `schema orders.list`) |
+| Get one order by internal ID | `orders get --order-id <id>` |
+| Get order by order NUMBER (#…) | `orders get-by-number --number <number>` |
+| List with filters `+search` lacks (ids, skus, tags, fuzzy search…) | `orders list --<param> <value> …` (see `schema orders.list`) |
 | Create an order on a customer's behalf (手工建单 / 代客下单) | `orders create --data '{"order":{…}}'` — heavy nested body → [references/orders-create.md](references/orders-create.md) |
-| Update order note / tags / shipping address | `orders update --params '{"order_id":"<id>"}' --data '{"order":{…}}'` |
-| Cancel an order (destructive → `--dry-run` first) | `orders cancel --params '{"order_id":"<id>"}' [--data '{"reason":"…"}']` |
-| Mark an order paid | `orders pay --params '{"order_id":"<id>"}' --data '{"payment_line":{"payment_channel":"<channel>","payment_method":"<method>","transaction_no":"<txn>"}}'` — **empty body = bogus TEST payment**; real channel/method/txn go in `payment_line`, custom display name in `gateway` (`schema orders.pay`) |
-| Delete an order (destructive → `--dry-run` first) | `orders delete --params '{"order_id":"<id>"}'` |
+| Update order note / tags / shipping address | `orders update --order-id <id> --data '{"order":{…}}'` |
+| Cancel an order (destructive → `--dry-run` first) | `orders cancel --order-id <id> [--data '{"reason":"…"}']` |
+| Mark an order paid | `orders pay --order-id <id> --data '{"payment_line":{"payment_channel":"<channel>","payment_method":"<method>","transaction_no":"<txn>"}}'` — **empty body = bogus TEST payment**; real channel/method/txn go in `payment_line`, custom display name in `gateway` (`schema orders.pay`) |
+| Delete an order (destructive → `--dry-run` first) | `orders delete --order-id <id>` |
 | Fulfillment records CRUD / cancel / complete | `orders fulfillments …` → [references/fulfillments.md](references/fulfillments.md) |
 | Refund records (one order / store-wide / finish) | `orders refunds …` → [references/refunds.md](references/refunds.md) |
 | Fraud risk records (标记高风险) | `orders risks …` → [references/risks.md](references/risks.md) |
-| Payment transactions on an order (支付流水) | `orders transactions list --params '{"order_id":"<id>"}'` → [references/transactions.md](references/transactions.md) |
+| Payment transactions on an order (支付流水) | `orders transactions list --order-id <id>` → [references/transactions.md](references/transactions.md) |
 | After-sales records (售后) | `orders post-sales …` → [references/post-sales.md](references/post-sales.md) |
 | Shipping zones / rates / available lines (运费区域) | `orders shipping-schemas …` → [references/shipping-schemas.md](references/shipping-schemas.md) |
-| Which carrier is this tracking number? (承运商识别) | `orders tracking-carriers detect --params '{"tracking_number":"<no>"}'` → [references/tracking-carriers.md](references/tracking-carriers.md) |
+| Which carrier is this tracking number? (承运商识别) | `orders tracking-carriers detect --tracking-number <no>` → [references/tracking-carriers.md](references/tracking-carriers.md) |
 
 ## Acting on a request
 
@@ -106,13 +106,13 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | 部分发货 / ship only some items | `+ship --line-items id:qty,…` | per-line quantities as `line-id:qty` pairs |
 | 退款 / 给买家退 X 元 / refund the buyer | `+refund` | amount → `--amount` verbatim; stated reason → `--note`; "库存退回去/restock" → `--return-items` |
 | 改运单号 / 运单号填错了 / fix the tracking number | `+update-tracking` | needs all three: `--order-id`, `--fulfillment-id`, `--tracking` |
-| 订单号 #… 的详情 / look up order by number | `get-by-number` (leaf) | `--params '{"number":"…"}'`; a leading `#` is dropped by the CLI; internal IDs go to `get` instead |
+| 订单号 #… 的详情 / look up order by number | `get-by-number` (leaf) | `--number …`; a leading `#` is dropped by the CLI; internal IDs go to `get` instead |
 | 手工建单 / 代客下单 / create an order for a customer | `create` (leaf) | heavy nested body under `order` → [references/orders-create.md](references/orders-create.md); resolve `variant_id` via `products +search`; never fabricate buyer identity, address, or price |
-| 取消订单 / cancel order X | `cancel` (leaf) | id → `--params`; a stated reason → `--data '{"reason":"…"}'` (optional); **not** `fulfillments cancel` |
-| 取消发货记录 / cancel a fulfillment | `fulfillments cancel` (leaf) | both `order_id` and `fulfillment_id` in `--params`; **not** `orders cancel` |
+| 取消订单 / cancel order X | `cancel` (leaf) | id → `--order-id`; a stated reason → `--data '{"reason":"…"}'` (optional); **not** `fulfillments cancel` |
+| 取消发货记录 / cancel a fulfillment | `fulfillments cancel` (leaf) | both `--order-id` and `--fulfillment-id`; **not** `orders cancel` |
 | 标记高风险 / 像欺诈单 / flag as fraud | `risks create` (leaf) | 高/中/低 → `level` `high`/`medium`/`low`; stated reason → `details` array → [references/risks.md](references/risks.md) |
-| 订单支付流水 / payment transactions | `transactions list` (leaf) | order id → `--params`; this is buyer payments, not billing |
-| 运单号 X 是哪家承运商 / which carrier | `tracking-carriers detect` (leaf) | `--params '{"tracking_number":"…"}'` — don't `list` + match by hand |
+| 订单支付流水 / payment transactions | `transactions list` (leaf) | order id → `--order-id`; this is buyer payments, not billing |
+| 运单号 X 是哪家承运商 / which carrier | `tracking-carriers detect` (leaf) | `--tracking-number …` — don't `list` + match by hand |
 | 设置运费区域 / 邮费 / shipping zones & rates | `shipping-schemas` leaves | → [references/shipping-schemas.md](references/shipping-schemas.md) |
 
 If multiple rows match, **ask which one**. Don't guess.
@@ -148,8 +148,8 @@ user's own time words — never invent a time range).
 | "订单 555 可以发货了，运单号 YT123，中通，通知买家" | SHIP — `+ship --order-id 555 --tracking YT123 --company 中通`, then `+update-tracking --order-id 555 --fulfillment-id <.data.fulfillment.id> --tracking YT123 --notify` to email the buyer; safe to run directly |
 | "把订单 666 标记发货" | ASK — the tracking number (required, never fabricate); carrier is optional, offer alongside but don't block on it |
 | "找最近 7 天还没发货的订单" | SEARCH — `+search --fulfillment-status waiting --since <today-7d>`; no `--until` |
-| "取消订单 777，原因是买家申请" | CANCEL — `orders cancel --params '{"order_id":"777"}' --data '{"reason":"买家申请"}'`; `--dry-run` first + restate |
-| "订单 888 像欺诈单，标成高风险" | RISK — `orders risks create --params '{"order_id":"888"}' --data '{"risk":{"level":"high","details":["…"]}}'`; restate before writing |
+| "取消订单 777，原因是买家申请" | CANCEL — `orders cancel --order-id 777 --data '{"reason":"买家申请"}'`; `--dry-run` first + restate |
+| "订单 888 像欺诈单，标成高风险" | RISK — `orders risks create --order-id 888 --data '{"risk":{"level":"high","details":["…"]}}'`; restate before writing |
 | "手工帮客户下个单：1 件 variant V123，单价 29.9，寄给 John Doe (john@x.com)，美国加州洛杉矶 123 Main St 90012" | CREATE — build the nested `order` body (line_items `variant_id`+`quantity`+`price`, full `shipping_address` incl. `province_code`, `shipping_line`, `tax_total`, `currency_code`), restate + `--dry-run` first → [references/orders-create.md](references/orders-create.md) |
 | "帮客户下个单" (no items / buyer given) | ASK — which variant(s) & quantity, and the buyer's shipping details (name, email, address); **never fabricate** them. `shipping_price`/`tax_total` are money — use stated amounts, or `"0.00"` only when the user implies no charge and restate that |
 
@@ -246,12 +246,12 @@ shoplazza-common).
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Filtered on `unfulfilled` / `fulfilled` | Not in the enum | 未发货 = `waiting`; see the enum table above |
-| `orders get` finds nothing for a `#…` number | `get` takes the internal `order_id`; order numbers are a different key | `get-by-number --params '{"number":"…"}'` (a leading `#` is fine) |
+| `orders get` finds nothing for a `#…` number | `get` takes the internal `order_id`; order numbers are a different key | `get-by-number --number …` (a leading `#` is fine) |
 | `+refund` errors "order has N payment_lines" | Multi-payment-line order needs an explicit choice | Re-run with `--payment-line-id` from the listed candidates |
 | `+refund` / `+ship` dry-run prints TWO requests | These shortcuts GET the order first (resolve payment lines / fulfillable items), then POST | Expected. A value the live run reads from the order shows as `"<resolved-from-step-0>"` in the dry-run POST body (`+refund`: `payment_line_id` unless `--payment-line-id` is given, `refund_line_items` with `--return-items`; `+ship`: `line_items` unless `--line-items` is given) |
 | Cancelled the order when only a shipment should die (or vice versa) | 取消订单 ≠ 取消发货记录 | Order → `orders cancel`; fulfillment → `orders fulfillments cancel` (both path ids) |
 | Hand-built `refunds create` body for a simple refund | The leaf needs the full body incl. `refund_payments` | Prefer `+refund`; leaf only for split/itemized refunds → [references/refunds.md](references/refunds.md) |
-| Store-wide `refunds list` for one order's records | Two different endpoints | One order → `refunds list-by-order --params '{"order_id":"…"}'` |
+| Store-wide `refunds list` for one order's records | Two different endpoints | One order → `refunds list-by-order --order-id …` |
 | A search "for one buyer" returns the whole store | The filter was dropped, or the page just looks small | Cross-check with `orders +count` filtered vs unfiltered before answering — see shoplazza-common → "Reading a filtered list" |
 | `keyword_scope_fields=["email"]` or `["order_no"]` returns 0 hits | Those are the schema **description's** example strings, not the accepted vocabulary | Use the `fuzzy_fields` field names (`shipping_email`, `number`, `name`, …) — see "Searching orders precisely" |
 | `unknown flag: --fields` | No orders command has `--fields` | Project with `--jq` |
@@ -278,7 +278,7 @@ orders +count --jq '.data.count'
 orders +count --jq '.data.count'
 
 # 5. Order detail by order number
-orders get-by-number --params '{"number":"2026071500123"}' --jq '.data.order'
+orders get-by-number --number 2026071500123 --jq '.data.order'
 
 # 6. Ship the whole order, then email the buyer (the create request has no email option)
 FID=$(orders +ship --order-id 4300123 --tracking SF0011223344 --company "顺丰" --jq '.data.fulfillment.id')
@@ -292,21 +292,21 @@ orders +refund --order-id 887799 --amount 19.90 --note "wrong size" --return-ite
 orders +refund --order-id 887799 --amount 19.90 --note "wrong size" --return-items
 
 # 9. Cancel an order with a reason — dry-run first
-orders cancel --params '{"order_id":"660011"}' --data '{"reason":"买家重复下单"}' --dry-run
-orders cancel --params '{"order_id":"660011"}' --data '{"reason":"买家重复下单"}'
+orders cancel --order-id 660011 --data '{"reason":"买家重复下单"}' --dry-run
+orders cancel --order-id 660011 --data '{"reason":"买家重复下单"}'
 
 # 10. Flag an order as high fraud risk with a reason
-orders risks create --params '{"order_id":"445500"}' \
+orders risks create --order-id 445500 \
   --data '{"risk":{"level":"high","details":["收货地址与 IP 所在国家不一致"]}}'
 
 # 11. Which carrier owns this tracking number?
-orders tracking-carriers detect --params '{"tracking_number":"9400111899223344556677"}'
+orders tracking-carriers detect --tracking-number 9400111899223344556677
 
 # 12. Payment transactions on an order
-orders transactions list --params '{"order_id":"778899"}'
+orders transactions list --order-id 778899
 
 # 13. One order's refund records
-orders refunds list-by-order --params '{"order_id":"220033"}' --jq '.data.records'
+orders refunds list-by-order --order-id 220033 --jq '.data.records'
 ```
 
 ## References

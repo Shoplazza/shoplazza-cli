@@ -54,11 +54,11 @@
       "route_to_skill": "shoplazza-products",
       "access_tier": "leaf",
       "command_prefix": "products images create",
-      "flags_must_contain": ["--params", "--data"],
+      "flags_must_contain": ["--product-id", "--data"],
       "params_must_contain": ["889900", "src", "https://cdn.example.com/new-photo.jpg"],
       "must_ask": false,
       "semantic_rubric": [
-        "product_id 889900 is a path param via --params; image.src goes in --data (required)",
+        "product_id 889900 is a path param via --product-id; image.src goes in --data (required)",
         "uses products images (image attached to a product), not shop files / +upload-file (media library)",
         "alt / position / dimensions neither set nor asked (optional)"
       ]

@@ -10,12 +10,12 @@
       "route_to_skill": "shoplazza-billing",
       "access_tier": "leaf",
       "command_prefix": "billing usage create",
-      "flags_must_contain": ["--params", "--data", "--dry-run"],
+      "flags_must_contain": ["--charge-id", "--data", "--dry-run"],
       "params_must_contain": ["CHG7788", "0.05", "API calls overage"],
       "must_ask": true,
       "ask_must_cover": ["确认|confirm"],
       "semantic_rubric": [
-        "charge_id CHG7788 is a path param via --params; price 0.05 and description go in --data under the required usage_charge object",
+        "charge_id CHG7788 is a path param via --charge-id; price 0.05 and description go in --data under the required usage_charge object",
         "price 0.05 verbatim — never rounded or re-denominated",
         "fund-moving write: shows the usage charge with --dry-run and STOPS — the reply must NOT contain the same create without --dry-run; it ends by asking the user to confirm",
         "restates the amount charged and which subscription it lands under"

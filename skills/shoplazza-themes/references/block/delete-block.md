@@ -24,7 +24,7 @@ Command details: [block-cli.md](block-cli.md).
 3. **Dry-run, restate, wait** (shoplazza-common → Safety protocol):
 
    ```bash
-   themes block delete-gen --params '{"oseid":"<oseid>","type":"blocks/<gen_id>"}' --dry-run
+   themes block delete-gen --oseid <oseid> --type blocks/<gen_id> --dry-run
    ```
 
    Restate per Rules below, then stop and end the turn.
@@ -56,7 +56,7 @@ the only undo and brings the card back — its file, the `_blocks` container it 
 settings:
 
 ```bash
-themes block revert-gen --params '{"oseid":"<oseid>"}' --data '{"revert_id":"<revert_id>"}'
+themes block revert-gen --oseid <oseid> --data '{"revert_id":"<revert_id>"}'
 ```
 
 Use it only when the user asks to undo; don't offer it as a safety net in the restatement.

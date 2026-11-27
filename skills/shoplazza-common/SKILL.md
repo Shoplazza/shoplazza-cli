@@ -34,17 +34,21 @@ Start every operation at the **highest tier that fits** and stop as soon as one 
 | Tier | Form | When |
 |---|---|---|
 | 1. Shortcut | `shoplazza <svc> +<verb> [named flags]` | First choice. Named flags, smart defaults, structured errors. |
-| 2. Spec leaf | `shoplazza <svc> <cmd> --params '{…}' [--data '{…}']` | Endpoints with no shortcut; one command per endpoint. |
+| 2. Spec leaf | `shoplazza <svc> <cmd> --<param> <value> [--data '{…}']` | Endpoints with no shortcut; one command per endpoint. |
 | 3. api rest | `shoplazza api rest <METHOD> <PATH>` | Raw fallback, full coverage. Only when the first two can't express it. |
 
 In `shoplazza <svc> --help`, entries prefixed with `+` are shortcuts; the rest are spec leaves.
 
-A spec leaf's `--params` takes only the path / query parameters `schema <svc>.<cmd>` lists; body
-fields go in `--data`. A `--params` key that is undeclared (`unknown_param`) or is a body field
-(`misplaced_param`), a required path / query key that is absent, empty or still a placeholder such
-as `<id>` (`missing_required_param`, all such keys listed in one error), or a required top-level
-body field missing from `--data` (`missing_required_field`), fails with exit 2 before anything is
-sent, `--dry-run` included.
+A spec leaf takes each path / query parameter `schema <svc>.<cmd>` lists as its own flag
+(`--product-id`, `--page-size`; the schema gives each one's `flag`); body fields go in `--data`.
+`--params '{…}'` passes the same parameters as JSON, and a flag overrides the same key. Parameter
+flags need CLI 2.3.0 or later: on `unknown_flag` for one, run `shoplazza update`. A `--params` key
+that is undeclared (`unknown_param`), a parameter and a body field given in each other's place
+(`misplaced_param`), a required path / query parameter that is absent, empty or still a
+placeholder such as `<id>` (`missing_required_param`, all listed in one error), a `--data` field
+the command does not declare at any depth (`unknown_field`), or a required top-level body field
+missing from `--data` (`missing_required_field`), fails with exit 2 before anything is sent,
+`--dry-run` included.
 
 ## Output envelope (.data wrapper)
 
@@ -93,7 +97,7 @@ answer rather than an error:
 `has_more` may come back `null` rather than `false`, so treat "not `true`" as the end.
 Whenever the answer depends on *completeness* — "how many", "which ones", "all of X", any
 total you compute yourself — pass `--page-limit 250` and, while `has_more` is `true`, rerun with
-the same flags plus `--cursor <.data.cursor>` (spec leaves: `"cursor"` in `--params`). For a pure count,
+the same flags plus `--cursor <.data.cursor>`. For a pure count,
 prefer the domain's `+count` shortcut over counting rows.
 
 **2. Silently-dropped filters — the API ignores query params it does not recognise.** It
@@ -186,9 +190,10 @@ Supports `--params` / `--data` (incl. `-` for stdin, `@file` for a file), `--dry
 
 **Multi-value query params → JSON array.** An array param (`ids`, `status`, `spus`, …) reaches
 the API as repeated keys (`?ids=a&ids=b`); the API reads a comma-joined value as one literal that
-matches nothing. In `--params` write `{"ids":["a","b"]}`. Spec leaves also split a comma-joined
-string for an array param; `api rest` sends a string as-is. A single value that contains a comma
-goes in a one-item array (`{"vendors":["Nike, Inc."]}`).
+matches nothing. In `--params` write `{"ids":["a","b"]}`. A spec leaf's array flag repeats or
+takes a comma-joined value (`--ids a,b`) and splits a comma-joined `--params` string the same way;
+`api rest` sends a string as-is. A single value that contains a comma goes in a one-item
+`--params` array (`{"vendors":["Nike, Inc."]}`).
 
 ## Installation
 

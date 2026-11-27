@@ -43,7 +43,7 @@ locations, so on a multi-location item it shows the value plus the other locatio
 `inventory_item_id` ≠ `variant_id`. Map variant → item first:
 
 ```bash
-products inventory list-by-variant --params '{"variant_ids":["12345"]}'
+products inventory list-by-variant --variant-ids 12345
 ```
 
 ## Inventory commands
@@ -73,7 +73,7 @@ reconnecting starts from 0. An item must stay stocked at one location at least.
 | `locations count` | `GET /locations/count` | |
 | `locations get` | `GET /locations/{location_id}` | |
 | `locations get-default` | `GET /locations/default` | the location `+stock` uses when `--location-id` is omitted |
-| `locations set-default` | `POST /locations/default` | `location_id` as **query param** via `--params` |
+| `locations set-default` | `POST /locations/default` | `--location-id` (a **query param**) |
 | `locations deactivate` | `POST /locations/deactivate` | query params `location_id`, `target_location_id` (where remaining inventory goes) |
 | `locations edit-priority` | `POST /locations/priority` | see `schema products.locations.edit-priority` |
 | `locations inventory-levels` | `GET /locations/{location_id}/inventory_levels` | all levels at one location |
@@ -82,9 +82,9 @@ reconnecting starts from 0. An item must stay stocked at one location at least.
 
 ```bash
 # Stock of variant 12345 across all locations
-ITEM=$(products inventory list-by-variant --params '{"variant_ids":["12345"]}' \
+ITEM=$(products inventory list-by-variant --variant-ids 12345 \
   --jq '.data.variant_inventory_items[0].inventory_item_id')
-products inventory list-levels --params "{\"inventory_item_ids\":[\"$ITEM\"]}"
+products inventory list-levels --inventory-item-ids "$ITEM"
 
 # Add 50 units at a specific location (shortcut — preferred)
 products +stock --variant-id 12345 --adjust 50 --location-id 777
@@ -97,7 +97,7 @@ products +stock --product-id 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf --adjust 50
 products +stock --variant-id 12345 --adjust -30
 
 # Turn off inventory tracking for an item
-products inventory update-item --params "{\"inventory_item_id\":\"$ITEM\"}" \
+products inventory update-item --inventory-item-id "$ITEM" \
   --data '{"inventory_item":{"tracking":false}}'
 ```
 

@@ -27,15 +27,15 @@ in `file tree`. Read page content with `+page`.
 
 | Intent | Command | Returns |
 |---|---|---|
-| Files by group | `themes file tree --params '{"theme_id":"<id>"}'` | `.data.{assets,configs,layouts,locales,sections,snippets,templates}[]` = `{id, location}` |
-| Read one file | `themes file get --params '{"theme_id":"<id>","type":"sections","location":"<name>.liquid"}'` | `.data.theme_file.{id, type, location, content}` |
-| Create | `themes file create --params '{"theme_id":"<id>"}' --data '{"doc":{"type":"assets","location":"<name>.css","content":"<text>"}}'` | `{}` |
-| Replace the whole content | `themes file update --params '{"theme_id":"<id>"}' --data '{"doc":{"type":"<type>","location":"<name>","content":"<full new content>"}}'` | `{}` |
-| Rename | `themes file rename --params '{"theme_id":"<id>"}' --data '{"doc":{"type":"<type>","location":"<old>","new_location":"<new>"}}'` | `{}` |
-| Delete (no `doc` wrapper) | `themes file delete --params '{"theme_id":"<id>"}' --data '{"type":"<type>","location":"<name>"}'` | `{}` |
-| One file's history | `themes version list --params '{"theme_id":"<id>","type":"<type>","location":"<name>"}'` | `.data.versions[]` = `{id, version, created_at}`, newest first |
-| Every file's history | `themes version records --params '{"theme_id":"<id>"}'` | `.data.versions[]` = `{id, version, type, location, created_at}` |
-| One version's metadata | `themes version get --params '{"theme_id":"<id>","version_id":"<version_id>"}'` | `.data.version.{id, version, type, location, created_at, updated_at}` — no content |
+| Files by group | `themes file tree --theme-id <id>` | `.data.{assets,configs,layouts,locales,sections,snippets,templates}[]` = `{id, location}` |
+| Read one file | `themes file get --theme-id <id> --type sections --location <name>.liquid` | `.data.theme_file.{id, type, location, content}` |
+| Create | `themes file create --theme-id <id> --data '{"doc":{"type":"assets","location":"<name>.css","content":"<text>"}}'` | `{}` |
+| Replace the whole content | `themes file update --theme-id <id> --data '{"doc":{"type":"<type>","location":"<name>","content":"<full new content>"}}'` | `{}` |
+| Rename | `themes file rename --theme-id <id> --data '{"doc":{"type":"<type>","location":"<old>","new_location":"<new>"}}'` | `{}` |
+| Delete (no `doc` wrapper) | `themes file delete --theme-id <id> --data '{"type":"<type>","location":"<name>"}'` | `{}` |
+| One file's history | `themes version list --theme-id <id> --type <type> --location <name>` | `.data.versions[]` = `{id, version, created_at}`, newest first |
+| Every file's history | `themes version records --theme-id <id>` | `.data.versions[]` = `{id, version, type, location, created_at}` |
+| One version's metadata | `themes version get --theme-id <id> --version-id <version_id>` | `.data.version.{id, version, type, location, created_at, updated_at}` — no content |
 
 `location` is the name inside its group (`theme.liquid`, `index.liquid`, `theme.css`), with no
 folder prefix. Version lists carry no pagination fields; the whole list comes back at once.
@@ -54,7 +54,7 @@ and `file delete` without `location` falls back to `assets/a.js` and deletes tha
 
 ## Safety
 
-- Is the theme live? `themes get --params '{"theme_id":"<id>"}' --jq '.data.theme.published'` →
+- Is the theme live? `themes get --theme-id <id> --jq '.data.theme.published'` →
   `"1"` = published.
 - **Published theme**: every `file create|update|rename|delete` is publish-class — `--dry-run` →
   restate (file, what changes, "goes live immediately, there is no draft or undo") → wait for the

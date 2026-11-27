@@ -7,11 +7,11 @@ records a merchant (or app) attaches after manual review — e.g. "标记成高�
 
 | Intent | Command |
 |---|---|
-| View an order's risk signals | `orders risks list --params '{"order_id":"<id>"}'` → `.data.assessments[]` (platform's automated labels) + `.data.infos[]` (`title` / `describe` details; records added by `risks create` are not listed here — keep `.data.risk.id` from the create response) |
-| Get one risk record | `orders risks get --params '{"order_id":"<id>","id":"<risk-id>"}'` |
-| Flag an order (write → restate or `--dry-run` first) | `orders risks create --params '{"order_id":"<id>"}' --data '{"risk":{…}}'` → `.data.risk` |
-| Edit a record | `orders risks update --params '{"order_id":"<id>","id":"<risk-id>"}' --data '{"risk":{…}}'` |
-| Remove a record (destructive → `--dry-run` first) | `orders risks delete --params '{"order_id":"<id>","id":"<risk-id>"}'` |
+| View an order's risk signals | `orders risks list --order-id <id>` → `.data.assessments[]` (platform's automated labels) + `.data.infos[]` (`title` / `describe` details; records added by `risks create` are not listed here — keep `.data.risk.id` from the create response) |
+| Get one risk record | `orders risks get --order-id <id> --risk-id <risk-id>` |
+| Flag an order (write → restate or `--dry-run` first) | `orders risks create --order-id <id> --data '{"risk":{…}}'` → `.data.risk` |
+| Edit a record | `orders risks update --order-id <id> --risk-id <risk-id> --data '{"risk":{…}}'` |
+| Remove a record (destructive → `--dry-run` first) | `orders risks delete --order-id <id> --risk-id <risk-id>` |
 
 ## Body (`schema orders.risks.create` / `.update`)
 

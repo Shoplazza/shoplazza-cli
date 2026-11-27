@@ -7,7 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Shoplazza/shoplazza-cli/v2/cmd/dynamic"
+	"github.com/Shoplazza/shoplazza-cli/v2/internal/cmdutil"
 	"github.com/Shoplazza/shoplazza-cli/v2/internal/registry"
+
+	"github.com/spf13/cobra"
 )
 
 // ── validateView ──────────────────────────────────────────────────────────────
@@ -190,6 +194,45 @@ func TestNewCmdSchema_ModulePathWithView_PrintsNote(t *testing.T) {
 	_ = cmd.RunE(cmd, []string{"orders"})
 	if !strings.Contains(errBuf.String(), "--view is only effective for leaf commands") {
 		t.Errorf("module path with --view must warn on stderr, got %q", errBuf.String())
+	}
+}
+
+func TestNewCmdSchema_ParametersNameTheirFlag(t *testing.T) {
+	spec := &registry.Spec{Modules: []registry.Module{{Name: "shop", Commands: []registry.Command{{
+		ID: "page-get", Path: []string{"pages", "get"}, HTTP: registry.HTTP{Method: "GET", Path: "/openapi/2026-01/pages/{id}"},
+		Parameters: []registry.Parameter{
+			{Name: "id", In: "path", Type: "string", Required: true},
+			{Name: "page_size", In: "query", Type: "integer"},
+			{Name: "format", In: "query", Type: "string"},
+		},
+	}}}}}
+	root := &cobra.Command{Use: "shoplazza"}
+	root.PersistentFlags().String("format", "json", "")
+	dynamic.RegisterCommands(root, spec, &cmdutil.Factory{})
+	root.AddCommand(NewCmdSchema(spec))
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetArgs([]string{"schema", "shop.pages.get"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Parameters []struct{ Name, Flag string }
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	want := map[string]string{"id": "--page-id", "page_size": "--page-size", "format": ""}
+	if len(got.Parameters) != len(want) {
+		t.Fatalf("parameters = %+v", got.Parameters)
+	}
+	for _, p := range got.Parameters {
+		if p.Flag != want[p.Name] {
+			t.Errorf("flag of %s = %q, want %q", p.Name, p.Flag, want[p.Name])
+		}
+	}
+	if strings.Contains(out.String(), `"flag":""`) || strings.Contains(out.String(), `"flag": ""`) {
+		t.Errorf("a parameter without a flag must leave the key out:\n%s", out.String())
 	}
 }
 

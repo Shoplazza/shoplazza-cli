@@ -10,10 +10,10 @@ tracking (that's `orders tracking-carriers`) and NOT zone/rate tables
 
 ```bash
 shop carrier-services list
-shop carrier-services get    --params '{"carrier_service_id":"<id>"}'
+shop carrier-services get    --carrier-service-id <id>
 shop carrier-services create --data '{"carrier_service":{"name":"…","callback_url":"https://…","carrier_code":"…"}}'
-shop carrier-services update --params '{"carrier_service_id":"<id>"}' --data '{"carrier_service":{"callback_url":"https://…","active":true}}'
-shop carrier-services delete --params '{"carrier_service_id":"<id>"}'   # --dry-run first
+shop carrier-services update --carrier-service-id <id> --data '{"carrier_service":{"callback_url":"https://…","active":true}}'
+shop carrier-services delete --carrier-service-id <id>   # --dry-run first
 ```
 
 ## Required fields

@@ -43,9 +43,12 @@
         "if the add is shown, it is add_section via themes +edit in the task's session with a returned items[].id as name — never an invented card type",
         "does not jump to generating an AI card while an existing card might fit"
       ],
+      "flags_must_contain": [
+        "--theme-id",
+        "--template index"
+      ],
       "params_must_contain": [
-        "\"theme_id\":\"3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b\"",
-        "\"template\":\"index\""
+        "3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b"
       ]
     }
   },
@@ -63,7 +66,7 @@
       "must_ask": false,
       "semantic_rubric": [
         "the first step opens / reuses a session with themes +page on that theme",
-        "if later steps are shown: themes session get-config (doc_id index, button category) to find the field by label, then themes session update-config writing only that setting; no theme_id in --params",
+        "if later steps are shown: themes session get-config (doc_id index, button category) to find the field by label, then themes session update-config writing only that setting; no --theme-id",
         "no --promote / --publish; does not guess a setting key before reading the schema"
       ],
       "flags_must_contain": [

@@ -205,13 +205,14 @@ export function parseAvailableCommands(helpText) {
   return names;
 }
 
-/** Parse "Flags:" + "Global Flags:" blocks into a Set of '--long' names. */
+/** Parse the flag blocks of a help text ("Flags:", "Global Flags:", and a spec
+ * leaf's "API Parameters:" / "Raw Input:") into a Set of '--long' names. */
 export function parseFlags(helpText) {
   const flags = new Set();
   const lines = helpText.split('\n');
   let inBlock = false;
   for (const line of lines) {
-    if (/^(Flags|Global Flags):/.test(line)) { inBlock = true; continue; }
+    if (/^(Flags|Global Flags|API Parameters|Raw Input):/.test(line)) { inBlock = true; continue; }
     if (inBlock && /^\S/.test(line) && line.trim() !== '') { inBlock = false; }
     if (!inBlock) continue;
     const m = line.match(/^\s+(?:-[a-zA-Z],\s+)?(--[a-z][a-z0-9-]*)/);

@@ -67,10 +67,9 @@
       "access_tier": "leaf",
       "command_prefix": "orders refunds list-by-order",
       "flags_must_contain": [
-        "--params"
+        "--order-id"
       ],
       "params_must_contain": [
-        "order_id",
         "131313"
       ],
       "flags_must_not_contain": [
@@ -95,12 +94,11 @@
       "access_tier": "leaf",
       "command_prefix": "orders refunds finish",
       "flags_must_contain": [
-        "--params",
+        "--order-id",
         "--data",
         "--dry-run"
       ],
       "params_must_contain": [
-        "order_id",
         "555666",
         "post_sale_id",
         "ps_001",

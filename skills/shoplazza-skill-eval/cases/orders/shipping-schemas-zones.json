@@ -35,19 +35,19 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "leaf",
       "command_prefix": "orders shipping-schemas update-zone",
-      "flags_must_contain": ["--params", "--data", "--dry-run"],
+      "flags_must_contain": ["--shipping-zone-id", "--data", "--dry-run"],
       "flags_must_not_contain": ["create-zone", "delete-zone"],
-      "params_must_contain": ["\"id\"", "\"shipping\"", "\"plans\"", "20"],
+      "params_must_contain": ["\"shipping\"", "\"plans\"", "20"],
       "must_ask": false,
       "semantic_rubric": [
         "adding a shipping method to an EXISTING zone is update-zone (re-send the zone with an extra entry in plans[]), not create-zone — create-zone would spin up a whole new zone",
-        "targets the zone by its id via --params '{\"id\":\"<zone-id>\"}' (update-zone path takes the zone id)",
+        "targets the zone by its id via --shipping-zone-id <zone-id> (update-zone path takes the zone id)",
         "preserves the zone's existing plans and appends the new '加急运费' plan carrying the 20 元 rate — '别动原来的方案' means the other plans stay",
         "the 20 comes from the user, not fabricated; new plan gets its own name",
         "write op: --dry-run first + restate that a method is being added while the rest are kept"
       ]
     },
-    "notes": "Grounded: `orders shipping-schemas update-zone --help` (flags --params/--data/--dry-run) and `schema orders.shipping-schemas.update-zone --view request` — PUT /shipping-zone/{id}; params.id required; body {\"shipping\":{name*,plans[]{id?,name*,…},areas[]}}. Complements seed update-zone-01 (which REMOVES a plan); this one ADDS one."
+    "notes": "Grounded: `orders shipping-schemas update-zone --help` (flags --shipping-zone-id/--params/--data/--dry-run) and `schema orders.shipping-schemas.update-zone --view request` — PUT /shipping-zone/{id}; params.id required; body {\"shipping\":{name*,plans[]{id?,name*,…},areas[]}}. Complements seed update-zone-01 (which REMOVES a plan); this one ADDS one."
   },
   {
     "case_id": "orders.shipping-schemas.delete-zone-01",
@@ -60,18 +60,17 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "leaf",
       "command_prefix": "orders shipping-schemas delete-zone",
-      "flags_must_contain": ["--params", "--dry-run"],
+      "flags_must_contain": ["--shipping-zone-id", "--dry-run"],
       "flags_must_not_contain": ["--data", "update-zone", "create-zone"],
-      "params_must_contain": ["\"id\""],
       "must_ask": false,
       "semantic_rubric": [
         "'整个删掉' targets the whole zone → delete-zone, which drops the zone and every plan inside it; this is the opposite of the seed case where one method is removed via update-zone",
-        "identifies the zone by its id via --params '{\"id\":\"<zone-id>\"}'; delete-zone takes no --data body (DELETE by id only)",
+        "identifies the zone by its id via --shipping-zone-id <zone-id>; delete-zone takes no --data body (DELETE by id only)",
         "does NOT reach for update-zone (that would edit a zone, not remove it) nor create-zone",
         "destructive write: --dry-run first + restate which entire zone (and that all its rates) will be deleted before executing"
       ]
     },
-    "notes": "Grounded: `orders shipping-schemas delete-zone --help` (flags --params/--dry-run only, no --data) and `schema orders.shipping-schemas.delete-zone --view request` — DELETE /shipping-zone/{id}; params.id required, no body. Zone-vs-line granularity contrast with seed update-zone-01."
+    "notes": "Grounded: `orders shipping-schemas delete-zone --help` (flags --shipping-zone-id/--params/--dry-run, no --data) and `schema orders.shipping-schemas.delete-zone --view request` — DELETE /shipping-zone/{id}; params.id required, no body. Zone-vs-line granularity contrast with seed update-zone-01."
   },
   {
     "case_id": "orders.shipping-schemas.get-general-01",
@@ -87,7 +86,7 @@
       "flags_must_not_contain": ["--dry-run", "--data", "save-general"],
       "must_ask": false,
       "semantic_rubric": [
-        "a read of the general shipping schema → get-general (GET), no request body and no --params needed",
+        "a read of the general shipping schema → get-general (GET), no request body and no parameters needed",
         "read-only: does NOT use --dry-run (that is for writes) and does NOT ask a clarifying question — nothing required is missing",
         "reads the result from .data.shipping_schemas; does not confuse this with save-general, which would write"
       ]

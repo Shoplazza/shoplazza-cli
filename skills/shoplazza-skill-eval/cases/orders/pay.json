@@ -20,6 +20,6 @@
         "money-adjacent write: --dry-run first, restates which order and which payment details, ends waiting for the user's go-ahead"
       ]
     },
-    "notes": "Gotcha: no body = bogus test payment. order_id 660011 rides in --params; the payment details ride in --data."
+    "notes": "Gotcha: no body = bogus test payment. order_id 660011 rides in --order-id; the payment details ride in --data."
   }
 ]
