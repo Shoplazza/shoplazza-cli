@@ -5,14 +5,14 @@
 Content pages, **not** theme/template editing.
 
 ```bash
-shop pages list         --params '{"page_size":10}'                  # page_size optional (default 10, ≥1)
-shop pages get          --params '{"id":"<id>"}'
-shop pages count        --params '{"title":"…"}'                     # optional title filter
-shop pages search       --params '{"url":"/pages/about-us"}'         # url REQUIRED
+shop pages list         --page-size 10                  # page_size optional (default 10, ≥1)
+shop pages get          --page-id <id>
+shop pages count        --title …                     # optional title filter
+shop pages search       --url /pages/about-us         # url REQUIRED
 shop pages batch-get    --data '{"ids":[1,2,3]}'
 shop pages create       --data '{"page":{"title":"关于我们","content":"…"}}'
-shop pages update       --params '{"id":"<id>"}' --data '{"page":{"title":"…"}}'
-shop pages delete       --params '{"id":"<id>"}'                     # --dry-run first
+shop pages update       --page-id <id> --data '{"page":{"title":"…"}}'
+shop pages delete       --page-id <id>                     # --dry-run first
 shop pages batch-delete --data '{"ids":[1,2,3]}'                     # ALWAYS --dry-run + restate count
 ```
 
@@ -26,11 +26,11 @@ the user gave — **do not fabricate SEO fields or a URL handle**. `pages update
 
 ```bash
 shop redirects list
-shop redirects get    --params '{"id":"<id>"}'
+shop redirects get    --redirect-id <id>
 shop redirects search --data '{"from_url":"/old-sale"}'              # from_url REQUIRED, POST
 shop redirects create --data '{"redirect":{"from_url":"/old-sale","redirect_url":"/new-sale","status":"open"}}'
-shop redirects update --params '{"id":"<id>"}' --data '{"redirect":{"from_url":"…","redirect_url":"…","status":"open"}}'
-shop redirects delete --params '{"id":"<id>"}'                         # --dry-run first
+shop redirects update --redirect-id <id> --data '{"redirect":{"from_url":"…","redirect_url":"…","status":"open"}}'
+shop redirects delete --redirect-id <id>                         # --dry-run first
 ```
 
 - Body (`redirect` wrapper object): `from_url`, `redirect_url`, `status` — **all three

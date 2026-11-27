@@ -3,7 +3,7 @@
 The shortcuts (`+page`, `+edit`, `+card-schema`, `+preview`, `block +edit`, `block +get`) wrap
 these leaves and add what the leaves lack: id resolution, schema checks, readable failures,
 placement. **Use a raw leaf only for what no shortcut does** — see "When a raw leaf is the right
-tool". All take `--params` (path + query) and `--data` (body); exact fields:
+tool". All take parameter flags (path + query) and `--data` (body); exact fields:
 `schema themes.<group>.<leaf>`.
 
 ## `doc_id` — the template file id
@@ -11,11 +11,11 @@ tool". All take `--params` (path + query) and `--data` (body); exact fields:
 Most leaves below need `doc_id` = the template file's id from `file tree` — **not** `"index"`:
 
 ```bash
-themes file tree --params '{"theme_id":"<id>"}' --jq '.data.templates[] | select(.location=="index.liquid") | .id'
+themes file tree --theme-id <id> --jq '.data.templates[] | select(.location=="index.liquid") | .id'
 ```
 
 - A custom template (`<type>.<suffix>`, from `+page --list`) is not in the tree: take `doc_id`
-  from `themes template list --params '{"theme_id":"<id>"}'` → `.data.theme_templates[]` whose
+  from `themes template list --theme-id <id>` → `.data.theme_templates[]` whose
   `type` + `.` + `suffix` matches.
 - `"index"` fails on these leaves (404 `b_record_not_found`, 422 `request_param_error`, or 500).
   Only `session get-config` / `update-config` ignore `doc_id` (`"index"` works there).

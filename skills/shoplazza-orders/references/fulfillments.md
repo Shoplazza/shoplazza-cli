@@ -8,13 +8,13 @@ tracking → `orders +update-tracking`**. Reach for these leaves for everything 
 
 | Intent | Command |
 |---|---|
-| List an order's fulfillments | `orders fulfillments list --params '{"order_id":"<id>"}'` → `.data.fulfillments[]` (cursor pagination; `page_size` 1-250, default 10; `created_at_min/max`, `updated_at_min/max`) |
-| Count them | `orders fulfillments count --params '{"order_id":"<id>"}'` → `.data.count` (same time filters) |
-| Get one | `orders fulfillments get --params '{"order_id":"<id>","fulfillment_id":"<fid>"}'` |
-| Create (prefer `+ship`) | `orders fulfillments create --params '{"order_id":"<id>"}' --data '{"fulfillment":{…}}'` |
-| Update (prefer `+update-tracking`) | `orders fulfillments update --params '{"order_id":"<id>","fulfillment_id":"<fid>"}' --data '{"fulfillment":{…}}'` |
-| Complete (mark delivered) | `orders fulfillments complete --params '{"order_id":"<id>","fulfillment_id":"<fid>"}'` (no body; already-finished returns the details) |
-| Cancel a fulfillment (destructive → `--dry-run` first) | `orders fulfillments cancel --params '{"order_id":"<id>","fulfillment_id":"<fid>"}'` (no body; NOT `orders cancel`) |
+| List an order's fulfillments | `orders fulfillments list --order-id <id>` → `.data.fulfillments[]` (cursor pagination; `page_size` 1-250, default 10; `created_at_min/max`, `updated_at_min/max`) |
+| Count them | `orders fulfillments count --order-id <id>` → `.data.count` (same time filters) |
+| Get one | `orders fulfillments get --order-id <id> --fulfillment-id <fid>` |
+| Create (prefer `+ship`) | `orders fulfillments create --order-id <id> --data '{"fulfillment":{…}}'` |
+| Update (prefer `+update-tracking`) | `orders fulfillments update --order-id <id> --fulfillment-id <fid> --data '{"fulfillment":{…}}'` |
+| Complete (mark delivered) | `orders fulfillments complete --order-id <id> --fulfillment-id <fid>` (no body; already-finished returns the details) |
+| Cancel a fulfillment (destructive → `--dry-run` first) | `orders fulfillments cancel --order-id <id> --fulfillment-id <fid>` (no body; NOT `orders cancel`) |
 
 ## Body shapes (`schema orders.fulfillments.<cmd>`)
 

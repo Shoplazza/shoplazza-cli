@@ -31,10 +31,10 @@ Intent → command. Authoritative params/body live in `shoplazza schema webhook.
 |-------------|---------|
 | Subscribe to an event (create) | `webhook create --data '{"webhook":{"topic":"<event>","address":"<https-url>"}}'` |
 | List all webhooks | `webhook list` |
-| Count webhooks (optionally filtered) | `webhook count --params '{"address":"<url>","topic":"<event>"}'` (params optional) |
-| Get one webhook | `webhook get --params '{"id":"<id>"}'` |
-| Update a webhook's address / topic | `webhook update --params '{"id":"<id>"}' --data '{"webhook":{"address":"<url>","topic":"<event>"}}'` |
-| Delete a webhook (destructive → `--dry-run` first) | `webhook delete --params '{"id":"<id>"}' --dry-run` |
+| Count webhooks (optionally filtered) | `webhook count --address <url> --topic <event>` (params optional) |
+| Get one webhook | `webhook get --webhook-id <id>` |
+| Update a webhook's address / topic | `webhook update --webhook-id <id> --data '{"webhook":{"address":"<url>","topic":"<event>"}}'` |
+| Delete a webhook (destructive → `--dry-run` first) | `webhook delete --webhook-id <id> --dry-run` |
 
 **Event topics** look like `orders/create`, `orders/fulfilled`, `products/update`, etc. The full
 topic list isn't introspectable from the binary — confirm a topic with `shoplazza schema
@@ -91,14 +91,14 @@ webhook create --data '{"webhook":{"topic":"orders/create","address":"https://ap
 webhook list
 
 # 3. Update a webhook's address
-webhook update --params '{"id":"246"}' --data '{"webhook":{"address":"https://new.example.com/hook"}}'
+webhook update --webhook-id 246 --data '{"webhook":{"address":"https://new.example.com/hook"}}'
 
 # 4. Delete a subscription: look up what it is, preview, then STOP for the user's go-ahead
-webhook get --params '{"id":"135"}' --jq '.data.webhook | {topic, address}'
-webhook delete --params '{"id":"135"}' --dry-run
+webhook get --webhook-id 135 --jq '.data.webhook | {topic, address}'
+webhook delete --webhook-id 135 --dry-run
 
 # 5. Count webhooks pointing at an address
-webhook count --params '{"address":"https://api.myapp.com/hooks"}'
+webhook count --address https://api.myapp.com/hooks
 ```
 
 ## References

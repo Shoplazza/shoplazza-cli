@@ -9,10 +9,10 @@ name `<type>.<suffix>`. Bound objects use the template; everything else keeps th
 
 | Intent | Command → result |
 |---|---|
-| List (optionally one type) | `themes template list --params '{"theme_id":"<theme_id>","type":"<type>"}'` → `.data.theme_templates[]`, `.data.count` |
-| Create | `themes template create --params '{"theme_id":"<theme_id>"}' --data '{"type":"<type>","title":"<title>","from":"default","relations":["<id>"]}'` → `.data.theme_template.id` |
-| Change bindings | `themes template update --params '{"theme_id":"<theme_id>","template_id":"<template_id>"}' --data '{"type":"<type>","relations":["<id1>","<id2>"]}'` → `data:{}` |
-| Delete (consent) | `themes template delete --params '{"theme_id":"<theme_id>","template_id":"<template_id>"}'` → `data:{}` |
+| List (optionally one type) | `themes template list --theme-id <theme_id> --type <type>` → `.data.theme_templates[]`, `.data.count` |
+| Create | `themes template create --theme-id <theme_id> --data '{"type":"<type>","title":"<title>","from":"default","relations":["<id>"]}'` → `.data.theme_template.id` |
+| Change bindings | `themes template update --theme-id <theme_id> --template-id <template_id> --data '{"type":"<type>","relations":["<id1>","<id2>"]}'` → `data:{}` |
+| Delete (consent) | `themes template delete --theme-id <theme_id> --template-id <template_id>` → `data:{}` |
 | Template name for editing | `themes +page -t <theme_id> --list` → `.data.templates[]` whose `type` is the custom type; `template` = `<type>.<suffix>`, `template_id` = its id |
 
 ## The three types

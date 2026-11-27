@@ -10,9 +10,9 @@ publish ([lifecycle.md](lifecycle.md)) act only on installed themes.
 | Intent | Command |
 |---|---|
 | Browse (one row per theme × preset) | `themes market list --jq '…'` (projections in Recipes) |
-| One row per theme (Default presets only) | `themes market list --params '{"preset_default":"1"}' --jq '…'` |
+| One row per theme (Default presets only) | `themes market list --preset-default 1 --jq '…'` |
 | How many | `themes market list --jq '.data.total'` |
-| Install | `themes market install --params '{"remote_theme_id":"<remote_theme_id>"}' --data '{"preset":"<preset_name>","name":"<name>"}'` → `.data.data.data.theme_id` |
+| Install | `themes market install --remote-theme-id <remote_theme_id> --data '{"preset":"<preset_name>","name":"<name>"}'` → `.data.data.data.theme_id` |
 
 `limit` defaults to 200 (also the maximum), so one call usually returns the whole market;
 `total_pages` > 1 → read the next `page`. Rows are large (full `desc`, `presets`, tens of KB
@@ -73,7 +73,7 @@ named). Nothing matches → show the list and ask; never guess.
 
 ## Rules
 
-- `preset` and `name` go in `--data`, never `--params`. Both optional: no `preset` → the
+- `preset` and `name` go in `--data`, never as parameter flags. Both optional: no `preset` → the
   theme's default preset; no `name` → a server-side name. Don't stop to ask for a name.
 - Don't send `default` (going live is `themes publish`) or `version` (ignored — the market's
   current version is installed).
@@ -95,8 +95,8 @@ themes market list --jq '{total_pages: .data.total_pages, rows: [.data.merchant_
 themes market list --jq '[.data.merchant_themes[] | select(any(.preset_data.category[]?; .name == "<label>" or .value == "<code>")) | "\(.name) · \(.preset_name)"]'
 
 # Install, then confirm
-themes market install --params '{"remote_theme_id":"<remote_theme_id>"}' --data '{"preset":"<preset_name>"}' --jq '.data.data.data.theme_id'
-themes get --params '{"theme_id":"<new theme_id>"}' --jq '.data.theme | {id, name, published, preset, c_version}'
+themes market install --remote-theme-id <remote_theme_id> --data '{"preset":"<preset_name>"}' --jq '.data.data.data.theme_id'
+themes get --theme-id <new-theme-id> --jq '.data.theme | {id, name, published, preset, c_version}'
 ```
 
 ## Errors & recovery

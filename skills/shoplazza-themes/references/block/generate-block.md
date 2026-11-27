@@ -32,7 +32,7 @@ These lookups don't depend on the source; run them while you read the rules.
 
 ```bash
 shop markets list --jq '.data.markets[] | select(.is_primary) | .id'
-shop markets list-language --params '{"id":"<market_id>"}' --jq '.data.languages[] | select(.is_default) | .code'
+shop markets list-language --market-id <market_id> --jq '.data.languages[] | select(.is_default) | .code'
 ```
 
 - Text the user dictated is written verbatim, and the card language then follows that text even

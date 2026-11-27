@@ -272,7 +272,7 @@ Auto-generated from OpenAPI metadata — commands mapped 1:1 to platform endpoin
 
 ```bash
 shoplazza products list
-shoplazza products get --params '{"product_id":"<product-id>"}'
+shoplazza products get --product-id <product-id>
 shoplazza products create --data @product.json
 
 shoplazza discounts list
@@ -393,7 +393,8 @@ Their `version` matches `package.json`; `scripts/tag-release.sh` refuses to tag 
 | `--format json\|pretty\|table\|ndjson\|csv` | All commands | Output format. Default auto-detects: `pretty` at a terminal, `json` when piped/CI (or set `SHOPLAZZA_CLI_FORMAT`). `json` is the machine contract; `pretty`/`table` are for humans |
 | `--no-input` | All commands | Never prompt; fail fast on missing input (scripts/agents). Same as `SHOPLAZZA_CLI_NO_INTERACTIVE=1` |
 | `--profile <name>` | All commands | Profile for this invocation (beats `SHOPLAZZA_CLI_PROFILE` and the current profile) |
-| `--data` / `--params` | API commands | Request body / path & query parameters as JSON: inline, `@file`, or `-` for stdin |
+| `--<param>` | API commands | One flag per path / query parameter (`--product-id`, `--page-size`); `<command> --help` lists them |
+| `--data` / `--params` | API commands | Request body / path & query parameters as JSON: inline, `@file`, or `-` for stdin. A parameter flag overrides the same `--params` key |
 | `--dry-run` | API & shortcut commands | Preview request without executing |
 | `--jq "expr"` / `-q` | API & shortcut commands | Filter JSON output with jq expression |
 

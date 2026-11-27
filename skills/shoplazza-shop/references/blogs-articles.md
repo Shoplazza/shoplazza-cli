@@ -7,13 +7,13 @@ within one or more blogs. "发一篇博客文章 / write a blog post" = `article
 ## Articles
 
 ```bash
-shop articles list   --params '{"page_size":10,"author":"…"}'      # cursor pagination
-shop articles get    --params '{"id":"<id>"}'
+shop articles list   --page-size 10 --author …      # cursor pagination
+shop articles get    --article-id <id>
 shop articles count
 shop articles author                                               # list author names
 shop articles create --data '{"article":{"title":"…","content":"…","blog_ids":["<blog-id>"],"published":true}}'
-shop articles update --params '{"id":"<id>"}' --data '{"article":{…}}'
-shop articles delete --params '{"id":"<id>"}'                      # --dry-run first
+shop articles update --article-id <id> --data '{"article":{…}}'
+shop articles delete --article-id <id>                      # --dry-run first
 ```
 
 `articles create` body (`article` wrapper object): `title` **required**; optional
@@ -25,12 +25,12 @@ include only what the user gave.
 ## Blogs
 
 ```bash
-shop blogs list    --params '{"page_size":10}'
-shop blogs get     --params '{"id":"<id>"}'
+shop blogs list    --page-size 10
+shop blogs get     --blog-id <id>
 shop blogs count
 shop blogs create  --data '{"blog":{"Title":"…"}}'      # NOTE: capital Title; see below
-shop blogs update  --params '{"id":"<id>"}' --data '{"blog":{…}}'
-shop blogs delete  --params '{"id":"<id>"}'             # --dry-run first
+shop blogs update  --blog-id <id> --data '{"blog":{…}}'
+shop blogs delete  --blog-id <id>             # --dry-run first
 ```
 
 ### `blogs` body fields & casing (create + update)

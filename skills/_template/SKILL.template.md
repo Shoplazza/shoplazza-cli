@@ -33,7 +33,7 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | User intent | Command |
 |-------------|---------|
 | {{intent}} | `{{svc}} +{{shortcut}} --{{flag}} …` |
-| {{intent}} | `{{svc}} {{leaf}} --params '{…}' [--data '{…}']` |
+| {{intent}} | `{{svc}} {{leaf}} --<param> <value> [--data '{…}']` |
 | {{intent (only if neither tier fits)}} | `api rest {{METHOD}} /openapi/…` |
 
 <!-- ============================================================

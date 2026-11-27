@@ -12,9 +12,9 @@ Verify shapes with `shoplazza schema products.suppliers.<cmd>`.
 | Command | HTTP | Params / body |
 |---|---|---|
 | `suppliers create` | `POST /suppliers` | `--data '{"supplier":{"title":"…"}}'` — `title` is the only required field (`url` optional) |
-| `suppliers get` | `GET /suppliers/{id}` | `--params '{"id":"<id>"}'` |
+| `suppliers get` | `GET /suppliers/{id}` | `--supplier-id <id>` |
 | `suppliers list` | `GET /suppliers` | |
-| `suppliers update` | `PUT /suppliers/{id}` | `--params` + `--data '{"supplier":{"url":"…"}}'` — `url` is the only field (required); the title cannot be changed |
+| `suppliers update` | `PUT /suppliers/{id}` | `--supplier-id <id>` + `--data '{"supplier":{"url":"…"}}'` — `url` is the only field (required); the title cannot be changed |
 
 ## Procurement orders
 
@@ -38,11 +38,11 @@ Verify shapes with `shoplazza schema products.procurement.<cmd>`.
 products procurement create --data '{"procurement":{"supplier_id":"SUP1","note":"Q3 restock"}}'
 
 # 2. Add line items (quantities from the user — never invented)
-products procurement batch-create-items --params '{"procurement_id":"PROC1"}' \
+products procurement batch-create-items --procurement-id PROC1 \
   --data '{"items":[{"product_id":"P1","variant_id":"V1","transfer_quantity":100}]}'
 
 # 3. Receive it — this is what actually books the stock in
-products procurement receive --params '{"procurement_id":"PROC1"}' \
+products procurement receive --procurement-id PROC1 \
   --data '{"items":[{"procurement_item_id":"ITEM1","received_quantity":100}]}'
 ```
 

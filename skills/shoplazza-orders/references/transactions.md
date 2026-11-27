@@ -10,9 +10,9 @@ them up.
 ## Command
 
 ```bash
-orders transactions list --params '{"order_id":"<id>"}'          # → .data.transactions[]
-orders transactions list --params '{"order_id":"<id>","status":"success"}'
-orders transactions list --params '{"order_id":"<id>","payment_channel":"paypal"}'
+orders transactions list --order-id <id>          # → .data.transactions[]
+orders transactions list --order-id <id> --status success
+orders transactions list --order-id <id> --payment-channel paypal
 ```
 
 Optional query filters (only pass them when the user asks — don't invent filters):

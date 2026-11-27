@@ -16,14 +16,14 @@ Verify shapes with `shoplazza schema products.variants.<cmd>` before calling.
 
 | Command | HTTP | Params / body |
 |---|---|---|
-| `variants list` | `GET /products/{product_id}/variants` | `--params '{"product_id":"<id>"}'` |
-| `variants count` | `GET /products/{product_id}/variants/count` | `--params '{"product_id":"<id>"}'` |
-| `variants get` | `GET /variants/{variant_id}` | `--params '{"variant_id":"<id>"}'` — **no product_id** |
-| `variants create` | `POST /products/{product_id}/variants` | `--params '{"product_id":"<id>"}' --data '{"variant":{…}}'` |
-| `variants update` | `PUT /variants/{variant_id}` | `--params '{"variant_id":"<id>"}' --data '{"variant":{…}}'` — **no product_id** |
-| `variants delete` | `DELETE /products/{product_id}/variants/{variant_id}` | `--params '{"product_id":"<pid>","variant_id":"<vid>"}'` — needs **both** ids |
-| `variants list-by-sku` | `GET /products/sku/{sku}/variants` | `--params '{"sku":"<sku>"}'` |
-| `variants update-by-sku` | `PUT /variants/sku/{sku}` | `--params '{"sku":"<sku>"}' --data '{"refuse_multi_result":…,"variant":{…}}'` |
+| `variants list` | `GET /products/{product_id}/variants` | `--product-id <id>` |
+| `variants count` | `GET /products/{product_id}/variants/count` | `--product-id <id>` |
+| `variants get` | `GET /variants/{variant_id}` | `--variant-id <id>` — **no product_id** |
+| `variants create` | `POST /products/{product_id}/variants` | `--product-id <id> --data '{"variant":{…}}'` |
+| `variants update` | `PUT /variants/{variant_id}` | `--variant-id <id> --data '{"variant":{…}}'` — **no product_id** |
+| `variants delete` | `DELETE /products/{product_id}/variants/{variant_id}` | `--product-id <pid> --variant-id <vid>` — needs **both** ids |
+| `variants list-by-sku` | `GET /products/sku/{sku}/variants` | `--sku <sku>` |
+| `variants update-by-sku` | `PUT /variants/sku/{sku}` | `--sku <sku> --data '{"refuse_multi_result":…,"variant":{…}}'` |
 
 ## Path scoping — the main footgun
 
@@ -38,7 +38,7 @@ out keep their current values — do not pad the body with fields the user never
 
 ```bash
 # Change option1 to XL — nothing else touched
-products variants update --params '{"variant_id":"24680"}' \
+products variants update --variant-id 24680 \
   --data '{"variant":{"option1":"XL"}}'
 ```
 
@@ -60,10 +60,10 @@ several variants and you know which one the user meant:
 
 ```bash
 # All variants of a product
-products variants list --params '{"product_id":"9036f033-c605-4b6f-8a08-1b7ae090791c"}'
+products variants list --product-id 9036f033-c605-4b6f-8a08-1b7ae090791c
 
 # The variant the user named ("the XL one") — select by option, never by position
-products variants list --params '{"product_id":"9036f033-c605-4b6f-8a08-1b7ae090791c"}' \
+products variants list --product-id 9036f033-c605-4b6f-8a08-1b7ae090791c \
   --jq '.data.variants[] | select(.option2=="XL") | .id'
 ```
 
@@ -80,7 +80,7 @@ variant. Otherwise it silently writes to the wrong sellable unit.
 
 ```bash
 # Which variants carry this SKU?
-products variants list-by-sku --params '{"sku":"TSHIRT-RED-M"}'
+products variants list-by-sku --sku TSHIRT-RED-M
 ```
 
 ## Creating a variant

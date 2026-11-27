@@ -9,11 +9,11 @@ leaf only for split / itemized refunds the shortcut can't express.
 
 | Intent | Command |
 |---|---|
-| One order's refund records | `orders refunds list-by-order --params '{"order_id":"<id>"}'` → `.data.records[]` + `.data.order_financial_status` + `.data.order_status` |
-| Store-wide refund records | `orders refunds list --params '{…}'` → `.data.records[]` (cursor; `page_size` 1-100, default 10) |
-| Count store-wide records | `orders refunds count --params '{…}'` → `.data.count` |
-| Create a refund record (money → `--dry-run` first) | `orders refunds create --params '{"order_id":"<id>"}' --data '{"refund":{…}}'` → `.data.refund_record_id` + `.data.post_sale_id` |
-| Finish an in-progress refund (write → `--dry-run` first) | `orders refunds finish --params '{"order_id":"<id>"}' --data '{"post_sale_id":"<id>","refund_record_id":"<id>"}'` → `.data.refund_record` |
+| One order's refund records | `orders refunds list-by-order --order-id <id>` → `.data.records[]` + `.data.order_financial_status` + `.data.order_status` |
+| Store-wide refund records | `orders refunds list --<param> <value> …` → `.data.records[]` (cursor; `page_size` 1-100, default 10) |
+| Count store-wide records | `orders refunds count --<param> <value> …` → `.data.count` |
+| Create a refund record (money → `--dry-run` first) | `orders refunds create --order-id <id> --data '{"refund":{…}}'` → `.data.refund_record_id` + `.data.post_sale_id` |
+| Finish an in-progress refund (write → `--dry-run` first) | `orders refunds finish --order-id <id> --data '{"post_sale_id":"<id>","refund_record_id":"<id>"}'` → `.data.refund_record` |
 
 Store-wide `list` / `count` filters: `order_ids` (≤10) · `refund_order_ids` (≤20) ·
 `refund_statuses` (enum `pending` in progress / `finished` / `failed`) · `sort_by`

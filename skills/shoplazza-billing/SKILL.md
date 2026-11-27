@@ -35,16 +35,16 @@ Intent → command. Authoritative params/body live in `shoplazza schema billing.
 | User intent | Command |
 |-------------|---------|
 | Create a one-time charge (money → `--dry-run` first) | `billing one-time create --data '{"application_charge":{"name":"…","price":"<amt>","return_url":"…"}}' --dry-run` |
-| Get / list one-time charges | `billing one-time get --params '{"charge_id":"<id>"}'` · `billing one-time list` |
-| One-time charge transactions | `billing one-time transactions --params '{"charge_id":"<id>"}'` |
+| Get / list one-time charges | `billing one-time get --charge-id <id>` · `billing one-time list` |
+| One-time charge transactions | `billing one-time transactions --charge-id <id>` |
 | Create a recurring (subscription) charge (money → `--dry-run` first) | `billing recurring create --data '{"recurring_application_charge":{"name":"…","price":<amt>,"return_url":"…"}}' --dry-run` (optional `trial_days`, `capped_amount`, `terms`) |
-| Get / list recurring charges | `billing recurring get --params '{"charge_id":"<id>"}'` · `billing recurring list` |
-| Update a recurring charge's capped amount | `billing recurring update --params '{"charge_id":"<id>"}' --data '{"capped_amount":<amt>}'` |
-| Cancel a recurring charge (`--dry-run` first) | `billing recurring cancel --params '{"charge_id":"<id>"}' --dry-run` |
-| Recurring charge transactions | `billing recurring transactions --params '{"charge_id":"<id>"}'` |
-| Record a usage charge under a recurring charge (money → `--dry-run` first) | `billing usage create --params '{"charge_id":"<id>"}' --data '{"usage_charge":{"description":"…","price":<amt>}}' --dry-run` |
-| Get / list usage charges | `billing usage get --params '{…}'` · `billing usage list --params '{"charge_id":"<id>"}'` |
-| Get one app-charge transaction | `billing transactions get --params '{"transaction_id":"<id>"}'` |
+| Get / list recurring charges | `billing recurring get --charge-id <id>` · `billing recurring list` |
+| Update a recurring charge's capped amount | `billing recurring update --charge-id <id> --data '{"capped_amount":<amt>}'` |
+| Cancel a recurring charge (`--dry-run` first) | `billing recurring cancel --charge-id <id> --dry-run` |
+| Recurring charge transactions | `billing recurring transactions --charge-id <id>` |
+| Record a usage charge under a recurring charge (money → `--dry-run` first) | `billing usage create --charge-id <id> --data '{"usage_charge":{"description":"…","price":<amt>}}' --dry-run` |
+| Get / list usage charges | `billing usage get --charge-id <id> --usage-charge-id <id>` · `billing usage list --charge-id <id>` |
+| Get one app-charge transaction | `billing transactions get --transaction-id <id>` |
 
 ## Acting on a request
 
@@ -103,7 +103,7 @@ Domain-specific only (generic `.data` / `--dry-run` / `--jq` rules are in shopla
 | Charge rejected on `price` type | **`price` type differs by charge**: one-time = **string** (`"99.99"`), recurring & usage = **number** (`29`, `0.05`) | Match the type — quote it for one-time, bare number for recurring/usage |
 | `create` succeeded but the merchant is never billed | Charges are two-phase: `create` returns a **pending** charge; nothing activates until the merchant approves it via the returned approval URL | Hand the URL to the user and say no money moves until the merchant approves — a `create` `ok:true` is NOT "charged" |
 | jq for the approval URL returns `null` | The field name **differs by charge**: one-time = `confirm_url`, recurring = `confirmation_url` (usage has neither — no approval step) | Match the field to the charge type |
-| `usage create` fails without a charge | `charge_id` (the parent recurring charge) is a **required path param** | `--params '{"charge_id":"<recurring charge id>"}'` |
+| `usage create` fails without a charge | `charge_id` (the parent recurring charge) is a **required path param** | `--charge-id <recurring-charge-id>` |
 | Created a real charge without preview | Charges are real money | `--dry-run` first, restate to the user, wait for their go-ahead, then run |
 | `recurring create` → 422 `The price configuration in the plan does not match with the listing, please check` | The platform only accepts a price matching a pricing plan configured in the app's **listing** (partner backend); arbitrary amounts are refused. **Not fixable from the CLI** — this module has no listing/plan endpoint (`schema billing` confirms) | Tell the user to add/adjust that plan in the app listing, then re-run the same command unchanged. Do NOT try other prices |
 | `recurring create` → bare `400 Bad Request`, no field info, body matches `schema` | Adding `capped_amount` makes the backend return a specific 422 instead (verified live: identical body + `capped_amount` → the listing 422 above). Whether the 400 shares that root cause, or is its own `capped_amount` check, is **unconfirmed** — `schema` marks the field optional | Don't hunt for a malformed field — re-send once with `capped_amount` **to surface the real message**, then act on it. It is a diagnostic, not a fix: never retry with other prices, and don't assume the charge will go through once it's set |
@@ -120,11 +120,11 @@ billing recurring create --data '{"recurring_application_charge":{"name":"Pro Pl
 # real run: add --jq '.data.recurring_application_charge | {id, status, confirmation_url}'
 
 # 3. Usage charge $0.05 under recurring charge CHG7788 (price NUMBER)
-billing usage create --params '{"charge_id":"CHG7788"}' --data '{"usage_charge":{"description":"API calls overage","price":0.05}}' --dry-run
+billing usage create --charge-id CHG7788 --data '{"usage_charge":{"description":"API calls overage","price":0.05}}' --dry-run
 
 # 4. Cancel a recurring charge: look up what it is, preview, then STOP for the user's go-ahead
-billing recurring get --params '{"charge_id":"CHG5566"}' --jq '.data.recurring_application_charge | {name, price, status}'
-billing recurring cancel --params '{"charge_id":"CHG5566"}' --dry-run
+billing recurring get --charge-id CHG5566 --jq '.data.recurring_application_charge | {name, price, status}'
+billing recurring cancel --charge-id CHG5566 --dry-run
 ```
 
 ## References

@@ -270,7 +270,7 @@ shoplazza orders +ship --order-id <order-id> --tracking <tracking-no>
 
 ```bash
 shoplazza products list
-shoplazza products get --params '{"product_id":"<product-id>"}'
+shoplazza products get --product-id <product-id>
 shoplazza products create --data @product.json
 
 shoplazza discounts list
@@ -387,7 +387,8 @@ npx skills remove --global shoplazza-billing shoplazza-common shoplazza-customer
 | `--format json\|pretty\|table\|ndjson\|csv` | 所有命令 | 输出格式。默认自动判定：终端里 `pretty`，管道/CI 下 `json`（或用 `SHOPLAZZA_CLI_FORMAT`）。`json` 是机器契约，`pretty`/`table` 给人看 |
 | `--no-input` | 所有命令 | 从不提问；缺输入直接结构化报错（脚本/agent）。等同 `SHOPLAZZA_CLI_NO_INTERACTIVE=1` |
 | `--profile <name>` | 所有命令 | 本次调用使用的 profile（优先级高于 `SHOPLAZZA_CLI_PROFILE` 和当前 profile） |
-| `--data` / `--params` | API 命令 | 请求体 / 路径与查询参数，JSON 格式：可内联、`@file` 或 `-` 读 stdin |
+| `--<参数名>` | API 命令 | 每个路径 / 查询参数一个 flag（`--product-id`、`--page-size`）；`<命令> --help` 会列出 |
+| `--data` / `--params` | API 命令 | 请求体 / 路径与查询参数，JSON 格式：可内联、`@file` 或 `-` 读 stdin。参数 flag 会覆盖 `--params` 里的同名 key |
 | `--dry-run` | API 和快捷命令 | 预览请求但不执行 |
 | `--jq "expr"` / `-q` | API 和快捷命令 | 使用 jq 表达式过滤 JSON 输出 |
 

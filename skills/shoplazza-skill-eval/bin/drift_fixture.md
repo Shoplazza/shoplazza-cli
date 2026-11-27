@@ -19,6 +19,13 @@ control block starts flagging, a guard regressed.
 billing one-time create --data '{"application_charge":{"nmae":"Setup Fee","price":"9.99","return_url":"https://app.example.com/done"}}'
 ```
 
+## MUST NOT flag — spec-leaf parameter flags (listed under "API Parameters" in `--help`)
+
+```bash
+products get --product-id 123
+shop pages get --page-id 7 --jq '.data.page.title'
+```
+
 ## MUST NOT flag — freeform value subtree (metafields `value` is caller-shaped)
 
 `value` nests a recursive google.protobuf.Value; keys under it are arbitrary.

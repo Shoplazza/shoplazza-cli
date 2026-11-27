@@ -23,7 +23,7 @@ Verify shapes with `shoplazza schema products.collections.<cmd>`.
 | `collections update-smart-rule` | `PATCH /collections/{id}/smart-rule` | smart collections only |
 | `collections async-create` | `POST /collections/async` | smart collections; products match in the background and the response carries `async_task_id` (`0` for a manual collection: use `create`) |
 | `collections async-update-smart-rule` | `PATCH /collections/{id}/smart-rule/async` | `update-smart-rule` in the background; returns `async_task_id` |
-| `collections get-async-task` | `GET /collections/async-task/{id}` | `--params '{"id":"<async_task_id>","source_id":"<collection id>"}'` (both required); done when `state` is `finished` |
+| `collections get-async-task` | `GET /collections/async-task/{id}` | `--task-id <async_task_id> --source-id <collection-id>` (both required); done when `state` is `finished` |
 
 ```bash
 # Minimal curated collection
@@ -57,7 +57,7 @@ Use `create` for a single association; reach for `batch-create` only with multip
 ## Categories
 
 ```bash
-products categories list --params '{"pid":"<parent-id>"}'   # children of a node; omit for roots
+products categories list --pid <parent-id>   # children of a node; omit for roots
 ```
 
 Query params: `pid` (parent id), `ids`. Categories are the platform taxonomy used by

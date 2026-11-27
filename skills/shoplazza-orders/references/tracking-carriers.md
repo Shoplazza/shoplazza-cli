@@ -10,7 +10,7 @@ which carrier owns a tracking number.
 
 | Intent | Command |
 |---|---|
-| Which carrier is tracking number X? (运单号识别) | `orders tracking-carriers detect --params '{"tracking_number":"<no>"}'` → `.data.tracking_carrier` |
+| Which carrier is tracking number X? (运单号识别) | `orders tracking-carriers detect --tracking-number <no>` → `.data.tracking_carrier` |
 | List all supported carriers | `orders tracking-carriers list` → `.data.tracking_carriers[]` |
 
 - `detect` takes exactly one required query param, `tracking_number`. Use it directly — do

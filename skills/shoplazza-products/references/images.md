@@ -5,14 +5,14 @@ library — uploading a standalone asset file is `shop files` / `shop +upload-fi
 (`shoplazza-shop` skill). Rule of thumb: "给商品 X 加图" → here; "上传文件/图片到店铺(媒体库)"
 → shop.
 
-All commands are product-scoped: `product_id` is a path param via `--params`.
+All commands are product-scoped: `--product-id` is a path param.
 Verify shapes with `shoplazza schema products.images.<cmd>`.
 
 | Command | HTTP | Params / body |
 |---|---|---|
-| `images list` | `GET /products/{product_id}/images` | `--params '{"product_id":"<id>"}'` |
+| `images list` | `GET /products/{product_id}/images` | `--product-id <id>` |
 | `images count` | `GET /products/{product_id}/images/count` | same |
-| `images get` | `GET /products/{product_id}/images/{image_id}` | `--params '{"product_id":"…","image_id":"…"}'` |
+| `images get` | `GET /products/{product_id}/images/{image_id}` | `--product-id … --image-id …` |
 | `images create` | `POST /products/{product_id}/images` | `--data '{"image":{"src":"<url>"}}'` — `src` is the only required body field |
 | `images update` | `PUT /products/{product_id}/images/{image_id}` | body `image.src` / `image.position` only |
 | `images delete` | `DELETE /products/{product_id}/images/{image_id}` | destructive → `--dry-run` first |
@@ -22,11 +22,11 @@ Set them only when the user asks — never fabricate.
 
 ```bash
 # Attach an image by URL
-products images create --params '{"product_id":"889900"}' \
+products images create --product-id 889900 \
   --data '{"image":{"src":"https://cdn.example.com/new-photo.jpg"}}'
 
 # Make an existing image the first in the gallery
-products images update --params '{"product_id":"889900","image_id":"<img>"}' \
+products images update --product-id 889900 --image-id <img> \
   --data '{"image":{"position":1}}'
 ```
 

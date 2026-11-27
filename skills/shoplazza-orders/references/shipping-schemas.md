@@ -14,8 +14,8 @@ given order + address. This is the home of "运费区域 / 邮费 / shipping zon
 | Read the general schema | `orders shipping-schemas get-general` → `.data.shipping_schemas` |
 | Replace the whole general schema (zones left out are deleted, and so are plans left out of a zone; to add or change one zone use `create-zone` / `update-zone`) | `orders shipping-schemas save-general --data '{"shipping_schemas":{…}}'` (`name` required; read `get-general` first and send every zone back with its `id`) |
 | Create a zone | `orders shipping-schemas create-zone --data '{"shipping":{…}}'` |
-| Update a zone (replaces `plans` and `areas`: left-out ones are deleted, so send the full lists from `get-general`) | `orders shipping-schemas update-zone --params '{"id":"<zone-id>"}' --data '{"shipping":{…}}'` |
-| Delete a zone (destructive → `--dry-run` first) | `orders shipping-schemas delete-zone --params '{"id":"<zone-id>"}'` |
+| Update a zone (replaces `plans` and `areas`: left-out ones are deleted, so send the full lists from `get-general`) | `orders shipping-schemas update-zone --shipping-zone-id <zone-id> --data '{"shipping":{…}}'` |
+| Delete a zone (destructive → `--dry-run` first) | `orders shipping-schemas delete-zone --shipping-zone-id <zone-id>` |
 | Which shipping options fit an order + address? | `orders shipping-schemas get-available-lines --data '{…}'` → `.data.shipping_lines[]` (+ `invalid_products`, `state`, `message`) |
 
 ## `create-zone` body (`schema orders.shipping-schemas.create-zone`)

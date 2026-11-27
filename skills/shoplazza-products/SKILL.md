@@ -51,21 +51,21 @@ Intent → command, highest-fit tier first. The authoritative flags/params live 
 | Change a variant's price | `products +set-price (--variant-id <id> \| --sku <sku> [--all] \| --product-id <id>) --price <n>` |
 | Adjust stock (add or decrease) | `products +stock (--variant-id <id> \| --sku <sku> \| --product-id <id>) (--adjust <±n> \| --set <n>) [--location-id <id>]` |
 | Add / remove / replace tags | `products +tag --product-id <product-id> (--add a,b \| --remove c,d \| --set x,y)` |
-| Get one product | `products get --params '{"product_id":"<id>"}'` |
-| List (filters `+search` lacks: ids, handles, date ranges, spus…) | `products list --params '{…}'` |
+| Get one product | `products get --product-id <id>` |
+| List (filters `+search` lacks: ids, handles, date ranges, spus…) | `products list --<param> <value> …` |
 | Full-control create (fields the shortcuts lack) | `products create --data '{"product":{…}}'` (see `schema products.create`) |
-| Update product fields | `products update --params '{"product_id":"<id>"}' --data '{"product":{…}}'` |
-| Delete ONE product | `products delete --params '{"product_id":"<id>"}'` |
-| Delete MANY products | `products batch-delete --params '{"product_ids":["<id>",…]}'` |
-| List a product's variants | `products variants list --params '{"product_id":"<id>"}'` → [references/variants.md](references/variants.md) |
-| Update a variant (options, sku, weight…) | `products variants update --params '{"variant_id":"<id>"}' --data '{"variant":{…}}'` |
-| Look up variants by SKU | `products variants list-by-sku --params '{"sku":"<sku>"}'` |
+| Update product fields | `products update --product-id <id> --data '{"product":{…}}'` |
+| Delete ONE product | `products delete --product-id <id>` |
+| Delete MANY products | `products batch-delete --product-ids '<id>,…'` |
+| List a product's variants | `products variants list --product-id <id>` → [references/variants.md](references/variants.md) |
+| Update a variant (options, sku, weight…) | `products variants update --variant-id <id> --data '{"variant":{…}}'` |
+| Look up variants by SKU | `products variants list-by-sku --sku <sku>` |
 | Create a curated collection | `products collections create --data '{"collection":{"title":"…"}}'` → [references/collections-collects.md](references/collections-collects.md) |
 | Add a product to a collection | `products collects create --data '{"collect":{"collection_id":"<cid>","product_id":"<pid>"}}'` |
-| Attach an image to a product | `products images create --params '{"product_id":"<id>"}' --data '{"image":{"src":"<url>"}}'` → [references/images.md](references/images.md) |
+| Attach an image to a product | `products images create --product-id <id> --data '{"image":{"src":"<url>"}}'` → [references/images.md](references/images.md) |
 | Create a gift card (stored value = money → `--dry-run` first) | `products gift-cards create --data '{"gift_card":{"code":"…","initial_value":"…","expires_on":"YYYY-MM-DD"}}' --dry-run` → [references/gift-cards.md](references/gift-cards.md) |
-| Check a gift card's balance | `products gift-cards get --params '{"id":"<id>"}' --jq '.data.gift_card.balance'` |
-| Stop / "delete" a gift card (irreversible → `--dry-run` first + go-ahead) | `products gift-cards disable --params '{"id":"<id>"}' --dry-run` (**no delete endpoint exists**; disabling permanently stops redemption) |
+| Check a gift card's balance | `products gift-cards get --gift-card-id <id> --jq '.data.gift_card.balance'` |
+| Stop / "delete" a gift card (irreversible → `--dry-run` first + go-ahead) | `products gift-cards disable --gift-card-id <id> --dry-run` (**no delete endpoint exists**; disabling permanently stops redemption) |
 | Inventory levels / items, locations | `products inventory …` / `products locations …` → [references/inventory-locations.md](references/inventory-locations.md) |
 | Customer reviews (评价) | `products comments {list,create,batch-create}` → [references/comments.md](references/comments.md) |
 | Suppliers / procurement orders | `products suppliers …` / `products procurement …` → [references/procurement-suppliers.md](references/procurement-suppliers.md) |
@@ -227,7 +227,7 @@ shoplazza-common).
 | Tags wiped out after an update | `products update` (leaf) replaces the whole tag list; so does `+tag --set` | Use `+tag --add` / `--remove` — existing tags kept |
 | Variants vanished after a `products update` (leaf) with a `variants` array | The array is a **full replace**: any variant not listed is **deleted**, and listed variants without their `id` are matched by option values (exact, case-sensitive) and recreated when nothing matches (sku/stock reset) | Never hand-write a `variants` array on the leaf — use `+set-variants` (per-value prices included), which maps existing variants (carries ids) and reports every deletion |
 | "Result too large" on a big-matrix `products update` / `create` | The response echoes the full product — hundreds of variants × ~25 fields | Use `+set-variants` (bounded summary output). On the leaf, always narrow with `--jq` and pass the body via `--data @file` |
-| Write reported "result too large" and you're tempted to retry | The request very likely **succeeded** — only the echo was oversized | Don't resend. Verify first: `products variants count --params '{"product_id":"<id>"}'` |
+| Write reported "result too large" and you're tempted to retry | The request very likely **succeeded** — only the echo was oversized | Don't resend. Verify first: `products variants count --product-id <id>` |
 | Stock sits on one size only after adding a spec dimension | Adding a dimension keeps every existing variant (id, sku, stock, image) on the `--existing` value; the other values are new variants with the price copied and no sku/stock | Expected. Set the rest with `--new-stock`, `+stock` or `--sku-template`. `remapped_detail` / `created_detail` in the output say which variant went where |
 | `+set-variants` refused: "would merge variants that differ only by it" | Dropping the dimension would put two variants (e.g. Red/S + Red/M) on one combination — only one could keep its data | Ask which value's variants to keep, then `--drop "Size=<value>"` in the same call as any other edits |
 | A value "renamed" with remove + add lost its sku/stock | remove + add deletes the old variants and creates new ones | Use `--rename "Color:Red=红色"` — values change in place |
@@ -237,12 +237,12 @@ shoplazza-common).
 | `--new-price` passed to `+set-variants` but some prices didn't change | `--new-price` only prices new variants with nothing to copy from; it never changes an existing price (the output's `price_applied` / `warnings` say so) | Reprice with `--set-price` (every variant, or per value `"Size:S=20"`) |
 | New product can't be ordered; API says "Out-of-stock" though stock is set | The product is a draft (`+create` default) — drafts are unorderable and the error message is misleading | `products +publish --product-id <id>` first |
 | `+set-price --sku` refused with a candidate list | The SKU matched several variants — the CLI refuses a multi-match | Pick the right `--variant-id` from the listed candidates, or pass `--all` only for an explicit "all of them" |
-| A product id in `--variant-id` → 404 `No variants found` (or "no inventory item found for that variant") | `--variant-id` is variant-scoped (`PUT /variants/{variant_id}`); a product id never matches it | Pass it to `--product-id` instead — the error's `hint` says so. Or list first: `products variants list --params '{"product_id":"<id>"}'` |
+| A product id in `--variant-id` → 404 `No variants found` (or "no inventory item found for that variant") | `--variant-id` is variant-scoped (`PUT /variants/{variant_id}`); a product id never matches it | Pass it to `--product-id` instead — the error's `hint` says so. Or list first: `products variants list --product-id <id>` |
 | `--product-id` refused: "product … has N variants" | A multi-variant product has no single price or stock target | Ask the user which one, using the candidates in the `hint` (capped at 10 — it names the command that lists the rest), then re-run with `--variant-id` or `--sku`. Never guess `variants[0]` |
 | Price vanished after `+set-price --price 0` | `'0'` / `'0.00'` **clears** the price rather than setting zero | Only pass 0 when the user wants the price cleared |
 | Wanted `gift-cards delete` | No delete endpoint exists (subcommands: batch-create / create / disable / get / list / update) | `gift-cards disable` stops redemption; tell the user it disables, not deletes |
-| `variants update` refused: `unknown --params key: product_id` (`unknown_param`) | `variants get` / `update` are variant-scoped: `/variants/{variant_id}` — no product_id | Only `variants list` / `create` / `delete` are product-scoped (`delete` needs BOTH ids) |
-| `inventory set-stock` rejects a variant id | Inventory levels key on `inventory_item_id`, which ≠ variant id | Map first: `inventory list-by-variant --params '{"variant_ids":["<id>"]}'` |
+| `variants update` refused: `unknown flag: --product-id` (`unknown_flag`) | `variants get` / `update` are variant-scoped: `/variants/{variant_id}` — no product_id | Only `variants list` / `create` / `delete` are product-scoped (`delete` needs BOTH ids) |
+| `inventory set-stock` rejects a variant id | Inventory levels key on `inventory_item_id`, which ≠ variant id | Map first: `inventory list-by-variant --variant-ids <id>` |
 | `comments create` rejected for missing fields | `star`, `like`, `created_at`, `user_name`, `content`, `product_id` are ALL required | See [references/comments.md](references/comments.md); use `like: 0` if unknown |
 | "加进合集" attempted via `collections update` | Product↔collection membership is a `collect` record | `collects create` (one) / `collects batch-create` (many) |
 | Invented `+delete` / `+update` shortcut | They don't exist | `delete` / `batch-delete` / `update` are spec leaves (see Command map) |
@@ -275,7 +275,7 @@ products +set-price --product-id 7ab09fcd-2ee7-4118-8c4d-e44a10d51caf --price 24
 # 7. Multi-variant product: resolve the variant the user actually named, then write.
 #    Pick by the option the user said (XL), never by position. If the user named no
 #    option, ask which variant — don't take variants[0].
-VID=$(products variants list --params '{"product_id":"9036f033-c605-4b6f-8a08-1b7ae090791c"}' \
+VID=$(products variants list --product-id 9036f033-c605-4b6f-8a08-1b7ae090791c \
   --jq '.data.variants[] | select(.option2=="XL") | .id')
 products +stock --variant-id "$VID" --set 20
 
@@ -283,15 +283,15 @@ products +stock --variant-id "$VID" --set 20
 products +tag --product-id 445566 --add summer,sale
 
 # 9. Delete one product — dry-run, restate, wait for the user's go-ahead, then run
-products delete --params '{"product_id":"778899"}' --dry-run
-products delete --params '{"product_id":"778899"}'          # only after the user agrees (next turn)
+products delete --product-id 778899 --dry-run
+products delete --product-id 778899          # only after the user agrees (next turn)
 
 # 10. Batch delete — always dry-run first and restate the count
-products batch-delete --params '{"product_ids":["111222","333444","555666"]}' --dry-run
-products batch-delete --params '{"product_ids":["111222","333444","555666"]}'
+products batch-delete --product-ids '111222,333444,555666' --dry-run
+products batch-delete --product-ids '111222,333444,555666'
 
 # 11. Change one variant's size option (partial body — only the field to change)
-products variants update --params '{"variant_id":"24680"}' --data '{"variant":{"option1":"XL"}}'
+products variants update --variant-id 24680 --data '{"variant":{"option1":"XL"}}'
 
 # 12. Create a multi-spec product: draft first, then add the dimensions (3 colors × 2 sizes = 6 variants)
 ID=$(products +create --title "Yoga Set" --price 29.99 --image https://cdn.example.com/yoga.jpg \
@@ -326,8 +326,8 @@ products collects create --data '{"collect":{"collection_id":"999000","product_i
 
 # 17. "Delete" a gift card you only know by code — resolve the id, preview the disable
 #     (irreversible) in the SAME reply, then wait for the user's go-ahead
-ID=$(products gift-cards list --params '{"keyword":"GC9988"}' --jq '.data.gift_cards[0].id')
-products gift-cards disable --params '{"id":"'$ID'"}' --dry-run
+ID=$(products gift-cards list --keyword GC9988 --jq '.data.gift_cards[0].id')
+products gift-cards disable --gift-card-id "$ID" --dry-run
 ```
 
 ## References

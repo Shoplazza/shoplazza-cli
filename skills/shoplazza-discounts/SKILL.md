@@ -33,14 +33,14 @@ and `shoplazza schema discounts.<cmd>`, not this table.
 | Buy N, Nth-item % off (auto, no code) | `discounts +mn-discount --tiers "n:%,..."` |
 | Spend / buy-N threshold → auto discount | `discounts +rebate --target order\|product --tiers "th:disc,..."` |
 | Search / filter discounts | `discounts +search --query ... --progress ongoing` |
-| Get one discount by ID | `discounts get --params '{"id":"<id>"}'` |
-| Get one discount by code | `discounts get-by-code --params '{"discount_code":"<CODE>"}'` |
+| Get one discount by ID | `discounts get --discount-id <id>` |
+| Get one discount by code | `discounts get-by-code --discount-code <CODE>` |
 | Cancel discount(s) | `discounts cancel --data '{"ids":["<id>",...]}'` |
 | Restart a paused discount | `discounts restart --data '{"id":"<id>"}'` |
-| Delete one finished discount | `discounts delete --params '{"id":"<id>"}'` |
+| Delete one finished discount | `discounts delete --discount-id <id>` |
 | Delete many finished discounts | `discounts batch-delete --data '{"ids":[...]}'` |
-| Update an automatic discount | `discounts update-automatic --params '{"id":"<id>"}' --data '<body>'` |
-| Update a non-automatic (code) discount | `discounts update-non-automatic --params '{"id":"<id>"}' --data '<body>'` |
+| Update an automatic discount | `discounts update-automatic --discount-id <id> --data '<body>'` |
+| Update a non-automatic (code) discount | `discounts update-non-automatic --discount-id <id> --data '<body>'` |
 | Change which discount types existing discounts stack with | `discounts combine --data '{"ids":["<id>"],"discount_combines":["order","product"]}'` |
 | Coupon campaigns (vouchers) | `discounts coupons {create,get,update}` |
 
@@ -197,8 +197,8 @@ change it on discounts that already exist, use `discounts combine` (`ids` and
 
 ## Discovering
 
-**Prefer `+search` over `list`.** Both hit `GET /discounts`, but `+search` has named flags;
-`list` only takes `--params` JSON.
+**Prefer `+search` over `list`.** Both hit `GET /discounts`, but `+search` names its filters for the task;
+`list` takes the raw API parameters.
 
 ```bash
 discounts +search --progress ongoing --discount-type flashsale --page-limit 250
@@ -217,13 +217,13 @@ The discount object is nested at `.data.discount.{discount_info,discount_layer,d
 (the general "jq starts at `.data`" rule is in shoplazza-common):
 
 ```bash
-discounts get-by-code --params '{"discount_code":"CODE123"}' \
+discounts get-by-code --discount-code CODE123 \
   --jq '.data.discount.discount_info.id'
 ```
 
 ## `discount_type` enum
 
-These are the **internal** API names — use them with `--discount-type` / inside `--params`.
+These are the **internal** API names — use them with `--discount-type`.
 They are NOT user-facing labels.
 
 ```
@@ -256,7 +256,7 @@ Watch the singular vs plural. This is the most common spec-leaf footgun.
 discounts cancel        --data '{"ids":["A","B"]}'   # ARRAY (one or many)
 discounts batch-delete  --data '{"ids":["A","B"]}'   # ARRAY (must be finished)
 discounts restart       --data '{"id":"A"}'          # SINGULAR — one id only
-discounts delete        --params '{"id":"A"}'        # path param, no body, one id
+discounts delete        --discount-id A        # path param, no body, one id
 ```
 
 `delete` and `batch-delete` only work on discounts whose `progress == finished`. To delete an
@@ -267,9 +267,9 @@ active one: `cancel` it first, then `delete`.
 There is no `+update` shortcut. Compose the update body from a `get` and feed it back:
 
 ```bash
-discounts get --params '{"id":"<id>"}' --jq '{discount: .data.discount}' > /tmp/d.json
+discounts get --discount-id <id> --jq '{discount: .data.discount}' > /tmp/d.json
 # edit /tmp/d.json …
-discounts update-automatic --params '{"id":"<id>"}' --data @/tmp/d.json --dry-run
+discounts update-automatic --discount-id <id> --data @/tmp/d.json --dry-run
 ```
 
 Use `update-automatic` for flash sales / rebates / mn-discounts (no code),
@@ -348,12 +348,12 @@ discounts +search --progress ongoing --discount-type flashsale --page-limit 250 
   --jq '.data.discounts[] | {id, name: .discount_name}'
 
 # 5. Cancel a code-bearing discount by its code
-ID=$(discounts get-by-code --params '{"discount_code":"SPRING15"}' --jq '.data.discount.discount_info.id')
+ID=$(discounts get-by-code --discount-code SPRING15 --jq '.data.discount.discount_info.id')
 discounts cancel --data "{\"ids\":[\"$ID\"]}" --dry-run     # check first
 discounts cancel --data "{\"ids\":[\"$ID\"]}"               # only after the user agrees (next turn)
 
 # 6. Hard-delete the now-finished discount
-discounts delete --params "{\"id\":\"$ID\"}" --dry-run      # real run only after the user agrees
+discounts delete --discount-id "$ID" --dry-run      # real run only after the user agrees
 ```
 
 ## References

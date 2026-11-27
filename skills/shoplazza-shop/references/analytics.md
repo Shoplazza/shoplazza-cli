@@ -1,7 +1,7 @@
 # shop analytics — sales & traffic reports
 
 Eight spec leaves: seven **POST** reports — every filter/metric goes in `--data` (never
-`--params`) — plus one GET lookup with no body (`traffic-channel-options`).
+a parameter flag) — plus one GET lookup with no body (`traffic-channel-options`).
 Full field list: `shoplazza schema shop.analytics.<cmd>`.
 
 | Command | Endpoint | Dimension |

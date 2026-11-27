@@ -28,10 +28,10 @@ filtered list).
 | Field `type` | Object | Command | Filter by name |
 |---|---|---|---|
 | `product` | Product | `products +search --keyword <name>` (shoplazza-products) | `--keyword` (title); `--collection-id <id>` for one collection's products |
-| `collection` | Product collection | `products collections list --params '{"title":"<name>"}'` · `products collections get --params '{"id":"<id>"}'` | `title` (partial match) |
-| `blog` | Blog (the blog itself, not its articles) | `shop blogs list --params '{"keyword":"<name>"}'` (shoplazza-shop) | `keyword` |
-| `article` | One blog article | `shop articles list --params '{"keyword":"<name>"}'` · `shop articles get --params '{"id":"<id>"}'` | `keyword` (title / content) |
-| `page` | Custom page | `shop pages list --params '{"page_size":100}'` (shoplazza-shop) · by URL: `shop pages search --params '{"url":"<url>"}'` | None — match `title` yourself |
+| `collection` | Product collection | `products collections list --title <name>` · `products collections get --collection-id <id>` | `title` (partial match) |
+| `blog` | Blog (the blog itself, not its articles) | `shop blogs list --keyword <name>` (shoplazza-shop) | `keyword` |
+| `article` | One blog article | `shop articles list --keyword <name>` · `shop articles get --article-id <id>` | `keyword` (title / content) |
+| `page` | Custom page | `shop pages list --page-size 100` (shoplazza-shop) · by URL: `shop pages search --url <url>` | None — match `title` yourself |
 | `link_list` | Menu | `shop menu list` → `.data.menus[]` `{id, title, children}` | None — match `title` yourself |
 | `source` | Ongoing flash sale | `discounts +search --progress ongoing --discount-type flashsale` (shoplazza-discounts) | `--query <name>` |
 | `url` | Depends | Ask which kind of resource to link, then use that row | — |

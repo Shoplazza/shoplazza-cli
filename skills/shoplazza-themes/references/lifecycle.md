@@ -8,13 +8,13 @@ operation, rule 8); rename, duplicate and upgrade run directly.
 
 | Intent | Command | Returns |
 |---|---|---|
-| Rename | `themes rename --params '{"theme_id":"<id>"}' --data '{"name":"<new name>"}'` | `.data.data.{msg, state}` only — no theme object |
+| Rename | `themes rename --theme-id <id> --data '{"name":"<new name>"}'` | `.data.data.{msg, state}` only — no theme object |
 | Duplicate | `themes duplicate --data '{"copy_theme_id":"<source id>","copy_theme_name":"<new name>"}'` | A new theme (see Errors: can fail with 500 yet create it) |
-| Upgrade | `themes upgrade --params '{"theme_id":"<id>"}' [--data '{"name":"<new name>"}']` | The new theme's id (`schema themes.upgrade` → `theme_id`) |
-| Delete (consent) | `themes delete --params '{"theme_id":"<id>"}'` | `{}` |
-| Publish (consent) | `themes publish --params '{"theme_id":"<id>"}'` | `.data.theme.{published, publish_time, revoke_publish_id?}` |
+| Upgrade | `themes upgrade --theme-id <id> [--data '{"name":"<new name>"}']` | The new theme's id (`schema themes.upgrade` → `theme_id`) |
+| Delete (consent) | `themes delete --theme-id <id>` | `{}` |
+| Publish (consent) | `themes publish --theme-id <id>` | `.data.theme.{published, publish_time, revoke_publish_id?}` |
 
-`duplicate` is the only one whose source id goes in `--data` (`copy_theme_id`), not `--params`.
+`duplicate` is the only one whose source id goes in `--data` (`copy_theme_id`), not a parameter flag.
 Omit `sources` on duplicate — it copies everything by default.
 
 ## Flow
@@ -31,7 +31,7 @@ Omit `sources` on duplicate — it copies everything by default.
 3. **Run.**
    - rename / duplicate / upgrade: say in one line what will happen, then call.
    - delete / publish: `--dry-run` → restate (theme name + id; "permanent" for delete; for
-     publish, which theme it replaces — read it with `themes list --params '{"published":"1"}'`)
+     publish, which theme it replaces — read it with `themes list --published 1`)
      → wait for the user's explicit go-ahead in a later turn → call.
 4. **Verify** with the re-read in the table below, and report what it shows.
 
@@ -42,15 +42,15 @@ Omit `sources` on duplicate — it copies everything by default.
 | rename | New name equals the current `name` → nothing to change, no call | Changes only the display name; content, published state and id stay. Send the name exactly as given — no local length check, no truncation, no escaping beyond valid JSON |
 | duplicate | — | New theme, new id, `published:"0"`; the source is untouched. No name given → `<source name> copy`, and say so. Build the body in one read — see the recipe below |
 | upgrade | Read `c_version`, `newest_c_version`, `has_newest_version`; missing → no call (themes uploaded from local development can't be upgraded); `has_newest_version` not true → "already on the newest version (<c_version>)", no call | Creates a NEW theme at `newest_c_version` carrying over the configuration; the original is unchanged and stays live if it was. `name` optional — omitted keeps the current name |
-| delete | `default:"1"` → the store's default theme can't be deleted at all: say so, no call. `published:"1"` → can't be deleted while live: say so, list the unpublished themes (recipe below) and ask which one to publish instead — that publish needs its own consent. When the request itself names the live theme ("the one I'm using"), read it and the recipe in the same turn — `themes list --params '{"published":"1"}'` for its `default`, and the unpublished list — then ask with those rows (default → refuse outright); don't ask again which theme was meant | Permanent — there is no undo |
+| delete | `default:"1"` → the store's default theme can't be deleted at all: say so, no call. `published:"1"` → can't be deleted while live: say so, list the unpublished themes (recipe below) and ask which one to publish instead — that publish needs its own consent. When the request itself names the live theme ("the one I'm using"), read it and the recipe in the same turn — `themes list --published 1` for its `default`, and the unpublished list — then ask with those rows (default → refuse outright); don't ask again which theme was meant | Permanent — there is no undo |
 | publish | Already `published:"1"` and `has_draft` not true → it is already live, no call. Live with `has_draft:true` → it has saved draft changes that aren't live yet; publishing takes them live | Replaces the live theme for buyers immediately. Changes still in an unsaved edit session are not included — save them first, or use `+edit … --promote --publish` ([card-edit.md](card-edit.md)) |
 
 ```bash
 # Delete refused: the unpublished themes to offer as the replacement
-shoplazza themes list --params '{"published":"0","page_size":250}' --jq '[.data.themes[] | {id, name, merchant_theme_name}]'
+shoplazza themes list --published 0 --page-size 250 --jq '[.data.themes[] | {id, name, merchant_theme_name}]'
 
 # Duplicate the live theme under the default name: one read, and jq builds the body (safe for any name)
-shoplazza themes list --params '{"published":"1"}' --jq '.data.themes[0] | {copy_theme_id: .id, copy_theme_name: (.name + " copy")}' | shoplazza themes duplicate --data -
+shoplazza themes list --published 1 --jq '.data.themes[0] | {copy_theme_id: .id, copy_theme_name: (.name + " copy")}' | shoplazza themes duplicate --data -
 ```
 
 Writing `--data` by hand from a row you read: put the values in as JSON, escaping `"` and `\`.
@@ -64,10 +64,10 @@ inside a theme is a file operation ([files-versions.md](files-versions.md)), not
 | Command | Re-read |
 |---|---|
 | rename | `themes get` → `.data.theme.name` |
-| duplicate | `themes list --params '{"page_size":250}'` → the row with the new name that wasn't there before → its `id` |
+| duplicate | `themes list --page-size 250` → the row with the new name that wasn't there before → its `id` |
 | upgrade | `themes get` on the returned id |
 | delete | `themes get` → 404 `Record not found` |
-| publish | `themes list --params '{"published":"1"}'` |
+| publish | `themes list --published 1` |
 
 Duplicate and upgrade never publish. Everything after them (edits, preview, publish) uses the
 NEW id — pass `-t <new id>`, or later calls land on another theme.
