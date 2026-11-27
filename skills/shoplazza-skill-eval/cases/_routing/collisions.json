@@ -369,7 +369,7 @@
     "expected": {
       "route_to_skill": "shoplazza-shop",
       "must_not_route_to": ["shoplazza-customers"],
-      "semantic_rubric": ["If a command is named, it is shop info update with shop.customer_privacy.gdpr_enabled, not a customers command"]
+      "semantic_rubric": ["If a command is named, it is shop info update with shop.customer_privacy.enabled (one switch for GDPR and CCPA), not a customers command"]
     }
   }
 ]

@@ -11,7 +11,7 @@ a group. Merchant notification switches are a separate pair of commands under
 shop info get                                              # every field incl. the 4 groups
 shop info get --params '{"fields":["wholesale","order_number"]}'   # group names work in fields
 shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"anti_spider":{"enabled":true}}}'
-shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"customer_privacy":{"ccpa_enabled":true}}}'
+shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"customer_privacy":{"enabled":true}}}'
 shop info update --params '{"shop_id":"<id>"}' --data '{"shop":{"timezone":"Asia/Tokyo"}}'
 shop notifications get
 shop notifications update --data '{"notifications":{"order_enabled":true}}'
@@ -35,8 +35,7 @@ what changes; omitted fields (and omitted groups) keep their current value.
 | | `suffix` | Not allowed when `order_id_type` is `sequential` |
 | | `number_type` | `sequential` (8-digit increasing) / `shop_id_random` (shop ID + random digits) |
 | | `order_id_type` | `sequential` (8-digit increasing) / `alphanumeric_random` (3 letters + 5 digits) |
-| `customer_privacy` | `gdpr_enabled` | GDPR switch |
-| | `ccpa_enabled` | CCPA switch |
+| `customer_privacy` | `enabled` | Customer privacy switch — one switch for both GDPR and CCPA, as in the admin. Writing it sets both; reads `true` when either is on |
 | | `privacy_app_status` | Read-only: `not_install` / `installed` / `uninstalled` / `created`; `not_install` when the shop has no privacy app |
 | | `app_gdpr_enabled` / `app_ccpa_enabled` | Read-only: the privacy app's own switches; `false` without the app. Not writable here |
 

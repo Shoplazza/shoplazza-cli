@@ -173,22 +173,43 @@
     "type": "behavior",
     "skill": "shoplazza-shop",
     "operation": "shop.info",
-    "scenario": "开启 GDPR — 客户隐私设置, 只发 customer_privacy.gdpr_enabled",
-    "input": "给店铺打开 GDPR，CCPA 先别动",
+    "scenario": "开启客户隐私 — 一个开关同时管 GDPR 和 CCPA, 发 customer_privacy.enabled",
+    "input": "给店铺打开客户隐私保护",
     "expected": {
       "route_to_skill": "shoplazza-shop",
       "access_tier": "leaf",
       "command_prefix": "shop info update",
       "flags_must_contain": ["--params", "--data"],
-      "params_must_contain": ["\"customer_privacy\":{\"gdpr_enabled\":true}"],
-      "flags_must_not_contain": ["ccpa_enabled"],
+      "params_must_contain": ["\"customer_privacy\":{\"enabled\":true}"],
+      "flags_must_not_contain": ["gdpr_enabled", "ccpa_enabled"],
       "must_ask": false,
       "semantic_rubric": [
-        "resolves shop_id via shop info get; sends only customer_privacy.gdpr_enabled",
+        "resolves shop_id via shop info get; sends customer_privacy.enabled true",
+        "mentions that this turns on GDPR and CCPA together",
         "does not try to write the read-only privacy app fields"
       ]
     },
-    "notes": "PATCH /shop/{shop_id}; omitted switches keep their current value."
+    "notes": "PATCH /shop/{shop_id}; customer_privacy.enabled writes GDPR and CCPA with the same value (one switch, as in the admin)."
+  },
+  {
+    "case_id": "shop.settings-05",
+    "type": "behavior",
+    "skill": "shoplazza-shop",
+    "operation": "shop.info",
+    "scenario": "只开 GDPR 不动 CCPA — 没有单独的开关, 必须说明并询问, 不能直接写",
+    "input": "给店铺打开 GDPR，CCPA 先别动",
+    "expected": {
+      "route_to_skill": "shoplazza-shop",
+      "must_ask": true,
+      "ask_must_cover": ["CCPA"],
+      "flags_must_not_contain": ["gdpr_enabled", "ccpa_enabled"],
+      "semantic_rubric": [
+        "recognizes customer privacy is one switch: customer_privacy.enabled turns GDPR and CCPA on together, there is no GDPR-only switch",
+        "does not write before the user agrees that CCPA will be turned on too",
+        "does not invent gdpr_enabled / ccpa_enabled fields"
+      ]
+    },
+    "notes": "Degradation case. schema shop.info.update: customer_privacy has only enabled (plus read-only app fields)."
   },
   {
     "case_id": "shop.settings-04",

@@ -1,6 +1,6 @@
 {
   "version": "v202601",
-  "generated_at": "2026-11-26T09:00:41Z",
+  "generated_at": "2026-11-27T02:48:10Z",
   "modules": [
     {
       "name": "billing",
@@ -27743,11 +27743,7 @@
     "v202601.ShopCustomerPrivacy": {
       "fields": [
         {
-          "name": "gdpr_enabled",
-          "type": "boolean"
-        },
-        {
-          "name": "ccpa_enabled",
+          "name": "enabled",
           "type": "boolean"
         },
         {
@@ -28373,11 +28369,7 @@
     "v202601.UpdateShopCustomerPrivacyParam": {
       "fields": [
         {
-          "name": "gdpr_enabled",
-          "type": "boolean"
-        },
-        {
-          "name": "ccpa_enabled",
+          "name": "enabled",
           "type": "boolean"
         }
       ]

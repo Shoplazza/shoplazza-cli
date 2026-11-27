@@ -156,7 +156,8 @@ shoplazza-common).
 | 422 `Please bind a payment card before changing this setting` | Password protection's switch / tips can't change until the store binds a payment card | Not fixable from the CLI — the merchant binds a card in the admin first |
 | `order_number` 406 `Invalid suffix` | A suffix is not allowed when `order_id_type` is `sequential`; prefix + suffix ≤ 20 chars | Switch `order_id_type` to `alphanumeric_random` or drop the suffix; send `""` to clear a prefix / suffix (omitting keeps it) |
 | `timezone` 422 `Invalid parameter timezone…` | `timezone` takes a supported IANA name (`Asia/Tokyo`, case-sensitive) or the internal code `info get` returns in `.data.timezone` (`+0900`, `-050010`) — not an offset like `+08:00` or a display name; `""` leaves it unchanged. For an IANA name the shop doesn't support, the message lists same-offset codes | Send the IANA name; `Etc/GMT+8` / `America/Halifax` / `Etc/GMT-2` are shared and default to `-0800` / `-04008` / `+02003`, so send the internal code for another city in those groups; on 422 pick from the listed codes or ask |
-| Tried to change `privacy_app_status` / `app_gdpr_enabled` / `app_ccpa_enabled` | Read-only — they mirror the privacy app's own switches | Only `customer_privacy.gdpr_enabled` / `ccpa_enabled` are writable; the app's switches are managed in the app |
+| Asked to turn on only GDPR (or only CCPA) | Customer privacy is **one switch** (as in the admin): `customer_privacy.enabled` turns GDPR and CCPA on or off together; it reads `true` when either is on | Tell the user both change together and ask before writing; there is no per-regulation switch |
+| Tried to change `privacy_app_status` / `app_gdpr_enabled` / `app_ccpa_enabled` | Read-only — they mirror the privacy app's own switches | Only `customer_privacy.enabled` is writable; the app's switches are managed in the app |
 | 400 `… value is required` on `notifications update` | The switches must sit under the `notifications` wrapper | `--data '{"notifications":{"order_enabled":true}}'` |
 | Asked to upload a **local** file | `+upload-file` takes **public URLs, NOT local files** (verbatim in its help); the API fetches the URL | Degrade: no write; ask for a public link or suggest hosting it first |
 | Upload "done" but file missing | Upload is an **async task** — POST returns a `task_id`; the shortcut auto-fetches the task once | Re-check with `shop files task --params '{"task_id":"…"}'` until `status`/`success_list` settle |
@@ -186,8 +187,8 @@ shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"custome
 shop info get --params '{"fields":["id","wholesale","order_number"]}'
 shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"wholesale":{"enabled":true,"mixed_enabled":true,"mixed_min_quantity":10}}}'
 
-# 2c. Turn on GDPR (CCPA untouched) and move the shop to Tokyo time (IANA name or code +0900)
-shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"timezone":"Asia/Tokyo","customer_privacy":{"gdpr_enabled":true}}}'
+# 2c. Turn on customer privacy (GDPR + CCPA together) and move the shop to Tokyo time (IANA name or code +0900)
+shop info update --params "{\"shop_id\":\"$SHOP_ID\"}" --data '{"shop":{"timezone":"Asia/Tokyo","customer_privacy":{"enabled":true}}}'
 
 # 2d. Turn off review notifications, keep the other switches
 shop notifications update --data '{"notifications":{"review_enabled":false}}'
