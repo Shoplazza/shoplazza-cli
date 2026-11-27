@@ -83,14 +83,15 @@ func TestRunE_DryRunDoesNotSendRequest(t *testing.T) {
 	t.Setenv("SHOPLAZZA_ACCESS_TOKEN", "dev")
 
 	cmd := registry.Command{Path: []string{"list"}, HTTP: registry.HTTP{Method: "GET", Path: "/orders"},
-		Parameters: []registry.Parameter{{Name: "page_size", In: "query"}}}
+		Parameters: []registry.Parameter{{Name: "page_size", In: "query"},
+			{Name: "ids", In: "query", Type: "array", Items: &registry.Field{Type: "integer"}}}}
 	leaf := buildLeafCommand(cmd, &registry.Spec{}, f, "testmodule", nil)
 	// --dry-run is inherited from the root's PersistentFlags in production;
 	// wrap the leaf in a stub parent that mirrors that setup.
 	parent := &cobra.Command{Use: "shoplazza", SilenceUsage: true, SilenceErrors: true}
 	parent.PersistentFlags().Bool("dry-run", false, "")
 	parent.AddCommand(leaf)
-	parent.SetArgs([]string{"list", "--params", `{"page_size":10}`, "--dry-run"})
+	parent.SetArgs([]string{"list", "--params", `{"page_size":10}`, "--ids", "11,22", "--dry-run"})
 	if err := parent.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,6 +100,9 @@ func TestRunE_DryRunDoesNotSendRequest(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "dry_run") {
 		t.Fatalf("expected dry_run marker in output, got: %s", out.String())
+	}
+	if !strings.Contains(strings.Join(strings.Fields(out.String()), ""), `"ids":[11,22]`) {
+		t.Errorf("integer array flag not previewed as numbers: %s", out.String())
 	}
 }
 
@@ -518,6 +522,16 @@ func TestRunE_ParamFlags(t *testing.T) {
 			"", "", nil, `invalid argument "abc" for "--page-size" flag: must be an integer`},
 		{"number that is not one", items, []string{"--location-id", "l1", "--total-min", "1.2.3"},
 			"", "", nil, `invalid argument "1.2.3" for "--total-min" flag: must be a number`},
+		{"integer with a leading zero", items, []string{"--location-id", "l1", "--page-size", "007"},
+			"", "", nil, `invalid argument "007" for "--page-size" flag: must be an integer`},
+		{"integer with a plus sign", items, []string{"--location-id", "l1", "--page-size", "+5"},
+			"", "", nil, `invalid argument "+5" for "--page-size" flag: must be an integer`},
+		{"number without an integer part", items, []string{"--location-id", "l1", "--total-min", ".5"},
+			"", "", nil, `invalid argument ".5" for "--total-min" flag: must be a number`},
+		{"number ending in a point", items, []string{"--location-id", "l1", "--total-min", "5."},
+			"", "", nil, `invalid argument "5." for "--total-min" flag: must be a number`},
+		{"integer array with a leading zero", items, []string{"--location-id", "l1", "--since-ids", "7,08"},
+			"", "", nil, `for "--since-ids" flag: "08" must be an integer`},
 		{"integer array with a word", items, []string{"--location-id", "l1", "--since-ids", "7,x"},
 			"", "", nil, `for "--since-ids" flag: "x" must be an integer`},
 		{"snake_case flag", items, []string{"--location_id", "l1"},

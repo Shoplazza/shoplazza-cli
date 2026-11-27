@@ -49,7 +49,7 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory,
 		// A human is prompted for any {param} left unset (e.g. theme_id);
 		// non-interactive callers are untouched, so a missing param stays the
 		// structured error below (agents/CI keep fail-fast).
-		if err := fillMissingPathParams(cmd, factory, c.HTTP.Path, params); err != nil {
+		if err := fillMissingPathParams(cmd, factory, c, params); err != nil {
 			return err
 		}
 		if err := checkRequiredParams(c, params, binder, schemaHint); err != nil {

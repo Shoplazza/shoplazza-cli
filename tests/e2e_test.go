@@ -620,6 +620,7 @@ func TestUnknownSubcommand_IsUsageError(t *testing.T) {
 		{"name shared by many", []string{"list"}, unknownCmd, `unknown command "list" for "shoplazza"`, "'shoplazza --help'"},
 		{"flag near name", []string{"customers", "+search", "--emial", "a@b.c"}, unknownFlag, "unknown flag: --emial" + mean + "--email", "--help"},
 		{"spec leaf flag near name", []string{"orders", "list", "--param", "{}"}, unknownFlag, "unknown flag: --param" + mean + "--params", "--help"},
+		{"spec leaf flag in snake_case", []string{"orders", "list", "--source_name_created_at_min", "x"}, unknownFlag, "unknown flag: --source_name_created_at_min" + mean + "--source-name-created-at-min", "--help"},
 		{"deprecated alias points at its canonical flag", []string{"discounts", "+percent-code", "--percnt", "10"}, unknownFlag, "unknown flag: --percnt" + mean + "--percent-off", "--help"},
 		{"flag with no near name", []string{"customers", "+search", "--xyz"}, unknownFlag, "unknown flag: --xyz", "--help"},
 	}

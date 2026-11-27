@@ -234,8 +234,8 @@ func scalarText(v any) string {
 }
 
 var (
-	integerText = regexp.MustCompile(`^[+-]?\d+$`)
-	numberText  = regexp.MustCompile(`^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$`)
+	integerText = regexp.MustCompile(`^-?(0|[1-9]\d*)$`)
+	numberText  = regexp.MustCompile(`^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$`)
 )
 
 // paramValue is the pflag.Value of one parameter flag. Numbers keep the digits
@@ -293,10 +293,14 @@ func (v *paramValue) Set(s string) error {
 			if item = strings.TrimSpace(item); item == "" {
 				continue
 			}
-			if v.items == "integer" && !integerText.MatchString(item) {
+			if v.items != "integer" {
+				v.list = append(v.list, item)
+				continue
+			}
+			if !integerText.MatchString(item) {
 				return fmt.Errorf("%q must be an integer", item)
 			}
-			v.list = append(v.list, item)
+			v.list = append(v.list, json.Number(item))
 		}
 		return nil
 	}
