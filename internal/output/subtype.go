@@ -16,9 +16,10 @@ const (
 
 	// Spec-leaf --params / --data checks against the command's metadata.
 	SubtypeUnknownParam         = "unknown_param"          // --params key the command does not declare
-	SubtypeMisplacedParam       = "misplaced_param"        // --params key that is a request-body field
+	SubtypeMisplacedParam       = "misplaced_param"        // --params key that is a request-body field, or a top-level --data key that is a parameter
+	SubtypeUnknownField         = "unknown_field"          // --data field the command's body does not declare
 	SubtypeMissingRequiredField = "missing_required_field" // required top-level body field absent from --data
-	SubtypeMissingRequiredParam = "missing_required_param" // required path/query key absent from --params, empty, or a placeholder
+	SubtypeMissingRequiredParam = "missing_required_param" // required path/query parameter absent, empty, or a placeholder
 
 	SubtypeJQAfterRequest = "jq_failed_after_request" // the request succeeded; --jq failed on its response
 

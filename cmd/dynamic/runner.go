@@ -38,6 +38,9 @@ func makeRunE(c registry.Command, spec *registry.Spec, factory *cmdutil.Factory,
 		if err := checkBodyWrapper(c, spec, body, schemaHint); err != nil {
 			return err
 		}
+		if err := checkBodyFields(c, spec, body, binder, schemaHint); err != nil {
+			return err
+		}
 		if err := checkRequiredBody(c, body, schemaHint); err != nil {
 			return err
 		}
