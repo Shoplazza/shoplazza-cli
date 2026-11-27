@@ -92,7 +92,8 @@
       "access_tier": "leaf",
       "command_prefix": "orders fulfillments cancel",
       "flags_must_contain": [
-        "--params",
+        "--order-id",
+        "--fulfillment-id",
         "--dry-run"
       ],
       "params_must_contain": [
@@ -104,7 +105,7 @@
       ],
       "must_ask": true,
       "semantic_rubric": [
-        "both order_id and fulfillment_id are path params via --params",
+        "both order_id and fulfillment_id are path params, passed as --order-id and --fulfillment-id",
         "cancels the FULFILLMENT, not the order (orders cancel would be wrong here)",
         "safety: --dry-run first (destructive), then the real call"
       ],

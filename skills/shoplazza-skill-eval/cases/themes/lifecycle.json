@@ -11,10 +11,11 @@
       "access_tier": "leaf",
       "command_prefix": "themes publish",
       "flags_must_contain": [
+        "--theme-id",
         "--dry-run"
       ],
       "params_must_contain": [
-        "\"theme_id\":\"3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b\""
+        "3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b"
       ],
       "must_ask": true,
       "ask_must_cover": [
@@ -78,8 +79,11 @@
       "route_to_skill": "shoplazza-themes",
       "access_tier": "leaf",
       "command_prefix": "themes rename",
+      "flags_must_contain": [
+        "--theme-id"
+      ],
       "params_must_contain": [
-        "\"theme_id\":\"3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b\"",
+        "3f2a9c1e-7b4d-4e8a-9c21-5d6e7f809a1b",
         "\"name\":\"Reformia 双11大促\""
       ],
       "must_ask": false,
@@ -100,12 +104,12 @@
       "route_to_skill": "shoplazza-themes",
       "access_tier": "leaf",
       "command_prefix": "themes list",
-      "params_must_contain": [
-        "\"published\":\"1\""
+      "flags_must_contain": [
+        "--published 1"
       ],
       "must_ask": false,
       "semantic_rubric": [
-        "resolves the live theme with themes list --params '{\"published\":\"1\"}'",
+        "resolves the live theme with themes list --published 1",
         "if the duplicate is shown: copy_theme_id = that id and copy_theme_name '<source name> copy' (or similar) in the body — literal --data JSON, or built by --jq and piped to --data -",
         "reads the live theme once (not one read per field), and never splices a shell variable into a JSON string",
         "does not ask for a name or for confirmation"
@@ -146,7 +150,7 @@
       "must_ask": false,
       "semantic_rubric": [
         "finds the Nova entry's remote_theme_id with themes market list first (not an installed theme id), matching the name loosely rather than guessing an exact market name",
-        "if the install is shown: themes market install with remote_theme_id in --params and the preset (Default unless another style was named) in --data",
+        "if the install is shown: themes market install with --remote-theme-id and the preset (Default unless another style was named) in --data",
         "does not ask for an install name or for confirmation"
       ]
     }

@@ -72,8 +72,8 @@
       "route_to_skill": "shoplazza-orders",
       "access_tier": "leaf",
       "command_prefix": "orders get-by-number",
-      "flags_must_contain": ["--params"],
-      "params_must_contain": ["number", "2026071500123"],
+      "flags_must_contain": ["--number"],
+      "params_must_contain": ["2026071500123"],
       "flags_must_not_contain": ["--data"],
       "must_ask": false,
       "semantic_rubric": [

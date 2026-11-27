@@ -43,11 +43,11 @@ but violates the skill's guidance · **2** = wrong in a way a user would notice 
 - Finished-only rule: `delete` / `batch-delete` require `progress == finished`;
   active discount → `cancel` first, then `delete`.
 - Body shape: `cancel` / `batch-delete` take `{"ids":[…]}` (array); `restart` takes
-  `{"id":"…"}` (singular); `delete` takes `--params '{"id":"…"}'` (path param).
+  `{"id":"…"}` (singular); `delete` takes `--discount-id …` (path param).
 - `--dry-run` before the destructive call.
 
 **query / search** (`*.search`, `*.get`, `*.count`)
-- Prefer `+search` (named flags) over `list --params`.
+- Prefer `+search` (its filters are named for the task) over `list`.
 - Pagination sane: `--page-limit` within 1–250; no unbounded fetch loops.
 - Enum fidelity: `--discount-type` uses internal enums (`rebate_cta_otr`, …) — the
   label `rebate` matches nothing.

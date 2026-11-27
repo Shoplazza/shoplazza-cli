@@ -10,11 +10,11 @@
       "route_to_skill": "shoplazza-customers",
       "access_tier": "leaf",
       "command_prefix": "customers update",
-      "flags_must_contain": ["--params", "--data"],
+      "flags_must_contain": ["--customer-id", "--data"],
       "params_must_contain": ["424242", "tags", "VIP"],
       "must_ask": false,
       "semantic_rubric": [
-        "customer_id 424242 via --params (path); tags array in --data nested under the required customer object",
+        "customer_id 424242 via --customer-id (path); tags array in --data nested under the required customer object",
         "customers has no +tag merge shortcut and tags REPLACES the array — fetches current tags first (customers get) and appends VIP instead of clobbering",
         "does not touch first_name / accepts_marketing / other fields"
       ]
@@ -32,7 +32,7 @@
       "route_to_skill": "shoplazza-customers",
       "access_tier": "leaf",
       "command_prefix": "customers update",
-      "flags_must_contain": ["--params", "--data"],
+      "flags_must_contain": ["--customer-id", "--data"],
       "params_must_contain": ["887766", "accepts_marketing", "false"],
       "must_ask": false,
       "semantic_rubric": [
@@ -53,13 +53,13 @@
       "route_to_skill": "shoplazza-customers",
       "access_tier": "leaf",
       "command_prefix": "customers addresses set-default",
-      "flags_must_contain": ["--params"],
+      "flags_must_contain": ["--customer-id", "--address-id"],
       "params_must_contain": ["335577", "ADDR99"],
       "flags_must_not_contain": ["--data"],
       "must_ask": false,
       "semantic_rubric": [
         "uses the dedicated set-default endpoint (PUT .../addresses/{address_id}/default), not addresses update with a default field",
-        "both customer_id and address_id are path params via --params"
+        "both customer_id and address_id are path params, passed as --customer-id and --address-id"
       ]
     }
   }

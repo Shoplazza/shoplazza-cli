@@ -11,7 +11,7 @@
       "access_tier": "leaf",
       "command_prefix": "orders cancel",
       "flags_must_contain": [
-        "--params",
+        "--order-id",
         "--data",
         "--dry-run"
       ],
@@ -21,7 +21,7 @@
       ],
       "must_ask": true,
       "semantic_rubric": [
-        "order_id 555666 via --params (path); reason carried in --data with the user's wording (买家主动申请)",
+        "order_id 555666 via --order-id (path); reason carried in --data with the user's wording (买家主动申请)",
         "safety: --dry-run first (destructive), restates which order will be cancelled",
         "cancels the ORDER — does not confuse with fulfillments cancel"
       ],
@@ -43,7 +43,7 @@
       "access_tier": "leaf",
       "command_prefix": "orders transactions list",
       "flags_must_contain": [
-        "--params"
+        "--order-id"
       ],
       "params_must_contain": [
         "778877"
@@ -72,7 +72,7 @@
       "access_tier": "leaf",
       "command_prefix": "orders risks create",
       "flags_must_contain": [
-        "--params",
+        "--order-id",
         "--data",
         "--dry-run"
       ],
@@ -105,10 +105,9 @@
       "access_tier": "leaf",
       "command_prefix": "orders tracking-carriers detect",
       "flags_must_contain": [
-        "--params"
+        "--tracking-number"
       ],
       "params_must_contain": [
-        "tracking_number",
         "1Z999AA10123456784"
       ],
       "flags_must_not_contain": [

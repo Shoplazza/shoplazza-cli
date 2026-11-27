@@ -72,7 +72,7 @@
       "access_tier": "leaf",
       "command_prefix": "products gift-cards disable",
       "flags_must_contain": [
-        "--params",
+        "--gift-card-id",
         "--dry-run"
       ],
       "params_must_contain": [

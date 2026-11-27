@@ -54,14 +54,14 @@
       "route_to_skill": "shoplazza-shop",
       "access_tier": "leaf",
       "command_prefix": "shop metafields-definition get",
-      "flags_must_contain": ["--params"],
-      "params_must_contain": ["\"id\"", "778899"],
+      "flags_must_contain": ["--metafield-definition-id"],
+      "params_must_contain": ["778899"],
       "must_ask": false,
       "semantic_rubric": [
-        "passes id through --params (query param) — does not append the id as a path segment or invent a positional argument",
+        "passes id through --metafield-definition-id (query param) — does not append the id as a path segment or invent a positional argument",
         "read-only lookup: runs directly, no dry-run ceremony, no clarifying question"
       ]
     },
-    "notes": "Gotcha: putting the id in the path 404s; the correct shape is --params '{\"id\":778899}'."
+    "notes": "Gotcha: putting the id in the path 404s; the correct shape is --metafield-definition-id 778899."
   }
 ]

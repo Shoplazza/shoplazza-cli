@@ -30,7 +30,7 @@
       "route_to_skill": "shoplazza-shop",
       "access_tier": "leaf",
       "command_prefix": "shop info update",
-      "flags_must_contain": ["--params", "--data"],
+      "flags_must_contain": ["--shop-id", "--data"],
       "params_must_contain": ["customer_email", "support@brand.com"],
       "must_ask": false,
       "semantic_rubric": [

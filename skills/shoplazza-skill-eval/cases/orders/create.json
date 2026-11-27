@@ -27,7 +27,7 @@
       ],
       "must_ask": true,
       "semantic_rubric": [
-        "whole body nests under the required order wrapper; --data (not --params) carries it",
+        "whole body nests under the required order wrapper; --data (not a parameter flag) carries it",
         "line item: variant_id + quantity 1 + price 19.99 (all from the utterance, none fabricated)",
         "shipping_address includes the required set (last_name Doe, email, country_code US, province California + province_code CA inferred, city Los Angeles, address, zip 90012) — codes are ISO, not display names",
         "shipping_line present with shipping_price 0.00; shipping_name defaulted to a neutral label (e.g. Standard Shipping) — NOT blocked on and NOT asked for",
